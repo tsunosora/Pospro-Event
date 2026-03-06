@@ -298,6 +298,7 @@ Dokumentasi lengkap untuk fitur-fitur bisnis tingkat lanjut:
 | [💰 Cashflow Bisnis](cashflow.md) | Arus kas, chart tren, kategorisasi, export Excel |
 | [📄 Invoice & Penawaran Harga](invoice-sph.md) | Invoice B2B, SPH, catalog picker, area-based pricing |
 | [🗺️ Peta Cuan Lokasi](peta-cuan.md) | Peta cabang, kompetitor, pencarian bisnis by keyword |
+| [🚀 Panduan Deployment Cloudflare](deployment.md) | Setup produksi di Home Server (MySQL, PM2, Cloudflare Tunnel) |
 
 ---
 
