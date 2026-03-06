@@ -1,21 +1,31 @@
-import { Controller, Get, Post, Body, Patch, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { InvoiceService } from './invoice.service';
-import { Prisma, InvoiceStatus } from '@prisma/client';
+import { InvoiceStatus, InvoiceType } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
-@Controller('invoices') // Plural to match typical REST style. The generator built 'invoice' but we use 'invoices' here.
+@Controller('invoices')
 export class InvoiceController {
     constructor(private readonly invoiceService: InvoiceService) { }
 
     @Post()
-    create(@Body() createData: Prisma.InvoiceCreateInput) {
+    create(@Body() createData: any) {
         return this.invoiceService.create(createData);
     }
 
     @Get()
-    findAll() {
-        return this.invoiceService.findAll();
+    findAll(@Query('type') type?: InvoiceType) {
+        return this.invoiceService.findAll(type);
+    }
+
+    @Get(':id')
+    findOne(@Param('id', ParseIntPipe) id: number) {
+        return this.invoiceService.findOne(id);
+    }
+
+    @Patch(':id')
+    update(@Param('id', ParseIntPipe) id: number, @Body() data: any) {
+        return this.invoiceService.update(id, data);
     }
 
     @Patch(':id/status')
@@ -24,5 +34,23 @@ export class InvoiceController {
         @Body('status') status: InvoiceStatus,
     ) {
         return this.invoiceService.updateStatus(id, status);
+    }
+
+    @Patch(':id/type')
+    updateType(
+        @Param('id', ParseIntPipe) id: number,
+        @Body('type') type: InvoiceType,
+    ) {
+        return this.invoiceService.updateType(id, type);
+    }
+
+    @Post(':id/convert-to-invoice')
+    convertToInvoice(@Param('id', ParseIntPipe) id: number) {
+        return this.invoiceService.convertToInvoice(id);
+    }
+
+    @Delete(':id')
+    remove(@Param('id', ParseIntPipe) id: number) {
+        return this.invoiceService.remove(id);
     }
 }

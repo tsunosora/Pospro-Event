@@ -26,11 +26,12 @@ const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Kasir POS", href: "/pos", icon: ShoppingCart },
     { name: "Rekap Penjualan", href: "/reports/sales", icon: BarChart3 },
+    { name: "Laporan Laba Kotor", href: "/reports/profit", icon: BarChart3 },
     { name: "Daftar DP / Piutang", href: "/transactions/dp", icon: Wallet },
     { name: "Manajemen Stok", href: "/inventory", icon: Package },
     { name: "Cashflow Bisnis", href: "/cashflow", icon: Banknote },
     { name: "Data Pelanggan", href: "/customers", icon: Users },
-    { name: "Invoice Generator", href: "/invoices", icon: FileText },
+    { name: "Invoice & Penawaran", href: "/invoices", icon: FileText },
     { name: "Peta Cuan Lokasi", href: "/maps", icon: MapPin },
     { name: "Kalkulator HPP", href: "/reports/hpp", icon: Calculator },
 ];

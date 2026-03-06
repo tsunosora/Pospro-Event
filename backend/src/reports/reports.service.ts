@@ -12,13 +12,120 @@ export class ReportsService {
         private readonly whatsappService: WhatsappService,
     ) { }
 
-    // Ambil daftar staff/kasir untuk dropdown
     async getStaffList() {
         const users = await this.prisma.user.findMany({
             select: { id: true, name: true },
             orderBy: { name: 'asc' },
         });
         return users.filter(u => u.name); // hanya yang punya nama
+    }
+
+    async getProfitReport(startDate?: string, endDate?: string) {
+        const whereClause: any = { status: 'PAID' }; // TransactionStatus.PAID
+        if (startDate && endDate) {
+            whereClause.createdAt = {
+                gte: new Date(startDate),
+                lte: new Date(endDate + 'T23:59:59.999Z')
+            };
+        }
+
+        const transactions = await this.prisma.transaction.findMany({
+            where: whereClause,
+            include: {
+                items: {
+                    include: {
+                        productVariant: {
+                            include: {
+                                product: {
+                                    include: {
+                                        unit: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        let totalRevenue = 0; // grandTotal or just subtotal after discount
+        let totalHpp = 0;
+        const itemMap: Record<number, any> = {};
+
+        for (const t of transactions) {
+            // Net revenue from products (totalAmount - discount). Ignore tax in profit calculation.
+            const netRevenue = Number(t.totalAmount) - Number(t.discount || 0);
+            totalRevenue += netRevenue;
+
+            // Calculate HPP from items
+            let trxHpp = 0;
+            for (const item of t.items) {
+                const hpp = Number(item.hppAtTime || 0);
+                const isArea = !!item.areaCm2;
+                const qty = item.quantity;
+
+                let itemHpp = 0;
+                let itemRevenue = 0;
+                let displayQty = qty;
+
+                if (isArea) {
+                    // Area based: HPP is per m2
+                    const areaM2 = Number(item.areaCm2) / 10000;
+                    itemHpp = hpp * areaM2;
+                    // priceAtTime acts as the lineTotal for area based
+                    itemRevenue = Number(item.priceAtTime) * qty;
+                } else {
+                    // Unit based
+                    itemHpp = hpp * qty;
+                    // priceAtTime is unit price for unit based
+                    itemRevenue = Number(item.priceAtTime) * qty;
+                }
+
+                trxHpp += itemHpp;
+
+                // Group by variant
+                if (!itemMap[item.productVariantId]) {
+                    const pv = (item as any).productVariant;
+                    const p = pv?.product;
+                    itemMap[item.productVariantId] = {
+                        productVariantId: item.productVariantId,
+                        sku: pv?.sku || 'Unknown',
+                        name: pv?.variantName ? `${p?.name} - ${pv?.variantName}` : (p?.name || 'Unknown Product'),
+                        qty: 0,
+                        unit: p?.unit?.name || 'pcs',
+                        revenue: 0,
+                        totalHpp: 0,
+                        grossProfit: 0
+                    };
+                }
+
+                itemMap[item.productVariantId].qty += displayQty;
+                itemMap[item.productVariantId].revenue += itemRevenue;
+                itemMap[item.productVariantId].totalHpp += itemHpp;
+            }
+            totalHpp += trxHpp;
+        }
+
+        const grossProfit = totalRevenue - totalHpp;
+        const profitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+
+        // Calculate gross profit per item
+        const items = Object.values(itemMap).map((it: any) => ({
+            ...it,
+            grossProfit: it.revenue - it.totalHpp
+        }));
+
+        // Sort items by highest revenue
+        items.sort((a, b) => b.revenue - a.revenue);
+
+        return {
+            totalRevenue,
+            totalHpp,
+            grossProfit,
+            profitMargin: Number(profitMargin.toFixed(2)),
+            transactionCount: transactions.length,
+            items
+        };
     }
 
     async calculateCurrentShiftExpectations() {

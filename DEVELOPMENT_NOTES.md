@@ -145,6 +145,11 @@ comprehensive-pos-web-application/
   - `!botadmin addgroup [ID]`, `!botadmin removegroup [ID]`, `!botadmin listgroups`
   - `!botadmin setreportgroup [ID]` (Set Tujuan Laporan Shift)
 
+### 6. Fitur Kalkulator HPP & Auto-Deduction Bahan Baku (BOM)
+- **Kalkulator HPP (`/reports/hpp`)**: Memungkinkan pembuatan produk turunan dari perhitungan bahan mentah. Mendukung perhitungan Mode 'Per Pcs' murni atau 'Per Resep/Batch'. Tersedia override Harga Jual Custom dan pengunggahan gambar (*Image Upload*).
+- **Auto-Deduction Stok (BOM/Resep)**: Saat produk hasil *HPP* ini terjual di mesin Kasir POS, sistem backend (`transactions.service.ts`) akan membaca *Ingredients*-nya. Jika terdapat relasi (`rawMaterialVariantId`) ke suatu stok bahan baku (Misal *Roll Banner*), maka **stok Varian Bahan Baku tersebut juga akan terpotong secara real-time** mengikuti ukuran transaksi (termasuk *Area-based* p × l).
+- Histori pergerakan pemotongan ini dilempar ke tabel `StockMovement` sebagai laporan riwayat keluar masuk stok untuk akurasi audit toko.
+
 ---
 
 ## ⚠️ CATATAN PENTING UNTUK AGENT BARU

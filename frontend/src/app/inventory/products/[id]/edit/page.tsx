@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getCategories, getUnits, getProduct, updateProduct, uploadProductImages, uploadVariantImage, getSettings } from '@/lib/api';
+import { getCategories, getUnits, getProduct, updateProduct, uploadProductImages, uploadVariantImage, getSettings, getProducts } from '@/lib/api';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2 } from 'lucide-react';
 import Link from 'next/link';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -14,6 +14,7 @@ interface VariantForm {
     sku: string;
     variantName: string;
     price: string;
+    hpp: string;
     stock: string;
     size: string;
     color: string;
@@ -29,10 +30,11 @@ interface IngredientForm {
     unit: string;
     price?: string;
     subtotal?: string;
+    rawMaterialVariantId?: number | null;
 }
 
 const defaultVariant = (sku = ''): VariantForm => ({
-    sku, variantName: '', price: '', stock: '', size: '', color: '',
+    sku, variantName: '', price: '', hpp: '', stock: '', size: '', color: '',
     imageFile: null, imagePreview: null, existingImageUrl: null
 });
 
@@ -45,6 +47,7 @@ export default function EditProductPage() {
     const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
     const { data: units } = useQuery({ queryKey: ['units'], queryFn: getUnits });
     const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: getSettings });
+    const { data: products } = useQuery({ queryKey: ['products'], queryFn: getProducts });
     const { data: product, isLoading } = useQuery({
         queryKey: ['product', productId],
         queryFn: () => getProduct(productId),
@@ -53,6 +56,7 @@ export default function EditProductPage() {
 
     const [productForm, setProductForm] = useState({ name: '', description: '', categoryId: '', unitId: '' });
     const [pricingMode, setPricingMode] = useState<'UNIT' | 'AREA_BASED'>('UNIT');
+    const [productType, setProductType] = useState<'SELLABLE' | 'RAW_MATERIAL' | 'SERVICE'>('SELLABLE');
     const [pricePerUnit, setPricePerUnit] = useState('');
     const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null, null]);
     const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null, null]);
@@ -61,6 +65,13 @@ export default function EditProductPage() {
     const [ingredients, setIngredients] = useState<IngredientForm[]>([]);
     const [showIngredients, setShowIngredients] = useState(false);
     const [initialized, setInitialized] = useState(false);
+
+    const allVariants = (products as any[])?.flatMap((p: any) =>
+        p.variants.map((v: any) => ({
+            id: v.id,
+            label: `${p.name}${v.variantName ? ` — ${v.variantName}` : ''}${v.size ? ` (${v.size})` : ''} [${v.sku}]`,
+        }))
+    ) ?? [];
 
     // Pre-fill form when product data arrives
     useEffect(() => {
@@ -72,6 +83,7 @@ export default function EditProductPage() {
                 unitId: String(product.unitId || ''),
             });
             setPricingMode(product.pricingMode || 'UNIT');
+            setProductType(product.productType || 'SELLABLE');
             setPricePerUnit(product.pricePerUnit ? String(product.pricePerUnit) : '');
 
             // Parse existing images
@@ -93,6 +105,7 @@ export default function EditProductPage() {
                 sku: v.sku || '',
                 variantName: v.variantName || '',
                 price: String(v.price || ''),
+                hpp: String(v.hpp || ''),
                 stock: String(v.stock || 0),
                 size: v.size || '',
                 color: v.color || '',
@@ -110,6 +123,7 @@ export default function EditProductPage() {
                     unit: ing.unit,
                     price: ing.price !== undefined ? String(ing.price) : '0',
                     subtotal: ing.subtotal !== undefined ? String(ing.subtotal) : '0',
+                    rawMaterialVariantId: ing.rawMaterialVariantId ?? null,
                 })));
                 setShowIngredients(true);
             }
@@ -126,12 +140,14 @@ export default function EditProductPage() {
                 categoryId: Number(productForm.categoryId),
                 unitId: Number(productForm.unitId),
                 pricingMode,
+                productType,
                 pricePerUnit: pricingMode === 'AREA_BASED' ? Number(pricePerUnit) : null,
                 variants: variants.map(v => ({
                     id: v.id,
                     sku: v.sku,
                     variantName: v.variantName || undefined,
                     price: Number(v.price),
+                    hpp: Number(v.hpp) || 0,
                     stock: Number(v.stock),
                     size: v.size || undefined,
                     color: v.color || undefined,
@@ -143,7 +159,8 @@ export default function EditProductPage() {
                         quantity: Number(ing.quantity) || 0,
                         unit: ing.unit,
                         price: Number(ing.price) || 0,
-                        subtotal: Number(ing.subtotal) || 0
+                        subtotal: Number(ing.subtotal) || 0,
+                        rawMaterialVariantId: ing.rawMaterialVariantId || null,
                     }))
             };
 
@@ -206,10 +223,22 @@ export default function EditProductPage() {
         }
     };
 
-    const addIngredient = () => setIngredients(prev => [...prev, { name: '', quantity: '', unit: '', price: '0', subtotal: '0' }]);
+    const addIngredient = () => setIngredients(prev => [...prev, { name: '', quantity: '', unit: '', price: '0', subtotal: '0', rawMaterialVariantId: null }]);
     const removeIngredient = (i: number) => setIngredients(prev => prev.filter((_, idx) => idx !== i));
-    const updateIngredient = (i: number, field: keyof IngredientForm, value: string) => {
+    const updateIngredient = (i: number, field: keyof IngredientForm, value: any) => {
         setIngredients(prev => { const next = [...prev]; next[i] = { ...next[i], [field]: value }; return next; });
+    };
+    const handleIngredientStockLink = (i: number, variantId: number | null) => {
+        const variant = variantId ? allVariants.find((v: any) => v.id === variantId) : null;
+        setIngredients(prev => {
+            const next = [...prev];
+            next[i] = {
+                ...next[i],
+                rawMaterialVariantId: variantId,
+                name: !next[i].name && variant ? variant.label.split(' [')[0] : next[i].name,
+            };
+            return next;
+        });
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -304,6 +333,30 @@ export default function EditProductPage() {
                                 className="w-full px-4 py-2.5 bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm resize-none"
                             />
                         </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                            <label className="text-sm font-medium">Tipe Produk</label>
+                            <div className="grid grid-cols-3 gap-3">
+                                {([
+                                    { value: 'SELLABLE',     label: 'Siap Jual',  desc: 'Produk retail / dagangan langsung.',   cls: 'border-emerald-400 bg-emerald-50',   dot: 'bg-emerald-500' },
+                                    { value: 'RAW_MATERIAL', label: 'Bahan Baku', desc: 'Material untuk produksi / resep.',      cls: 'border-amber-400 bg-amber-50',       dot: 'bg-amber-500' },
+                                    { value: 'SERVICE',      label: 'Jasa',       desc: 'Layanan, tidak ada stok fisik.',        cls: 'border-violet-400 bg-violet-50',     dot: 'bg-violet-500' },
+                                ] as const).map(opt => (
+                                    <div
+                                        key={opt.value}
+                                        onClick={() => setProductType(opt.value)}
+                                        className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${productType === opt.value ? opt.cls : 'border-border hover:border-border/80'}`}
+                                    >
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
+                                            <span className="font-semibold text-sm">{opt.label}</span>
+                                            {productType === opt.value && <span className="ml-auto w-2 h-2 rounded-full bg-primary" />}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -384,6 +437,12 @@ export default function EditProductPage() {
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-xs font-medium text-muted-foreground">
+                                                Harga Modal / HPP
+                                            </label>
+                                            <input type="number" min="0" value={v.hpp} onChange={e => updateVariant(index, 'hpp', e.target.value)} placeholder="Opsional" className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-medium text-muted-foreground">
                                                 {pricingMode === 'AREA_BASED' ? 'Stok Bahan (m²)' : 'Stok'}
                                             </label>
                                             <input type="number" min="0" step={pricingMode === 'AREA_BASED' ? '0.01' : '1'} value={v.stock} onChange={e => updateVariant(index, 'stock', e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
@@ -435,26 +494,44 @@ export default function EditProductPage() {
                     {showIngredients && (
                         <div className="mt-4 space-y-3">
                             {ingredients.map((ing, i) => (
-                                <div key={i} className="flex gap-2 items-center">
-                                    <input type="text" value={ing.name} onChange={e => updateIngredient(i, 'name', e.target.value)} placeholder="Nama bahan" className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-                                    <input type="number" min="0" step="any" value={ing.quantity} onChange={e => updateIngredient(i, 'quantity', e.target.value)} placeholder="Jumlah" title="Jumlah (Kuantitas)" className="w-20 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-                                    <input type="text" value={ing.unit} onChange={e => updateIngredient(i, 'unit', e.target.value)} placeholder="Unit" title="Satuan (Pcs, Gram, dll)" className="w-16 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-
-                                    {/* HPP Extra Details (Read Only) */}
-                                    <div className="flex gap-2">
-                                        <div className="relative group">
-                                            <span className="absolute -top-5 left-2 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-card px-1 rounded border border-border">Harga Satuan</span>
-                                            <input type="number" readOnly value={ing.price} placeholder="Rp 0" className="w-24 px-3 py-2 bg-muted border border-border rounded-lg text-sm text-muted-foreground outline-none cursor-not-allowed" />
-                                        </div>
-                                        <div className="relative group">
-                                            <span className="absolute -top-5 left-2 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-card px-1 rounded border border-border">Subtotal HPP</span>
-                                            <input type="number" readOnly value={ing.subtotal} placeholder="Rp 0" className="w-28 px-3 py-2 bg-muted border border-border rounded-lg text-sm text-muted-foreground outline-none cursor-not-allowed font-medium" />
-                                        </div>
+                                <div key={i} className="space-y-2 p-3 bg-muted/20 rounded-lg border border-border/60">
+                                    {/* Stock link row */}
+                                    <div className="flex items-center gap-2">
+                                        <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                        <select
+                                            value={ing.rawMaterialVariantId ?? ''}
+                                            onChange={e => handleIngredientStockLink(i, e.target.value ? Number(e.target.value) : null)}
+                                            className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-xs outline-none focus:border-primary"
+                                        >
+                                            <option value="">— Bahan manual (tidak terhubung ke stok) —</option>
+                                            {allVariants.map((v: any) => (
+                                                <option key={v.id} value={v.id}>{v.label}</option>
+                                            ))}
+                                        </select>
+                                        {ing.rawMaterialVariantId && (
+                                            <span className="text-xs text-green-600 font-medium shrink-0">Terhubung</span>
+                                        )}
                                     </div>
-
-                                    <button type="button" onClick={() => removeIngredient(i)} className="p-2 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    {/* Detail row */}
+                                    <div className="flex gap-2 items-center">
+                                        <input type="text" value={ing.name} onChange={e => updateIngredient(i, 'name', e.target.value)} placeholder="Nama bahan" className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                        <input type="number" min="0" step="any" value={ing.quantity} onChange={e => updateIngredient(i, 'quantity', e.target.value)} placeholder="Jumlah" title="Jumlah (Kuantitas)" className="w-20 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                        <input type="text" value={ing.unit} onChange={e => updateIngredient(i, 'unit', e.target.value)} placeholder="Unit" title="Satuan (Pcs, Gram, dll)" className="w-16 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                        {/* HPP Extra Details (Read Only) */}
+                                        <div className="flex gap-2">
+                                            <div className="relative group">
+                                                <span className="absolute -top-5 left-2 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-card px-1 rounded border border-border">Harga Satuan</span>
+                                                <input type="number" readOnly value={ing.price} placeholder="Rp 0" className="w-24 px-3 py-2 bg-muted border border-border rounded-lg text-sm text-muted-foreground outline-none cursor-not-allowed" />
+                                            </div>
+                                            <div className="relative group">
+                                                <span className="absolute -top-5 left-2 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-card px-1 rounded border border-border">Subtotal HPP</span>
+                                                <input type="number" readOnly value={ing.subtotal} placeholder="Rp 0" className="w-28 px-3 py-2 bg-muted border border-border rounded-lg text-sm text-muted-foreground outline-none cursor-not-allowed font-medium" />
+                                            </div>
+                                        </div>
+                                        <button type="button" onClick={() => removeIngredient(i)} className="p-2 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                             <button type="button" onClick={addIngredient} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mt-1 transition-colors">

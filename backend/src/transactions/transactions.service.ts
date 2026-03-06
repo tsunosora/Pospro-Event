@@ -38,7 +38,11 @@ export class TransactionsService {
             for (const item of data.items) {
                 const variant = await tx.productVariant.findUnique({
                     where: { id: item.productVariantId },
-                    include: { product: true }
+                    include: {
+                        product: {
+                            include: { ingredients: true }
+                        }
+                    }
                 });
 
                 if (!variant) throw new NotFoundException(`Variant ID ${item.productVariantId} not found`);
@@ -91,11 +95,38 @@ export class TransactionsService {
                         productVariantId: variant.id,
                         quantity: 1,
                         priceAtTime: lineTotal,
+                        hppAtTime: variant.hpp,
                         widthCm,
                         heightCm,
                         areaCm2,
                         note: item.note || null
                     });
+
+                    // Deduct BOM / Raw Materials for AREA_BASED (using areaM2 as multiplier)
+                    const ingredients = (variant.product as any).ingredients || [];
+                    for (const ing of ingredients) {
+                        if (ing.rawMaterialVariantId) {
+                            const rawVariant = await tx.productVariant.findUnique({
+                                where: { id: ing.rawMaterialVariantId }
+                            });
+                            if (rawVariant) {
+                                // For area based, assuming the ingredient quantity is per m2. So total raw material needed = ingredient.quantity * areaM2
+                                const neededStock = Number(ing.quantity) * areaM2;
+                                await tx.productVariant.update({
+                                    where: { id: rawVariant.id },
+                                    data: { stock: Math.floor((Number(rawVariant.stock) - neededStock) * 100) / 100 }
+                                });
+                                await tx.stockMovement.create({
+                                    data: {
+                                        productVariantId: rawVariant.id,
+                                        type: 'OUT',
+                                        quantity: Math.ceil(neededStock * 100), // Stock movement usually stores integers, we ceil to be safe or store as is if it supports it, assuming int for quantity.
+                                        reason: `Terpotong oleh Penjualan Produk ${variant.product.name}`
+                                    }
+                                });
+                            }
+                        }
+                    }
 
                 } else {
                     // Standard UNIT mode
@@ -119,8 +150,35 @@ export class TransactionsService {
                         productVariantId: variant.id,
                         quantity: item.quantity,
                         priceAtTime: variant.price,
+                        hppAtTime: variant.hpp,
                         note: item.note || null
                     });
+
+                    // Deduct BOM / Raw Materials for UNIT based (using item.quantity as multiplier)
+                    const ingredients = (variant.product as any).ingredients || [];
+                    for (const ing of ingredients) {
+                        if (ing.rawMaterialVariantId) {
+                            const rawVariant = await tx.productVariant.findUnique({
+                                where: { id: ing.rawMaterialVariantId }
+                            });
+                            if (rawVariant) {
+                                // For unit based, needed stock = ingredient.quantity * checkout quantity
+                                const neededStock = Number(ing.quantity) * item.quantity;
+                                await tx.productVariant.update({
+                                    where: { id: rawVariant.id },
+                                    data: { stock: Math.floor((Number(rawVariant.stock) - neededStock) * 100) / 100 }
+                                });
+                                await tx.stockMovement.create({
+                                    data: {
+                                        productVariantId: rawVariant.id,
+                                        type: 'OUT',
+                                        quantity: Math.ceil(neededStock * 100),
+                                        reason: `Terpotong oleh Penjualan Produk ${variant.product.name}`
+                                    }
+                                });
+                            }
+                        }
+                    }
                 }
 
                 subtotal += lineTotal;
@@ -303,6 +361,75 @@ export class TransactionsService {
         };
     }
 
+    async getChartData(period: string = 'daily') {
+        const now = new Date();
+        const data: { label: string; total: number }[] = [];
+
+        if (period === 'daily') {
+            // Last 7 days, per day
+            const start = new Date(now);
+            start.setDate(start.getDate() - 6);
+            start.setHours(0, 0, 0, 0);
+            const txs = await this.prisma.transaction.findMany({
+                where: { createdAt: { gte: start }, status: TransactionStatus.PAID },
+                select: { createdAt: true, grandTotal: true }
+            });
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(now);
+                d.setDate(d.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0];
+                const total = txs
+                    .filter(t => t.createdAt?.toISOString().split('T')[0] === dateStr)
+                    .reduce((sum, t) => sum + Number(t.grandTotal), 0);
+                data.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, total });
+            }
+        } else if (period === 'weekly') {
+            // Last 8 weeks, per week
+            for (let i = 7; i >= 0; i--) {
+                const weekEnd = new Date(now);
+                weekEnd.setDate(weekEnd.getDate() - i * 7);
+                weekEnd.setHours(23, 59, 59, 999);
+                const weekStart = new Date(weekEnd);
+                weekStart.setDate(weekStart.getDate() - 6);
+                weekStart.setHours(0, 0, 0, 0);
+                const result = await this.prisma.transaction.aggregate({
+                    where: { createdAt: { gte: weekStart, lte: weekEnd }, status: TransactionStatus.PAID },
+                    _sum: { grandTotal: true }
+                });
+                const d = weekStart.getDate();
+                const m = weekStart.getMonth() + 1;
+                data.push({ label: `${d}/${m}`, total: Number(result._sum.grandTotal || 0) });
+            }
+        } else if (period === 'monthly') {
+            // Last 12 months, per month
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+            for (let i = 11; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+                const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+                const result = await this.prisma.transaction.aggregate({
+                    where: { createdAt: { gte: monthStart, lte: monthEnd }, status: TransactionStatus.PAID },
+                    _sum: { grandTotal: true }
+                });
+                data.push({ label: `${monthNames[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`, total: Number(result._sum.grandTotal || 0) });
+            }
+        } else if (period === 'yearly') {
+            // Last 5 years, per year
+            for (let i = 4; i >= 0; i--) {
+                const year = now.getFullYear() - i;
+                const yearStart = new Date(year, 0, 1);
+                const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
+                const result = await this.prisma.transaction.aggregate({
+                    where: { createdAt: { gte: yearStart, lte: yearEnd }, status: TransactionStatus.PAID },
+                    _sum: { grandTotal: true }
+                });
+                data.push({ label: String(year), total: Number(result._sum.grandTotal || 0) });
+            }
+        }
+
+        return data;
+    }
+
     async getDashboardMetrics() {
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
@@ -317,6 +444,38 @@ export class TransactionsService {
                 this.prisma.cashflow.aggregate({ where: { createdAt: { gte: yesterdayStart, lt: todayStart }, type: CashflowType.INCOME }, _sum: { amount: true } }),
                 this.prisma.productVariant.findMany({ where: { stock: { lte: 10 } }, include: { product: true }, orderBy: { stock: 'asc' }, take: 5 })
             ]);
+
+        // Get last 7 days sales for chart
+        const sevenDaysAgo = new Date(todayStart);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+
+        const recentTx = await this.prisma.transaction.findMany({
+            where: { createdAt: { gte: sevenDaysAgo }, status: TransactionStatus.PAID },
+            select: { createdAt: true, grandTotal: true }
+        });
+
+        // Group by Date for Chart
+        const salesChartData: Record<string, number> = {};
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(sevenDaysAgo);
+            d.setDate(d.getDate() + i);
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            salesChartData[dateStr] = 0;
+        }
+
+        recentTx.forEach(tx => {
+            if (tx.createdAt) {
+                const dateStr = `${tx.createdAt.getFullYear()}-${String(tx.createdAt.getMonth() + 1).padStart(2, '0')}-${String(tx.createdAt.getDate()).padStart(2, '0')}`;
+                if (salesChartData[dateStr] !== undefined) {
+                    salesChartData[dateStr] += Number(tx.grandTotal);
+                }
+            }
+        });
+
+        const salesChart = Object.keys(salesChartData).map(date => ({
+            date,
+            total: salesChartData[date]
+        }));
 
         const todaySales = Number(todayTransactions._sum.grandTotal || 0);
         const yesterdaySales = Number(yesterdayTransactions._sum.grandTotal || 0);
@@ -333,7 +492,8 @@ export class TransactionsService {
             sales: { value: todaySales, trend: `${salesTrend > 0 ? '+' : ''}${salesTrend.toFixed(1)}%`, trendUp: salesTrend >= 0 },
             transactions: { value: todayTxCount, trend: `${txTrend > 0 ? '+' : ''}${txTrend.toFixed(1)}%`, trendUp: txTrend >= 0 },
             cashflow: { value: todayCashIn, trend: `${cashTrend > 0 ? '+' : ''}${cashTrend.toFixed(1)}%`, trendUp: cashTrend >= 0 },
-            alerts: { count: lowStockCount, items: lowStockItems.map(item => ({ name: `${item.product.name} ${item.size ? `(${item.size})` : ''}`.trim(), stock: item.stock, limit: 10 })) }
+            alerts: { count: lowStockCount, items: lowStockItems.map(item => ({ name: `${item.product.name} ${item.size ? `(${item.size})` : ''}`.trim(), stock: item.stock, limit: 10 })) },
+            salesChart
         };
     }
 }

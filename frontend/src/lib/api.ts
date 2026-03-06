@@ -34,12 +34,14 @@ export const createUnit = async (data: { name: string }) => (await api.post('/un
 export const updateUnit = async (id: number, data: { name: string }) => (await api.patch(`/units/${id}`, data)).data;
 export const deleteUnit = async (id: number) => (await api.delete(`/units/${id}`)).data;
 
-// Invoices
-export const getInvoices = async () => (await api.get('/invoice')).data;
-export const getInvoiceById = async (id: number) => (await api.get(`/invoice/${id}`)).data;
-export const createInvoice = async (data: any) => (await api.post('/invoice', data)).data;
-export const updateInvoiceStatus = async (id: number, status: 'SENT' | 'PAID' | 'CANCELLED') => (await api.patch(`/invoice/${id}/status`, { status })).data;
-export const deleteInvoice = async (id: number) => (await api.delete(`/invoice/${id}`)).data;
+// Invoices & Quotations
+export const getInvoices = async (type?: 'INVOICE' | 'QUOTATION') => (await api.get(type ? `/invoices?type=${type}` : '/invoices')).data;
+export const getInvoiceById = async (id: number) => (await api.get(`/invoices/${id}`)).data;
+export const createInvoice = async (data: any) => (await api.post('/invoices', data)).data;
+export const updateInvoice = async (id: number, data: any) => (await api.patch(`/invoices/${id}`, data)).data;
+export const updateInvoiceStatus = async (id: number, status: string) => (await api.patch(`/invoices/${id}/status`, { status })).data;
+export const convertQuotationToInvoice = async (id: number) => (await api.post(`/invoices/${id}/convert-to-invoice`, {})).data;
+export const deleteInvoice = async (id: number) => (await api.delete(`/invoices/${id}`)).data;
 
 // HPP Calculator
 export const getHppWorksheets = async () => (await api.get('/hpp')).data;
@@ -104,19 +106,49 @@ export const createBatch = async (data: any) => (await api.post('/batches', data
 
 // Reports
 export const getDashboardMetrics = async () => (await api.get('/transactions/dashboard/metrics')).data;
+export const getSalesChart = async (period: string) => (await api.get(`/transactions/dashboard/chart?period=${period}`)).data;
 export const getSalesSummary = async (startDate?: string, endDate?: string) => {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     return (await api.get(`/transactions/reports/summary?${params.toString()}`)).data;
 };
+export const getProfitReport = async (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return (await api.get(`/reports/profit?${params.toString()}`)).data;
+};
 
-// Branches for Profit Map
+// Branches
 export const getBranches = async () => (await api.get('/branches')).data;
+export const createBranch = async (data: any) => (await api.post('/branches', data)).data;
+export const updateBranch = async (id: number, data: any) => (await api.patch(`/branches/${id}`, data)).data;
+export const deleteBranch = async (id: number) => (await api.delete(`/branches/${id}`)).data;
+
+// Competitors
+export const getCompetitors = async () => (await api.get('/competitors')).data;
+export const createCompetitor = async (data: any) => (await api.post('/competitors', data)).data;
+export const updateCompetitor = async (id: number, data: any) => (await api.patch(`/competitors/${id}`, data)).data;
+export const deleteCompetitor = async (id: number) => (await api.delete(`/competitors/${id}`)).data;
 
 // Cashflow
-export const getCashflows = async () => (await api.get('/cashflow')).data;
+export const getCashflows = async (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return (await api.get(`/cashflow?${params.toString()}`)).data;
+};
 export const createCashflow = async (data: any) => (await api.post('/cashflow', data)).data;
+export const updateCashflow = async (id: number, data: any) => (await api.patch(`/cashflow/${id}`, data)).data;
+export const deleteCashflow = async (id: number) => (await api.delete(`/cashflow/${id}`)).data;
+export const getCashflowMonthlyTrend = async () => (await api.get('/cashflow/monthly-trend')).data;
+export const getCashflowCategoryBreakdown = async (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return (await api.get(`/cashflow/category-breakdown?${params.toString()}`)).data;
+};
 
 
 // Users & Roles
@@ -164,6 +196,9 @@ export const resetBankBalance = async (id: number, newBalance: number) =>
 
 // Customers
 export const getCustomers = async () => (await api.get('/customers')).data;
+export const getCustomersWithStats = async () => (await api.get('/customers/with-stats')).data;
+export const getCustomerAnalytics = async (id: number) => (await api.get(`/customers/${id}/analytics`)).data;
+export const getCustomersExportData = async () => (await api.get('/customers/export-data')).data;
 export const createCustomer = async (data: { name: string, phone?: string, address?: string }) => (await api.post('/customers', data)).data;
 export const updateCustomer = async (id: number, data: { name?: string, phone?: string, address?: string }) => (await api.patch(`/customers/${id}`, data)).data;
 export const deleteCustomer = async (id: number) => (await api.delete(`/customers/${id}`)).data;

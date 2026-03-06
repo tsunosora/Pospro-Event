@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from '@tanstack/react-query';
-import { getDashboardMetrics } from '@/lib/api';
+import { useState } from 'react';
+import { getDashboardMetrics, getSalesChart } from '@/lib/api';
 import {
   Wallet,
   ArrowUpRight,
@@ -11,15 +12,37 @@ import {
   Package,
   Receipt,
   Map,
-  Loader2
+  Loader2,
+  CalendarDays,
+  BarChart
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import dayjs from "dayjs";
+import "dayjs/locale/id";
+dayjs.locale("id");
+
+type ChartPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+const PERIOD_OPTIONS: { key: ChartPeriod; label: string }[] = [
+  { key: 'daily', label: 'Harian' },
+  { key: 'weekly', label: 'Mingguan' },
+  { key: 'monthly', label: 'Bulanan' },
+  { key: 'yearly', label: 'Tahunan' },
+];
 
 export default function Home() {
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('daily');
+
   const { data: metrics, isLoading } = useQuery({
     queryKey: ['dashboard-metrics'],
     queryFn: getDashboardMetrics
+  });
+
+  const { data: chartRaw, isLoading: chartLoading } = useQuery({
+    queryKey: ['sales-chart', chartPeriod],
+    queryFn: () => getSalesChart(chartPeriod),
   });
 
   if (isLoading) {
@@ -30,8 +53,13 @@ export default function Home() {
     sales: { value: 0, trend: '0%', trendUp: true },
     transactions: { value: 0, trend: '0%', trendUp: true },
     cashflow: { value: 0, trend: '0%', trendUp: true },
-    alerts: { count: 0, items: [] }
+    alerts: { count: 0, items: [] },
   };
+
+  const chartData = (chartRaw as any[])?.map((item: any) => ({
+    name: item.label,
+    Total: item.total,
+  })) || [];
 
   return (
     <div className="space-y-6">
@@ -82,26 +110,85 @@ export default function Home() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Charts and Activity */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="glass rounded-xl p-6 min-h-[400px]">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground">
-                Peta Cuan Lokasi (Preview)
-              </h2>
-              <Link
-                href="/maps"
-                className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-              >
-                Lihat Peta Lengkap &rarr;
-              </Link>
-            </div>
-            <div className="w-full h-[300px] bg-muted/50 rounded-lg border border-border flex items-center justify-center relative overflow-hidden">
-              <div className="absolute inset-0 opacity-20 bg-[url('https://maps.wikimedia.org/osm-intl/12/3273/2138.png')] bg-cover bg-center mix-blend-luminosity"></div>
-              <div className="text-center z-10 p-6 bg-background/80 backdrop-blur-sm rounded-xl border border-border/50 shadow-sm max-w-sm">
-                <Map className="mx-auto h-8 w-8 text-primary mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  Integrasi Mapbox akan ditampilkan di sini untuk memvisualisasikan profit per cabang/lokasi secara interaktif.
-                </p>
+          <div className="glass rounded-xl p-6 min-h-[400px] flex flex-col">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  Tren Penjualan
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">Total pendapatan kotor berdasarkan transaksi lunas.</p>
               </div>
+              <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border shrink-0">
+                <CalendarDays className="w-4 h-4 text-muted-foreground ml-1.5 mr-0.5" />
+                {PERIOD_OPTIONS.map(opt => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setChartPeriod(opt.key)}
+                    className={cn(
+                      'px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                      chartPeriod === opt.key
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="w-full h-[300px] flex-1 mt-4">
+              {chartLoading ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" opacity={0.5} />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                      dy={10}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                      tickFormatter={(val) => val >= 1000000 ? `${(val / 1000000).toFixed(1)}jt` : `${(val / 1000).toFixed(0)}k`}
+                      dx={-10}
+                    />
+                    <RechartsTooltip
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value: any) => [`Rp ${Number(value).toLocaleString('id-ID')}`, 'Pendapatan']}
+                      labelStyle={{ fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="Total"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#colorTotal)"
+                      animationDuration={800}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center border border-dashed border-border rounded-lg bg-muted/20">
+                  <BarChart className="w-8 h-8 text-muted-foreground/30 mb-2" />
+                  <p className="text-sm text-muted-foreground">Belum ada data penjualan untuk periode ini.</p>
+                </div>
+              )}
             </div>
           </div>
 

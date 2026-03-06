@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { CashflowService } from './cashflow.service';
 import { Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -14,13 +14,27 @@ export class CashflowController {
     }
 
     @Get()
-    async findAll() {
-        const list = await this.cashflowService.findAll();
-        const summary = await this.cashflowService.getSummary();
+    findAll(@Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
+        return this.cashflowService.findAll(startDate, endDate);
+    }
 
-        return {
-            list,
-            summary,
-        };
+    @Get('monthly-trend')
+    getMonthlyTrend() {
+        return this.cashflowService.getMonthlyTrend();
+    }
+
+    @Get('category-breakdown')
+    getCategoryBreakdown(@Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
+        return this.cashflowService.getCategoryBreakdown(startDate, endDate);
+    }
+
+    @Patch(':id')
+    update(@Param('id') id: string, @Body() data: { category?: string; amount?: number; note?: string }) {
+        return this.cashflowService.update(+id, data);
+    }
+
+    @Delete(':id')
+    remove(@Param('id') id: string) {
+        return this.cashflowService.remove(+id);
     }
 }

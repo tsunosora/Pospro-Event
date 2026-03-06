@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getCategories, getUnits, createProduct, uploadProductImages, uploadVariantImage, getSettings } from '@/lib/api';
+import { getCategories, getUnits, createProduct, uploadProductImages, uploadVariantImage, getSettings, getProducts } from '@/lib/api';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2 } from 'lucide-react';
 import Link from 'next/link';
 
 // Auto-generate SKU helper
@@ -25,6 +25,7 @@ interface VariantForm {
     sku: string;
     variantName: string;
     price: string;
+    hpp: string;
     stock: string;
     size: string;
     color: string;
@@ -37,10 +38,11 @@ interface IngredientForm {
     name: string;
     quantity: string;
     unit: string;
+    rawMaterialVariantId?: number | null;
 }
 
 const defaultVariant = (): VariantForm => ({
-    sku: '', variantName: '', price: '', stock: '', size: '', color: '',
+    sku: '', variantName: '', price: '', hpp: '', stock: '', size: '', color: '',
     imageFile: null, imagePreview: null, skuManuallyEdited: false
 });
 
@@ -51,9 +53,18 @@ export default function AddProductPage() {
     const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
     const { data: units } = useQuery({ queryKey: ['units'], queryFn: getUnits });
     const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: getSettings });
+    const { data: products } = useQuery({ queryKey: ['products'], queryFn: getProducts });
+
+    const allVariants = (products as any[])?.flatMap((p: any) =>
+        p.variants.map((v: any) => ({
+            id: v.id,
+            label: `${p.name}${v.variantName ? ` — ${v.variantName}` : ''}${v.size ? ` (${v.size})` : ''} [${v.sku}]`,
+        }))
+    ) ?? [];
 
     const [productForm, setProductForm] = useState({ name: '', description: '', categoryId: '', unitId: '' });
     const [pricingMode, setPricingMode] = useState<'UNIT' | 'AREA_BASED'>('UNIT');
+    const [productType, setProductType] = useState<'SELLABLE' | 'RAW_MATERIAL' | 'SERVICE'>('SELLABLE');
     const [pricePerUnit, setPricePerUnit] = useState('');
 
     // Multi-image state (up to 4)
@@ -139,10 +150,22 @@ export default function AddProductPage() {
     };
 
     // Ingredients
-    const addIngredient = () => setIngredients(prev => [...prev, { name: '', quantity: '', unit: '' }]);
+    const addIngredient = () => setIngredients(prev => [...prev, { name: '', quantity: '', unit: '', rawMaterialVariantId: null }]);
     const removeIngredient = (i: number) => setIngredients(prev => prev.filter((_, idx) => idx !== i));
-    const updateIngredient = (i: number, field: keyof IngredientForm, value: string) => {
+    const updateIngredient = (i: number, field: keyof IngredientForm, value: any) => {
         setIngredients(prev => { const next = [...prev]; next[i] = { ...next[i], [field]: value }; return next; });
+    };
+    const handleIngredientStockLink = (i: number, variantId: number | null) => {
+        const variant = variantId ? allVariants.find(v => v.id === variantId) : null;
+        setIngredients(prev => {
+            const next = [...prev];
+            next[i] = {
+                ...next[i],
+                rawMaterialVariantId: variantId,
+                name: !next[i].name && variant ? variant.label.split(' [')[0] : next[i].name,
+            };
+            return next;
+        });
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -152,18 +175,25 @@ export default function AddProductPage() {
             categoryId: Number(productForm.categoryId),
             unitId: Number(productForm.unitId),
             pricingMode,
+            productType,
             pricePerUnit: pricingMode === 'AREA_BASED' ? Number(pricePerUnit) : undefined,
             variants: variants.map(v => ({
                 sku: v.sku,
                 variantName: v.variantName || undefined,
                 price: Number(v.price),
+                hpp: Number(v.hpp) || 0,
                 stock: Number(v.stock),
                 size: v.size || undefined,
                 color: v.color || undefined
             })),
             ingredients: showIngredients ? ingredients
                 .filter(ing => ing.name.trim())
-                .map(ing => ({ name: ing.name, quantity: Number(ing.quantity) || 0, unit: ing.unit }))
+                .map(ing => ({
+                    name: ing.name,
+                    quantity: Number(ing.quantity) || 0,
+                    unit: ing.unit,
+                    rawMaterialVariantId: ing.rawMaterialVariantId || null,
+                }))
                 : []
         };
         mutation.mutate(payload);
@@ -257,6 +287,30 @@ export default function AddProductPage() {
                                 placeholder="Deskripsi singkat produk..."
                                 className="w-full px-4 py-2.5 bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-sm resize-none"
                             />
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                            <label className="text-sm font-medium">Tipe Produk</label>
+                            <div className="grid grid-cols-3 gap-3">
+                                {([
+                                    { value: 'SELLABLE',     label: 'Siap Jual',  desc: 'Produk retail / dagangan langsung.',   cls: 'border-emerald-400 bg-emerald-50',   dot: 'bg-emerald-500' },
+                                    { value: 'RAW_MATERIAL', label: 'Bahan Baku', desc: 'Material untuk produksi / resep.',      cls: 'border-amber-400 bg-amber-50',       dot: 'bg-amber-500' },
+                                    { value: 'SERVICE',      label: 'Jasa',       desc: 'Layanan, tidak ada stok fisik.',        cls: 'border-violet-400 bg-violet-50',     dot: 'bg-violet-500' },
+                                ] as const).map(opt => (
+                                    <div
+                                        key={opt.value}
+                                        onClick={() => setProductType(opt.value)}
+                                        className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${productType === opt.value ? opt.cls : 'border-border hover:border-border/80'}`}
+                                    >
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
+                                            <span className="font-semibold text-sm">{opt.label}</span>
+                                            {productType === opt.value && <span className="ml-auto w-2 h-2 rounded-full bg-primary" />}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -368,6 +422,12 @@ export default function AddProductPage() {
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-xs font-medium text-muted-foreground">
+                                                Harga Modal / HPP
+                                            </label>
+                                            <input type="number" min="0" value={v.hpp} onChange={e => updateVariant(index, 'hpp', e.target.value)} placeholder="Opsional" className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-medium text-muted-foreground">
                                                 {pricingMode === 'AREA_BASED' ? 'Stok Bahan (m²) *' : 'Stok Awal *'}
                                             </label>
                                             <input required type="number" min="0" step={pricingMode === 'AREA_BASED' ? '0.01' : '1'} value={v.stock} onChange={e => updateVariant(index, 'stock', e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
@@ -419,28 +479,48 @@ export default function AddProductPage() {
                                 <p className="text-sm text-muted-foreground text-center py-4">Belum ada bahan. Klik "+ Bahan" untuk menambah.</p>
                             )}
                             {ingredients.map((ing, i) => (
-                                <div key={i} className="flex gap-2 items-center">
-                                    <input
-                                        type="text" value={ing.name}
-                                        onChange={e => updateIngredient(i, 'name', e.target.value)}
-                                        placeholder="Nama bahan (contoh: Gula)"
-                                        className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"
-                                    />
-                                    <input
-                                        type="number" min="0" step="any" value={ing.quantity}
-                                        onChange={e => updateIngredient(i, 'quantity', e.target.value)}
-                                        placeholder="Jumlah"
-                                        className="w-24 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"
-                                    />
-                                    <input
-                                        type="text" value={ing.unit}
-                                        onChange={e => updateIngredient(i, 'unit', e.target.value)}
-                                        placeholder="Unit"
-                                        className="w-20 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"
-                                    />
-                                    <button type="button" onClick={() => removeIngredient(i)} className="p-2 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                <div key={i} className="space-y-2 p-3 bg-muted/20 rounded-lg border border-border/60">
+                                    {/* Stock link row */}
+                                    <div className="flex items-center gap-2">
+                                        <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                        <select
+                                            value={ing.rawMaterialVariantId ?? ''}
+                                            onChange={e => handleIngredientStockLink(i, e.target.value ? Number(e.target.value) : null)}
+                                            className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-xs outline-none focus:border-primary"
+                                        >
+                                            <option value="">— Bahan manual (tidak terhubung ke stok) —</option>
+                                            {allVariants.map((v: any) => (
+                                                <option key={v.id} value={v.id}>{v.label}</option>
+                                            ))}
+                                        </select>
+                                        {ing.rawMaterialVariantId && (
+                                            <span className="text-xs text-green-600 font-medium shrink-0">Terhubung</span>
+                                        )}
+                                    </div>
+                                    {/* Detail row */}
+                                    <div className="flex gap-2 items-center">
+                                        <input
+                                            type="text" value={ing.name}
+                                            onChange={e => updateIngredient(i, 'name', e.target.value)}
+                                            placeholder="Nama bahan (contoh: Gula)"
+                                            className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"
+                                        />
+                                        <input
+                                            type="number" min="0" step="any" value={ing.quantity}
+                                            onChange={e => updateIngredient(i, 'quantity', e.target.value)}
+                                            placeholder="Jumlah"
+                                            className="w-24 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"
+                                        />
+                                        <input
+                                            type="text" value={ing.unit}
+                                            onChange={e => updateIngredient(i, 'unit', e.target.value)}
+                                            placeholder="Unit"
+                                            className="w-20 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"
+                                        />
+                                        <button type="button" onClick={() => removeIngredient(i)} className="p-2 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                             {ingredients.length > 0 && (

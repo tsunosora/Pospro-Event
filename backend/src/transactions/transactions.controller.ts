@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseIntPipe, UseGuards, Query } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { PaymentMethod } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -33,6 +33,11 @@ export class TransactionsController {
     @Get('dashboard/metrics')
     getDashboardMetrics() {
         return this.transactionsService.getDashboardMetrics();
+    }
+
+    @Get('dashboard/chart')
+    getChartData(@Query('period') period: string = 'daily') {
+        return this.transactionsService.getChartData(period);
     }
 
     @Get('reports/summary')

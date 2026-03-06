@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getSalesSummary, getTransactions, getSettings, getBankAccounts } from '@/lib/api';
 import { mapTransactionToReceipt, handlePrintSnap, handleShareWA } from '@/lib/receipt';
-import { Calendar, Download, TrendingUp, BarChart, CreditCard, Banknote, Landmark, X, Receipt, Printer, MessageCircle } from "lucide-react";
+import { exportToExcel, exportToPDF } from '@/lib/export';
+import { Calendar, Download, TrendingUp, BarChart, CreditCard, Banknote, Landmark, X, Receipt, Printer, MessageCircle, FileSpreadsheet } from "lucide-react";
 import dayjs from "dayjs";
 
 export default function SalesReportPage() {
@@ -17,6 +18,36 @@ export default function SalesReportPage() {
 
     const recentTransactions = transactions?.slice(0, 10) || []; // Show last 10
 
+    const handleExportExcel = () => {
+        if (!transactions?.length) return alert('Tidak ada transaksi untuk di-export');
+        const data = transactions.map((t: any) => ({
+            'No Invoice': t.invoiceNumber,
+            'Tanggal': dayjs(t.createdAt).format('DD MMM YYYY HH:mm'),
+            'Kasir': t.cashierName || '-',
+            'Subtotal': Number(t.totalAmount),
+            'Diskon': Number(t.discount),
+            'Pajak': Number(t.tax),
+            'Total Bersih': Number(t.grandTotal),
+            'Metode Pembayaran': t.paymentMethod,
+            'Status': t.status
+        }));
+        exportToExcel(data, `Laporan_Transaksi_${dayjs().format('YYYYMMDD')}.xlsx`);
+    };
+
+    const handleExportPDF = () => {
+        if (!transactions?.length) return alert('Tidak ada transaksi untuk di-export');
+        const headers = ['Invoice', 'Tanggal', 'Kasir', 'Metode', 'Status', 'Total'];
+        const body = transactions.map((t: any) => [
+            t.invoiceNumber,
+            dayjs(t.createdAt).format('DD MMM YYYY HH:mm'),
+            t.cashierName || '-',
+            t.paymentMethod,
+            t.status,
+            `Rp ${Number(t.grandTotal).toLocaleString('id-ID')}`
+        ]);
+        exportToPDF('Laporan Seluruh Transaksi', headers, body, `Laporan_Transaksi_${dayjs().format('YYYYMMDD')}.pdf`);
+    };
+
     if (isLoadingSummary || isLoadingTxs) {
         return <div className="flex h-screen items-center justify-center text-muted-foreground">Memuat Laporan Kelola Penjualan...</div>;
     }
@@ -28,10 +59,14 @@ export default function SalesReportPage() {
                     <h1 className="text-2xl font-bold text-foreground">Laporan Penjualan</h1>
                     <p className="mt-1 text-sm text-muted-foreground">Ringkasan transaksi riil (Semua Waktu).</p>
                 </div>
-                <div className="mt-4 sm:mt-0 flex gap-3">
-                    <button className="flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/20 transition-colors shadow-sm">
+                <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
+                    <button onClick={handleExportExcel} className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 text-green-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-500/20 transition-colors shadow-sm">
+                        <FileSpreadsheet className="h-4 w-4" />
+                        Export Excel
+                    </button>
+                    <button onClick={handleExportPDF} className="flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/20 transition-colors shadow-sm">
                         <Download className="h-4 w-4" />
-                        Export CSV
+                        Export PDF
                     </button>
                 </div>
             </div>

@@ -27,9 +27,25 @@ model Branch {
   address   String?   @db.Text
   latitude  Decimal?  @db.Decimal(9, 6)
   longitude Decimal?  @db.Decimal(9, 6)
+  omset     Decimal?  @default(0) @db.Decimal(15, 2) // Omset bulanan (Rp)
+  margin    Decimal?  @default(0) @db.Decimal(5, 2)  // Margin (%)
   createdAt DateTime? @default(now()) @map("created_at")
 
   @@map("branches")
+}
+
+model Competitor {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(200)
+  type      String?  @db.VarChar(100) // e.g., "Digital Printing", "Sablon"
+  address   String?  @db.Text
+  latitude  Decimal  @db.Decimal(9, 6)
+  longitude Decimal  @db.Decimal(9, 6)
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("competitors")
 }
 
 model User {
@@ -77,6 +93,7 @@ model Product {
   imageUrl     String?     @map("image_url") @db.Text
   imageUrls    String?     @map("image_urls") @db.Text
   pricingMode  PricingMode @default(UNIT) @map("pricing_mode")
+  productType  ProductType @default(SELLABLE) @map("product_type")
   pricePerUnit Decimal?    @map("price_per_unit") @db.Decimal(15, 2)
   createdAt    DateTime?   @default(now()) @map("created_at")
   updatedAt    DateTime?   @default(now()) @updatedAt @map("updated_at")
@@ -95,6 +112,7 @@ model ProductVariant {
   sku             String    @unique @db.VarChar(100)
   variantName     String?   @map("variant_name") @db.VarChar(100)
   price           Decimal   @db.Decimal(15, 2)
+  hpp             Decimal   @default(0) @db.Decimal(15, 2) // Harga Pokok Penjualan (Modal)
   stock           Int       @default(0)
   size            String?   @db.VarChar(50)
   color           String?   @db.VarChar(50)
@@ -107,20 +125,23 @@ model ProductVariant {
   movements        StockMovement[]
   transactionItems TransactionItem[]
   hppVariableCosts HppVariableCost[]
+  ingredientsAsRaw Ingredient[]      @relation("RawMaterial")
 
   @@map("product_variants")
 }
 
 model Ingredient {
-  id        Int     @id @default(autoincrement())
-  productId Int     @map("product_id")
-  name      String  @db.VarChar(200)
-  quantity  Decimal @db.Decimal(10, 3)
-  unit      String  @db.VarChar(50)
-  price     Decimal @default(0) @db.Decimal(15, 2)
-  subtotal  Decimal @default(0) @db.Decimal(15, 2)
+  id                   Int     @id @default(autoincrement())
+  productId            Int     @map("product_id")
+  name                 String  @db.VarChar(200)
+  quantity             Decimal @db.Decimal(10, 3)
+  unit                 String  @db.VarChar(50)
+  price                Decimal @default(0) @db.Decimal(15, 2)
+  subtotal             Decimal @default(0) @db.Decimal(15, 2)
+  rawMaterialVariantId Int?    @map("raw_material_variant_id")
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product            Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rawMaterialVariant ProductVariant? @relation("RawMaterial", fields: [rawMaterialVariantId], references: [id], onDelete: SetNull)
 
   @@map("ingredients")
 }
@@ -148,6 +169,12 @@ enum MovementType {
 enum PricingMode {
   UNIT
   AREA_BASED
+}
+
+enum ProductType {
+  SELLABLE
+  RAW_MATERIAL
+  SERVICE
 }
 
 model StockMovement {
@@ -209,6 +236,7 @@ model TransactionItem {
   productVariantId Int       @map("product_variant_id")
   quantity         Int
   priceAtTime      Decimal   @map("price_at_time") @db.Decimal(15, 2)
+  hppAtTime        Decimal   @default(0) @map("hpp_at_time") @db.Decimal(15, 2) // Harga modal saat transaksi terjadi
   widthCm          Decimal?  @map("width_cm") @db.Decimal(10, 2)
   heightCm         Decimal?  @map("height_cm") @db.Decimal(10, 2)
   areaCm2          Decimal?  @map("area_cm2") @db.Decimal(15, 4)
@@ -250,16 +278,35 @@ enum InvoiceStatus {
   SENT
   PAID
   CANCELLED
+  ACCEPTED   // Quotation accepted
+  REJECTED   // Quotation rejected
+  EXPIRED    // Quotation past valid date
+}
+
+enum InvoiceType {
+  INVOICE
+  QUOTATION
 }
 
 model Invoice {
   id            Int           @id @default(autoincrement())
   invoiceNumber String        @unique @map("invoice_number") @db.VarChar(100)
+  type          InvoiceType   @default(INVOICE)
   clientName    String        @map("client_name") @db.VarChar(200)
+  clientCompany String?       @map("client_company") @db.VarChar(200) // Instansi/PT
+  clientAddress String?       @map("client_address") @db.Text         // Alamat Lengkap
+  clientPhone   String?       @map("client_phone") @db.VarChar(50)    // No. HP/Telp
+  clientEmail   String?       @map("client_email") @db.VarChar(150)   // Email Perusahaan
   date          DateTime      @default(now())
-  dueDate       DateTime      @map("due_date")
+  dueDate       DateTime?     @map("due_date")
+  validUntil    DateTime?     @map("valid_until") // Quotation: masa berlaku penawaran
   status        InvoiceStatus @default(DRAFT)
-  total         Decimal       @default(0) @db.Decimal(15, 2)
+  subtotal      Decimal       @default(0) @db.Decimal(15, 2)
+  taxRate       Decimal       @default(0) @map("tax_rate") @db.Decimal(5, 2) // % PPN
+  taxAmount     Decimal       @default(0) @map("tax_amount") @db.Decimal(15, 2) // Rp PPN
+  discount      Decimal       @default(0) @db.Decimal(15, 2) // Diskon (Rp)
+  total         Decimal       @default(0) @db.Decimal(15, 2) // Grand Total (Subtotal + PPN - Diskon)
+  notes         String?       @db.Text // Syarat & Ketentuan, Garansi, dll
   createdAt     DateTime?     @default(now()) @map("created_at")
   updatedAt     DateTime?     @default(now()) @updatedAt @map("updated_at")
 
@@ -272,6 +319,7 @@ model InvoiceItem {
   id          Int     @id @default(autoincrement())
   invoiceId   Int     @map("invoice_id")
   description String  @db.VarChar(255)
+  unit        String? @db.VarChar(50)  // Satuan: pcs, m², lembar, set, dll
   quantity    Int
   price       Decimal @db.Decimal(15, 2)
 

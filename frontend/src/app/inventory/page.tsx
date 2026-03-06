@@ -32,6 +32,7 @@ export default function InventoryPage() {
     const [filterMinPrice, setFilterMinPrice] = useState('');
     const [filterMaxPrice, setFilterMaxPrice] = useState('');
     const [filterMinStock, setFilterMinStock] = useState('');
+    const [filterType, setFilterType] = useState('');
 
     const movementMutation = useMutation({
         mutationFn: logStockMovement,
@@ -94,15 +95,16 @@ export default function InventoryPage() {
             if (filterSkuVariant && !variant.sku.toLowerCase().includes(filterSkuVariant.toLowerCase())
                 && !(variant.variantName || '').toLowerCase().includes(filterSkuVariant.toLowerCase())) return false;
             if (filterCategory && product.category?.name !== filterCategory) return false;
+            if (filterType && (product.productType || 'SELLABLE') !== filterType) return false;
             const price = Number(variant.price);
             if (filterMinPrice && price < Number(filterMinPrice)) return false;
             if (filterMaxPrice && price > Number(filterMaxPrice)) return false;
             if (filterMinStock && variant.stock < Number(filterMinStock)) return false;
             return true;
         });
-    }, [products, searchText, filterSkuVariant, filterCategory, filterMinPrice, filterMaxPrice, filterMinStock]);
+    }, [products, searchText, filterSkuVariant, filterCategory, filterType, filterMinPrice, filterMaxPrice, filterMinStock]);
 
-    const hasActiveFilters = filterCategory || filterSkuVariant || filterMinPrice || filterMaxPrice || filterMinStock;
+    const hasActiveFilters = filterCategory || filterSkuVariant || filterMinPrice || filterMaxPrice || filterMinStock || filterType;
 
     const clearFilters = () => {
         setFilterCategory('');
@@ -110,7 +112,14 @@ export default function InventoryPage() {
         setFilterMinPrice('');
         setFilterMaxPrice('');
         setFilterMinStock('');
+        setFilterType('');
         setSearchText('');
+    };
+
+    const PRODUCT_TYPE_CONFIG: Record<string, { label: string; className: string }> = {
+        SELLABLE:     { label: 'Siap Jual',  className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+        RAW_MATERIAL: { label: 'Bahan Baku', className: 'bg-amber-100 text-amber-700 border-amber-200' },
+        SERVICE:      { label: 'Jasa',       className: 'bg-violet-100 text-violet-700 border-violet-200' },
     };
 
     return (
@@ -179,6 +188,21 @@ export default function InventoryPage() {
                             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
                         </div>
 
+                        {/* Type filter */}
+                        <div className="relative">
+                            <select
+                                value={filterType}
+                                onChange={e => setFilterType(e.target.value)}
+                                className="pl-3 pr-7 py-1.5 bg-background border border-border rounded-lg text-xs outline-none focus:border-primary appearance-none cursor-pointer w-36"
+                            >
+                                <option value="">Semua Tipe</option>
+                                <option value="SELLABLE">Siap Jual</option>
+                                <option value="RAW_MATERIAL">Bahan Baku</option>
+                                <option value="SERVICE">Jasa</option>
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+                        </div>
+
                         {/* Price range */}
                         <div className="flex items-center gap-1">
                             <input
@@ -229,6 +253,7 @@ export default function InventoryPage() {
                                 <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Nama Produk</th>
                                 <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Kategori</th>
                                 <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Harga Jual</th>
+                                <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Harga Modal</th>
                                 <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Sisa Stok</th>
                                 <th scope="col" className="px-5 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Aksi</th>
                             </tr>
@@ -237,10 +262,10 @@ export default function InventoryPage() {
                             {isLoading ? (
                                 <tr><td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">Memuat data produk...</td></tr>
                             ) : error ? (
-                                <tr><td colSpan={6} className="px-5 py-8 text-center text-destructive">Gagal memuat produk.</td></tr>
+                                <tr><td colSpan={7} className="px-5 py-8 text-center text-destructive">Gagal memuat produk.</td></tr>
                             ) : rows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
+                                    <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground">
                                         <Package className="h-8 w-8 mx-auto mb-2 opacity-20" />
                                         {searchText || hasActiveFilters ? 'Tidak ada produk yang cocok dengan filter.' : 'Belum ada produk. Silakan tambah produk baru.'}
                                     </td>
@@ -274,7 +299,18 @@ export default function InventoryPage() {
                                                             )}
                                                         </div>
                                                         <div>
-                                                            <span className="font-medium text-foreground">{product.name}</span>
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="font-medium text-foreground">{product.name}</span>
+                                                                {(() => {
+                                                                    const type = product.productType || 'SELLABLE';
+                                                                    const cfg = PRODUCT_TYPE_CONFIG[type];
+                                                                    return cfg ? (
+                                                                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${cfg.className}`}>
+                                                                            {cfg.label}
+                                                                        </span>
+                                                                    ) : null;
+                                                                })()}
+                                                            </div>
                                                             {product.ingredients?.length > 0 && (
                                                                 <div className="text-xs text-muted-foreground mt-0.5">{product.ingredients.length} bahan</div>
                                                             )}
@@ -293,6 +329,9 @@ export default function InventoryPage() {
                                             </td>
                                             <td className="px-5 py-4 whitespace-nowrap text-sm text-foreground/80 text-right font-medium">
                                                 Rp {Number(variant.price).toLocaleString('id-ID')}
+                                            </td>
+                                            <td className="px-5 py-4 whitespace-nowrap text-sm text-muted-foreground text-right">
+                                                Rp {Number(variant.hpp || 0).toLocaleString('id-ID')}
                                             </td>
                                             <td className="px-5 py-4 whitespace-nowrap text-right">
                                                 <div className="flex items-center justify-end gap-2">

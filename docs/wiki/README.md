@@ -205,4 +205,39 @@ Halaman untuk menghubungkan **bot WhatsApp** yang bertugas mengirimkan laporan s
 
 ---
 
+## 💰 10. Cashflow Bisnis
+
+Halaman pencatatan arus kas bisnis — pemasukan dan pengeluaran, otomatis maupun manual.
+
+Panduan lengkap: **[cashflow.md](cashflow.md)**
+
+---
+
+## 📄 11. Invoice Generator & Penawaran Harga (SPH)
+
+Buat invoice profesional dan surat penawaran harga (SPH) untuk klien B2B, perusahaan, brand, dan event.
+
+Panduan lengkap: **[invoice-sph.md](invoice-sph.md)**
+
+---
+
+## 🗺️ 12. Peta Cuan Lokasi
+
+Visualisasikan cabang dan kompetitor di peta, cari bisnis sejenis by keyword.
+
+Panduan lengkap: **[peta-cuan.md](peta-cuan.md)**
+
+---
+
+## 📚 Daftar Semua Halaman Wiki
+
+| File | Topik |
+|---|---|
+| [README.md](README.md) | Login, Dashboard, Kasir, Stok, DP, Laporan Shift, WA Bot |
+| [cashflow.md](cashflow.md) | Cashflow Bisnis — filter, chart, tambah entri, export |
+| [invoice-sph.md](invoice-sph.md) | Invoice & Penawaran Harga (SPH) — catalog picker, area-based |
+| [peta-cuan.md](peta-cuan.md) | Peta Cuan Lokasi — cabang, kompetitor, pencarian keyword |
+
+---
+
 *Dokumentasi ini dibuat untuk tim VOLIKO IMOGIRI. Terakhir diperbarui: 6 Maret 2026.*

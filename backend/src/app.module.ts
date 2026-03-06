@@ -21,13 +21,14 @@ import { CustomersModule } from './customers/customers.module';
 import { HppModule } from './hpp/hpp.module';
 import { ReportsModule } from './reports/reports.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { CompetitorsModule } from './competitors/competitors.module';
 
 @Module({
   imports: [
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', 'public'), // Serve local uploads
     }),
-    PrismaModule, UsersModule, AuthModule, CategoriesModule, UnitsModule, ProductsModule, BatchesModule, StockMovementsModule, TransactionsModule, CashflowModule, InvoiceModule, BranchesModule, SettingsModule, BankAccountsModule, CustomersModule, HppModule, ReportsModule, WhatsappModule],
+    PrismaModule, UsersModule, AuthModule, CategoriesModule, UnitsModule, ProductsModule, BatchesModule, StockMovementsModule, TransactionsModule, CashflowModule, InvoiceModule, BranchesModule, SettingsModule, BankAccountsModule, CustomersModule, HppModule, ReportsModule, WhatsappModule, CompetitorsModule],
   controllers: [AppController],
   providers: [AppService],
 })

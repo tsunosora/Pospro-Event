@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
     Plus, Edit2, Trash2, Image as ImageIcon, Target,
-    Search, Download, Trash, ChevronDown, Check, Store, Package,
+    Search, Download, Trash, ChevronDown, Check, Store, Package, Map,
     BarChart2, Zap, Cog, ShoppingBag, Wrench, Megaphone, FileText,
     Calculator, ArrowRight, Loader2, Save, X, Database
 } from "lucide-react";
@@ -19,6 +19,7 @@ interface VariableCost {
     price: number;
     priceUnit: string; // Stored just for UI display info
     isCustom?: boolean; // true = manually typed name, false = from stock
+    isAcuanStok?: boolean; // Menentukan stok awal produk dari bahan ini
 }
 
 interface FixedCost {
@@ -41,6 +42,8 @@ export default function HppCalculatorPage() {
     const [hppMode, setHppMode] = useState<'per_pcs' | 'per_batch'>('per_pcs');
     const [targetVolume, setTargetVolume] = useState<number>(1000);
     const [targetMargin, setTargetMargin] = useState<number>(50);
+    const [sellingPricingMode, setSellingPricingMode] = useState<'UNIT' | 'AREA_BASED'>('UNIT');
+    const [customSellingPrice, setCustomSellingPrice] = useState<number | null>(null);
 
     const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
     const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
@@ -138,6 +141,8 @@ export default function HppCalculatorPage() {
         setVariableCosts([]);
         setFixedCosts([]);
         setHasCalculated(false);
+        setCustomSellingPrice(null);
+        setSellingPricingMode('UNIT');
     };
 
     const handleSaveWorksheet = async () => {
@@ -177,6 +182,30 @@ export default function HppCalculatorPage() {
         }
     };
 
+    const calculateVariableSubtotal = (v: VariableCost) => {
+        const pUnitNumMatch = v.priceUnit?.match(/\d+/);
+        const pUnitNum = pUnitNumMatch ? parseInt(pUnitNumMatch[0]) : 1;
+        if (v.price === 0 || v.usageAmount === 0) return 0;
+        return (v.price / pUnitNum) * v.usageAmount;
+    };
+
+    // Derived Calculations
+    const totalVariablePerPcs = useMemo(() => {
+        return variableCosts.reduce((acc, v) => acc + calculateVariableSubtotal(v), 0);
+    }, [variableCosts]);
+
+    const totalFixedMonthly = useMemo(() => {
+        return fixedCosts.reduce((acc, f) => acc + (Number(f.amount) || 0), 0);
+    }, [fixedCosts]);
+
+    const allocatedFixedPerPcs = useMemo(() => {
+        if (!targetVolume || targetVolume <= 0) return 0;
+        return totalFixedMonthly / targetVolume;
+    }, [totalFixedMonthly, targetVolume]);
+
+    const hppPerPcs = totalVariablePerPcs + allocatedFixedPerPcs;
+    const baseSuggestedPrice = hppPerPcs * (1 + (targetMargin / 100)); // Default margin before tiers applied
+
     const handleSaveAsProduct = async () => {
         if (!productName) return alert("Nama produk wajib diisi sebelum disimpan ke stok!");
         if (!hasCalculated) return alert("Lakukan kalkulasi HPP terlebih dahulu!");
@@ -192,16 +221,35 @@ export default function HppCalculatorPage() {
         const unitId = matchedUnit?.id;
         if (!unitId) return alert("Tidak ada satuan (unit) yang terdaftar di database. Tambahkan unit terlebih dahulu.");
 
-        // Calculate the price based on selected tier
+        // Calculate the price based on selected tier or use Custom Price
         const priceTierMap: Record<string, number> = {
             kompetitif: targetMargin > 15 ? targetMargin - 15 : 5,
             standar: targetMargin,
             premium: targetMargin + 20,
         };
         const margin = priceTierMap[selectedTier] ?? targetMargin;
-        const sellingPrice = hppPerPcs > 0 ? Math.round(hppPerPcs / (1 - margin / 100)) : 0;
+        const systemSuggestedPrice = hppPerPcs > 0 ? Math.round(hppPerPcs / (1 - margin / 100)) : 0;
+        const sellingPrice = customSellingPrice !== null && customSellingPrice > 0 ? customSellingPrice : systemSuggestedPrice;
 
         const sku = `HPP-${productName.replace(/\s+/g, '-').toUpperCase().substring(0, 20)}-${Date.now().toString().slice(-5)}`;
+
+        // Calculate Stock Based on Acuan (if any)
+        const acuanItem = variableCosts.find(vc => vc.isAcuanStok);
+        let calculatedStock = 0;
+        if (acuanItem && acuanItem.productVariantId && acuanItem.usageAmount > 0) {
+            // Temukan variant bahan baku aslinya
+            let acuanVariant: any = null;
+            for (const p of dbProducts) {
+                const va = p.variants?.find((vx: any) => vx.id === acuanItem.productVariantId);
+                if (va) { acuanVariant = va; break; }
+            }
+            if (acuanVariant) {
+                // Konversi stok jika beda unit. Secara simpel, kalkulator web ini kita bagi mentah
+                // Jika butuh takaran rumit misal konversi g -> kg dsb, perlu diperhatikan. 
+                // Asumsinya unit sudah senada dengan stock variants
+                calculatedStock = Math.floor(Number(acuanVariant.stock) / Number(acuanItem.usageAmount));
+            }
+        }
 
         // Map ingredients for the new product (matches Prisma Ingredient model)
         const ingredients = variableCosts.map(vc => ({
@@ -209,7 +257,8 @@ export default function HppCalculatorPage() {
             quantity: vc.usageAmount,
             unit: vc.usageUnit,
             price: vc.price,
-            subtotal: calculateVariableSubtotal(vc)
+            subtotal: calculateVariableSubtotal(vc),
+            rawMaterialVariantId: vc.productVariantId || null
         }));
 
         try {
@@ -217,19 +266,25 @@ export default function HppCalculatorPage() {
                 name: productName,
                 categoryId,
                 unitId,
-                pricingMode: 'UNIT',
+                pricingMode: sellingPricingMode,
                 ingredients,
                 variants: [{
                     sku,
                     price: sellingPrice,
-                    stock: 0,
+                    hpp: hppPerPcs,
+                    stock: calculatedStock,
                 }]
             });
 
             // Upload Image if selected and loaded into preview
-            if (imageFileRef.current?.files?.[0] && productImageUrl) {
-                // Use the multi-image endpoint so it aligns perfectly with the stock management UI
-                await uploadProductImages(newProduct.id, [imageFileRef.current.files[0]]);
+            if (imageFileRef.current && imageFileRef.current.files && imageFileRef.current.files[0]) {
+                const file = imageFileRef.current.files[0];
+                try {
+                    await uploadProductImages(newProduct.id, [file]);
+                } catch (imgError) {
+                    console.error("Gagal mengupload gambar produk:", imgError);
+                    alert("Produk berhasil dibuat, tetapi gagal mengupload gambar.");
+                }
             }
 
             // Ask to optionally save the worksheet as well
@@ -237,7 +292,7 @@ export default function HppCalculatorPage() {
                 await handleSaveWorksheet();
             }
 
-            alert(`✅ Produk "${productName}" berhasil ditambahkan ke Manajemen Stok!\nHarga jual: Rp ${sellingPrice.toLocaleString('id-ID')}\nSKU: ${sku}`);
+            alert(`Produk berhasil dibuat dan ditambahkan ke daftar Manajemen Stok!\nHarga jual: Rp ${sellingPrice.toLocaleString('id-ID')}\nSKU: ${sku}`);
             // Redirect to product management
             window.location.href = '/inventory/products';
         } catch (error: any) {
@@ -264,7 +319,7 @@ export default function HppCalculatorPage() {
     const addVariableCost = () => {
         setVariableCosts([...variableCosts, {
             id: Date.now().toString(),
-            name: "", usageAmount: 0, usageUnit: "pcs", price: 0, priceUnit: "pcs"
+            name: "", usageAmount: 0, usageUnit: "pcs", price: 0, priceUnit: "pcs", isAcuanStok: false
         }]);
     };
 
@@ -273,7 +328,12 @@ export default function HppCalculatorPage() {
     };
 
     const updateVariableCost = (id: string, field: keyof VariableCost, value: any) => {
-        setVariableCosts(variableCosts.map(v => v.id === id ? { ...v, [field]: value } : v));
+        if (field === 'isAcuanStok' && value === true) {
+            // Uncheck others if this one is checked
+            setVariableCosts(variableCosts.map(v => v.id === id ? { ...v, [field]: value } : { ...v, isAcuanStok: false }));
+        } else {
+            setVariableCosts(variableCosts.map(v => v.id === id ? { ...v, [field]: value } : v));
+        }
     };
 
     // Applies all fields from a selected stock variant to a VariableCost row in one atomic update
@@ -299,12 +359,15 @@ export default function HppCalculatorPage() {
         ));
     };
 
-    const calculateVariableSubtotal = (v: VariableCost) => {
-        const pUnitNumMatch = v.priceUnit?.match(/\d+/);
-        const pUnitNum = pUnitNumMatch ? parseInt(pUnitNumMatch[0]) : 1;
-        if (v.price === 0 || v.usageAmount === 0) return 0;
-        return (v.price / pUnitNum) * v.usageAmount;
+    // Three pricing tiers
+    const priceTiers = {
+        kompetitif: { label: 'Kompetitif', margin: Math.max(targetMargin - 15, 5), color: 'blue', description: 'Harga bersaing, margin tipis' },
+        standar: { label: 'Standar', margin: targetMargin, color: 'primary', description: `Margin target Anda (${targetMargin}%)` },
+        premium: { label: 'Premium', margin: targetMargin + 20, color: 'amber', description: 'Harga premium, margin tebal' },
     };
+    const selectedTierMargin = priceTiers[selectedTier].margin;
+    const suggestedPrice = hppPerPcs * (1 + (selectedTierMargin / 100));
+    const potentialMonthlyProfit = (suggestedPrice - hppPerPcs) * targetVolume;
 
     // Handlers for Fixed Costs
     const addFixedCost = () => {
@@ -336,32 +399,6 @@ export default function HppCalculatorPage() {
     const deletePreset = (presetId: string) => {
         setFixedCostPresets(prev => prev.filter(p => p.id !== presetId));
     };
-
-    // Derived Calculations
-    const totalVariablePerPcs = useMemo(() => {
-        return variableCosts.reduce((acc, v) => acc + calculateVariableSubtotal(v), 0);
-    }, [variableCosts]);
-
-    const totalFixedMonthly = useMemo(() => {
-        return fixedCosts.reduce((acc, f) => acc + (Number(f.amount) || 0), 0);
-    }, [fixedCosts]);
-
-    const allocatedFixedPerPcs = useMemo(() => {
-        if (!targetVolume || targetVolume <= 0) return 0;
-        return totalFixedMonthly / targetVolume;
-    }, [totalFixedMonthly, targetVolume]);
-
-    const hppPerPcs = totalVariablePerPcs + allocatedFixedPerPcs;
-    // Three pricing tiers
-    const priceTiers = {
-        kompetitif: { label: 'Kompetitif', margin: Math.max(targetMargin - 15, 5), color: 'blue', description: 'Harga bersaing, margin tipis' },
-        standar: { label: 'Standar', margin: targetMargin, color: 'primary', description: `Margin target Anda (${targetMargin}%)` },
-        premium: { label: 'Premium', margin: targetMargin + 20, color: 'amber', description: 'Harga premium, margin tebal' },
-    };
-    const selectedTierMargin = priceTiers[selectedTier].margin;
-    const suggestedPrice = hppPerPcs * (1 + (selectedTierMargin / 100));
-    const potentialMonthlyProfit = (suggestedPrice - hppPerPcs) * targetVolume;
-
 
     if (isLoading) return <div className="p-8 flex justify-center text-muted-foreground"><Loader2 className="animate-spin" /></div>;
 
@@ -572,19 +609,20 @@ export default function HppCalculatorPage() {
                                 <table className="w-full text-left border-collapse min-w-[800px]">
                                     <thead>
                                         <tr className="bg-muted/50 border-b border-border/50 bg-slate-50">
-                                            <th className="px-4 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide w-1/4">BAHAN BAKU</th>
-                                            <th className="px-4 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">TAKARAN / PCS</th>
-                                            <th className="px-4 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">HARGA</th>
-                                            <th className="px-4 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">JML</th>
-                                            <th className="px-4 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">UNIT</th>
-                                            <th className="px-4 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide text-right">SUBTOTAL</th>
+                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide w-1/4">BAHAN BAKU</th>
+                                            <th className="px-2 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide text-center" title="Jadikan Acuan Stok Produk">ACUAN STOK</th>
+                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">TAKARAN / PCS</th>
+                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">HARGA</th>
+                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">JML</th>
+                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">UNIT</th>
+                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide text-right">SUBTOTAL</th>
                                             <th className="w-10"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border/50">
                                         {variableCosts.map((v) => (
                                             <tr key={v.id} className="group hover:bg-muted/30 transition-colors">
-                                                <td className="px-4 py-2 md:py-3 align-middle min-w-[200px]">
+                                                <td className="px-3 py-2 md:py-3 align-middle min-w-[200px]">
                                                     {v.isCustom ? (
                                                         /* Manual name input — shown when user chose "Input Manual" */
                                                         <div className="relative flex items-center">
@@ -633,7 +671,20 @@ export default function HppCalculatorPage() {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-2 md:py-3 align-middle">
+                                                <td className="px-2 py-2 md:py-3 align-middle text-center">
+                                                    {!v.isCustom && v.productVariantId && (
+                                                        <div className="flex justify-center" title="Stok Produk akhir akan dihitung berdasarkan sisa stok bahan ini dibagi Takaran.">
+                                                            <input
+                                                                type="radio"
+                                                                name="acuanStok"
+                                                                checked={v.isAcuanStok || false}
+                                                                onChange={() => updateVariableCost(v.id, 'isAcuanStok', true)}
+                                                                className="w-4 h-4 text-primary focus:ring-primary/50 cursor-pointer"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2 md:py-3 align-middle">
                                                     <div className="flex gap-2">
                                                         <input type="number" value={v.usageAmount || ''} onChange={(e) => updateVariableCost(v.id, 'usageAmount', Number(e.target.value))}
                                                             className="w-[70px] px-3 py-2 bg-background border border-border rounded-[6px] text-[13px] font-medium text-foreground outline-none focus:border-primary text-center" placeholder="0" />
@@ -670,7 +721,7 @@ export default function HppCalculatorPage() {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-2 md:py-3 align-middle">
+                                                <td className="px-3 py-2 md:py-3 align-middle">
                                                     {/* HARGA - editable */}
                                                     <div className="flex bg-background border border-border rounded-[6px] overflow-hidden min-w-[110px] focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
                                                         <span className="bg-muted px-2 py-2 font-semibold text-[13px] border-r border-border text-muted-foreground">Rp</span>
@@ -681,7 +732,7 @@ export default function HppCalculatorPage() {
                                                     {/* JML - editable, how many base units is that price for (e.g. 1kg = 1000gr) */}
                                                     <input type="number" value={v.usageAmount || ''} readOnly className="w-[50px] px-2 py-2 bg-muted/40 border border-border text-muted-foreground rounded-[6px] text-[13px] font-semibold text-center outline-none opacity-70" title="Jumlah diisi di Takaran/PCS" />
                                                 </td>
-                                                <td className="px-4 py-2 md:py-3 align-middle">
+                                                <td className="px-3 py-2 md:py-3 align-middle">
                                                     {/* UNIT - editable */}
                                                     <div className="relative min-w-[80px]">
                                                         <select value={v.priceUnit || 'pcs'} onChange={(e) => updateVariableCost(v.id, 'priceUnit', e.target.value)} className="appearance-none w-full pl-2 pr-6 py-2 border border-border text-foreground rounded-[6px] bg-background text-[13px] font-semibold outline-none cursor-pointer focus:border-primary">
@@ -701,7 +752,7 @@ export default function HppCalculatorPage() {
                                                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-muted-foreground opacity-50" />
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-2 md:py-3 align-middle text-right">
+                                                <td className="px-3 py-2 md:py-3 align-middle text-right">
                                                     <div className="bg-green-50 text-green-700 font-bold text-[14px] px-3 py-1.5 rounded-[6px] inline-block border border-green-200 min-w-[100px] text-center">
                                                         Rp {Math.round(calculateVariableSubtotal(v)).toLocaleString('id-ID')}
                                                     </div>
@@ -714,8 +765,8 @@ export default function HppCalculatorPage() {
                                             </tr>
                                         ))}
                                         <tr className="bg-primary/5">
-                                            <td colSpan={5} className="px-4 py-4 text-right"><span className="font-semibold text-[13px] text-muted-foreground">Total Biaya B.Baku/Pcs:</span></td>
-                                            <td className="px-4 py-4 text-right"><span className="font-bold text-[15px] text-primary">Rp {Math.round(totalVariablePerPcs).toLocaleString('id-ID')}</span></td>
+                                            <td colSpan={6} className="px-4 py-4 text-right"><span className="font-semibold text-[13px] text-muted-foreground">Total Biaya B.Baku/Pcs:</span></td>
+                                            <td className="px-3 py-4 text-right"><span className="font-bold text-[15px] text-primary">Rp {Math.round(totalVariablePerPcs).toLocaleString('id-ID')}</span></td>
                                             <td></td>
                                         </tr>
                                     </tbody>
@@ -844,11 +895,49 @@ export default function HppCalculatorPage() {
                                     </div>
 
                                     {/* Action Buttons */}
-                                    <div className="space-y-2 pt-2 border-t border-border/50">
+                                    <div className="space-y-4 pt-2 border-t border-border/50">
+                                        <div className="space-y-4 mb-4 bg-muted/30 p-4 border border-border rounded-lg">
+                                            {/* Pricing Mode Selection */}
+                                            <div>
+                                                <label className="block text-sm font-semibold text-foreground mb-2">Pilih Mode Penjualan 🌍</label>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <label className={cn("border-2 rounded-[6px] p-2 flex items-center justify-center gap-2 cursor-pointer transition-all", sellingPricingMode === 'UNIT' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
+                                                        <input type="radio" value="UNIT" checked={sellingPricingMode === 'UNIT'} onChange={() => setSellingPricingMode('UNIT')} className="hidden" />
+                                                        <Package className="w-4 h-4" /> <span className="text-xs font-bold">Produk Satuan (Pcs/Box)</span>
+                                                    </label>
+                                                    <label className={cn("border-2 rounded-[6px] p-2 flex items-center justify-center gap-2 cursor-pointer transition-all", sellingPricingMode === 'AREA_BASED' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
+                                                        <input type="radio" value="AREA_BASED" checked={sellingPricingMode === 'AREA_BASED'} onChange={() => setSellingPricingMode('AREA_BASED')} className="hidden" />
+                                                        <Map className="w-4 h-4" /> <span className="text-xs font-bold">Cetak Luas (m²)</span>
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            {/* Edit Final Price */}
+                                            <div>
+                                                <div className="flex justify-between items-center mb-1.5">
+                                                    <label className="text-sm font-semibold text-foreground">Harga Jual Kustom</label>
+                                                    {customSellingPrice !== null && (
+                                                        <button onClick={() => setCustomSellingPrice(null)} className="text-[11px] text-primary font-bold hover:underline">Reset ke {suggestedPrice.toLocaleString('id-ID')}</button>
+                                                    )}
+                                                </div>
+                                                <p className="text-[11px] text-muted-foreground mb-2 block">Isi jika Anda tidak ingin menggunakan angka pasaran yang disarankan sistem (Opsional).</p>
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">Rp</span>
+                                                    <input
+                                                        type="number"
+                                                        value={customSellingPrice !== null ? customSellingPrice : suggestedPrice}
+                                                        onChange={(e) => setCustomSellingPrice(e.target.value ? Number(e.target.value) : null)}
+                                                        className="w-full pl-9 pr-3 py-2 bg-background border border-primary/40 rounded-[8px] text-sm font-bold text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
+                                                        min={hppPerPcs}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <button
                                             onClick={handleSaveAsProduct}
-                                            className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[13px] py-3 rounded-[10px] shadow-sm transition-all">
-                                            <Save className="w-4 h-4" /> Simpan Perhitungan &amp; Jadikan Produk
+                                            className="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold text-[13px] py-3 rounded-[10px] shadow-sm transition-all">
+                                            <ShoppingBag className="w-4 h-4" /> Simpan Perhitungan &amp; Jadikan Produk
                                         </button>
                                         <button
                                             onClick={resetWorksheet}

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseInterceptors, UploadedFiles, Query } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ReportsService } from './reports.service';
 import { diskStorage } from 'multer';
@@ -40,6 +40,11 @@ export class ReportsController {
     @Get('current-shift')
     async getCurrentShift() {
         return this.reportsService.calculateCurrentShiftExpectations();
+    }
+
+    @Get('profit')
+    async getProfitReport(@Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
+        return this.reportsService.getProfitReport(startDate, endDate);
     }
 
     // Endpoint untuk dropdown daftar staff/kasir
