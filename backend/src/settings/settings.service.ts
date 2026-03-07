@@ -41,4 +41,14 @@ export class SettingsService {
             data: { logoImageUrl: imageUrl },
         });
     }
+
+    async getPublicSettings() {
+        const s = await this.getSettings();
+        return {
+            storeName: s.storeName,
+            logoImageUrl: s.logoImageUrl ?? null,
+            loginBgImages: s.loginBgImages ? JSON.parse(s.loginBgImages) : [],
+            loginTaglines: s.loginTaglines ? JSON.parse(s.loginTaglines) : [],
+        };
+    }
 }

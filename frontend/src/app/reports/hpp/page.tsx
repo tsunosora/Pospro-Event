@@ -605,7 +605,113 @@ export default function HppCalculatorPage() {
                                     <span className="text-xs font-medium text-muted-foreground mt-0.5 block">Diambil dari stok produk gudang Anda. Harga tersinkronisasi.</span>
                                 </div>
                             </div>
-                            <div className="overflow-x-auto">
+                            {/* Mobile Cards — Biaya Variabel */}
+                            <div className="md:hidden p-4 space-y-3">
+                                {variableCosts.map((v) => (
+                                    <div key={v.id} className="bg-muted/30 border border-border rounded-xl p-3 space-y-3">
+                                        {/* Bahan Baku */}
+                                        {v.isCustom ? (
+                                            <div className="relative flex items-center">
+                                                <input
+                                                    type="text"
+                                                    value={v.name}
+                                                    onChange={(e) => updateVariableCost(v.id, 'name', e.target.value)}
+                                                    placeholder="Tulis nama bahan..."
+                                                    autoFocus
+                                                    className="w-full pl-3 pr-8 py-2 bg-background border border-primary rounded-[6px] text-[13px] font-semibold text-foreground outline-none focus:ring-1 focus:ring-primary/20"
+                                                />
+                                                <button type="button" title="Pilih dari stok" onClick={() => updateVariableCost(v.id, 'isCustom', false)} className="absolute right-2 text-muted-foreground hover:text-green-600 transition-colors">
+                                                    <Database className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <select
+                                                    value={v.productVariantId ? `${v.productVariantId}` : ""}
+                                                    onChange={(e) => {
+                                                        if (e.target.value === '__manual__') {
+                                                            setVariableCosts(prev => prev.map(c => c.id === v.id ? { ...c, isCustom: true, productVariantId: undefined, name: '' } : c));
+                                                        } else {
+                                                            applyVariantToVariableCost(v.id, e.target.value);
+                                                        }
+                                                    }}
+                                                    className="w-full pl-3 pr-8 py-2 bg-card border border-green-500 rounded-[6px] text-[13px] font-semibold text-foreground outline-none appearance-none cursor-pointer">
+                                                    <option value="">— Pilih Bahan dari Stok —</option>
+                                                    {dbProducts.map((p: any) => p.variants?.map((variant: any) => (
+                                                        <option key={variant.id} value={variant.id}>{p.name}{variant.variantName ? ` – ${variant.variantName}` : ''}</option>
+                                                    )))}
+                                                    <option value="__manual__" className="text-orange-600 font-bold">✏️ Input Manual (tidak ada di stok)</option>
+                                                </select>
+                                                <Database className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-500 pointer-events-none" />
+                                            </div>
+                                        )}
+
+                                        {/* Acuan Stok */}
+                                        {!v.isCustom && v.productVariantId && (
+                                            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer" title="Stok Produk akhir dihitung berdasarkan sisa stok bahan ini dibagi Takaran.">
+                                                <input type="radio" name="acuanStok" checked={v.isAcuanStok || false} onChange={() => updateVariableCost(v.id, 'isAcuanStok', true)} className="w-4 h-4 text-primary cursor-pointer" />
+                                                Jadikan Acuan Stok Produk
+                                            </label>
+                                        )}
+
+                                        {/* Takaran + Harga */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Takaran / Pcs</p>
+                                                <div className="flex gap-1.5">
+                                                    <input type="number" value={v.usageAmount || ''} onChange={(e) => updateVariableCost(v.id, 'usageAmount', Number(e.target.value))}
+                                                        className="w-16 px-2 py-2 bg-background border border-border rounded-[6px] text-[13px] font-medium text-foreground outline-none focus:border-primary text-center" placeholder="0" />
+                                                    <select value={v.usageUnit} onChange={(e) => updateVariableCost(v.id, 'usageUnit', e.target.value)}
+                                                        className="flex-1 pl-2 pr-1 py-2 border border-border rounded-[6px] bg-background text-[12px] text-foreground font-semibold outline-none cursor-pointer focus:border-primary">
+                                                        <option value="gram">gram</option><option value="kg">kg</option><option value="mg">mg</option>
+                                                        <option value="ml">ml</option><option value="L">L</option><option value="gelas">gelas</option><option value="sdm">sdm</option><option value="sdt">sdt</option>
+                                                        <option value="pcs">pcs</option><option value="buah">buah</option><option value="lembar">lembar</option><option value="bungkus">bungkus</option><option value="box">box</option><option value="pak">pak</option>
+                                                        <option value="cm">cm</option><option value="m">m</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Harga</p>
+                                                <div className="flex bg-background border border-border rounded-[6px] overflow-hidden focus-within:border-primary">
+                                                    <span className="bg-muted px-2 py-2 font-semibold text-[12px] border-r border-border text-muted-foreground">Rp</span>
+                                                    <input type="number" value={v.price || ''} onChange={(e) => updateVariableCost(v.id, 'price', Number(e.target.value))} className="w-full bg-transparent px-2 py-2 text-[13px] font-semibold outline-none text-right" placeholder="0" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Per unit + Subtotal + Delete */}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[11px] text-muted-foreground">Per</span>
+                                                <select value={v.priceUnit || 'pcs'} onChange={(e) => updateVariableCost(v.id, 'priceUnit', e.target.value)}
+                                                    className="pl-2 pr-5 py-1.5 border border-border rounded-[6px] bg-background text-[12px] font-semibold outline-none cursor-pointer focus:border-primary appearance-none">
+                                                    <option value="gram">gram</option><option value="kg">kg</option><option value="mg">mg</option>
+                                                    <option value="ml">ml</option><option value="L">L</option><option value="gelas">gelas</option>
+                                                    <option value="pcs">pcs</option><option value="buah">buah</option><option value="lembar">lembar</option><option value="bungkus">bungkus</option><option value="box">box</option>
+                                                    <option value="cm">cm</option><option value="m">m</option>
+                                                </select>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-green-50 text-green-700 font-bold text-[13px] px-3 py-1.5 rounded-[6px] border border-green-200">
+                                                    Rp {Math.round(calculateVariableSubtotal(v)).toLocaleString('id-ID')}
+                                                </div>
+                                                <button onClick={() => removeVariableCost(v.id)} className="p-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-[6px] border border-border hover:border-red-200 transition-all">
+                                                    <Trash className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {variableCosts.length > 0 && (
+                                    <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 flex justify-between items-center">
+                                        <span className="font-semibold text-[13px] text-muted-foreground">Total Biaya B.Baku/Pcs:</span>
+                                        <span className="font-bold text-[15px] text-primary">Rp {Math.round(totalVariablePerPcs).toLocaleString('id-ID')}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Desktop Table — Biaya Variabel */}
+                            <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full text-left border-collapse min-w-[800px]">
                                     <thead>
                                         <tr className="bg-muted/50 border-b border-border/50 bg-slate-50">
@@ -624,7 +730,6 @@ export default function HppCalculatorPage() {
                                             <tr key={v.id} className="group hover:bg-muted/30 transition-colors">
                                                 <td className="px-3 py-2 md:py-3 align-middle min-w-[200px]">
                                                     {v.isCustom ? (
-                                                        /* Manual name input — shown when user chose "Input Manual" */
                                                         <div className="relative flex items-center">
                                                             <input
                                                                 type="text"
@@ -634,26 +739,17 @@ export default function HppCalculatorPage() {
                                                                 autoFocus
                                                                 className="w-full pl-3 pr-8 py-2 bg-background border border-primary rounded-[6px] text-[13px] font-semibold text-foreground outline-none focus:ring-1 focus:ring-primary/20"
                                                             />
-                                                            {/* Back to stock select */}
-                                                            <button
-                                                                type="button"
-                                                                title="Pilih dari stok"
-                                                                onClick={() => updateVariableCost(v.id, 'isCustom', false)}
-                                                                className="absolute right-2 text-muted-foreground hover:text-green-600 transition-colors">
+                                                            <button type="button" title="Pilih dari stok" onClick={() => updateVariableCost(v.id, 'isCustom', false)} className="absolute right-2 text-muted-foreground hover:text-green-600 transition-colors">
                                                                 <Database className="w-3.5 h-3.5" />
                                                             </button>
                                                         </div>
                                                     ) : (
-                                                        /* Stock select — default state */
                                                         <div className="relative">
                                                             <select
                                                                 value={v.productVariantId ? `${v.productVariantId}` : ""}
                                                                 onChange={(e) => {
                                                                     if (e.target.value === '__manual__') {
-                                                                        // Switch to free-text mode
-                                                                        setVariableCosts(prev => prev.map(c => c.id === v.id
-                                                                            ? { ...c, isCustom: true, productVariantId: undefined, name: '' }
-                                                                            : c));
+                                                                        setVariableCosts(prev => prev.map(c => c.id === v.id ? { ...c, isCustom: true, productVariantId: undefined, name: '' } : c));
                                                                     } else {
                                                                         applyVariantToVariableCost(v.id, e.target.value);
                                                                     }
@@ -674,13 +770,7 @@ export default function HppCalculatorPage() {
                                                 <td className="px-2 py-2 md:py-3 align-middle text-center">
                                                     {!v.isCustom && v.productVariantId && (
                                                         <div className="flex justify-center" title="Stok Produk akhir akan dihitung berdasarkan sisa stok bahan ini dibagi Takaran.">
-                                                            <input
-                                                                type="radio"
-                                                                name="acuanStok"
-                                                                checked={v.isAcuanStok || false}
-                                                                onChange={() => updateVariableCost(v.id, 'isAcuanStok', true)}
-                                                                className="w-4 h-4 text-primary focus:ring-primary/50 cursor-pointer"
-                                                            />
+                                                            <input type="radio" name="acuanStok" checked={v.isAcuanStok || false} onChange={() => updateVariableCost(v.id, 'isAcuanStok', true)} className="w-4 h-4 text-primary focus:ring-primary/50 cursor-pointer" />
                                                         </div>
                                                     )}
                                                 </td>
@@ -688,33 +778,20 @@ export default function HppCalculatorPage() {
                                                     <div className="flex gap-2">
                                                         <input type="number" value={v.usageAmount || ''} onChange={(e) => updateVariableCost(v.id, 'usageAmount', Number(e.target.value))}
                                                             className="w-[70px] px-3 py-2 bg-background border border-border rounded-[6px] text-[13px] font-medium text-foreground outline-none focus:border-primary text-center" placeholder="0" />
-
                                                         <div className="relative">
                                                             <select value={v.usageUnit} onChange={(e) => updateVariableCost(v.id, 'usageUnit', e.target.value)}
                                                                 className="appearance-none w-[80px] pl-3 pr-6 py-2 border border-border rounded-[6px] bg-background text-[13px] text-foreground font-semibold outline-none cursor-pointer focus:border-primary">
                                                                 <optgroup label="Berat">
-                                                                    <option value="gram">gram</option>
-                                                                    <option value="kg">kg</option>
-                                                                    <option value="mg">mg</option>
+                                                                    <option value="gram">gram</option><option value="kg">kg</option><option value="mg">mg</option>
                                                                 </optgroup>
                                                                 <optgroup label="Volume">
-                                                                    <option value="ml">ml</option>
-                                                                    <option value="L">L</option>
-                                                                    <option value="gelas">gelas</option>
-                                                                    <option value="sdm">sdm</option>
-                                                                    <option value="sdt">sdt</option>
+                                                                    <option value="ml">ml</option><option value="L">L</option><option value="gelas">gelas</option><option value="sdm">sdm</option><option value="sdt">sdt</option>
                                                                 </optgroup>
                                                                 <optgroup label="Satuan">
-                                                                    <option value="pcs">pcs</option>
-                                                                    <option value="buah">buah</option>
-                                                                    <option value="lembar">lembar</option>
-                                                                    <option value="bungkus">bungkus</option>
-                                                                    <option value="box">box</option>
-                                                                    <option value="pak">pak</option>
+                                                                    <option value="pcs">pcs</option><option value="buah">buah</option><option value="lembar">lembar</option><option value="bungkus">bungkus</option><option value="box">box</option><option value="pak">pak</option>
                                                                 </optgroup>
                                                                 <optgroup label="Panjang">
-                                                                    <option value="cm">cm</option>
-                                                                    <option value="m">m</option>
+                                                                    <option value="cm">cm</option><option value="m">m</option>
                                                                 </optgroup>
                                                             </select>
                                                             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-muted-foreground opacity-70" />
@@ -722,18 +799,15 @@ export default function HppCalculatorPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-3 py-2 md:py-3 align-middle">
-                                                    {/* HARGA - editable */}
                                                     <div className="flex bg-background border border-border rounded-[6px] overflow-hidden min-w-[110px] focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
                                                         <span className="bg-muted px-2 py-2 font-semibold text-[13px] border-r border-border text-muted-foreground">Rp</span>
                                                         <input type="number" value={v.price || ''} onChange={(e) => updateVariableCost(v.id, 'price', Number(e.target.value))} className="w-full bg-transparent px-2 py-2 text-[13px] font-semibold outline-none text-right" placeholder="0" />
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-2 md:py-3 align-middle">
-                                                    {/* JML - editable, how many base units is that price for (e.g. 1kg = 1000gr) */}
                                                     <input type="number" value={v.usageAmount || ''} readOnly className="w-[50px] px-2 py-2 bg-muted/40 border border-border text-muted-foreground rounded-[6px] text-[13px] font-semibold text-center outline-none opacity-70" title="Jumlah diisi di Takaran/PCS" />
                                                 </td>
                                                 <td className="px-3 py-2 md:py-3 align-middle">
-                                                    {/* UNIT - editable */}
                                                     <div className="relative min-w-[80px]">
                                                         <select value={v.priceUnit || 'pcs'} onChange={(e) => updateVariableCost(v.id, 'priceUnit', e.target.value)} className="appearance-none w-full pl-2 pr-6 py-2 border border-border text-foreground rounded-[6px] bg-background text-[13px] font-semibold outline-none cursor-pointer focus:border-primary">
                                                             <optgroup label="Berat">

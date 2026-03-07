@@ -1,65 +1,75 @@
 import { Metadata } from "next";
-import Link from "next/link";
 import { UserAuthForm } from "@/components/user-auth-form";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
-import { Store } from "lucide-react";
 
 export const metadata: Metadata = {
-    title: "Authentication",
-    description: "Authentication forms built using the components.",
+    title: "Login",
+    description: "Login to your POS account.",
 };
 
 export default function AuthenticationPage() {
     return (
-        <div className="relative h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0">
-            <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
-                <AnimatedBackground />
+        /*
+         * Layout strategy
+         * ───────────────
+         * Mobile (< lg):
+         *   - AnimatedBackground is position:fixed full-screen (z-0).
+         *   - Form panel is z-10, min-h-screen, scrollable.
+         *   - Glass-morphism card sits over the animated background.
+         *
+         * Desktop (≥ lg):
+         *   - Two-column grid, h-screen on the container so both columns
+         *     get a concrete 100vh height — required for flex-1 inside
+         *     AnimatedBackground to fill the left column correctly.
+         *   - Left  : animated background panel, flex-col, fills 100vh.
+         *   - Right : clean form panel, bg-background.
+         *
+         * AnimatedBackground is rendered twice (one per breakpoint) but
+         * exactly one is display:none at any time, so only one animates.
+         */
+        <div className="min-h-screen lg:grid lg:grid-cols-2 lg:h-screen">
 
-                <div className="relative z-20 flex items-center text-lg font-medium">
-                    <Store className="mr-2 h-6 w-6" />
-                    PosPro Inc.
-                </div>
-                <div className="relative z-20 mt-auto">
-                    <blockquote className="space-y-2">
-                        <p className="text-lg">
-                            &ldquo;This library has saved me countless hours of work and
-                            helped me deliver stunning designs to my clients faster than
-                            ever before.&rdquo;
-                        </p>
-                        <footer className="text-sm">Sofia Davis</footer>
-                    </blockquote>
-                </div>
+            {/* ── Mobile background: fixed full-screen, hidden on desktop ── */}
+            <div className="lg:hidden fixed inset-0 flex flex-col p-8 text-white overflow-hidden">
+                <AnimatedBackground />
             </div>
-            <div className="p-4 lg:p-8 h-full flex items-center">
-                <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-                    <div className="flex flex-col space-y-2 text-center">
-                        <h1 className="text-2xl font-semibold tracking-tight">
-                            Create an account
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            Enter your email below to create your account
-                        </p>
+
+            {/* ── Desktop left column: hidden on mobile ── */}
+            <div className="hidden lg:flex flex-col h-full p-10 text-white overflow-hidden relative">
+                <AnimatedBackground />
+            </div>
+
+            {/* ── Form panel: always visible ──────────────────────────────
+                Mobile  : full screen height (z-10 above the fixed bg),
+                          glass-morphism card, scrolls if keyboard opens.
+                Desktop : second grid column, solid bg, centered plain form.
+            ─────────────────────────────────────────────────────────────── */}
+            <div className="relative z-10 flex min-h-screen flex-col items-center justify-center
+                            bg-transparent lg:bg-background
+                            px-5 py-10 sm:px-8 lg:px-10 lg:py-8
+                            overflow-y-auto lg:overflow-y-visible">
+
+                <div className="w-full max-w-sm">
+
+                    {/* Glass card: active on mobile, stripped on desktop */}
+                    <div className="rounded-2xl border border-white/20 bg-black/45 backdrop-blur-2xl shadow-2xl p-7 sm:p-8
+                                    lg:rounded-none lg:border-0 lg:bg-transparent lg:backdrop-blur-none lg:shadow-none lg:p-0">
+
+                        <div className="mb-7 space-y-1.5 text-center">
+                            <h1 className="text-2xl font-bold tracking-tight text-white lg:text-foreground">
+                                Masuk ke Akun
+                            </h1>
+                            <p className="text-sm text-white/60 lg:text-muted-foreground">
+                                Masukkan username dan password Anda
+                            </p>
+                        </div>
+
+                        <UserAuthForm mobileGlass />
+
                     </div>
-                    <UserAuthForm />
-                    <p className="px-8 text-center text-sm text-muted-foreground">
-                        By clicking continue, you agree to our{" "}
-                        <Link
-                            href="/terms"
-                            className="underline underline-offset-4 hover:text-primary"
-                        >
-                            Terms of Service
-                        </Link>{" "}
-                        and{" "}
-                        <Link
-                            href="/privacy"
-                            className="underline underline-offset-4 hover:text-primary"
-                        >
-                            Privacy Policy
-                        </Link>
-                        .
-                    </p>
                 </div>
             </div>
+
         </div>
     );
 }

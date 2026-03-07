@@ -445,7 +445,7 @@ export default function CustomersPage() {
             </div>
 
             {/* Search */}
-            <div className="relative max-w-sm">
+            <div className="relative w-full md:max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                     type="text"
@@ -456,8 +456,115 @@ export default function CustomersPage() {
                 />
             </div>
 
-            {/* Table */}
-            <div className="glass rounded-xl border border-border overflow-hidden shadow-sm">
+            {/* Mobile Card List */}
+            <div className="md:hidden space-y-3">
+                {isLoading ? (
+                    <div className="glass rounded-xl border border-border p-10 flex flex-col items-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        <span className="text-sm">Memuat data...</span>
+                    </div>
+                ) : filtered.length === 0 ? (
+                    <div className="glass rounded-xl border border-border p-10 flex flex-col items-center gap-2 text-muted-foreground">
+                        <Users className="w-8 h-8 opacity-20" />
+                        <span className="text-sm">{searchQuery ? "Pelanggan tidak ditemukan." : "Belum ada pelanggan. Silakan tambah."}</span>
+                    </div>
+                ) : (
+                    filtered.map((c: any) => (
+                        <div key={c.id} className="glass rounded-xl border border-border p-4 space-y-3">
+                            {/* Name + badges */}
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                    <p className="font-bold text-foreground">{c.name}</p>
+                                    {c.address && (
+                                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                                            <MapPin className="w-3 h-3 shrink-0" />
+                                            <span className="truncate">{c.address}</span>
+                                        </p>
+                                    )}
+                                </div>
+                                <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${c.totalOrders > 0 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                                    {c.totalOrders}x
+                                </span>
+                            </div>
+
+                            {/* Phone + Revenue */}
+                            <div className="flex items-center justify-between gap-3 text-sm">
+                                <div>
+                                    {c.phone ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                            <span className="text-foreground">{c.phone}</span>
+                                            <a
+                                                href={`https://wa.me/${c.phone.replace(/\D/g, "")}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-1 rounded text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                                title="Buka WhatsApp"
+                                            >
+                                                <MessageCircle className="w-3.5 h-3.5" />
+                                            </a>
+                                        </div>
+                                    ) : (
+                                        <span className="text-muted-foreground text-xs">Tidak ada kontak</span>
+                                    )}
+                                </div>
+                                <div className="text-right">
+                                    {c.totalRevenue > 0 ? (
+                                        <p className="font-semibold text-emerald-600 text-sm">Rp {c.totalRevenue.toLocaleString("id-ID")}</p>
+                                    ) : (
+                                        <p className="text-muted-foreground text-xs">Belum ada transaksi</p>
+                                    )}
+                                    {c.lastOrderDate && (
+                                        <p className="text-[10px] text-muted-foreground">{dayjs(c.lastOrderDate).format("DD MMM YYYY")}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                                <button
+                                    onClick={() => setAnalyticsId(c.id)}
+                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-semibold"
+                                >
+                                    <BarChart2 className="w-3.5 h-3.5" /> Detail Analitik
+                                </button>
+                                <button
+                                    onClick={() => openModal(c)}
+                                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                                    title="Edit"
+                                >
+                                    <Edit2 className="w-4 h-4" />
+                                </button>
+                                {deletingId === c.id ? (
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-xs text-destructive font-medium">Hapus?</span>
+                                        <button onClick={() => deleteMutation.mutate(c.id)} disabled={deleteMutation.isPending} className="p-1.5 rounded text-destructive hover:bg-destructive/10 transition-colors">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => setDeletingId(null)} className="p-1.5 rounded text-muted-foreground hover:bg-muted transition-colors">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setDeletingId(c.id)}
+                                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                                        title="Hapus"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))
+                )}
+                {filtered.length > 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-1">{filtered.length} pelanggan</p>
+                )}
+            </div>
+
+            {/* Desktop Table */}
+            <div className="hidden md:block glass rounded-xl border border-border overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50 text-muted-foreground uppercase text-xs font-semibold">

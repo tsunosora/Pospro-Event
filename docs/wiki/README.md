@@ -27,6 +27,7 @@ Yang membedakan PosPro dari kasir biasa adalah **ekosistemnya yang lengkap**: bu
 | 9 | [💰 Cashflow Bisnis](cashflow.md) | Arus kas pemasukan & pengeluaran, chart, export |
 | 10 | [📄 Invoice & Penawaran Harga](invoice-sph.md) | Buat invoice & SPH profesional untuk klien B2B |
 | 11 | [🗺️ Peta Cuan Lokasi](peta-cuan.md) | Peta cabang, kompetitor, dan pencarian bisnis |
+| 12 | [🎨 Tampilan Login](#-10-pengaturan-tampilan-halaman-login) | Upload foto latar, atur tagline, animated logo |
 
 ---
 
@@ -267,6 +268,36 @@ Bot WhatsApp berjalan langsung di dalam server PosPro — tidak perlu aplikasi a
 ### Jika Bot Terputus
 
 Masuk ke **Pengaturan → WhatsApp Bot**, klik **Logout & Restart Bot**, lalu scan QR Code ulang.
+
+---
+
+## 🎨 10. Pengaturan Tampilan Halaman Login
+
+Pemilik toko dapat menyesuaikan tampilan halaman login agar sesuai dengan identitas brand.
+
+Buka **Pengaturan → Tampilan Login** untuk mengakses pengaturan ini.
+
+### Gambar Latar (Background Slideshow)
+
+- Klik **Upload Gambar** untuk mengunggah foto (JPG, PNG, WEBP)
+- Bisa upload beberapa foto sekaligus
+- Foto akan tampil bergantian setiap **6 detik** dengan efek **Ken Burns** (zoom + geser halus) otomatis
+- Klik ikon **×** pada thumbnail untuk menghapus gambar
+- Jika tidak ada gambar yang diupload, halaman login menggunakan **gradient gelap** bawaan
+
+### Tagline / Slogan
+
+Teks yang berganti-ganti di bagian bawah panel kiri halaman login.
+
+- Ketik tagline di kolom input, lalu klik **Tambah** (atau tekan Enter)
+- Tagline berganti setiap **5 detik**
+- Jika tidak ada tagline, tampil default: *"Solusi POS Terpadu untuk Bisnis Anda"*
+
+### Logo & Nama Toko
+
+Logo dan nama toko yang tampil di pojok kiri atas panel login diambil **otomatis** dari pengaturan **Profil Toko** — tidak perlu diatur ulang di sini.
+
+> Setelah mengubah gambar atau tagline, klik **Simpan Perubahan** agar tersimpan.
 
 ---
 

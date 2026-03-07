@@ -213,7 +213,7 @@ export default function BankAccountsPage() {
                                     <p className="font-semibold text-blue-800 flex items-center gap-2">
                                         <Pencil className="w-4 h-4" /> Edit Rekening — {bank.bankName}
                                     </p>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="space-y-1">
                                             <Label className="text-xs">Nama Bank</Label>
                                             <Input value={editData.bankName || ''} onChange={e => setEditData(p => ({ ...p, bankName: e.target.value }))} placeholder="BCA" />
@@ -273,7 +273,7 @@ export default function BankAccountsPage() {
                         <CardDescription>Isi data rekening bank yang ingin ditambahkan.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1">
                                 <Label>Nama Bank *</Label>
                                 <Input value={newBank.bankName} onChange={e => setNewBank(p => ({ ...p, bankName: e.target.value }))} placeholder="Contoh: BCA, Mandiri, BNI" />
@@ -282,7 +282,7 @@ export default function BankAccountsPage() {
                                 <Label>Nomor Rekening *</Label>
                                 <Input value={newBank.accountNumber} onChange={e => setNewBank(p => ({ ...p, accountNumber: e.target.value }))} placeholder="1234567890" />
                             </div>
-                            <div className="col-span-2 space-y-1">
+                            <div className="col-span-1 sm:col-span-2 space-y-1">
                                 <Label>Nama Pemilik Rekening *</Label>
                                 <Input value={newBank.accountOwner} onChange={e => setNewBank(p => ({ ...p, accountOwner: e.target.value }))} placeholder="Nama di rekening" />
                             </div>

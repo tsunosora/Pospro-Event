@@ -165,6 +165,16 @@ export const deleteRole = async (id: number) => (await api.delete(`/users/roles/
 // Store Settings
 export const getSettings = async () => (await api.get('/settings')).data;
 export const updateSettings = async (data: any) => (await api.patch('/settings', data)).data;
+export const getPublicSettings = async () => {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const res = await fetch(`${base}/settings/public`, { cache: 'no-store' });
+    return res.json();
+};
+export const uploadLoginBgImage = async (file: File) => {
+    const fd = new FormData();
+    fd.append('image', file);
+    return (await api.post('/settings/upload-login-bg', fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
+};
 export const uploadQrisImage = async (file: File) => {
     const formData = new FormData();
     formData.append('image', file);

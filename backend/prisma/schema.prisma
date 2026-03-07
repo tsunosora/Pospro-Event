@@ -380,6 +380,8 @@ model StoreSettings {
   enableAdvancedPricing Boolean   @default(false) @map("enable_advanced_pricing")
   enableTax             Boolean   @default(true) @map("enable_tax")
   taxRate               Decimal   @default(10) @map("tax_rate") @db.Decimal(5, 2)
+  loginBgImages         String?   @map("login_bg_images") @db.Text
+  loginTaglines         String?   @map("login_taglines") @db.Text
   createdAt             DateTime? @default(now()) @map("created_at")
   updatedAt             DateTime? @default(now()) @updatedAt @map("updated_at")
 

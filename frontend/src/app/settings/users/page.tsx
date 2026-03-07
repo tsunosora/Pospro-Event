@@ -268,7 +268,7 @@ export default function UserManagementSettings() {
                             <button onClick={() => setUserModal({ ...userModal, isOpen: false })} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
                         </div>
                         <form onSubmit={handleSaveUser} className="p-5 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="text-sm font-medium text-muted-foreground">Nama Lengkap</label>
                                     <input type="text" required value={userModal.name} onChange={e => setUserModal({ ...userModal, name: e.target.value })}

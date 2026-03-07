@@ -80,7 +80,7 @@ export default function GeneralSettings() {
 
             <form onSubmit={handleSave} className="space-y-6">
                 {/* Logo Upload */}
-                <div className="glass p-5 rounded-xl border border-border flex items-center gap-6">
+                <div className="glass p-5 rounded-xl border border-border flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
                     <div className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-border rounded-xl bg-muted/20 hover:bg-muted/50 transition-colors relative group overflow-hidden shrink-0">
                         {logoUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element

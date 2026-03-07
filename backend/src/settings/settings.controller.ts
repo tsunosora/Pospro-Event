@@ -5,29 +5,35 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 
+const randomHex = () => Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+
 @Controller('settings')
-@UseGuards(JwtAuthGuard)
 export class SettingsController {
     constructor(private readonly settingsService: SettingsService) { }
 
+    @Get('public')
+    getPublicSettings() {
+        return this.settingsService.getPublicSettings();
+    }
+
     @Get()
+    @UseGuards(JwtAuthGuard)
     getSettings() {
         return this.settingsService.getSettings();
     }
 
     @Patch()
+    @UseGuards(JwtAuthGuard)
     updateSettings(@Body() data: any) {
         return this.settingsService.updateSettings(data);
     }
 
     @Post('upload-qris')
+    @UseGuards(JwtAuthGuard)
     @UseInterceptors(FileInterceptor('image', {
         storage: diskStorage({
             destination: './public/uploads',
-            filename: (req, file, cb) => {
-                const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-                cb(null, `${randomName}${extname(file.originalname)}`);
-            }
+            filename: (req, file, cb) => cb(null, `${randomHex()}${extname(file.originalname)}`),
         })
     }))
     async uploadQrisImage(@UploadedFile() file: Express.Multer.File) {
@@ -37,18 +43,28 @@ export class SettingsController {
     }
 
     @Post('upload-logo')
+    @UseGuards(JwtAuthGuard)
     @UseInterceptors(FileInterceptor('image', {
         storage: diskStorage({
             destination: './public/uploads',
-            filename: (req, file, cb) => {
-                const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-                cb(null, `${randomName}${extname(file.originalname)}`);
-            }
+            filename: (req, file, cb) => cb(null, `${randomHex()}${extname(file.originalname)}`),
         })
     }))
     async uploadLogoImage(@UploadedFile() file: Express.Multer.File) {
         const fileUrl = `/uploads/${file.filename}`;
         await this.settingsService.updateLogoImage(fileUrl);
         return { url: fileUrl };
+    }
+
+    @Post('upload-login-bg')
+    @UseGuards(JwtAuthGuard)
+    @UseInterceptors(FileInterceptor('image', {
+        storage: diskStorage({
+            destination: './public/uploads',
+            filename: (req, file, cb) => cb(null, `loginbg_${randomHex()}${extname(file.originalname)}`),
+        })
+    }))
+    async uploadLoginBgImage(@UploadedFile() file: Express.Multer.File) {
+        return { url: `/uploads/${file.filename}` };
     }
 }

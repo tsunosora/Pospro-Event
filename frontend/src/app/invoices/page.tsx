@@ -441,7 +441,7 @@ function FormModal({
                             <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                                 <Building2 className="h-4 w-4 text-primary" /> Informasi Klien
                             </h4>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-1">
                                     <label className="text-xs font-medium text-muted-foreground">Nama PIC / Kontak *</label>
                                     <input required value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Nama narahubung" className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
@@ -458,7 +458,7 @@ function FormModal({
                                     <label className="text-xs font-medium text-muted-foreground"><Mail className="h-3 w-3 inline mr-1" />Email</label>
                                     <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="email@perusahaan.com" className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                                 </div>
-                                <div className="col-span-2 space-y-1">
+                                <div className="col-span-1 sm:col-span-2 space-y-1">
                                     <label className="text-xs font-medium text-muted-foreground"><MapPin className="h-3 w-3 inline mr-1" />Alamat Lengkap</label>
                                     <textarea rows={2} value={clientAddress} onChange={e => setClientAddress(e.target.value)} placeholder="Jl. ..." className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
                                 </div>
@@ -499,8 +499,8 @@ function FormModal({
                             </div>
 
                             <div className="space-y-3">
-                                {/* Header */}
-                                <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-1">
+                                {/* Header - hidden on mobile */}
+                                <div className="hidden sm:grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-1">
                                     <span className="col-span-5">Deskripsi / Nama Produk</span>
                                     <span className="col-span-2">Satuan</span>
                                     <span className="col-span-1 text-center">Qty</span>
@@ -513,7 +513,7 @@ function FormModal({
                                         {/* Main row */}
                                         <div className="grid grid-cols-12 gap-2 items-center">
                                             {/* Description + catalog picker */}
-                                            <div className="col-span-5 relative" ref={openPickerIdx === idx ? pickerRef : null}>
+                                            <div className="col-span-12 sm:col-span-5 relative" ref={openPickerIdx === idx ? pickerRef : null}>
                                                 <div className="flex gap-1">
                                                     <input
                                                         required
@@ -578,9 +578,9 @@ function FormModal({
 
                                             {/* Unit — locked to m² when area mode */}
                                             {item.isAreaBased ? (
-                                                <div className="col-span-2 flex items-center justify-center h-9 bg-blue-500/5 border border-blue-500/20 rounded-lg text-xs font-semibold text-blue-600">m²</div>
+                                                <div className="col-span-4 sm:col-span-2 flex items-center justify-center h-9 bg-blue-500/5 border border-blue-500/20 rounded-lg text-xs font-semibold text-blue-600">m²</div>
                                             ) : (
-                                                <select value={item.unit} onChange={e => handleItemChange(idx, "unit", e.target.value)} className="col-span-2 bg-background border border-input rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                                <select value={item.unit} onChange={e => handleItemChange(idx, "unit", e.target.value)} className="col-span-4 sm:col-span-2 bg-background border border-input rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                                                     {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                                     {item.unit && !UNITS.includes(item.unit) && <option value={item.unit}>{item.unit}</option>}
                                                 </select>
@@ -588,19 +588,19 @@ function FormModal({
 
                                             {/* Qty — shows calculated area when area mode */}
                                             {item.isAreaBased ? (
-                                                <div className="col-span-1 flex items-center justify-center h-9 bg-blue-500/5 border border-blue-500/20 rounded-lg text-xs font-semibold text-blue-600">
+                                                <div className="col-span-2 sm:col-span-1 flex items-center justify-center h-9 bg-blue-500/5 border border-blue-500/20 rounded-lg text-xs font-semibold text-blue-600">
                                                     {item.quantity}
                                                 </div>
                                             ) : (
-                                                <input required type="number" min="0.01" step="0.01" value={item.quantity} onChange={e => handleItemChange(idx, "quantity", parseFloat(e.target.value) || 0)} className="col-span-1 bg-background border border-input rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                                <input required type="number" min="0.01" step="0.01" value={item.quantity} onChange={e => handleItemChange(idx, "quantity", parseFloat(e.target.value) || 0)} className="col-span-2 sm:col-span-1 bg-background border border-input rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
                                             )}
 
                                             {/* Price */}
-                                            <input required type="number" min="0" value={item.price} onChange={e => handleItemChange(idx, "price", e.target.value)} placeholder="0" className="col-span-2 bg-background border border-input rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                            <input required type="number" min="0" value={item.price} onChange={e => handleItemChange(idx, "price", e.target.value)} placeholder="0" className="col-span-4 sm:col-span-2 bg-background border border-input rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/50" />
 
                                             {/* Subtotal + area toggle + delete */}
                                             <div className="col-span-2 flex items-center justify-end gap-1">
-                                                <span className="text-xs text-muted-foreground mr-1">{fmt(item.quantity * item.price)}</span>
+                                                <span className="hidden sm:inline text-xs text-muted-foreground mr-1">{fmt(item.quantity * item.price)}</span>
                                                 {/* Area mode toggle */}
                                                 <button type="button" onClick={() => toggleAreaMode(idx)}
                                                     title={item.isAreaBased ? "Kembali ke mode qty normal" : "Aktifkan mode ukuran (m²)"}
@@ -818,8 +818,88 @@ export default function InvoicesPage() {
                 </div>
             )}
 
-            {/* Table */}
-            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+            {/* Mobile Card List */}
+            <div className="md:hidden space-y-3">
+                {isLoading ? (
+                    <div className="glass rounded-xl border border-border p-10 flex flex-col items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                        <span className="text-sm">Memuat data...</span>
+                    </div>
+                ) : docs.length === 0 ? (
+                    <div className="glass rounded-xl border border-border p-10 text-center text-sm text-muted-foreground">
+                        Belum ada {activeTab === "INVOICE" ? "invoice" : "penawaran harga"}. Klik tombol di atas untuk membuat.
+                    </div>
+                ) : docs.map((doc) => {
+                    const dateField = activeTab === "INVOICE" ? doc.dueDate : doc.validUntil;
+                    const isOverdue = dateField && dayjs(dateField).isBefore(dayjs()) && doc.status === "SENT";
+                    const nextSts = nextStatuses[doc.status] ?? [];
+                    return (
+                        <div key={doc.id} className="glass rounded-xl border border-border p-4 space-y-3">
+                            {/* Top row: number + status + total */}
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                    <p className="font-mono font-bold text-primary text-sm">{doc.invoiceNumber}</p>
+                                    <p className="font-semibold text-foreground">{doc.clientName}</p>
+                                    {doc.clientCompany && <p className="text-xs text-muted-foreground">{doc.clientCompany}</p>}
+                                </div>
+                                <div className="text-right shrink-0">
+                                    <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${STATUS_CONFIG[doc.status].className}`}>
+                                        {STATUS_CONFIG[doc.status].label}
+                                    </span>
+                                    <p className="font-bold text-foreground mt-1">{fmt(parseFloat(doc.total))}</p>
+                                </div>
+                            </div>
+
+                            {/* Date info */}
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <span>Dibuat: {dayjs(doc.date).format("DD MMM YYYY")}</span>
+                                {dateField && (
+                                    <span className={isOverdue ? "text-destructive font-medium" : ""}>
+                                        {activeTab === "INVOICE" ? "Jatuh Tempo" : "Berlaku s/d"}: {dayjs(dateField).format("DD MMM YYYY")}
+                                        {isOverdue && " ⚠ Overdue"}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-1.5 pt-1 border-t border-border/50 flex-wrap">
+                                {nextSts.map(ns => (
+                                    <button key={ns} onClick={() => statusMutation.mutate({ id: doc.id, status: ns })}
+                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${ns === "PAID" || ns === "ACCEPTED" ? "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100" : ns === "CANCELLED" || ns === "REJECTED" ? "border-destructive/20 text-destructive bg-destructive/5 hover:bg-destructive/10" : "border-primary/20 text-primary bg-primary/5 hover:bg-primary/10"}`}>
+                                        {ns === "PAID" || ns === "ACCEPTED" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                                        {STATUS_CONFIG[ns].label}
+                                    </button>
+                                ))}
+                                {activeTab === "QUOTATION" && doc.status === "ACCEPTED" && (
+                                    <button onClick={() => convertMutation.mutate(doc.id)}
+                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-primary/20 text-primary bg-primary/5 hover:bg-primary/10 transition-colors">
+                                        <FileText className="h-3.5 w-3.5" /> Jadi Invoice
+                                    </button>
+                                )}
+                                <div className="flex items-center gap-1 ml-auto">
+                                    <button onClick={() => setPreviewDoc(doc)} title="Preview & Cetak"
+                                        className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+                                        <Eye className="h-4 w-4" />
+                                    </button>
+                                    {doc.status === "DRAFT" && (
+                                        <button onClick={() => { setEditDoc(doc); setFormMode("edit"); }} title="Edit"
+                                            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+                                            <Pencil className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                    <button onClick={() => setDeleteId(doc.id)} title="Hapus"
+                                        className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Desktop Table */}
+            <div className="hidden md:block bg-card rounded-xl border border-border shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-border">
                         <thead className="bg-muted/50">

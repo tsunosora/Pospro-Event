@@ -5,8 +5,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import {
     Plus, Pencil, Trash2, Layers, Search, X, Loader2,
-    Building2, Target, MapPin, TrendingUp, Eye, EyeOff, Info
+    Building2, Target, MapPin, TrendingUp, Eye, EyeOff, Info, Menu
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
     getBranches, createBranch, updateBranch, deleteBranch,
     getCompetitors, createCompetitor, updateCompetitor, deleteCompetitor
@@ -182,6 +183,7 @@ export default function MapsPage() {
 
     // Sidebar
     const [activeTab, setActiveTab] = useState<"branches" | "competitors">("branches");
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
     // Layers visibility
     const [layers, setLayers] = useState<LayersType>({ branches: true, competitors: true, searchResults: true });
@@ -254,35 +256,42 @@ export default function MapsPage() {
     return (
         <div className="flex flex-col h-full space-y-0 -m-6 overflow-hidden" style={{ height: "calc(100vh - 64px)" }}>
             {/* Top bar */}
-            <div className="shrink-0 px-6 py-3 bg-card border-b border-border flex items-center justify-between gap-4 flex-wrap">
-                <div>
+            <div className="shrink-0 px-3 sm:px-6 py-3 bg-card border-b border-border flex items-center gap-2 sm:gap-4">
+                {/* Mobile sidebar toggle */}
+                <button
+                    onClick={() => setMobileSidebarOpen(o => !o)}
+                    className="lg:hidden shrink-0 p-2 rounded-lg border border-input text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                    <Menu className="h-4 w-4" />
+                </button>
+
+                <div className="hidden sm:block shrink-0">
                     <h1 className="text-lg font-bold text-foreground">Peta Cuan Lokasi</h1>
-                    <p className="text-xs text-muted-foreground">Analisis lokasi cabang & kompetitor bisnis</p>
+                    <p className="text-xs text-muted-foreground">Analisis lokasi cabang &amp; kompetitor bisnis</p>
                 </div>
 
                 {/* Keyword search */}
-                <div className="flex items-center gap-2 flex-1 max-w-md">
-                    <div className="flex-1 flex items-center gap-2 bg-background border border-input rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="flex-1 flex items-center gap-2 bg-background border border-input rounded-lg px-3 py-2 min-w-0">
                         <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                         <input
                             value={keyword}
                             onChange={e => setKeyword(e.target.value)}
                             onKeyDown={e => e.key === "Enter" && handleKeywordSearch()}
-                            placeholder="Cari bisnis di peta... (Digital Printing, Sablon, dll.)"
-                            className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground"
+                            placeholder="Cari bisnis di peta..."
+                            className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground min-w-0"
                         />
-                        {keyword && <button onClick={clearSearch} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>}
+                        {keyword && <button onClick={clearSearch} className="text-muted-foreground hover:text-foreground shrink-0"><X className="h-3.5 w-3.5" /></button>}
                     </div>
                     <button onClick={handleKeywordSearch} disabled={searching || !keyword.trim()}
-                        className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+                        className="shrink-0 flex items-center gap-2 bg-primary text-primary-foreground px-3 sm:px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
                         {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                        Cari
+                        <span className="hidden sm:inline">Cari</span>
                     </button>
                 </div>
 
-                {/* Layer toggles */}
-                <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground hidden sm:block">Layer:</span>
+                {/* Layer toggles - hidden on mobile */}
+                <div className="hidden md:flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground">Layer:</span>
                     {([
                         { key: "branches" as const, label: "Cabang", color: "#22c55e" },
                         { key: "competitors" as const, label: "Kompetitor", color: "#ef4444" },
@@ -299,9 +308,20 @@ export default function MapsPage() {
             </div>
 
             {/* Main content: sidebar + map */}
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 overflow-hidden relative">
+                {/* Mobile backdrop */}
+                {mobileSidebarOpen && (
+                    <div
+                        className="lg:hidden absolute inset-0 z-[240] bg-background/60 backdrop-blur-sm"
+                        onClick={() => setMobileSidebarOpen(false)}
+                    />
+                )}
+
                 {/* Left sidebar */}
-                <div className="w-72 shrink-0 flex flex-col bg-card border-r border-border overflow-hidden">
+                <div className={cn(
+                    "w-72 shrink-0 flex-col bg-card border-r border-border overflow-hidden",
+                    mobileSidebarOpen ? "absolute inset-y-0 left-0 z-[250] flex shadow-2xl" : "hidden lg:flex"
+                )}>
                     {/* Tabs */}
                     <div className="flex border-b border-border shrink-0">
                         <button onClick={() => setActiveTab("branches")}

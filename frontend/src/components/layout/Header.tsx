@@ -80,10 +80,10 @@ export function Header() {
                     <button
                         type="button"
                         onClick={() => router.push('/pos/close-shift')}
-                        className="hidden sm:flex items-center gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors border border-indigo-200"
+                        className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-2.5 sm:px-3 py-1.5 rounded-full text-sm font-semibold transition-colors border border-indigo-200"
                     >
-                        <FileText className="h-4 w-4" />
-                        Laporan Shift
+                        <FileText className="h-4 w-4 shrink-0" />
+                        <span className="hidden sm:inline">Laporan Shift</span>
                     </button>
 
                     {/* Notifikasi Bell */}

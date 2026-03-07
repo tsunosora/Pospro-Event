@@ -90,12 +90,19 @@ Cukup buka browser, tap, dan transaksi selesai — tanpa perlu instalasi aplikas
 | `!botadmin listgroups` | Lihat semua grup terdaftar |
 | `!botadmin setreportgroup [ID]` | Atur grup tujuan laporan shift |
 
-### 🔐 11. Sistem Autentikasi & Role
+### 🎨 11. Kustomisasi Tampilan Halaman Login
+- Upload beberapa **foto latar** yang berganti otomatis dengan efek **Ken Burns** (zoom + geser halus)
+- Atur **tagline / slogan** toko yang tampil bergantian di panel login
+- Logo dan nama toko mengikuti pengaturan di **Profil Toko** secara otomatis
+- **Animated logo** Voliko dengan efek stroke draw-in dan letter pop-in
+- Tampilan login **responsif penuh** — di HP menggunakan glass-morphism card di atas background animasi, di desktop split-panel dua kolom
+
+### 🔐 12. Sistem Autentikasi & Role
 - Login dengan email & password
 - Sistem **token JWT** yang aman
 - Multi-role: Admin, Kasir, Manager, Owner
 
-### 👥 12. Data Pelanggan (CRM)
+### 👥 13. Data Pelanggan (CRM)
 - Database pelanggan toko dengan riwayat transaksi
 - Statistik per pelanggan: total belanja, frekuensi, rata-rata transaksi
 - Export data pelanggan
@@ -119,6 +126,12 @@ Cukup buka browser, tap, dan transaksi selesai — tanpa perlu instalasi aplikas
 ├── /reports/profit         → Laporan profit & margin
 ├── /reports/hpp            → Kalkulator HPP
 └── /settings               → Pengaturan toko, bot WhatsApp, rekening bank
+    ├── /settings/general       → Profil toko (nama, logo, pajak)
+    ├── /settings/payments      → Metode pembayaran & QRIS
+    ├── /settings/users         → Manajemen staf / akun kasir
+    ├── /settings/whatsapp      → Bot WhatsApp QR & konfigurasi grup
+    ├── /settings/bank-accounts → Rekening bank & reset saldo
+    └── /settings/login         → Kustomisasi tampilan halaman login
 ```
 
 ---
@@ -544,6 +557,7 @@ Pos-Web-Application/
 - [x] Invoice Generator profesional
 - [x] Penawaran Harga / SPH untuk klien B2B
 - [x] Peta Cuan Lokasi
+- [x] Kustomisasi tampilan halaman login (background slideshow, taglines, animated logo)
 - [ ] Mode offline (PWA)
 - [ ] Notifikasi stok menipis otomatis
 - [ ] Fitur loyalty point pelanggan

@@ -4,6 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { getProducts, getSettings, getBankAccounts, getCustomers, createCustomer, getUsers } from '@/lib/api';
 import { createTransaction } from '@/lib/transactions';
 import { Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle2, Ruler, X, RefreshCw, StickyNote, Printer, MessageCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useCartStore, CartItem } from '@/store/cart-store';
 import { useState, useMemo, useCallback } from 'react';
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
@@ -43,6 +44,7 @@ export default function POSPage() {
         }
     });
 
+    const [mobileCartOpen, setMobileCartOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
     const [searchQuery, setSearchQuery] = useState('');
     const [isCheckoutModalOpen, setCheckoutModalOpen] = useState(false);
@@ -397,18 +399,50 @@ export default function POSPage() {
                 </div>
             </div>
 
-            {/* Cart Sidebar */}
-            <div className="w-[400px] flex flex-col glass rounded-xl overflow-hidden shadow-sm shrink-0">
-                <div className="p-4 bg-primary text-primary-foreground flex items-center justify-between">
+            {/* Mobile Cart FAB */}
+            <button
+                onClick={() => setMobileCartOpen(true)}
+                className="md:hidden fixed bottom-6 right-6 z-[200] bg-primary text-primary-foreground rounded-full w-16 h-16 shadow-2xl flex items-center justify-center active:scale-95 transition-transform">
+                <ShoppingCart className="h-7 w-7" />
+                {cart.length > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] bg-destructive text-white text-[11px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+                        {cart.reduce((s, i) => s + i.qty, 0)}
+                    </span>
+                )}
+            </button>
+
+            {/* Mobile backdrop */}
+            {mobileCartOpen && (
+                <div
+                    className="md:hidden fixed inset-0 z-[290] bg-background/60 backdrop-blur-sm"
+                    onClick={() => setMobileCartOpen(false)}
+                />
+            )}
+
+            {/* Cart — desktop sidebar / mobile bottom sheet */}
+            <div className={cn(
+                "flex-col bg-card border-border overflow-hidden shadow-sm",
+                // Desktop: normal static sidebar
+                "md:static md:flex md:w-[380px] md:shrink-0 md:rounded-xl md:border",
+                // Mobile: fixed bottom sheet
+                "fixed inset-x-0 bottom-0 z-[300] rounded-t-2xl border-t max-h-[85vh]",
+                mobileCartOpen ? "flex" : "hidden md:flex"
+            )}>
+                <div className="p-4 bg-primary text-primary-foreground flex items-center justify-between md:rounded-t-xl rounded-t-2xl shrink-0">
                     <div className="flex items-center gap-2 font-semibold">
                         <ShoppingCart className="h-5 w-5" />
                         Keranjang ({cart.length} baris)
                     </div>
+                    <div className="flex items-center gap-2">
                     {cart.length > 0 && (
                         <button onClick={clearCart} className="text-primary-foreground/70 hover:text-primary-foreground" title="Kosongkan">
                             <Trash2 className="h-5 w-5" />
                         </button>
                     )}
+                    <button onClick={() => setMobileCartOpen(false)} className="md:hidden text-primary-foreground/70 hover:text-primary-foreground" title="Tutup">
+                        <X className="h-5 w-5" />
+                    </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -504,7 +538,7 @@ export default function POSPage() {
                         <span className="font-medium">Grand Total</span>
                         <span className="text-2xl font-bold text-primary">Rp {grandTotal.toLocaleString('id-ID')}</span>
                     </div>
-                    <button onClick={() => setCheckoutModalOpen(true)} disabled={cart.length === 0}
+                    <button onClick={() => { setCheckoutModalOpen(true); setMobileCartOpen(false); }} disabled={cart.length === 0}
                         className="w-full py-3.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-bold transition-all shadow-md active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 text-base mt-2">
                         Proses Pembayaran
                     </button>
@@ -513,7 +547,7 @@ export default function POSPage() {
 
             {/* Area Input Modal (Add + Edit with note) */}
             {areaModal.open && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
                     <div className="glass bg-card w-full max-w-sm rounded-2xl border border-border shadow-2xl overflow-hidden">
                         <div className="p-5 border-b border-border flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -620,7 +654,7 @@ export default function POSPage() {
 
             {/* Note Input Modal (For UNIT Products) */}
             {unitNoteModal.open && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
                     <div className="glass bg-card w-full max-w-sm rounded-2xl border border-border shadow-2xl overflow-hidden p-5">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="font-bold text-sm flex items-center gap-2">
@@ -655,7 +689,7 @@ export default function POSPage() {
 
             {/* ===== CHECKOUT MODAL (redesigned) ===== */}
             {isCheckoutModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
                     <div className="glass bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden max-h-[92vh] relative">
 
                         {/* === CONFIRM PAYMENT OVERLAY === */}
@@ -883,7 +917,7 @@ export default function POSPage() {
 
             {/* ===== RECEIPT MODAL (after successful payment) ===== */}
             {receipt && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
                     <div className="glass bg-card w-full max-w-md rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
                         {/* Success header */}
                         <div className={`p-6 border-b text-center space-y-2 ${receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
@@ -981,7 +1015,7 @@ export default function POSPage() {
             )}
             {/* Customer Search Sub-Modal */}
             {isCustomerModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in">
+                <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-background rounded-3xl shadow-xl border border-border w-full max-w-md p-6 relative animate-in zoom-in-95 duration-200">
                         <button
                             onClick={() => { setCustomerModalOpen(false); setCustomerSearchQuery(''); }}

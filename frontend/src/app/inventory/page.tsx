@@ -245,7 +245,107 @@ export default function InventoryPage() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* ── Mobile card list ── */}
+                <div className="md:hidden divide-y divide-border/50">
+                    {isLoading ? (
+                        <div className="py-10 text-center text-muted-foreground">Memuat data produk...</div>
+                    ) : error ? (
+                        <div className="py-10 text-center text-destructive">Gagal memuat produk.</div>
+                    ) : rows.length === 0 ? (
+                        <div className="py-10 text-center text-muted-foreground">
+                            <Package className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                            {searchText || hasActiveFilters ? 'Tidak ada produk yang cocok.' : 'Belum ada produk.'}
+                        </div>
+                    ) : rows.map(({ product, variant, isFirst }) => {
+                        const productImages = product.imageUrls ? (() => { try { return JSON.parse(product.imageUrls); } catch { return []; } })() : [];
+                        const avatarSrc = variant.variantImageUrl || productImages[0] || product.imageUrl;
+                        const typeCfg = PRODUCT_TYPE_CONFIG[product.productType || 'SELLABLE'];
+                        return (
+                            <div key={variant.id} className="p-4 hover:bg-muted/20 transition-colors">
+                                <div className="flex items-start gap-3">
+                                    {/* Thumbnail */}
+                                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden border border-border shrink-0">
+                                        {avatarSrc
+                                            ? <img src={`${API_BASE}${avatarSrc}`} alt={product.name} className="w-full h-full object-cover" />
+                                            : <ImageIcon className="w-5 h-5 text-muted-foreground/40" />}
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        {/* Name + stock */}
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-sm text-foreground truncate">{product.name}</p>
+                                                <p className="text-xs text-muted-foreground font-mono">{variant.sku}</p>
+                                                {variant.variantName && <p className="text-xs text-muted-foreground">{variant.variantName}</p>}
+                                                {(variant.size || variant.color) && (
+                                                    <div className="flex gap-1 mt-0.5">
+                                                        {variant.size && <span className="text-[10px] border border-border rounded px-1 text-muted-foreground">{variant.size}</span>}
+                                                        {variant.color && <span className="text-[10px] border border-border rounded px-1 text-muted-foreground">{variant.color}</span>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Stock */}
+                                            <div className="shrink-0 text-right">
+                                                <p className={`text-lg font-bold leading-none ${variant.stock < 10 ? 'text-destructive' : 'text-foreground'}`}>{variant.stock}</p>
+                                                <p className="text-[10px] text-muted-foreground mt-0.5">stok</p>
+                                                {variant.stock < 10 && <span className="text-[10px] text-destructive font-medium">Menipis</span>}
+                                            </div>
+                                        </div>
+
+                                        {/* Price row + badges */}
+                                        <div className="flex items-center flex-wrap gap-2 mt-1.5">
+                                            <span className="text-sm font-bold text-primary">Rp {Number(variant.price).toLocaleString('id-ID')}</span>
+                                            {Number(variant.hpp) > 0 && (
+                                                <span className="text-xs text-muted-foreground">Modal: Rp {Number(variant.hpp).toLocaleString('id-ID')}</span>
+                                            )}
+                                            {isFirst && product.category?.name && (
+                                                <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{product.category.name}</span>
+                                            )}
+                                            {isFirst && typeCfg && (
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${typeCfg.className}`}>{typeCfg.label}</span>
+                                            )}
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-2 mt-2.5">
+                                            <button onClick={() => openMovementModal(variant)}
+                                                className="flex items-center gap-1 text-primary text-xs border border-primary/20 bg-primary/10 px-2.5 py-1.5 rounded-lg">
+                                                <RefreshCw className="h-3 w-3" /> Sesuaikan Stok
+                                            </button>
+                                            {isFirst && (
+                                                <>
+                                                    <button onClick={() => router.push(`/inventory/products/${product.id}/edit`)}
+                                                        className="flex items-center gap-1 text-xs border border-border bg-muted/50 px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors">
+                                                        <Pencil className="h-3 w-3" /> Edit
+                                                    </button>
+                                                    {deletingProductId === product.id ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-xs text-destructive">Hapus?</span>
+                                                            <button onClick={() => deleteMutation.mutate(product.id)} disabled={deleteMutation.isPending} className="p-1.5 rounded text-destructive hover:bg-destructive/10 transition-colors">
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </button>
+                                                            <button onClick={() => setDeletingProductId(null)} className="p-1.5 rounded text-muted-foreground hover:bg-muted transition-colors">
+                                                                <X className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <button onClick={() => setDeletingProductId(product.id)}
+                                                            className="p-1.5 rounded text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors">
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* ── Desktop table ── */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="min-w-full divide-y divide-border">
                         <thead className="bg-muted/50">
                             <tr>
@@ -272,10 +372,8 @@ export default function InventoryPage() {
                                 </tr>
                             ) : (
                                 rows.map(({ product, variant, isFirst }) => {
-                                    // Get avatar image: prefer variant image, then product first image
                                     const productImages = product.imageUrls ? (() => { try { return JSON.parse(product.imageUrls); } catch { return []; } })() : [];
                                     const avatarSrc = variant.variantImageUrl || productImages[0] || product.imageUrl;
-
                                     return (
                                         <tr key={variant.id} className="hover:bg-muted/30 transition-colors group">
                                             <td className="px-5 py-4 whitespace-nowrap">

@@ -9,9 +9,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
 
-interface UserAuthFormProps extends React.HTMLAttributes<HTMLDivElement> { }
+interface UserAuthFormProps extends React.HTMLAttributes<HTMLDivElement> {
+    mobileGlass?: boolean;
+}
 
-export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
+export function UserAuthForm({ className, mobileGlass, ...props }: UserAuthFormProps) {
     const router = useRouter()
     const [isLoading, setIsLoading] = React.useState<boolean>(false)
     const [isRegistering, setIsRegistering] = React.useState<boolean>(false)
@@ -30,7 +32,8 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
         const email = target.email.value;
         const password = target.password.value;
 
-        const endpoint = isRegistering ? 'http://localhost:3001/auth/register' : 'http://localhost:3001/auth/login';
+        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const endpoint = isRegistering ? `${base}/auth/register` : `${base}/auth/login`;
 
         try {
             const res = await fetch(endpoint, {
@@ -71,9 +74,7 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
             <form onSubmit={onSubmit}>
                 <div className="grid gap-4">
                     <div className="grid gap-2">
-                        <Label className="sr-only" htmlFor="email">
-                            Email
-                        </Label>
+                        <Label className="sr-only" htmlFor="email">Email</Label>
                         <Input
                             id="email"
                             placeholder="name@example.com"
@@ -83,12 +84,11 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                             autoCorrect="off"
                             disabled={isLoading}
                             required
+                            className={mobileGlass ? "bg-white/10 border-white/25 text-white placeholder:text-white/40 focus-visible:ring-white/30 lg:bg-background lg:border-input lg:text-foreground lg:placeholder:text-muted-foreground" : ""}
                         />
                     </div>
                     <div className="grid gap-2">
-                        <Label className="sr-only" htmlFor="password">
-                            Password
-                        </Label>
+                        <Label className="sr-only" htmlFor="password">Password</Label>
                         <Input
                             id="password"
                             placeholder="Password"
@@ -97,6 +97,7 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                             autoComplete="current-password"
                             disabled={isLoading}
                             required
+                            className={mobileGlass ? "bg-white/10 border-white/25 text-white placeholder:text-white/40 focus-visible:ring-white/30 lg:bg-background lg:border-input lg:text-foreground lg:placeholder:text-muted-foreground" : ""}
                         />
                     </div>
                     {errorMsg && (
@@ -108,16 +109,21 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                         {isLoading && (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         )}
-                        {isRegistering ? "Sign Up" : "Sign In"}
+                        {isRegistering ? "Daftar" : "Masuk"}
                     </Button>
                 </div>
             </form>
             <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+                    <span className={cn("w-full border-t", mobileGlass && "border-white/20 lg:border-border")} />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
+                    <span className={cn(
+                        "px-2",
+                        mobileGlass
+                            ? "bg-transparent text-white/50 lg:bg-background lg:text-muted-foreground"
+                            : "bg-background text-muted-foreground"
+                    )}>
                         Or
                     </span>
                 </div>
@@ -130,8 +136,9 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                     setIsRegistering(!isRegistering);
                     setErrorMsg(null);
                 }}
+                className={mobileGlass ? "bg-transparent border-white/25 text-white hover:bg-white/10 hover:text-white lg:bg-background lg:border-input lg:text-foreground lg:hover:bg-accent lg:hover:text-accent-foreground" : ""}
             >
-                {isRegistering ? "Back to Sign In" : "Create an account"}
+                {isRegistering ? "Kembali ke Login" : "Buat Akun Baru"}
             </Button>
         </div>
     )
