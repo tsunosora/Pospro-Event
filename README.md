@@ -8,6 +8,8 @@
 
 **Solusi kasir modern untuk toko kelontong, percetakan digital, café, dan usaha kecil menengah lainnya.**
 
+> 🆕 **Update Maret 2026** — Ditambahkan: **Antrian Produksi** (antrian cetak per job) & **Stok Opname** (hitung fisik stok via link operator).
+
 ---
 
 ## 📖 Apa itu PosPro?
@@ -90,19 +92,42 @@ Cukup buka browser, tap, dan transaksi selesai — tanpa perlu instalasi aplikas
 | `!botadmin listgroups` | Lihat semua grup terdaftar |
 | `!botadmin setreportgroup [ID]` | Atur grup tujuan laporan shift |
 
-### 🎨 11. Kustomisasi Tampilan Halaman Login
+### 🖨️ 11. Antrian Produksi (Production Queue)
+
+Khusus untuk toko percetakan digital — setiap order cetak yang masuk dari kasir otomatis masuk ke antrian produksi operator mesin.
+
+- Kasir bisa set **Prioritas** (Normal / **EXPRESS**) dan **Deadline** selesai saat checkout
+- Operator membuka halaman `/produksi` langsung dari HP (tanpa login, cukup PIN)
+- Kelola antrian: **Satuan** (per job) atau **Gabung Cetak** (beberapa job dalam satu lembaran/batch)
+- Saat mulai cetak: pilih bahan roll yang dipakai → stok bahan otomatis terpotong sesuai luas (m²)
+- Alur status job: **ANTRIAN → PROSES → SELESAI → DIAMBIL**
+- Job EXPRESS selalu muncul di urutan paling atas antrian
+
+### 📋 12. Stok Opname
+
+Hitung fisik stok gudang dengan sistem link operator yang aman dan terstruktur.
+
+- Admin buat sesi opname dari `/inventory/opname` → generate link unik (berlaku 8–72 jam)
+- Link dibagikan ke karyawan — karyawan buka di HP tanpa perlu login
+- **Blind count**: stok sistem sengaja disembunyikan dari operator agar hitungan jujur
+- Draft tersimpan otomatis di HP operator (aman jika sinyal terputus)
+- Admin review hasil hitungan per operator secara real-time (auto-refresh 10 detik)
+- Admin konfirmasi angka akhir → stok di sistem diperbarui + `StockMovement ADJUST` otomatis tercatat
+- Bisa filter per kategori produk untuk opname parsial
+
+### 🎨 13. Kustomisasi Tampilan Halaman Login
 - Upload beberapa **foto latar** yang berganti otomatis dengan efek **Ken Burns** (zoom + geser halus)
 - Atur **tagline / slogan** toko yang tampil bergantian di panel login
 - Logo dan nama toko mengikuti pengaturan di **Profil Toko** secara otomatis
 - **Animated logo** Voliko dengan efek stroke draw-in dan letter pop-in
 - Tampilan login **responsif penuh** — di HP menggunakan glass-morphism card di atas background animasi, di desktop split-panel dua kolom
 
-### 🔐 12. Sistem Autentikasi & Role
+### 🔐 14. Sistem Autentikasi & Role
 - Login dengan email & password
 - Sistem **token JWT** yang aman
 - Multi-role: Admin, Kasir, Manager, Owner
 
-### 👥 13. Data Pelanggan (CRM)
+### 👥 15. Data Pelanggan (CRM)
 - Database pelanggan toko dengan riwayat transaksi
 - Statistik per pelanggan: total belanja, frekuensi, rata-rata transaksi
 - Export data pelanggan
@@ -118,6 +143,9 @@ Cukup buka browser, tap, dan transaksi selesai — tanpa perlu instalasi aplikas
 ├── /pos/close-shift        → Form tutup shift kasir
 ├── /transactions/dp        → Daftar piutang & pelunasan DP
 ├── /inventory              → Manajemen produk & stok
+├── /inventory/opname       → Stok Opname — kelola sesi hitung fisik (admin) 🆕
+├── /produksi               → Antrian Produksi — antrean cetak operator (publik + PIN) 🆕
+├── /opname/[token]         → Form hitung fisik stok untuk karyawan (tanpa login) 🆕
 ├── /customers              → Data pelanggan & CRM
 ├── /invoices               → Invoice Generator & Penawaran Harga (SPH)
 ├── /cashflow               → Arus kas bisnis dengan chart & filter
@@ -126,7 +154,7 @@ Cukup buka browser, tap, dan transaksi selesai — tanpa perlu instalasi aplikas
 ├── /reports/profit         → Laporan profit & margin
 ├── /reports/hpp            → Kalkulator HPP
 └── /settings               → Pengaturan toko, bot WhatsApp, rekening bank
-    ├── /settings/general       → Profil toko (nama, logo, pajak)
+    ├── /settings/general       → Profil toko (nama, logo, pajak, PIN operator)
     ├── /settings/payments      → Metode pembayaran & QRIS
     ├── /settings/users         → Manajemen staf / akun kasir
     ├── /settings/whatsapp      → Bot WhatsApp QR & konfigurasi grup
@@ -486,6 +514,8 @@ Pos-Web-Application/
 │   │   ├── customers/              # Data pelanggan
 │   │   ├── bank-accounts/          # Multi-rekening bank
 │   │   ├── hpp/                    # Kalkulator HPP
+│   │   ├── production/             # Antrian produksi cetak (job & batch) 🆕
+│   │   ├── stock-opname/           # Stok opname (sesi, item, operator public) 🆕
 │   │   ├── settings/               # Pengaturan toko, logo, QRIS
 │   │   └── whatsapp/               # Bot WhatsApp engine
 │   └── public/
@@ -497,6 +527,9 @@ Pos-Web-Application/
         │   ├── pos/                # Kasir utama
         │   ├── transactions/dp/    # Piutang & pelunasan
         │   ├── inventory/          # Manajemen produk
+        │   │   └── opname/         # Stok Opname — admin kelola sesi 🆕
+        │   ├── produksi/           # Antrian Produksi — operator mesin 🆕
+        │   ├── opname/[token]/     # Form hitung fisik karyawan (publik) 🆕
         │   ├── invoices/           # Invoice Generator & SPH
         │   ├── cashflow/           # Arus kas bisnis
         │   ├── maps/               # Peta Cuan Lokasi
@@ -520,6 +553,8 @@ Pos-Web-Application/
 | [Cashflow Bisnis](docs/wiki/cashflow.md) | Cara kelola arus kas, filter, chart, export |
 | [Invoice & Penawaran Harga](docs/wiki/invoice-sph.md) | Buat invoice, SPH, catalog picker |
 | [Peta Cuan Lokasi](docs/wiki/peta-cuan.md) | Kelola cabang, tambah kompetitor |
+| [Antrian Produksi](docs/wiki/produksi.md) | Antrian cetak, job satuan & batch, stok roll 🆕 |
+| [Stok Opname](docs/wiki/stock-opname.md) | Hitung fisik stok via link operator 🆕 |
 
 ---
 
@@ -558,6 +593,8 @@ Pos-Web-Application/
 - [x] Penawaran Harga / SPH untuk klien B2B
 - [x] Peta Cuan Lokasi
 - [x] Kustomisasi tampilan halaman login (background slideshow, taglines, animated logo)
+- [x] Antrian Produksi — job cetak, batch, manajemen roll, PIN operator
+- [x] Stok Opname — link operator, blind count, review & konfirmasi stok
 - [ ] Mode offline (PWA)
 - [ ] Notifikasi stok menipis otomatis
 - [ ] Fitur loyalty point pelanggan

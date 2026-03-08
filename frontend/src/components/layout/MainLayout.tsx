@@ -11,8 +11,10 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
     const pathname = usePathname();
     const isLoginPage = pathname === "/login";
+    const isOpnamePage = pathname.startsWith("/opname/");
+    const isProduksiPage = pathname.startsWith("/produksi");
 
-    if (isLoginPage) {
+    if (isLoginPage || isOpnamePage || isProduksiPage) {
         return <>{children}</>;
     }
 

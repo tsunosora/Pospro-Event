@@ -25,6 +25,9 @@ export class TransactionsService {
         cashierName?: string;
         employeeName?: string;
         bankAccountId?: number;
+        productionPriority?: string;
+        productionDeadline?: string;
+        productionNotes?: string;
     }) {
         console.log("PAYLOAD RECEIVED:", data);
         return this.prisma.$transaction(async (tx) => {
@@ -54,6 +57,9 @@ export class TransactionsService {
                 let heightCm: number | null = null;
                 let areaCm2: number | null = null;
 
+                const requiresProduction = (variant.product as any).requiresProduction === true;
+                console.log(`[PRODUKSI DEBUG] variant=${variant.id} product="${variant.product.name}" requiresProduction=${(variant.product as any).requiresProduction} (bool=${requiresProduction})`);
+
                 if (pricingMode === 'AREA_BASED') {
                     // Area-based calculation depending on unitType
                     if (item.widthCm === undefined) {
@@ -72,25 +78,55 @@ export class TransactionsService {
 
                     const pricePerM2 = Number(variant.price);
                     lineTotal = areaM2 * pricePerM2;
-                    // Stock is in m²: deduct area used
-                    const currentStock = Number(variant.stock);
-                    if (currentStock < areaM2) {
-                        throw new BadRequestException(
-                            `Stok bahan ${variant.product.name} tidak cukup. Tersisa: ${currentStock.toFixed(2)} m², dibutuhkan: ${areaM2.toFixed(2)} m²`
-                        );
-                    }
-                    await tx.productVariant.update({
-                        where: { id: variant.id },
-                        data: { stock: Math.floor((currentStock - areaM2) * 100) / 100 }
-                    });
-                    await tx.stockMovement.create({
-                        data: {
-                            productVariantId: variant.id,
-                            type: 'OUT',
-                            quantity: Math.ceil(areaM2 * 100),
-                            reason: `Penjualan Cetak ${widthCm}×${heightCm}cm (${areaM2.toFixed(2)}m²)`
+
+                    if (!requiresProduction) {
+                        // Only deduct stock for non-production items (normal area-based)
+                        const currentStock = Number(variant.stock);
+                        if (currentStock < areaM2) {
+                            throw new BadRequestException(
+                                `Stok bahan ${variant.product.name} tidak cukup. Tersisa: ${currentStock.toFixed(2)} m², dibutuhkan: ${areaM2.toFixed(2)} m²`
+                            );
                         }
-                    });
+                        await tx.productVariant.update({
+                            where: { id: variant.id },
+                            data: { stock: Math.floor((currentStock - areaM2) * 100) / 100 }
+                        });
+                        await tx.stockMovement.create({
+                            data: {
+                                productVariantId: variant.id,
+                                type: 'OUT',
+                                quantity: Math.ceil(areaM2 * 100),
+                                reason: `Penjualan Cetak ${widthCm}×${heightCm}cm (${areaM2.toFixed(2)}m²)`
+                            }
+                        });
+
+                        // Deduct BOM / Raw Materials for AREA_BASED
+                        const ingredients = (variant.product as any).ingredients || [];
+                        for (const ing of ingredients) {
+                            if (ing.rawMaterialVariantId) {
+                                const rawVariant = await tx.productVariant.findUnique({
+                                    where: { id: ing.rawMaterialVariantId }
+                                });
+                                if (rawVariant) {
+                                    const neededStock = Number(ing.quantity) * areaM2;
+                                    await tx.productVariant.update({
+                                        where: { id: rawVariant.id },
+                                        data: { stock: Math.floor((Number(rawVariant.stock) - neededStock) * 100) / 100 }
+                                    });
+                                    await tx.stockMovement.create({
+                                        data: {
+                                            productVariantId: rawVariant.id,
+                                            type: 'OUT',
+                                            quantity: Math.ceil(neededStock * 100),
+                                            reason: `Terpotong oleh Penjualan Produk ${variant.product.name}`
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    // For requiresProduction items: skip stock deduction — handled at production time
+
                     transactionItemsData.push({
                         productVariantId: variant.id,
                         quantity: 1,
@@ -99,34 +135,9 @@ export class TransactionsService {
                         widthCm,
                         heightCm,
                         areaCm2,
-                        note: item.note || null
+                        note: item.note || null,
+                        _requiresProduction: requiresProduction,
                     });
-
-                    // Deduct BOM / Raw Materials for AREA_BASED (using areaM2 as multiplier)
-                    const ingredients = (variant.product as any).ingredients || [];
-                    for (const ing of ingredients) {
-                        if (ing.rawMaterialVariantId) {
-                            const rawVariant = await tx.productVariant.findUnique({
-                                where: { id: ing.rawMaterialVariantId }
-                            });
-                            if (rawVariant) {
-                                // For area based, assuming the ingredient quantity is per m2. So total raw material needed = ingredient.quantity * areaM2
-                                const neededStock = Number(ing.quantity) * areaM2;
-                                await tx.productVariant.update({
-                                    where: { id: rawVariant.id },
-                                    data: { stock: Math.floor((Number(rawVariant.stock) - neededStock) * 100) / 100 }
-                                });
-                                await tx.stockMovement.create({
-                                    data: {
-                                        productVariantId: rawVariant.id,
-                                        type: 'OUT',
-                                        quantity: Math.ceil(neededStock * 100), // Stock movement usually stores integers, we ceil to be safe or store as is if it supports it, assuming int for quantity.
-                                        reason: `Terpotong oleh Penjualan Produk ${variant.product.name}`
-                                    }
-                                });
-                            }
-                        }
-                    }
 
                 } else {
                     // Standard UNIT mode
@@ -151,7 +162,8 @@ export class TransactionsService {
                         quantity: item.quantity,
                         priceAtTime: variant.price,
                         hppAtTime: variant.hpp,
-                        note: item.note || null
+                        note: item.note || null,
+                        _requiresProduction: requiresProduction,
                     });
 
                     // Deduct BOM / Raw Materials for UNIT based (using item.quantity as multiplier)
@@ -202,6 +214,9 @@ export class TransactionsService {
             });
             const invoiceNumber = `INV-${dateStr}-${(count + 1).toString().padStart(4, '0')}`;
 
+            // Strip internal flags before creating items
+            const itemsForCreate = transactionItemsData.map(({ _requiresProduction, ...rest }: any) => rest);
+
             const transaction = await tx.transaction.create({
                 data: {
                     invoiceNumber,
@@ -219,10 +234,35 @@ export class TransactionsService {
                     cashierName: data.cashierName || null,
                     employeeName: data.employeeName || null,
                     bankAccountId: data.bankAccountId || null,
-                    items: { create: transactionItemsData }
+                    productionPriority: data.productionPriority || 'NORMAL',
+                    productionDeadline: data.productionDeadline ? new Date(data.productionDeadline) : null,
+                    productionNotes: data.productionNotes || null,
+                    items: { create: itemsForCreate }
                 },
                 include: { items: true, bankAccount: true }
-            });
+            } as any);
+
+            // Create ProductionJob for items that require production
+            const hasProductionItems = transactionItemsData.some((d: any) => d._requiresProduction);
+            let jobSeq = hasProductionItems ? await (tx as any).productionJob.count() : 0;
+            for (let i = 0; i < transactionItemsData.length; i++) {
+                if (transactionItemsData[i]._requiresProduction) {
+                    jobSeq++;
+                    const txItem = (transaction as any).items[i];
+                    const jobDateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+                    await (tx as any).productionJob.create({
+                        data: {
+                            jobNumber: `JOB-${jobDateStr}-${String(jobSeq).padStart(4, '0')}`,
+                            transactionId: transaction.id,
+                            transactionItemId: txItem.id,
+                            status: 'ANTRIAN',
+                            priority: data.productionPriority || 'NORMAL',
+                            deadline: data.productionDeadline ? new Date(data.productionDeadline) : null,
+                            notes: data.productionNotes || null,
+                        },
+                    });
+                }
+            }
 
             // Log initial payment into Cashflow
             if (downPayment > 0) {

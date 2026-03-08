@@ -32,6 +32,9 @@ interface VariantForm {
     imageFile: File | null;
     imagePreview: string | null;
     skuManuallyEdited: boolean;
+    isRollMaterial: boolean;
+    rollPhysicalWidth: string;
+    rollEffectivePrintWidth: string;
 }
 
 interface IngredientForm {
@@ -43,7 +46,8 @@ interface IngredientForm {
 
 const defaultVariant = (): VariantForm => ({
     sku: '', variantName: '', price: '', hpp: '', stock: '', size: '', color: '',
-    imageFile: null, imagePreview: null, skuManuallyEdited: false
+    imageFile: null, imagePreview: null, skuManuallyEdited: false,
+    isRollMaterial: false, rollPhysicalWidth: '', rollEffectivePrintWidth: '',
 });
 
 export default function AddProductPage() {
@@ -66,6 +70,7 @@ export default function AddProductPage() {
     const [pricingMode, setPricingMode] = useState<'UNIT' | 'AREA_BASED'>('UNIT');
     const [productType, setProductType] = useState<'SELLABLE' | 'RAW_MATERIAL' | 'SERVICE'>('SELLABLE');
     const [pricePerUnit, setPricePerUnit] = useState('');
+    const [requiresProduction, setRequiresProduction] = useState(false);
 
     // Multi-image state (up to 4)
     const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null, null]);
@@ -176,6 +181,7 @@ export default function AddProductPage() {
             unitId: Number(productForm.unitId),
             pricingMode,
             productType,
+            requiresProduction,
             pricePerUnit: pricingMode === 'AREA_BASED' ? Number(pricePerUnit) : undefined,
             variants: variants.map(v => ({
                 sku: v.sku,
@@ -184,7 +190,10 @@ export default function AddProductPage() {
                 hpp: Number(v.hpp) || 0,
                 stock: Number(v.stock),
                 size: v.size || undefined,
-                color: v.color || undefined
+                color: v.color || undefined,
+                isRollMaterial: v.isRollMaterial,
+                rollPhysicalWidth: v.isRollMaterial && v.rollPhysicalWidth ? Number(v.rollPhysicalWidth) : undefined,
+                rollEffectivePrintWidth: v.isRollMaterial && v.rollEffectivePrintWidth ? Number(v.rollEffectivePrintWidth) : undefined,
             })),
             ingredients: showIngredients ? ingredients
                 .filter(ing => ing.name.trim())
@@ -352,6 +361,18 @@ export default function AddProductPage() {
                                 💡 Isi <strong>Harga/m²</strong> di bagian <strong>Varian Produk</strong> di bawah. Stok diisi dalam satuan <strong>m²</strong> (total bahan tersedia).
                             </p>
                         )}
+
+                        {/* Requires Production */}
+                        {pricingMode === 'AREA_BASED' && (
+                            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-border hover:border-primary/30 transition-colors">
+                                <input type="checkbox" checked={requiresProduction} onChange={e => setRequiresProduction(e.target.checked)}
+                                    className="w-4 h-4 rounded accent-primary" />
+                                <div>
+                                    <p className="text-sm font-medium">Produk Perlu Antrian Produksi</p>
+                                    <p className="text-xs text-muted-foreground">Aktifkan untuk produk cetak yang dikerjakan operator mesin (banner, dll). Stok roll dipotong saat operator konfirmasi, bukan saat checkout kasir.</p>
+                                </div>
+                            </label>
+                        )}
                     </div>
                 )}
 
@@ -441,6 +462,36 @@ export default function AddProductPage() {
                                             <input type="text" value={v.color} onChange={e => updateVariant(index, 'color', e.target.value)} placeholder="Merah, Biru" className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
                                         </div>
                                     </div>
+
+                                    {/* Roll Material fields — tampil di semua tipe produk */}
+                                    {(
+                                        <div className="border-t border-border/50 pt-3 space-y-3">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" checked={v.isRollMaterial} onChange={e => updateVariant(index, 'isRollMaterial', e.target.checked)}
+                                                    className="w-4 h-4 rounded accent-primary" />
+                                                <span className="text-sm font-medium">Ini adalah bahan roll (banner, MMT, dll)</span>
+                                            </label>
+                                            {v.isRollMaterial && (
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="space-y-1">
+                                                        <label className="text-xs font-medium text-muted-foreground">Lebar Fisik Roll (m)</label>
+                                                        <input type="number" step="0.1" min="0" value={v.rollPhysicalWidth}
+                                                            onChange={e => updateVariant(index, 'rollPhysicalWidth', e.target.value)}
+                                                            placeholder="3.2"
+                                                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-xs font-medium text-muted-foreground">Lebar Cetak Efektif (m)</label>
+                                                        <input type="number" step="0.1" min="0" value={v.rollEffectivePrintWidth}
+                                                            onChange={e => updateVariant(index, 'rollEffectivePrintWidth', e.target.value)}
+                                                            placeholder="3.0"
+                                                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
+                                                        <p className="text-xs text-muted-foreground">Area cetak aktual (biasanya lebar fisik - 0.1~0.2m)</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {variants.length > 1 && (
                                         <button type="button" onClick={() => removeVariant(index)} className="shrink-0 p-1.5 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 mt-0.5">

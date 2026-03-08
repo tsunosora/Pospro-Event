@@ -14,6 +14,14 @@ export const createTransaction = async (data: {
     customerName?: string;
     customerPhone?: string;
     customerAddress?: string;
+    dueDate?: string;
+    downPayment?: number;
+    cashierName?: string;
+    employeeName?: string;
+    bankAccountId?: number;
+    productionPriority?: 'NORMAL' | 'EXPRESS';
+    productionDeadline?: string;
+    productionNotes?: string;
 }) => {
     return (await api.post('/transactions', data)).data;
 };

@@ -3,10 +3,12 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
     const token = request.cookies.get('token')?.value;
-    const isLoginPage = request.nextUrl.pathname.startsWith('/login');
+    const { pathname } = request.nextUrl;
+    const isLoginPage = pathname.startsWith('/login');
+    const isPublicPage = pathname.startsWith('/opname/') || pathname.startsWith('/produksi');
 
     // If there is no token and the user is NOT on the login page (or public paths), redirect to login
-    if (!token && !isLoginPage) {
+    if (!token && !isLoginPage && !isPublicPage) {
         return NextResponse.redirect(new URL('/login', request.url));
     }
 

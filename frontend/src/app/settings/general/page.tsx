@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getSettings, updateSettings, uploadLogoImage } from '@/lib/api';
-import { Store, Phone, MapPin, Save, Loader2, Ruler, ToggleLeft, ToggleRight, UploadCloud, Percent } from 'lucide-react';
+import { Store, Phone, MapPin, Save, Loader2, Ruler, ToggleLeft, ToggleRight, UploadCloud, Percent, KeyRound } from 'lucide-react';
 
 export default function GeneralSettings() {
     const [isLoading, setIsLoading] = useState(true);
@@ -14,6 +14,7 @@ export default function GeneralSettings() {
         enableAdvancedPricing: false,
         enableTax: true,
         taxRate: 10,
+        operatorPin: '',
     });
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -27,6 +28,7 @@ export default function GeneralSettings() {
                 enableAdvancedPricing: data.enableAdvancedPricing || false,
                 enableTax: data.enableTax ?? true,
                 taxRate: data.taxRate ? Number(data.taxRate) : 10,
+                operatorPin: data.operatorPin || '',
             });
             setLogoUrl(data.logoImageUrl || null);
             setIsLoading(false);
@@ -211,6 +213,26 @@ export default function GeneralSettings() {
                             />
                         </div>
                     )}
+                </div>
+
+                {/* Operator PIN */}
+                <div className="glass p-5 rounded-xl border border-border space-y-4">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">PIN Operator Produksi</h2>
+                    <p className="text-sm text-muted-foreground">PIN 4-6 digit yang digunakan operator mesin untuk mengakses halaman antrian produksi tanpa harus login.</p>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                            <KeyRound className="h-4 w-4 text-muted-foreground" />
+                            PIN Operator
+                        </label>
+                        <input
+                            type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
+                            value={form.operatorPin}
+                            onChange={e => setForm({ ...form, operatorPin: e.target.value.replace(/\D/g, '') })}
+                            className="w-40 px-4 py-2 border border-border bg-background rounded-lg focus:ring-primary focus:border-primary transition-all outline-none text-sm font-mono tracking-widest"
+                            placeholder="Contoh: 1234"
+                        />
+                        <p className="text-xs text-muted-foreground">Operator bisa akses <strong>/produksi</strong> dan masukkan PIN ini untuk melihat antrian cetak.</p>
+                    </div>
                 </div>
 
                 <button

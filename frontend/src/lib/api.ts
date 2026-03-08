@@ -224,4 +224,128 @@ export const closeShift = async (formData: FormData) => (await api.post('/report
 export const getWhatsappStatus = async () => (await api.get('/whatsapp/status')).data;
 export const logoutWhatsapp = async () => (await api.post('/whatsapp/logout')).data;
 
+// Stock Opname — Admin
+export const startOpnameSession = async (data: { notes?: string; categoryId?: number; expiresHours?: number }) =>
+    (await api.post('/stock-opname/sessions', data)).data;
+export const getOpnameSessions = async () => (await api.get('/stock-opname/sessions')).data;
+export const getOpnameSessionDetail = async (id: string) => (await api.get(`/stock-opname/sessions/${id}`)).data;
+export const cancelOpnameSession = async (id: string) => (await api.patch(`/stock-opname/sessions/${id}/cancel`)).data;
+export const finishOpnameSession = async (id: string, confirmedItems: { productVariantId: number; confirmedStock: number }[]) =>
+    (await api.post(`/stock-opname/sessions/${id}/finish`, { confirmedItems })).data;
+
+// Stock Opname — Public (operator, tanpa auth)
+export const verifyOpnameToken = async (token: string) => {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const res = await fetch(`${base}/stock-opname/public/${token}/verify`);
+    if (!res.ok) throw new Error((await res.json()).message || 'Link tidak valid');
+    return res.json();
+};
+export const getOpnameProducts = async (token: string) => {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const res = await fetch(`${base}/stock-opname/public/${token}/products`);
+    if (!res.ok) throw new Error((await res.json()).message || 'Gagal memuat produk');
+    return res.json();
+};
+export const submitOpnameItems = async (
+    token: string,
+    data: { operatorName: string; items: { productVariantId: number; actualStock: number }[] },
+) => {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const res = await fetch(`${base}/stock-opname/public/${token}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error((await res.json()).message || 'Gagal menyimpan');
+    return res.json();
+};
+
+// Production Queue (public — no JWT)
+const API_BASE_PROD = () => process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+export const verifyOperatorPin = async (pin: string): Promise<{ valid: boolean; message?: string }> => {
+    const res = await fetch(`${API_BASE_PROD()}/production/pin/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+    });
+    return res.json();
+};
+
+export const getProductionJobs = async (status?: string): Promise<any[]> => {
+    const url = status
+        ? `${API_BASE_PROD()}/production/jobs?status=${status}`
+        : `${API_BASE_PROD()}/production/jobs`;
+    const res = await fetch(url);
+    return res.json();
+};
+
+export const getProductionRolls = async (): Promise<any[]> => {
+    const res = await fetch(`${API_BASE_PROD()}/production/rolls`);
+    return res.json();
+};
+
+export const getProductionStats = async (): Promise<{ antrian: number; proses: number; selesai: number }> => {
+    const res = await fetch(`${API_BASE_PROD()}/production/stats`);
+    return res.json();
+};
+
+export const startProductionJob = async (id: number, data: {
+    rollVariantId?: number;
+    usedWaste: boolean;
+    rollAreaM2?: number;
+    operatorNote?: string;
+}): Promise<any> => {
+    const res = await fetch(`${API_BASE_PROD()}/production/jobs/${id}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error((await res.json()).message || 'Gagal memulai job');
+    return res.json();
+};
+
+export const completeProductionJob = async (id: number, operatorNote?: string): Promise<any> => {
+    const res = await fetch(`${API_BASE_PROD()}/production/jobs/${id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operatorNote }),
+    });
+    if (!res.ok) throw new Error((await res.json()).message || 'Gagal menyelesaikan job');
+    return res.json();
+};
+
+export const pickupProductionJob = async (id: number): Promise<any> => {
+    const res = await fetch(`${API_BASE_PROD()}/production/jobs/${id}/pickup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error((await res.json()).message || 'Gagal pickup job');
+    return res.json();
+};
+
+export const createProductionBatch = async (data: {
+    jobIds: number[];
+    rollVariantId?: number;
+    usedWaste: boolean;
+    totalAreaM2?: number;
+}): Promise<any> => {
+    const res = await fetch(`${API_BASE_PROD()}/production/batches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error((await res.json()).message || 'Gagal membuat batch');
+    return res.json();
+};
+
+export const completeProductionBatch = async (id: number): Promise<any> => {
+    const res = await fetch(`${API_BASE_PROD()}/production/batches/${id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error((await res.json()).message || 'Gagal menyelesaikan batch');
+    return res.json();
+};
+
 export default api;

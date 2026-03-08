@@ -62,6 +62,9 @@ export default function POSPage() {
     const [cashierName, setCashierName] = useState('');
     const [employeeName, setEmployeeName] = useState('');
     const [receipt, setReceipt] = useState<ReceiptSnapshot | null>(null);
+    const [productionPriority, setProductionPriority] = useState<'NORMAL' | 'EXPRESS'>('NORMAL');
+    const [productionDeadline, setProductionDeadline] = useState('');
+    const [productionNotes, setProductionNotes] = useState('');
 
     // Note Modal State for UNIT products
     const [unitNoteModal, setUnitNoteModal] = useState<{ open: boolean, lineId: string, currentNote: string }>({ open: false, lineId: '', currentNote: '' });
@@ -251,7 +254,10 @@ export default function POSPage() {
             downPayment: downPayment !== '' ? Number(downPayment) : undefined,
             cashierName: cashierName.trim() || undefined,
             employeeName: employeeName.trim() || undefined,
-            bankAccountId: selectedBankId ? Number(selectedBankId) : undefined
+            bankAccountId: selectedBankId ? Number(selectedBankId) : undefined,
+            productionPriority,
+            productionDeadline: productionDeadline || undefined,
+            productionNotes: productionNotes.trim() || undefined,
         };
 
         if (!navigator.onLine) {
@@ -266,6 +272,7 @@ export default function POSPage() {
                     setCheckoutModalOpen(false);
                     clearCart();
                     setCustomerName(''); setCustomerPhone(''); setCustomerAddress('');
+                    setProductionPriority('NORMAL'); setProductionDeadline(''); setProductionNotes('');
                     setReceipt(snap);
                 }
             });
@@ -825,6 +832,44 @@ export default function POSPage() {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Production Info */}
+                                {cart.some((i: any) => i.pricingMode === 'AREA_BASED') && (
+                                    <div className="border-t border-dashed border-border pt-4">
+                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Info Produksi</p>
+                                        <div className="grid grid-cols-2 gap-3 mb-3">
+                                            <div className="space-y-1">
+                                                <label className="text-xs text-muted-foreground">Prioritas</label>
+                                                <div className="flex gap-2">
+                                                    {(['NORMAL', 'EXPRESS'] as const).map(p => (
+                                                        <button key={p} type="button" onClick={() => setProductionPriority(p)}
+                                                            className={`flex-1 py-2 rounded-lg text-xs font-bold border-2 transition-all ${productionPriority === p
+                                                                ? p === 'EXPRESS' ? 'border-red-500 bg-red-500/10 text-red-600' : 'border-primary bg-primary/10 text-primary'
+                                                                : 'border-border bg-muted/50 text-muted-foreground'}`}>
+                                                            {p === 'EXPRESS' ? 'EXPRESS' : 'Normal'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs text-muted-foreground">Deadline Selesai</label>
+                                                <input type="datetime-local" value={productionDeadline} onChange={e => setProductionDeadline(e.target.value)}
+                                                    className="w-full px-2 py-2 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-muted-foreground">Catatan untuk Operator Mesin</label>
+                                            <textarea rows={2} value={productionNotes} onChange={e => setProductionNotes(e.target.value)}
+                                                placeholder="Contoh: Finishing laminasi doff, warna harus vivid, dll."
+                                                className="w-full px-3 py-2 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors resize-none" />
+                                        </div>
+                                        {productionPriority === 'EXPRESS' && (
+                                            <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-600 font-medium">
+                                                ORDER EXPRESS — Antrian produksi akan didahulukan
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Payment method */}

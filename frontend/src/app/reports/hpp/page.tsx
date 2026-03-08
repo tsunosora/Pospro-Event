@@ -10,6 +10,148 @@ import {
 import { cn } from "@/lib/utils";
 import { getHppWorksheets, createHppWorksheet, updateHppWorksheet, deleteHppWorksheet, getProducts, createProduct, getCategories, getUnits, uploadProductImage, uploadProductImages } from "@/lib/api";
 
+function CustomNameInput({ value, onChange, onSwitchToStock }: { value: string; onChange: (val: string) => void; onSwitchToStock: () => void }) {
+    const [local, setLocal] = useState(value);
+    // Sync jika nilai dari parent berubah (misalnya load worksheet)
+    useEffect(() => { setLocal(value); }, [value]);
+    return (
+        <div className="relative flex items-center">
+            <input
+                type="text"
+                value={local}
+                onChange={(e) => setLocal(e.target.value)}
+                onBlur={() => onChange(local)}
+                placeholder="Tulis nama bahan..."
+                autoFocus
+                className="w-full pl-3 pr-8 py-2 bg-background border border-primary rounded-[6px] text-[13px] font-semibold text-foreground outline-none focus:ring-1 focus:ring-primary/20"
+            />
+            <button type="button" title="Pilih dari stok" onClick={onSwitchToStock} className="absolute right-2 text-muted-foreground hover:text-green-600 transition-colors">
+                <Database className="w-3.5 h-3.5" />
+            </button>
+        </div>
+    );
+}
+
+interface VariantComboboxProps {
+    rowId: string;
+    currentVariantId?: number;
+    currentName: string;
+    dbProducts: any[];
+    onSelectVariant: (rowId: string, variantId: string) => void;
+    onSelectManual: (rowId: string, initialName?: string) => void;
+}
+
+function VariantCombobox({ rowId, currentVariantId, currentName, dbProducts, onSelectVariant, onSelectManual }: VariantComboboxProps) {
+    const [query, setQuery] = useState('');
+    const [open, setOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const handleUseAsCustom = (name: string) => {
+        onSelectManual(rowId, name.trim());
+        setOpen(false);
+        setQuery('');
+    };
+
+    const allVariants = useMemo(() => {
+        const result: { label: string; variantId: string }[] = [];
+        for (const p of dbProducts) {
+            for (const v of (p.variants || [])) {
+                result.push({ label: p.name + (v.variantName ? ` – ${v.variantName}` : ''), variantId: String(v.id) });
+            }
+        }
+        return result;
+    }, [dbProducts]);
+
+    const filtered = useMemo(() => {
+        if (!query.trim()) return allVariants.slice(0, 60);
+        const q = query.toLowerCase();
+        return allVariants.filter(v => v.label.toLowerCase().includes(q)).slice(0, 60);
+    }, [query, allVariants]);
+
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    return (
+        <div ref={containerRef} className="relative">
+            <div
+                className="flex items-center bg-card border border-green-500 rounded-[6px] overflow-hidden cursor-text"
+                onClick={() => { setOpen(true); }}
+            >
+                {open ? (
+                    <input
+                        autoFocus
+                        type="text"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && query.trim() && filtered.length === 0) {
+                                handleUseAsCustom(query);
+                            }
+                        }}
+                        placeholder="Ketik untuk mencari bahan baku..."
+                        className="flex-1 pl-3 pr-2 py-2 bg-transparent text-[13px] font-semibold text-foreground outline-none"
+                    />
+                ) : (
+                    <span className={cn("flex-1 pl-3 pr-2 py-2 text-[13px] font-semibold truncate", currentVariantId ? "text-foreground" : "text-muted-foreground")}>
+                        {currentName || '— Pilih Bahan dari Stok —'}
+                    </span>
+                )}
+                <Search className="w-3.5 h-3.5 text-green-500 mr-2 shrink-0 pointer-events-none" />
+            </div>
+            {open && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-[6px] shadow-lg max-h-52 overflow-y-auto">
+                    {filtered.length === 0 ? (
+                        query.trim() ? (
+                            <button
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); handleUseAsCustom(query); }}
+                                className="w-full text-left px-3 py-2.5 text-[13px] text-primary font-semibold hover:bg-primary/10 transition-colors"
+                            >
+                                ➕ Tambah &ldquo;{query}&rdquo; sebagai bahan custom
+                            </button>
+                        ) : (
+                            <div className="px-3 py-2 text-[12px] text-muted-foreground">Ketik nama bahan...</div>
+                        )
+                    ) : filtered.map(item => (
+                        <button
+                            key={item.variantId}
+                            type="button"
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                onSelectVariant(rowId, item.variantId);
+                                setOpen(false);
+                                setQuery('');
+                            }}
+                            className={cn(
+                                "w-full text-left px-3 py-2 text-[13px] hover:bg-primary/10 transition-colors",
+                                currentVariantId && String(currentVariantId) === item.variantId ? "bg-primary/10 font-semibold" : ""
+                            )}
+                        >
+                            {item.label}
+                        </button>
+                    ))}
+                    <button
+                        type="button"
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleUseAsCustom(query);
+                        }}
+                        className="w-full text-left px-3 py-2 text-[13px] text-orange-600 font-bold border-t border-border hover:bg-orange-50 transition-colors"
+                    >
+                        ✏️ Input Manual (tidak ada di stok)
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 interface VariableCost {
     id: string; // Tmp ui ID
     productVariantId?: number; // DB Link
@@ -231,7 +373,9 @@ export default function HppCalculatorPage() {
         const systemSuggestedPrice = hppPerPcs > 0 ? Math.round(hppPerPcs / (1 - margin / 100)) : 0;
         const sellingPrice = customSellingPrice !== null && customSellingPrice > 0 ? customSellingPrice : systemSuggestedPrice;
 
-        const sku = `HPP-${productName.replace(/\s+/g, '-').toUpperCase().substring(0, 20)}-${Date.now().toString().slice(-5)}`;
+        const initials = productName.trim().split(/\s+/).map((w: string) => w[0] || '').join('').toUpperCase().substring(0, 5) || productName.replace(/\s+/g, '').toUpperCase().substring(0, 5);
+        const rand = Math.floor(1000 + Math.random() * 9000);
+        const sku = `HPP-${initials}-${rand}`;
 
         // Calculate Stock Based on Acuan (if any)
         const acuanItem = variableCosts.find(vc => vc.isAcuanStok);
@@ -611,39 +755,20 @@ export default function HppCalculatorPage() {
                                     <div key={v.id} className="bg-muted/30 border border-border rounded-xl p-3 space-y-3">
                                         {/* Bahan Baku */}
                                         {v.isCustom ? (
-                                            <div className="relative flex items-center">
-                                                <input
-                                                    type="text"
-                                                    value={v.name}
-                                                    onChange={(e) => updateVariableCost(v.id, 'name', e.target.value)}
-                                                    placeholder="Tulis nama bahan..."
-                                                    autoFocus
-                                                    className="w-full pl-3 pr-8 py-2 bg-background border border-primary rounded-[6px] text-[13px] font-semibold text-foreground outline-none focus:ring-1 focus:ring-primary/20"
-                                                />
-                                                <button type="button" title="Pilih dari stok" onClick={() => updateVariableCost(v.id, 'isCustom', false)} className="absolute right-2 text-muted-foreground hover:text-green-600 transition-colors">
-                                                    <Database className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
+                                            <CustomNameInput
+                                                value={v.name}
+                                                onChange={(val) => updateVariableCost(v.id, 'name', val)}
+                                                onSwitchToStock={() => updateVariableCost(v.id, 'isCustom', false)}
+                                            />
                                         ) : (
-                                            <div className="relative">
-                                                <select
-                                                    value={v.productVariantId ? `${v.productVariantId}` : ""}
-                                                    onChange={(e) => {
-                                                        if (e.target.value === '__manual__') {
-                                                            setVariableCosts(prev => prev.map(c => c.id === v.id ? { ...c, isCustom: true, productVariantId: undefined, name: '' } : c));
-                                                        } else {
-                                                            applyVariantToVariableCost(v.id, e.target.value);
-                                                        }
-                                                    }}
-                                                    className="w-full pl-3 pr-8 py-2 bg-card border border-green-500 rounded-[6px] text-[13px] font-semibold text-foreground outline-none appearance-none cursor-pointer">
-                                                    <option value="">— Pilih Bahan dari Stok —</option>
-                                                    {dbProducts.map((p: any) => p.variants?.map((variant: any) => (
-                                                        <option key={variant.id} value={variant.id}>{p.name}{variant.variantName ? ` – ${variant.variantName}` : ''}</option>
-                                                    )))}
-                                                    <option value="__manual__" className="text-orange-600 font-bold">✏️ Input Manual (tidak ada di stok)</option>
-                                                </select>
-                                                <Database className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-500 pointer-events-none" />
-                                            </div>
+                                            <VariantCombobox
+                                                rowId={v.id}
+                                                currentVariantId={v.productVariantId}
+                                                currentName={v.name}
+                                                dbProducts={dbProducts}
+                                                onSelectVariant={applyVariantToVariableCost}
+                                                onSelectManual={(rowId, initialName) => setVariableCosts(prev => prev.map(c => c.id === rowId ? { ...c, isCustom: true, productVariantId: undefined, name: initialName || '' } : c))}
+                                            />
                                         )}
 
                                         {/* Acuan Stok */}
@@ -730,41 +855,20 @@ export default function HppCalculatorPage() {
                                             <tr key={v.id} className="group hover:bg-muted/30 transition-colors">
                                                 <td className="px-3 py-2 md:py-3 align-middle min-w-[200px]">
                                                     {v.isCustom ? (
-                                                        <div className="relative flex items-center">
-                                                            <input
-                                                                type="text"
-                                                                value={v.name}
-                                                                onChange={(e) => updateVariableCost(v.id, 'name', e.target.value)}
-                                                                placeholder="Tulis nama bahan..."
-                                                                autoFocus
-                                                                className="w-full pl-3 pr-8 py-2 bg-background border border-primary rounded-[6px] text-[13px] font-semibold text-foreground outline-none focus:ring-1 focus:ring-primary/20"
-                                                            />
-                                                            <button type="button" title="Pilih dari stok" onClick={() => updateVariableCost(v.id, 'isCustom', false)} className="absolute right-2 text-muted-foreground hover:text-green-600 transition-colors">
-                                                                <Database className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        </div>
+                                                        <CustomNameInput
+                                                            value={v.name}
+                                                            onChange={(val) => updateVariableCost(v.id, 'name', val)}
+                                                            onSwitchToStock={() => updateVariableCost(v.id, 'isCustom', false)}
+                                                        />
                                                     ) : (
-                                                        <div className="relative">
-                                                            <select
-                                                                value={v.productVariantId ? `${v.productVariantId}` : ""}
-                                                                onChange={(e) => {
-                                                                    if (e.target.value === '__manual__') {
-                                                                        setVariableCosts(prev => prev.map(c => c.id === v.id ? { ...c, isCustom: true, productVariantId: undefined, name: '' } : c));
-                                                                    } else {
-                                                                        applyVariantToVariableCost(v.id, e.target.value);
-                                                                    }
-                                                                }}
-                                                                className="w-full pl-3 pr-8 py-2 bg-card border border-green-500 rounded-[6px] text-[13px] font-semibold text-foreground outline-none focus:border-green-600 focus:ring-1 focus:ring-green-200 appearance-none cursor-pointer">
-                                                                <option value="">— Pilih Bahan dari Stok —</option>
-                                                                {dbProducts.map((p: any) => p.variants?.map((variant: any) => (
-                                                                    <option key={variant.id} value={variant.id}>
-                                                                        {p.name}{variant.variantName ? ` – ${variant.variantName}` : ''}
-                                                                    </option>
-                                                                )))}
-                                                                <option value="__manual__" className="text-orange-600 font-bold">✏️ Input Manual (tidak ada di stok)</option>
-                                                            </select>
-                                                            <Database className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-500 pointer-events-none" />
-                                                        </div>
+                                                        <VariantCombobox
+                                                            rowId={v.id}
+                                                            currentVariantId={v.productVariantId}
+                                                            currentName={v.name}
+                                                            dbProducts={dbProducts}
+                                                            onSelectVariant={applyVariantToVariableCost}
+                                                            onSelectManual={(rowId, initialName) => setVariableCosts(prev => prev.map(c => c.id === rowId ? { ...c, isCustom: true, productVariantId: undefined, name: initialName || '' } : c))}
+                                                        />
                                                     )}
                                                 </td>
                                                 <td className="px-2 py-2 md:py-3 align-middle text-center">

@@ -1,0 +1,866 @@
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+    getProductionJobs, getProductionRolls, getProductionStats,
+    verifyOperatorPin, startProductionJob, completeProductionJob,
+    pickupProductionJob, createProductionBatch, completeProductionBatch,
+} from '@/lib/api';
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+const PIN_KEY = 'produksi_pin_session';
+const PIN_TTL = 24 * 60 * 60 * 1000; // 24 jam
+
+function getStoredSession(): boolean {
+    try {
+        const raw = localStorage.getItem(PIN_KEY);
+        if (!raw) return false;
+        const { expires } = JSON.parse(raw);
+        return Date.now() < expires;
+    } catch {
+        return false;
+    }
+}
+
+function saveSession() {
+    localStorage.setItem(PIN_KEY, JSON.stringify({ expires: Date.now() + PIN_TTL }));
+}
+
+function clearSession() {
+    localStorage.removeItem(PIN_KEY);
+}
+
+function formatDeadline(dt: string | null | undefined): { label: string; urgent: boolean } {
+    if (!dt) return { label: '—', urgent: false };
+    const diff = new Date(dt).getTime() - Date.now();
+    const hours = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    if (diff < 0) return { label: 'TERLAMBAT', urgent: true };
+    if (hours < 2) return { label: `${hours}j ${mins}m lagi`, urgent: true };
+    if (hours < 24) return { label: `${hours} jam lagi`, urgent: false };
+    const d = new Date(dt);
+    return {
+        label: d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+        urgent: false,
+    };
+}
+
+function getDimLabel(item: any): string {
+    const ti = item.transactionItem;
+    if (!ti) return '';
+    const w = ti.widthCm ? Number(ti.widthCm) : null;
+    const h = ti.heightCm ? Number(ti.heightCm) : null;
+    if (w && h) return `${w} × ${h} m`;
+    return '';
+}
+
+function getAreaM2(item: any): number {
+    const ti = item.transactionItem;
+    if (!ti) return 0;
+    if (ti.areaCm2) return Number(ti.areaCm2) / 10000;
+    // fallback: widthCm * heightCm (when unit is meters)
+    const w = ti.widthCm ? Number(ti.widthCm) : 0;
+    const h = ti.heightCm ? Number(ti.heightCm) : 0;
+    return w * h;
+}
+
+// Suggest rolls that can fit the shorter dimension
+function suggestRolls(rolls: any[], widthCm: number | null, heightCm: number | null): { roll: any; suggested: boolean }[] {
+    if (!widthCm || !heightCm) return rolls.map(r => ({ roll: r, suggested: false }));
+    const shorter = Math.min(widthCm, heightCm);
+    return rolls.map(r => ({
+        roll: r,
+        suggested: Number(r.rollEffectivePrintWidth ?? r.rollPhysicalWidth ?? 0) >= shorter,
+    }));
+}
+
+function getLongerDim(widthCm: number | null, heightCm: number | null): number {
+    if (!widthCm && !heightCm) return 0;
+    return Math.max(widthCm ?? 0, heightCm ?? 0);
+}
+
+// Sambung detection: when shorter dim > roll effective width, needs multiple print passes
+function getSambungInfo(widthCm: number | null, heightCm: number | null, rollEffectiveWidth: number): {
+    needsSambung: boolean; strips: number; stripWidth: number;
+} {
+    if (!widthCm || !heightCm || rollEffectiveWidth <= 0) return { needsSambung: false, strips: 1, stripWidth: 0 };
+    const shorter = Math.min(widthCm, heightCm);
+    if (shorter <= rollEffectiveWidth) return { needsSambung: false, strips: 1, stripWidth: shorter };
+    const strips = Math.ceil(shorter / rollEffectiveWidth);
+    return { needsSambung: true, strips, stripWidth: Math.round((shorter / strips) * 100) / 100 };
+}
+
+// ── types ─────────────────────────────────────────────────────────────────────
+type Tab = 'ANTRIAN' | 'PROSES' | 'SELESAI' | 'DIAMBIL';
+
+// ── component ─────────────────────────────────────────────────────────────────
+export default function ProduksiPage() {
+    const [authed, setAuthed] = useState(false);
+    const [pinInput, setPinInput] = useState('');
+    const [pinError, setPinError] = useState('');
+    const [pinLoading, setPinLoading] = useState(false);
+
+    const [tab, setTab] = useState<Tab>('ANTRIAN');
+    const [jobs, setJobs] = useState<any[]>([]);
+    const [rolls, setRolls] = useState<any[]>([]);
+    const [stats, setStats] = useState({ antrian: 0, proses: 0, selesai: 0 });
+    const [loading, setLoading] = useState(false);
+
+    // Gang print mode
+    const [gangMode, setGangMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+    // Process modal (single job)
+    const [processModal, setProcessModal] = useState<{ open: boolean; job: any | null }>({ open: false, job: null });
+    const [useWaste, setUseWaste] = useState(false);
+    const [selectedRollId, setSelectedRollId] = useState<number | null>(null);
+    const [rollSearch, setRollSearch] = useState('');
+    const [opNote, setOpNote] = useState('');
+    const [batchRollSearch, setBatchRollSearch] = useState('');
+    const [modalLoading, setModalLoading] = useState(false);
+
+    // Batch modal
+    const [batchModal, setBatchModal] = useState(false);
+    const [batchUseWaste, setBatchUseWaste] = useState(false);
+    const [batchRollId, setBatchRollId] = useState<number | null>(null);
+
+    const refreshInterval = useRef<NodeJS.Timeout | null>(null);
+
+    // Check stored PIN session on mount
+    useEffect(() => {
+        if (getStoredSession()) setAuthed(true);
+    }, []);
+
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [j, r, s] = await Promise.all([
+                getProductionJobs(),
+                getProductionRolls(),
+                getProductionStats(),
+            ]);
+            setJobs(j);
+            setRolls(r);
+            setStats(s);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!authed) return;
+        loadData();
+        refreshInterval.current = setInterval(loadData, 30000);
+        return () => { if (refreshInterval.current) clearInterval(refreshInterval.current); };
+    }, [authed, loadData]);
+
+    // ── PIN verification ───────────────────────────────────────────────────────
+    const handlePinSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!pinInput) return;
+        setPinLoading(true);
+        setPinError('');
+        try {
+            const res = await verifyOperatorPin(pinInput);
+            if (res.valid) {
+                saveSession();
+                setAuthed(true);
+            } else {
+                setPinError(res.message || 'PIN salah. Coba lagi.');
+                setPinInput('');
+            }
+        } catch {
+            setPinError('Gagal menghubungi server.');
+        } finally {
+            setPinLoading(false);
+        }
+    };
+
+    // ── filter jobs by tab ─────────────────────────────────────────────────────
+    const filteredJobs = jobs.filter(j => j.status === tab);
+
+    // ── roll helpers ───────────────────────────────────────────────────────────
+    const maxRollEffectiveWidth = rolls.reduce((max: number, r: any) =>
+        Math.max(max, Number(r.rollEffectivePrintWidth ?? r.rollPhysicalWidth ?? 0)), 0);
+
+    // ── gang mode helpers ──────────────────────────────────────────────────────
+    const toggleSelect = (id: number) => {
+        const job = filteredJobs.find(j => j.id === id);
+        if (job && maxRollEffectiveWidth > 0) {
+            const w = job.transactionItem?.widthCm ? Number(job.transactionItem.widthCm) : null;
+            const h = job.transactionItem?.heightCm ? Number(job.transactionItem.heightCm) : null;
+            if (getSambungInfo(w, h, maxRollEffectiveWidth).needsSambung) {
+                alert('Job ini perlu cetak SAMBUNG (melebihi lebar roll). Tidak bisa digabung — proses secara individual.');
+                return;
+            }
+            // Only check width limit when ADDING (not removing)
+            if (!selectedIds.has(id)) {
+                const jobWidth = Math.min(w ?? 0, h ?? 0);
+                const newTotal = batchTotalWidth + jobWidth;
+                if (newTotal > maxRollEffectiveWidth) {
+                    alert(`Tidak bisa ditambahkan.\nTotal lebar akan menjadi ${newTotal.toFixed(2)}m — melebihi lebar roll maksimal (${maxRollEffectiveWidth}m).\n\nKurangi job yang dipilih atau gunakan lebar yang lebih kecil.`);
+                    return;
+                }
+            }
+        }
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const selectedJobs = filteredJobs.filter(j => selectedIds.has(j.id));
+
+    // Total area (m²) for all selected jobs — used for stock deduction
+    const batchTotalAreaM2 = selectedJobs.reduce((sum, j) => sum + getAreaM2(j), 0);
+
+    // Keep width tracking for sambung validation only (not shown in UI)
+    const batchTotalWidth = selectedJobs.reduce((sum, j) => {
+        const w = j.transactionItem?.widthCm ? Number(j.transactionItem.widthCm) : 0;
+        const h = j.transactionItem?.heightCm ? Number(j.transactionItem.heightCm) : 0;
+        return sum + Math.min(w, h);
+    }, 0);
+
+    // ── open process modal ─────────────────────────────────────────────────────
+    const openProcess = (job: any) => {
+        setProcessModal({ open: true, job });
+        setUseWaste(false);
+        setSelectedRollId(null);
+        setRollSearch('');
+        setOpNote('');
+    };
+
+    // ── actions ────────────────────────────────────────────────────────────────
+    const handleStartJob = async () => {
+        if (!processModal.job) return;
+        if (!useWaste && !selectedRollId) {
+            alert('Pilih bahan yang akan digunakan.');
+            return;
+        }
+        const jobAreaM2 = getAreaM2(processModal.job);
+        setModalLoading(true);
+        try {
+            await startProductionJob(processModal.job.id, {
+                rollVariantId: useWaste ? undefined : selectedRollId!,
+                usedWaste: useWaste,
+                rollAreaM2: useWaste ? undefined : jobAreaM2,
+                operatorNote: opNote || undefined,
+            });
+            setProcessModal({ open: false, job: null });
+            await loadData();
+        } catch (e: any) {
+            alert(e.message || 'Gagal memulai job');
+        } finally {
+            setModalLoading(false);
+        }
+    };
+
+    const handleCompleteJob = async (id: number) => {
+        if (!confirm('Tandai job ini sebagai SELESAI?')) return;
+        try {
+            await completeProductionJob(id);
+            await loadData();
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    const handlePickupJob = async (id: number) => {
+        if (!confirm('Tandai pesanan ini sudah DIAMBIL pelanggan?')) return;
+        try {
+            await pickupProductionJob(id);
+            await loadData();
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    const handleCreateBatch = async () => {
+        if (!batchUseWaste && !batchRollId) {
+            alert('Pilih bahan yang akan digunakan.');
+            return;
+        }
+        setModalLoading(true);
+        try {
+            await createProductionBatch({
+                jobIds: Array.from(selectedIds),
+                rollVariantId: batchUseWaste ? undefined : batchRollId!,
+                usedWaste: batchUseWaste,
+                totalAreaM2: batchUseWaste ? undefined : batchTotalAreaM2,
+            });
+            setSelectedIds(new Set());
+            setGangMode(false);
+            setBatchModal(false);
+            setTab('PROSES');
+            await loadData();
+        } catch (e: any) {
+            alert(e.message || 'Gagal membuat batch');
+        } finally {
+            setModalLoading(false);
+        }
+    };
+
+    const handleCompleteBatch = async (batchId: number) => {
+        if (!confirm('Tandai semua job dalam batch ini sebagai SELESAI?')) return;
+        try {
+            await completeProductionBatch(batchId);
+            await loadData();
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    // ── open batch modal ───────────────────────────────────────────────────────
+    const openBatchModal = () => {
+        if (selectedIds.size < 2) { alert('Pilih minimal 2 job untuk digabung.'); return; }
+        setBatchModal(true);
+        setBatchUseWaste(false);
+        setBatchRollId(null);
+        setBatchRollSearch('');
+    };
+
+    // ── PIN SCREEN ─────────────────────────────────────────────────────────────
+    if (!authed) {
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+                <div className="w-full max-w-sm">
+                    <div className="text-center mb-8">
+                        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                            </svg>
+                        </div>
+                        <h1 className="text-2xl font-bold text-foreground">Antrian Produksi</h1>
+                        <p className="text-muted-foreground text-sm mt-1">Masukkan PIN operator untuk mengakses</p>
+                    </div>
+
+                    <form onSubmit={handlePinSubmit} className="space-y-4">
+                        <input
+                            type="password" inputMode="numeric" pattern="[0-9]*"
+                            value={pinInput}
+                            onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
+                            maxLength={6}
+                            placeholder="PIN Operator"
+                            autoFocus
+                            className="w-full text-center text-3xl tracking-[1rem] font-mono px-4 py-4 border-2 border-border bg-background rounded-2xl focus:border-primary outline-none transition-colors"
+                        />
+                        {pinError && (
+                            <div className="text-center text-sm text-red-500 font-medium">{pinError}</div>
+                        )}
+                        <button type="submit" disabled={pinLoading || pinInput.length < 4}
+                            className="w-full py-4 bg-primary text-primary-foreground font-bold text-lg rounded-2xl disabled:opacity-50 active:scale-[0.98] transition-transform">
+                            {pinLoading ? 'Memverifikasi...' : 'Masuk'}
+                        </button>
+                    </form>
+
+                    <p className="text-center text-xs text-muted-foreground mt-6">
+                        PIN berlaku 24 jam di perangkat ini
+                    </p>
+
+                    <div className="mt-4 text-center">
+                        <a href="/pos" className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors">
+                            ← Kembali ke Kasir
+                        </a>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ── QUEUE SCREEN ───────────────────────────────────────────────────────────
+    return (
+        <div className="min-h-screen bg-background flex flex-col">
+            {/* Header */}
+            <header className="bg-card border-b border-border px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 className="font-bold text-sm text-foreground">Antrian Produksi</h1>
+                        <p className="text-xs text-muted-foreground">Auto refresh 30 detik</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={loadData} disabled={loading}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
+                        <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                    <button onClick={() => { clearSession(); setAuthed(false); }}
+                        className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg hover:bg-muted transition-colors">
+                        Keluar
+                    </button>
+                </div>
+            </header>
+
+            {/* Tabs */}
+            <div className="bg-card border-b border-border px-4 flex gap-1 overflow-x-auto">
+                {([
+                    { key: 'ANTRIAN', label: 'Antrian', count: stats.antrian, color: 'text-amber-600' },
+                    { key: 'PROSES', label: 'Proses', count: stats.proses, color: 'text-blue-600' },
+                    { key: 'SELESAI', label: 'Selesai', count: stats.selesai, color: 'text-green-600' },
+                    { key: 'DIAMBIL', label: 'Diambil', count: null, color: 'text-muted-foreground' },
+                ] as const).map(t => (
+                    <button key={t.key} onClick={() => { setTab(t.key); setGangMode(false); setSelectedIds(new Set()); }}
+                        className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                        {t.label}
+                        {t.count !== null && t.count > 0 && (
+                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full bg-muted ${t.color}`}>{t.count}</span>
+                        )}
+                    </button>
+                ))}
+            </div>
+
+            {/* Gang mode toolbar */}
+            {tab === 'ANTRIAN' && (
+                <div className="bg-card/50 border-b border-border px-4 py-2 flex items-center justify-between">
+                    <button onClick={() => { setGangMode(!gangMode); setSelectedIds(new Set()); }}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${gangMode ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                        </svg>
+                        {gangMode ? 'Mode Gabung Aktif' : 'Gabung Cetak'}
+                    </button>
+
+                    {gangMode && selectedIds.size > 0 && (
+                        <div className="flex items-center gap-3">
+                            <div className="text-xs text-right">
+                                <p className="font-bold text-foreground">{batchTotalAreaM2.toFixed(2)} m²</p>
+                                <p className="text-muted-foreground">total luas</p>
+                            </div>
+                            {selectedIds.size >= 2 && (
+                                <button onClick={openBatchModal}
+                                    className="flex items-center gap-2 px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold transition-colors">
+                                    Gabung {selectedIds.size} Job
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Job list */}
+            <main className="flex-1 p-4 space-y-3 max-w-2xl mx-auto w-full pb-24">
+                {filteredJobs.length === 0 && !loading && (
+                    <div className="text-center py-16 text-muted-foreground">
+                        <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <p className="font-medium">Tidak ada job di tab ini</p>
+                    </div>
+                )}
+
+                {/* Group by batch for PROSES tab */}
+                {tab === 'PROSES' ? (
+                    (() => {
+                        const batchMap: Record<number, any[]> = {};
+                        const soloJobs: any[] = [];
+                        filteredJobs.forEach(j => {
+                            if (j.batchId) {
+                                if (!batchMap[j.batchId]) batchMap[j.batchId] = [];
+                                batchMap[j.batchId].push(j);
+                            } else {
+                                soloJobs.push(j);
+                            }
+                        });
+
+                        return (
+                            <>
+                                {Object.entries(batchMap).map(([batchId, batchJobs]) => (
+                                    <div key={batchId} className="border-2 border-blue-500/30 rounded-xl overflow-hidden bg-blue-500/5">
+                                        <div className="px-4 py-2 bg-blue-500/10 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-blue-600">GABUNG CETAK</span>
+                                                <span className="text-xs text-muted-foreground">{batchJobs[0]?.batch?.batchNumber}</span>
+                                                <span className="text-xs text-muted-foreground">• {batchJobs.length} job</span>
+                                            </div>
+                                            <button onClick={() => handleCompleteBatch(Number(batchId))}
+                                                className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-lg">
+                                                Selesai Semua
+                                            </button>
+                                        </div>
+                                        <div className="divide-y divide-border">
+                                            {batchJobs.map(j => <JobCard key={j.id} job={j} tab={tab} gangMode={false} selected={false} onSelect={() => {}} onProcess={() => {}} onComplete={handleCompleteJob} onPickup={handlePickupJob} maxRollEffectiveWidth={maxRollEffectiveWidth} />)}
+                                        </div>
+                                    </div>
+                                ))}
+                                {soloJobs.map(j => (
+                                    <JobCard key={j.id} job={j} tab={tab} gangMode={false} selected={false} onSelect={() => {}} onProcess={() => {}} onComplete={handleCompleteJob} onPickup={handlePickupJob} maxRollEffectiveWidth={maxRollEffectiveWidth} />
+                                ))}
+                            </>
+                        );
+                    })()
+                ) : (
+                    filteredJobs.map(j => (
+                        <JobCard key={j.id} job={j} tab={tab} gangMode={gangMode} selected={selectedIds.has(j.id)}
+                            onSelect={() => toggleSelect(j.id)} onProcess={() => openProcess(j)}
+                            onComplete={handleCompleteJob} onPickup={handlePickupJob} maxRollEffectiveWidth={maxRollEffectiveWidth} />
+                    ))
+                )}
+            </main>
+
+            {/* ── Process Modal ─────────────────────────────────────────────────────── */}
+            {processModal.open && processModal.job && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/60 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                        <div className="p-4 border-b border-border flex items-center justify-between">
+                            <div>
+                                <h2 className="font-bold">Proses Job #{processModal.job.jobNumber}</h2>
+                                <p className="text-xs text-muted-foreground">
+                                    {processModal.job.transactionItem?.productVariant?.product?.name} · {getDimLabel(processModal.job)}
+                                </p>
+                            </div>
+                            <button onClick={() => setProcessModal({ open: false, job: null })}
+                                className="p-1 text-muted-foreground hover:text-foreground">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="overflow-y-auto flex-1 p-4 space-y-4">
+                            {/* Order info */}
+                            {processModal.job.transactionItem?.note && (
+                                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm">
+                                    <span className="font-semibold text-amber-700">Catatan: </span>
+                                    {processModal.job.transactionItem.note}
+                                </div>
+                            )}
+                            {processModal.job.notes && (
+                                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm">
+                                    <span className="font-semibold">Catatan Produksi: </span>
+                                    {processModal.job.notes}
+                                </div>
+                            )}
+
+                            {/* Material choice */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-semibold">Pilih Bahan</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[false, true].map(isWaste => (
+                                        <button key={String(isWaste)} type="button" onClick={() => setUseWaste(isWaste)}
+                                            className={`py-3 rounded-xl border-2 text-sm font-medium transition-all ${useWaste === isWaste ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                                            {isWaste ? 'Sisa / Waste' : 'Bahan Baru (Potong Stok)'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {!useWaste && (
+                                <>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-semibold">Pilih Bahan dari Stok</label>
+                                        <input
+                                            type="text" value={rollSearch}
+                                            onChange={e => setRollSearch(e.target.value)}
+                                            placeholder="Cari nama produk..."
+                                            className="w-full px-3 py-2 border border-border bg-background rounded-xl outline-none focus:border-primary text-sm"
+                                        />
+                                        <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                                            {rolls.filter(r => `${r.product?.name} ${r.variantName ?? ''}`.toLowerCase().includes(rollSearch.toLowerCase())).map((roll: any) => {
+                                                const jobArea = getAreaM2(processModal.job);
+                                                const stockM2 = Number(roll.stock);
+                                                const afterDeduct = stockM2 - Math.ceil(jobArea);
+                                                const cukup = afterDeduct >= 0;
+                                                return (
+                                                    <button key={roll.id} type="button" onClick={() => setSelectedRollId(roll.id)}
+                                                        className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${selectedRollId === roll.id ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/30'}`}>
+                                                        <div className="flex items-center justify-between">
+                                                            <div>
+                                                                <p className="text-sm font-medium">{roll.product?.name} {roll.variantName ? `- ${roll.variantName}` : ''}</p>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Stok: {stockM2} m² {cukup ? `→ sisa ${afterDeduct} m²` : '(stok kurang)'}
+                                                                </p>
+                                                            </div>
+                                                            {cukup
+                                                                ? <span className="text-xs px-2 py-0.5 bg-green-500/15 text-green-700 rounded-full font-medium">Cukup</span>
+                                                                : <span className="text-xs px-2 py-0.5 bg-red-500/15 text-red-600 rounded-full font-medium">Kurang</span>
+                                                            }
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                            {rolls.length === 0 && (
+                                                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-700">
+                                                    <p className="font-semibold">Belum ada produk di inventory.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Area info */}
+                                    {(() => {
+                                        const areaM2 = getAreaM2(processModal.job);
+                                        const roll = rolls.find((r: any) => r.id === selectedRollId);
+                                        const eff = roll ? Number(roll.rollEffectivePrintWidth ?? roll.rollPhysicalWidth ?? 0) : 0;
+                                        const w = processModal.job.transactionItem?.widthCm ? Number(processModal.job.transactionItem.widthCm) : null;
+                                        const h = processModal.job.transactionItem?.heightCm ? Number(processModal.job.transactionItem.heightCm) : null;
+                                        const sambung = eff > 0 ? getSambungInfo(w, h, eff) : { needsSambung: false, strips: 1, stripWidth: 0 };
+                                        return (
+                                            <div className={`p-3 rounded-xl border text-sm space-y-1 ${sambung.needsSambung ? 'bg-orange-500/10 border-orange-500/20' : 'bg-muted/40 border-border'}`}>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-muted-foreground">Luas cetak</span>
+                                                    <span className="font-bold text-lg">{areaM2.toFixed(2)} m²</span>
+                                                </div>
+                                                {selectedRollId && roll && (
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-muted-foreground">Stok bahan setelah dipotong</span>
+                                                        <span className={`font-semibold ${Number(roll.stock) - Math.ceil(areaM2) < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                                            {Number(roll.stock) - Math.ceil(areaM2)} m²
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {sambung.needsSambung && (
+                                                    <p className="text-xs text-orange-600 pt-1 border-t border-orange-500/20">
+                                                        ⚠ Perlu cetak sambung {sambung.strips}× (lebar {sambung.stripWidth}m per pass)
+                                                    </p>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+                                </>
+                            )}
+
+                            <div className="space-y-1">
+                                <label className="text-sm font-semibold">Catatan Operator (opsional)</label>
+                                <textarea rows={2} value={opNote} onChange={e => setOpNote(e.target.value)}
+                                    placeholder="Catatan proses, setting mesin, dll."
+                                    className="w-full px-3 py-2 border border-border bg-background rounded-xl outline-none focus:border-primary text-sm resize-none" />
+                            </div>
+                        </div>
+
+                        <div className="p-4 border-t border-border flex gap-3">
+                            <button type="button" onClick={() => setProcessModal({ open: false, job: null })}
+                                className="flex-1 py-3 border border-border rounded-xl text-sm font-medium hover:bg-muted transition-colors">
+                                Batal
+                            </button>
+                            <button type="button" onClick={handleStartJob} disabled={modalLoading}
+                                className="flex-[2] py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-50 transition-colors">
+                                {modalLoading ? 'Memproses...' : 'Mulai Cetak'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Batch Modal ───────────────────────────────────────────────────────── */}
+            {batchModal && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/60 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                        <div className="p-4 border-b border-border flex items-center justify-between">
+                            <div>
+                                <h2 className="font-bold">Gabung Cetak — {selectedIds.size} Job</h2>
+                                <p className="text-xs text-muted-foreground">
+                                    Total luas: <span className="font-bold text-foreground">{batchTotalAreaM2.toFixed(2)} m²</span>
+                                </p>
+                            </div>
+                            <button onClick={() => setBatchModal(false)} className="p-1 text-muted-foreground hover:text-foreground">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="overflow-y-auto flex-1 p-4 space-y-4">
+                            {/* Summary */}
+                            <div className="bg-muted/40 rounded-xl p-3 space-y-1 text-sm">
+                                {selectedJobs.map(j => (
+                                    <div key={j.id} className="flex items-center justify-between">
+                                        <span className="text-muted-foreground truncate pr-2">{j.transaction?.invoiceNumber} · {j.transactionItem?.productVariant?.product?.name}</span>
+                                        <span className="font-mono text-xs shrink-0">{getDimLabel(j)} = <span className="font-semibold">{getAreaM2(j).toFixed(2)}m²</span></span>
+                                    </div>
+                                ))}
+                                <div className="border-t border-border pt-2 mt-2 flex justify-between font-bold">
+                                    <span>Total luas bahan</span>
+                                    <span>{batchTotalAreaM2.toFixed(2)} m²</span>
+                                </div>
+                            </div>
+
+                            {/* Material choice */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-semibold">Pilih Bahan</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[false, true].map(isWaste => (
+                                        <button key={String(isWaste)} type="button" onClick={() => setBatchUseWaste(isWaste)}
+                                            className={`py-3 rounded-xl border-2 text-sm font-medium transition-all ${batchUseWaste === isWaste ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                                            {isWaste ? 'Sisa / Waste' : 'Bahan Baru (Potong Stok)'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {!batchUseWaste && (
+                                <>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-semibold">Pilih Bahan dari Stok</label>
+                                        <input
+                                            type="text" value={batchRollSearch}
+                                            onChange={e => setBatchRollSearch(e.target.value)}
+                                            placeholder="Cari nama produk..."
+                                            className="w-full px-3 py-2 border border-border bg-background rounded-xl outline-none focus:border-primary text-sm"
+                                        />
+                                        <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                                            {rolls.length === 0 && (
+                                                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-700">
+                                                    <p className="font-semibold">Belum ada produk di stok.</p>
+                                                    <p className="text-xs mt-1">Pastikan sudah ada produk di Inventory dan backend sudah di-restart setelah perubahan terakhir.</p>
+                                                </div>
+                                            )}
+                                            {rolls.filter(r => `${r.product?.name} ${r.variantName ?? ''}`.toLowerCase().includes(batchRollSearch.toLowerCase())).map(r => {
+                                                const stockM2 = Number(r.stock);
+                                                const afterDeduct = stockM2 - Math.ceil(batchTotalAreaM2);
+                                                const cukup = afterDeduct >= 0;
+                                                return (
+                                                    <button key={r.id} type="button" onClick={() => setBatchRollId(r.id)}
+                                                        className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${batchRollId === r.id ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/30'}`}>
+                                                        <div className="flex items-center justify-between">
+                                                            <div>
+                                                                <p className="text-sm font-medium">{r.product?.name} {r.variantName ? `- ${r.variantName}` : ''}</p>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Stok: {stockM2} m² {cukup ? `→ sisa ${afterDeduct} m²` : '(stok kurang)'}
+                                                                </p>
+                                                            </div>
+                                                            {cukup
+                                                                ? <span className="text-xs px-2 py-0.5 bg-green-500/15 text-green-700 rounded-full font-medium">Cukup</span>
+                                                                : <span className="text-xs px-2 py-0.5 bg-red-500/15 text-red-600 rounded-full font-medium">Kurang</span>
+                                                            }
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-border flex gap-3">
+                            <button type="button" onClick={() => setBatchModal(false)}
+                                className="flex-1 py-3 border border-border rounded-xl text-sm font-medium hover:bg-muted transition-colors">
+                                Batal
+                            </button>
+                            <button type="button" onClick={handleCreateBatch} disabled={modalLoading}
+                                className="flex-[2] py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-50 transition-colors">
+                                {modalLoading ? 'Memproses...' : `Gabung & Mulai Cetak ${selectedIds.size} Job`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ── Job Card ──────────────────────────────────────────────────────────────────
+function JobCard({ job, tab, gangMode, selected, onSelect, onProcess, onComplete, onPickup, maxRollEffectiveWidth }: {
+    job: any;
+    tab: Tab;
+    gangMode: boolean;
+    selected: boolean;
+    onSelect: () => void;
+    onProcess: () => void;
+    onComplete: (id: number) => void;
+    onPickup: (id: number) => void;
+    maxRollEffectiveWidth: number;
+}) {
+    const dl = formatDeadline(job.deadline ?? job.transaction?.productionDeadline);
+    const isExpress = job.priority === 'EXPRESS';
+    const productName = job.transactionItem?.productVariant?.product?.name ?? '—';
+    const note = job.transactionItem?.note;
+    const prodNotes = job.notes;
+    const rollLabel = job.rollVariant
+        ? `${job.rollVariant.product?.name} — ${job.rollLengthUsed}m`
+        : job.usedWaste ? 'Sisa/Waste' : '—';
+    const w = job.transactionItem?.widthCm ? Number(job.transactionItem.widthCm) : null;
+    const h = job.transactionItem?.heightCm ? Number(job.transactionItem.heightCm) : null;
+    const sambung = getSambungInfo(w, h, maxRollEffectiveWidth);
+
+    return (
+        <div
+            onClick={gangMode && tab === 'ANTRIAN' ? onSelect : undefined}
+            className={`bg-card border rounded-2xl overflow-hidden transition-all ${selected ? 'border-primary ring-2 ring-primary/30' : 'border-border'} ${gangMode && tab === 'ANTRIAN' ? 'cursor-pointer active:scale-[0.99]' : ''}`}>
+
+            {/* Priority bar */}
+            <div className={`h-1 ${isExpress ? 'bg-red-500' : 'bg-muted'}`} />
+
+            <div className="p-4">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {gangMode && tab === 'ANTRIAN' && (
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${selected ? 'border-primary bg-primary' : 'border-border'}`}>
+                                {selected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                            </div>
+                        )}
+                        {isExpress && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-red-500 text-white rounded-full">EXPRESS</span>
+                        )}
+                        {sambung.needsSambung && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-orange-500/15 text-orange-600 border border-orange-500/30 rounded-full">SAMBUNG ×{sambung.strips}</span>
+                        )}
+                        <span className="text-xs font-mono text-muted-foreground">{job.jobNumber}</span>
+                        {job.batch && (
+                            <span className="text-[10px] font-medium px-2 py-0.5 bg-blue-500/15 text-blue-600 rounded-full">{job.batch.batchNumber}</span>
+                        )}
+                    </div>
+                    <span className={`text-xs font-medium shrink-0 ${dl.urgent ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
+                        {dl.label}
+                    </span>
+                </div>
+
+                <p className="font-semibold text-sm text-foreground">{job.transaction?.customerName || 'Tanpa nama'}</p>
+                <p className="text-xs text-muted-foreground">{job.transaction?.invoiceNumber}</p>
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="text-xs px-2 py-1 bg-muted rounded-lg font-medium">{productName}</span>
+                    {getDimLabel(job) && (
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-lg font-mono font-medium">{getDimLabel(job)}</span>
+                    )}
+                </div>
+
+                {(note || prodNotes) && (
+                    <div className="mt-2 text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 space-y-0.5">
+                        {note && <p><span className="font-medium">Desain:</span> {note}</p>}
+                        {prodNotes && <p><span className="font-medium">Produksi:</span> {prodNotes}</p>}
+                    </div>
+                )}
+
+                {(tab === 'PROSES' || tab === 'SELESAI' || tab === 'DIAMBIL') && job.rollVariant && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                        Bahan: <span className="font-medium text-foreground">{rollLabel}</span>
+                    </div>
+                )}
+
+                {/* Action buttons */}
+                {!gangMode && (
+                    <div className="mt-3 flex gap-2 justify-end">
+                        {tab === 'ANTRIAN' && (
+                            <button onClick={e => { e.stopPropagation(); onProcess(); }}
+                                className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-bold active:scale-95 transition-transform">
+                                Proses
+                            </button>
+                        )}
+                        {tab === 'PROSES' && !job.batchId && (
+                            <button onClick={() => onComplete(job.id)}
+                                className="px-4 py-2 bg-green-500 text-white rounded-xl text-sm font-bold active:scale-95 transition-transform">
+                                Selesai
+                            </button>
+                        )}
+                        {tab === 'SELESAI' && (
+                            <button onClick={() => onPickup(job.id)}
+                                className="px-4 py-2 bg-muted text-foreground border border-border rounded-xl text-sm font-medium active:scale-95 transition-transform">
+                                Sudah Diambil
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
