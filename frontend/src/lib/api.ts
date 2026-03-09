@@ -285,7 +285,7 @@ export const getProductionRolls = async (): Promise<any[]> => {
     return res.json();
 };
 
-export const getProductionStats = async (): Promise<{ antrian: number; proses: number; selesai: number }> => {
+export const getProductionStats = async (): Promise<{ antrian: number; proses: number; menungguPasang: number; pasang: number; selesai: number }> => {
     const res = await fetch(`${API_BASE_PROD()}/production/stats`);
     return res.json();
 };
