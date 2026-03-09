@@ -205,7 +205,7 @@ function SessionDetail({ sessionId, onBack }: { sessionId: string; onBack: () =>
     if (isLoading) return <div className="p-8 text-center text-muted-foreground">Memuat...</div>;
     if (!session) return <div className="p-8 text-center text-muted-foreground">Sesi tidak ditemukan</div>;
 
-    const operators = [...new Set(session.items.map((i: any) => i.operatorName))];
+    const operators = [...new Set<string>(session.items.map((i: any) => i.operatorName as string))];
     const hasMismatch = Array.from(variantMap.values()).some((v: any) => {
         const latestActual = v.inputs[0]?.actual;
         return latestActual !== undefined && latestActual !== v.systemStock;
