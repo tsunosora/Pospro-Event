@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCategories, getUnits, createProduct, uploadProductImages, uploadVariantImage, getSettings, getProducts } from '@/lib/api';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
 // Auto-generate SKU helper
@@ -143,6 +143,14 @@ export default function AddProductPage() {
             } else {
                 (next[index] as any)[field] = value;
             }
+            return next;
+        });
+    };
+
+    const generateSkuForVariant = (index: number) => {
+        setVariants(prev => {
+            const next = [...prev];
+            next[index] = { ...next[index], sku: generateSku(productForm.name, index), skuManuallyEdited: false };
             return next;
         });
     };
@@ -468,12 +476,22 @@ export default function AddProductPage() {
                                                 SKU *
                                                 {!v.skuManuallyEdited && <span className="ml-1 text-primary/60">(auto)</span>}
                                             </label>
-                                            <input
-                                                required type="text" value={v.sku}
-                                                onChange={e => updateVariant(index, 'sku', e.target.value)}
-                                                placeholder="AUTO-001"
-                                                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono"
-                                            />
+                                            <div className="flex gap-1.5">
+                                                <input
+                                                    required type="text" value={v.sku}
+                                                    onChange={e => updateVariant(index, 'sku', e.target.value)}
+                                                    placeholder="AUTO-001"
+                                                    className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => generateSkuForVariant(index)}
+                                                    title="Generate SKU otomatis dari nama produk"
+                                                    className="px-2.5 py-2 bg-muted border border-border rounded-lg hover:bg-primary/10 hover:border-primary/40 transition-colors text-muted-foreground hover:text-primary shrink-0"
+                                                >
+                                                    <RefreshCw className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-xs font-medium text-muted-foreground">
