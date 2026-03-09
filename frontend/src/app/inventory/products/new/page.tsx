@@ -505,40 +505,38 @@ export default function AddProductPage() {
                                         </div>
                                     </div>
 
-                                    {/* Roll Material fields — tampil di semua tipe produk */}
-                                    {(
-                                        <div className="border-t border-border/50 pt-3 space-y-3">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="checkbox" checked={v.isRollMaterial} onChange={e => updateVariant(index, 'isRollMaterial', e.target.checked)}
-                                                    className="w-4 h-4 rounded accent-primary" />
-                                                <span className="text-sm font-medium">Ini adalah bahan roll (banner, MMT, dll)</span>
-                                            </label>
-                                            {v.isRollMaterial && (
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div className="space-y-1">
-                                                        <label className="text-xs font-medium text-muted-foreground">Lebar Fisik Roll (m)</label>
-                                                        <input type="number" step="0.1" min="0" value={v.rollPhysicalWidth}
-                                                            onChange={e => updateVariant(index, 'rollPhysicalWidth', e.target.value)}
-                                                            placeholder="3.2"
-                                                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <label className="text-xs font-medium text-muted-foreground">Lebar Cetak Efektif (m)</label>
-                                                        <input type="number" step="0.1" min="0" value={v.rollEffectivePrintWidth}
-                                                            onChange={e => updateVariant(index, 'rollEffectivePrintWidth', e.target.value)}
-                                                            placeholder="3.0"
-                                                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
-                                                        <p className="text-xs text-muted-foreground">Area cetak aktual (biasanya lebar fisik - 0.1~0.2m)</p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
                                     {variants.length > 1 && (
                                         <button type="button" onClick={() => removeVariant(index)} className="shrink-0 p-1.5 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 mt-0.5">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
+                                    )}
+                                </div>
+
+                                {/* Roll Material fields — di luar flex agar tampil full-width */}
+                                <div className="border-t border-border/50 pt-3 space-y-3">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={v.isRollMaterial} onChange={e => updateVariant(index, 'isRollMaterial', e.target.checked)}
+                                            className="w-4 h-4 rounded accent-primary" />
+                                        <span className="text-sm font-medium">Ini adalah bahan roll (banner, MMT, dll)</span>
+                                    </label>
+                                    {v.isRollMaterial && (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-medium text-muted-foreground">Lebar Fisik Roll (m)</label>
+                                                <input type="number" step="0.1" min="0" value={v.rollPhysicalWidth}
+                                                    onChange={e => updateVariant(index, 'rollPhysicalWidth', e.target.value)}
+                                                    placeholder="3.2"
+                                                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-medium text-muted-foreground">Lebar Cetak Efektif (m)</label>
+                                                <input type="number" step="0.1" min="0" value={v.rollEffectivePrintWidth}
+                                                    onChange={e => updateVariant(index, 'rollEffectivePrintWidth', e.target.value)}
+                                                    placeholder="3.0"
+                                                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
+                                                <p className="text-xs text-muted-foreground">Area cetak aktual (biasanya lebar fisik - 0.1~0.2m)</p>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>
