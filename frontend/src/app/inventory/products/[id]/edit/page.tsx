@@ -595,6 +595,10 @@ export default function EditProductPage() {
                             </div>
                         ))}
                     </div>
+
+                    <button type="button" onClick={addVariant} className="w-full flex items-center justify-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 bg-primary/10 px-3 py-2 rounded-lg hover:bg-primary/20 transition-colors border border-dashed border-primary/30 hover:border-primary/50 mt-2">
+                        <Plus className="w-4 h-4" /> Tambah Varian
+                    </button>
                 </div>
 
                 {/* Ingredients */}
