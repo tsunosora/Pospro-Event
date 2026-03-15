@@ -18,7 +18,7 @@ export class BackupController {
         return this.backupService.getGroups();
     }
 
-    // POST /backup/export — download file backup ZIP (data.json + folder uploads)
+    // POST /backup/export — stream ZIP langsung ke client (data.json + folder uploads)
     // Body: { groups: ['all'] } atau { groups: ['products', 'transactions', ...] }
     @Post('export')
     async exportBackup(
@@ -28,18 +28,17 @@ export class BackupController {
         const groups = body.groups || ['all'];
         const isAll = groups.includes('all');
 
-        const zipBuffer = await this.backupService.exportBackupZip(
-            isAll ? 'all' : (groups as BackupGroupKey[])
-        );
-
         const dateStr = new Date().toISOString().split('T')[0];
         const label = isAll ? 'full' : groups.join('-');
         const filename = `pospro-backup-${label}-${dateStr}.zip`;
 
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.setHeader('Content-Length', zipBuffer.length);
-        res.send(zipBuffer);
+
+        await this.backupService.streamBackupZip(
+            isAll ? 'all' : (groups as BackupGroupKey[]),
+            res,
+        );
     }
 
     // POST /backup/preview — preview isi file backup (ZIP atau JSON)

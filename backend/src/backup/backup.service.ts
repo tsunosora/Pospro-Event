@@ -82,9 +82,9 @@ const UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'public', 'uploads');
 export class BackupService {
     constructor(private prisma: PrismaService) {}
 
-    // ── Export / Backup — returns ZIP Buffer ────────────────────────────────
+    // ── Export / Backup — stream ZIP langsung ke response (tidak buffer di memori) ──
 
-    async exportBackupZip(selectedGroups: BackupGroupKey[] | 'all'): Promise<Buffer> {
+    async streamBackupZip(selectedGroups: BackupGroupKey[] | 'all', outputStream: any): Promise<void> {
         // ── 1. Kumpulkan data DB ───────────────────────────────────────────
         let tablesToExport: string[];
         if (selectedGroups === 'all') {
@@ -99,7 +99,7 @@ export class BackupService {
 
         for (const table of tablesToExport) {
             try {
-                const rows = await (this.prisma as any)[table].findMany({ orderBy: { id: 'asc' } });
+                const rows = await (this.prisma as any)[table].findMany();
                 data[table] = rows;
                 counts[table] = rows.length;
             } catch {
@@ -120,14 +120,16 @@ export class BackupService {
             data,
         };
 
-        // ── 2. Buat ZIP ────────────────────────────────────────────────────
-        return new Promise<Buffer>((resolve, reject) => {
-            const archive = archiver('zip', { zlib: { level: 6 } });
-            const chunks: Buffer[] = [];
+        // ── 2. Stream ZIP langsung ke outputStream (response) ─────────────
+        // Level kompresi 1 = paling cepat (foto sudah compressed, tidak perlu zip berat)
+        return new Promise<void>((resolve, reject) => {
+            const archive = archiver('zip', { zlib: { level: 1 } });
 
-            archive.on('data', (chunk: Buffer) => chunks.push(chunk));
-            archive.on('end', () => resolve(Buffer.concat(chunks)));
             archive.on('error', reject);
+            archive.on('finish', resolve);
+
+            // Pipe langsung ke response — tidak buffer di RAM
+            archive.pipe(outputStream);
 
             // Tambahkan data.json ke ZIP
             archive.append(JSON.stringify(backupJson, null, 2), { name: 'data.json' });
