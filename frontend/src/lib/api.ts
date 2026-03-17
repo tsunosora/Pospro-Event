@@ -54,6 +54,10 @@ export const applyHppToVariant = async (worksheetId: number, hppPerUnit: number)
     (await api.post(`/hpp/${worksheetId}/apply-to-variant`, { hppPerUnit })).data;
 export const deleteHppWorksheet = async (id: number) => (await api.delete(`/hpp/${id}`)).data;
 
+// Bulk Import
+export const bulkImportProducts = async (data: { products: any[] }) =>
+    (await api.post('/products/bulk-import', data)).data;
+
 // Backup & Recovery
 export const getBackupGroups = async () => (await api.get('/backup/groups')).data;
 export const previewBackupFile = async (file: File) => {

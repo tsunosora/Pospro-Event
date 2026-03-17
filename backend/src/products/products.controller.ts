@@ -8,6 +8,7 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { ProductsService } from './products.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { compressImage } from '../common/utils/compress-image.util';
 
 const imageStorage = diskStorage({
     destination: './public/uploads',
@@ -33,6 +34,11 @@ export class ProductsController {
     @Post()
     create(@Body() createProductDto: any) {
         return this.productsService.create(createProductDto);
+    }
+
+    @Post('bulk-import')
+    bulkImport(@Body() payload: any) {
+        return this.productsService.bulkImport(payload);
     }
 
     @Get()
@@ -88,6 +94,7 @@ export class ProductsController {
         @UploadedFile() file: Express.Multer.File,
     ) {
         if (!file) throw new BadRequestException('Image file is required');
+        await compressImage(file.path);
         const imageUrl = `/uploads/${file.filename}`;
         await this.productsService.updateImageUrl(id, imageUrl);
         return { message: 'Image uploaded successfully', imageUrl };
@@ -104,6 +111,7 @@ export class ProductsController {
         @UploadedFiles() files: Express.Multer.File[],
     ) {
         if (!files || files.length === 0) throw new BadRequestException('At least one image is required');
+        await Promise.all(files.map(f => compressImage(f.path)));
         const imageUrls = files.map(f => `/uploads/${f.filename}`);
         await this.productsService.updateImageUrls(id, imageUrls);
         await this.productsService.updateImageUrl(id, imageUrls[0]);
@@ -121,6 +129,7 @@ export class ProductsController {
         @UploadedFile() file: Express.Multer.File,
     ) {
         if (!file) throw new BadRequestException('Image file is required');
+        await compressImage(file.path);
         const variantImageUrl = `/uploads/${file.filename}`;
         await this.productsService.updateVariantImageUrl(variantId, variantImageUrl);
         return { message: 'Variant image uploaded successfully', variantImageUrl };

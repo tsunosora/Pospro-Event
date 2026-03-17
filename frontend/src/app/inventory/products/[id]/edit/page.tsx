@@ -1,13 +1,25 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getCategories, getUnits, getProduct, updateProduct, uploadProductImages, uploadVariantImage, getSettings, getProducts } from '@/lib/api';
+import { getCategories, getUnits, getProduct, updateProduct, uploadProductImages, uploadVariantImage, getSettings, getProducts, getHppWorksheets, createHppWorksheet, updateHppWorksheet, applyHppToVariant } from '@/lib/api';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2, RefreshCw, Calculator, Pencil } from 'lucide-react';
 import Link from 'next/link';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+function calcHppPerUnit(variableCosts: any[], fixedCosts: any[], targetVolume: number): number {
+    const totalVC = (variableCosts || []).reduce((s: number, vc: any) => {
+        const price = vc.productVariantId
+            ? Number(vc.productVariant?.price || 0)
+            : (Number(vc.customPrice) || 0);
+        return s + price * Number(vc.usageAmount);
+    }, 0);
+    const totalFC = (fixedCosts || []).reduce((s: number, fc: any) =>
+        s + Number(fc.amount), 0) / Math.max(Number(targetVolume) || 1, 1);
+    return totalVC + totalFC;
+}
 
 function generateSku(productName: string, index: number): string {
     if (!productName.trim()) return '';
@@ -71,6 +83,129 @@ export default function EditProductPage() {
         enabled: !!productId
     });
 
+    const { data: allHppWorksheets, refetch: refetchHpp } = useQuery({
+        queryKey: ['hpp-all'],
+        queryFn: () => getHppWorksheets(),
+    });
+
+    const hppByVariantId = useMemo<Record<number, any[]>>(() => {
+        if (!allHppWorksheets) return {};
+        const map: Record<number, any[]> = {};
+        for (const ws of (allHppWorksheets as any[])) {
+            if (ws.productVariantId) {
+                map[ws.productVariantId] = map[ws.productVariantId] || [];
+                map[ws.productVariantId].push(ws);
+            }
+        }
+        return map;
+    }, [allHppWorksheets]);
+
+    const [hppOpenVariants, setHppOpenVariants] = useState<Set<number>>(new Set());
+    const [hppEditState, setHppEditState] = useState<{
+        worksheetId: number | null;
+        variantIndex: number;
+        variantId: number;
+        variantLabel: string;
+        variantPrice: number;
+        form: {
+            productName: string;
+            targetVolume: number;
+            targetMargin: number;
+            variableCosts: { customMaterialName: string; customPrice: number; usageAmount: number; usageUnit: string }[];
+            fixedCosts: { name: string; amount: number }[];
+        };
+    } | null>(null);
+    const [hppSaving, setHppSaving] = useState(false);
+
+    const toggleHppSection = (idx: number) => setHppOpenVariants(prev => {
+        const next = new Set(prev);
+        next.has(idx) ? next.delete(idx) : next.add(idx);
+        return next;
+    });
+
+    const openHppEditor = (variantIndex: number, ws: any | null) => {
+        const v = variants[variantIndex];
+        const label = `${productForm.name}${v.variantName ? ' — ' + v.variantName : ''}`;
+        if (ws) {
+            setHppEditState({
+                worksheetId: ws.id,
+                variantIndex,
+                variantId: v.id!,
+                variantLabel: label,
+                variantPrice: Number(v.price),
+                form: {
+                    productName: ws.productName,
+                    targetVolume: Number(ws.targetVolume),
+                    targetMargin: Number(ws.targetMargin),
+                    variableCosts: (ws.variableCosts || []).map((vc: any) => ({
+                        customMaterialName: vc.productVariantId
+                            ? (vc.productVariant?.variantName
+                                ? `${vc.productVariant?.product?.name} - ${vc.productVariant?.variantName}`
+                                : (vc.productVariant?.product?.name || vc.customMaterialName || ''))
+                            : (vc.customMaterialName || ''),
+                        customPrice: vc.productVariantId
+                            ? Number(vc.productVariant?.price || 0)
+                            : (Number(vc.customPrice) || 0),
+                        usageAmount: Number(vc.usageAmount),
+                        usageUnit: vc.usageUnit || 'pcs',
+                    })),
+                    fixedCosts: (ws.fixedCosts || []).map((fc: any) => ({
+                        name: fc.name,
+                        amount: Number(fc.amount),
+                    })),
+                },
+            });
+        } else {
+            setHppEditState({
+                worksheetId: null,
+                variantIndex,
+                variantId: v.id!,
+                variantLabel: label,
+                variantPrice: Number(v.price),
+                form: {
+                    productName: label,
+                    targetVolume: 100,
+                    targetMargin: 50,
+                    variableCosts: [{ customMaterialName: '', customPrice: 0, usageAmount: 1, usageUnit: 'pcs' }],
+                    fixedCosts: [],
+                },
+            });
+        }
+    };
+
+    const handleHppSave = async (applyAfterSave = false) => {
+        if (!hppEditState) return;
+        setHppSaving(true);
+        try {
+            const payload = {
+                productName: hppEditState.form.productName,
+                targetVolume: hppEditState.form.targetVolume,
+                targetMargin: hppEditState.form.targetMargin,
+                productVariantId: hppEditState.variantId,
+                variableCosts: hppEditState.form.variableCosts.filter(vc => vc.customMaterialName),
+                fixedCosts: hppEditState.form.fixedCosts.filter(fc => fc.name),
+            };
+            let savedWs;
+            if (hppEditState.worksheetId) {
+                savedWs = await updateHppWorksheet(hppEditState.worksheetId, payload);
+            } else {
+                savedWs = await createHppWorksheet(payload);
+            }
+            if (applyAfterSave) {
+                const hpp = calcHppPerUnit(savedWs.variableCosts, savedWs.fixedCosts, savedWs.targetVolume);
+                await applyHppToVariant(savedWs.id, Math.round(hpp));
+                updateVariant(hppEditState.variantIndex, 'hpp', String(Math.round(hpp)));
+                queryClient.invalidateQueries({ queryKey: ['products'] });
+            }
+            await refetchHpp();
+            setHppEditState(null);
+        } catch (err: any) {
+            alert('Gagal menyimpan: ' + err.message);
+        } finally {
+            setHppSaving(false);
+        }
+    };
+
     const [productForm, setProductForm] = useState({ name: '', description: '', categoryId: '', unitId: '' });
     const [pricingMode, setPricingMode] = useState<'UNIT' | 'AREA_BASED'>('UNIT');
     const [productType, setProductType] = useState<'SELLABLE' | 'RAW_MATERIAL' | 'SERVICE'>('SELLABLE');
@@ -82,6 +217,7 @@ export default function EditProductPage() {
     const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null, null]);
     const [existingImageUrls, setExistingImageUrls] = useState<(string | null)[]>([null, null, null, null]);
     const [variants, setVariants] = useState<VariantForm[]>([defaultVariant()]);
+    const [deletedVariantIds, setDeletedVariantIds] = useState<number[]>([]);
     const [ingredients, setIngredients] = useState<IngredientForm[]>([]);
     const [showIngredients, setShowIngredients] = useState(false);
     const [initialized, setInitialized] = useState(false);
@@ -171,6 +307,7 @@ export default function EditProductPage() {
                 hasAssemblyStage,
                 trackStock,
                 pricePerUnit: pricingMode === 'AREA_BASED' ? Number(pricePerUnit) : null,
+                deletedVariantIds: deletedVariantIds.length > 0 ? deletedVariantIds : undefined,
                 variants: variants.map(v => ({
                     id: v.id,
                     sku: v.sku,
@@ -216,9 +353,10 @@ export default function EditProductPage() {
             }
             return updated;
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['products'] });
-            queryClient.invalidateQueries({ queryKey: ['product', productId] });
+        onSuccess: async () => {
+            await queryClient.refetchQueries({ queryKey: ['products'] });
+            queryClient.removeQueries({ queryKey: ['product', productId] });
+            setDeletedVariantIds([]);
             router.push('/inventory');
         }
     });
@@ -240,7 +378,13 @@ export default function EditProductPage() {
     };
 
     const addVariant = () => setVariants(prev => [...prev, defaultVariant()]);
-    const removeVariant = (index: number) => setVariants(prev => prev.filter((_, i) => i !== index));
+    const removeVariant = (index: number) => {
+        const variant = variants[index];
+        if (variant?.id) {
+            setDeletedVariantIds(prev => [...prev, variant.id!]);
+        }
+        setVariants(prev => prev.filter((_, i) => i !== index));
+    };
 
     const updateVariant = (index: number, field: keyof VariantForm, value: any) => {
         setVariants(prev => { const next = [...prev]; (next[index] as any)[field] = value; return next; });
@@ -592,6 +736,63 @@ export default function EditProductPage() {
                                 {v.id && (
                                     <p className="text-xs text-muted-foreground/50 font-mono">ID Varian: {v.id}</p>
                                 )}
+                                {/* HPP Worksheet — only for saved variants */}
+                                {v.id && (
+                                    <div className="border-t border-border/50 pt-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleHppSection(index)}
+                                            className={`flex items-center gap-2 text-sm font-medium transition-colors ${hppOpenVariants.has(index) ? 'text-amber-700' : 'text-muted-foreground hover:text-foreground'}`}
+                                        >
+                                            <Calculator className="w-4 h-4" />
+                                            HPP Worksheet
+                                            {(hppByVariantId[v.id!] || []).length > 0 && (
+                                                <span className="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">
+                                                    {(hppByVariantId[v.id!] || []).length}
+                                                </span>
+                                            )}
+                                            <span className="text-xs text-muted-foreground">{hppOpenVariants.has(index) ? '▲' : '▼'}</span>
+                                        </button>
+
+                                        {hppOpenVariants.has(index) && (
+                                            <div className="mt-3 space-y-2">
+                                                {(hppByVariantId[v.id!] || []).length === 0 ? (
+                                                    <p className="text-xs text-muted-foreground">Belum ada HPP worksheet untuk varian ini.</p>
+                                                ) : (
+                                                    (hppByVariantId[v.id!] || []).map((ws: any) => {
+                                                        const hppVal = calcHppPerUnit(ws.variableCosts, ws.fixedCosts, ws.targetVolume);
+                                                        const margin = Number(v.price) > 0 ? ((Number(v.price) - hppVal) / Number(v.price)) * 100 : 0;
+                                                        return (
+                                                            <div key={ws.id} className="flex items-center justify-between gap-3 bg-amber-50/50 border border-amber-200 rounded-lg px-3 py-2">
+                                                                <div>
+                                                                    <p className="text-xs font-semibold text-foreground">{ws.productName}</p>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        HPP: <span className="font-bold text-foreground">Rp {Math.round(hppVal).toLocaleString('id-ID')}</span>/unit ·{' '}
+                                                                        <span className={`font-semibold ${margin < 0 ? 'text-destructive' : margin < 20 ? 'text-amber-600' : 'text-emerald-600'}`}>{margin.toFixed(1)}% margin</span>
+                                                                    </p>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => openHppEditor(index, ws)}
+                                                                    className="flex items-center gap-1 text-xs border border-border px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground shrink-0"
+                                                                >
+                                                                    <Pencil className="w-3 h-3" /> Edit
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openHppEditor(index, null)}
+                                                    className="text-xs text-amber-700 border border-dashed border-amber-300 bg-amber-50/50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
+                                                >
+                                                    + Tambah Worksheet HPP
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -725,6 +926,118 @@ export default function EditProductPage() {
                     </button>
                 </div>
             </form>
+
+            {/* HPP Worksheet Edit Modal */}
+            {hppEditState && (() => {
+                const f = hppEditState.form;
+                const liveHpp = calcHppPerUnit(f.variableCosts, f.fixedCosts, f.targetVolume);
+                const liveMargin = hppEditState.variantPrice > 0
+                    ? ((hppEditState.variantPrice - liveHpp) / hppEditState.variantPrice) * 100
+                    : 0;
+                const setForm = (patch: Partial<typeof f>) =>
+                    setHppEditState(prev => prev ? { ...prev, form: { ...prev.form, ...patch } } : null);
+                const setVC = (i: number, patch: Partial<typeof f.variableCosts[0]>) =>
+                    setForm({ variableCosts: f.variableCosts.map((r, idx) => idx === i ? { ...r, ...patch } : r) });
+                const setFC = (i: number, patch: Partial<typeof f.fixedCosts[0]>) =>
+                    setForm({ fixedCosts: f.fixedCosts.map((r, idx) => idx === i ? { ...r, ...patch } : r) });
+                return (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-card rounded-xl shadow-xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+                                <div>
+                                    <h2 className="text-base font-semibold">{hppEditState.worksheetId ? 'Edit' : 'Buat'} HPP Worksheet</h2>
+                                    <p className="text-xs text-muted-foreground mt-0.5">{hppEditState.variantLabel}</p>
+                                </div>
+                                <button type="button" onClick={() => setHppEditState(null)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+                            </div>
+
+                            <div className="overflow-y-auto flex-1 p-6 space-y-5">
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="col-span-3 space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground">Nama Worksheet</label>
+                                        <input value={f.productName} onChange={e => setForm({ productName: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground">Volume Target (unit)</label>
+                                        <input type="number" min="1" value={f.targetVolume} onChange={e => setForm({ targetVolume: Number(e.target.value) })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground">Target Margin (%)</label>
+                                        <input type="number" min="0" max="100" value={f.targetMargin} onChange={e => setForm({ targetMargin: Number(e.target.value) })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground">Harga Jual</label>
+                                        <div className="px-3 py-2 bg-muted/50 border border-border rounded-lg text-sm text-muted-foreground">Rp {hppEditState.variantPrice.toLocaleString('id-ID')}</div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-sm font-semibold">Biaya Variabel</h3>
+                                        <button type="button" onClick={() => setForm({ variableCosts: [...f.variableCosts, { customMaterialName: '', customPrice: 0, usageAmount: 1, usageUnit: 'pcs' }] })} className="text-xs text-primary border border-primary/30 px-2 py-1 rounded hover:bg-primary/5 transition-colors">+ Tambah Bahan</button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {f.variableCosts.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">Belum ada biaya variabel.</p>}
+                                        {f.variableCosts.map((vc, i) => (
+                                            <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                                                <input value={vc.customMaterialName} onChange={e => setVC(i, { customMaterialName: e.target.value })} placeholder="Nama bahan" className="col-span-4 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary" />
+                                                <input type="number" value={vc.customPrice} onChange={e => setVC(i, { customPrice: Number(e.target.value) })} placeholder="Harga" className="col-span-3 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary" />
+                                                <input type="number" value={vc.usageAmount} onChange={e => setVC(i, { usageAmount: Number(e.target.value) })} placeholder="Jumlah" className="col-span-2 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary" />
+                                                <input value={vc.usageUnit} onChange={e => setVC(i, { usageUnit: e.target.value })} placeholder="Satuan" className="col-span-2 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary" />
+                                                <button type="button" onClick={() => setForm({ variableCosts: f.variableCosts.filter((_, idx) => idx !== i) })} className="col-span-1 flex justify-center text-destructive/60 hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-sm font-semibold">Biaya Tetap (per batch)</h3>
+                                        <button type="button" onClick={() => setForm({ fixedCosts: [...f.fixedCosts, { name: '', amount: 0 }] })} className="text-xs text-primary border border-primary/30 px-2 py-1 rounded hover:bg-primary/5 transition-colors">+ Tambah Biaya</button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {f.fixedCosts.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">Belum ada biaya tetap.</p>}
+                                        {f.fixedCosts.map((fc, i) => (
+                                            <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                                                <input value={fc.name} onChange={e => setFC(i, { name: e.target.value })} placeholder="Nama biaya" className="col-span-7 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary" />
+                                                <input type="number" value={fc.amount} onChange={e => setFC(i, { amount: Number(e.target.value) })} placeholder="Jumlah (Rp)" className="col-span-4 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary" />
+                                                <button type="button" onClick={() => setForm({ fixedCosts: f.fixedCosts.filter((_, idx) => idx !== i) })} className="col-span-1 flex justify-center text-destructive/60 hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className={`rounded-xl p-4 border ${liveMargin < 0 ? 'bg-destructive/5 border-destructive/20' : liveMargin < 20 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                                    <div className="flex items-center justify-between flex-wrap gap-3">
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">HPP per unit</p>
+                                            <p className="text-xl font-bold text-foreground">Rp {Math.round(liveHpp).toLocaleString('id-ID')}</p>
+                                            <p className="text-xs text-muted-foreground mt-0.5">dari volume {f.targetVolume} unit</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs text-muted-foreground">Margin vs harga jual</p>
+                                            <p className={`text-2xl font-bold ${liveMargin < 0 ? 'text-destructive' : liveMargin < 20 ? 'text-amber-600' : 'text-emerald-600'}`}>{liveMargin.toFixed(1)}%</p>
+                                            <p className="text-xs text-muted-foreground">target: {f.targetMargin}%</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="px-6 py-4 border-t border-border flex justify-between gap-2">
+                                <button type="button" onClick={() => setHppEditState(null)} className="px-4 py-2 rounded-lg border border-border hover:bg-muted font-medium text-sm">Batal</button>
+                                <div className="flex gap-2">
+                                    <button type="button" onClick={() => handleHppSave(false)} disabled={hppSaving} className="px-4 py-2 border border-border bg-muted/50 text-foreground rounded-lg font-medium hover:bg-muted disabled:opacity-50 text-sm">
+                                        {hppSaving ? 'Menyimpan...' : 'Simpan'}
+                                    </button>
+                                    <button type="button" onClick={() => handleHppSave(true)} disabled={hppSaving} className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 disabled:opacity-50 text-sm">
+                                        {hppSaving ? 'Menyimpan...' : 'Simpan & Terapkan ke Varian'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }

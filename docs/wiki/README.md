@@ -30,6 +30,8 @@ Yang membedakan PosPro dari kasir biasa adalah **ekosistemnya yang lengkap**: bu
 | 12 | [🎨 Tampilan Login](#-10-pengaturan-tampilan-halaman-login) | Upload foto latar, atur tagline, animated logo |
 | 13 | [🖨️ Antrian Produksi](produksi.md) | Antrian cetak, job satuan & batch, produk rakitan multi-tahap, search, detail invoice 🆕 |
 | 14 | [📋 Stok Opname](stock-opname.md) | Hitung fisik stok via link operator untuk karyawan 🆕 |
+| 15 | [🏭 Data Supplier](suppliers.md) | Kelola data supplier dan harga beli per varian produk 🆕 |
+| 16 | [💾 Backup & Restore](backup.md) | Backup database ke ZIP, preview, dan restore dari file 🆕 |
 
 ---
 
@@ -278,6 +280,24 @@ Bot WhatsApp berjalan langsung di dalam server PosPro — tidak perlu aplikasi a
 | `!botadmin listgroups` | Lihat semua grup yang diizinkan |
 | `!botadmin setreportgroup [ID]` | Atur grup tujuan laporan shift |
 
+### Broadcast & Pengumuman
+
+Selain laporan shift, bot WhatsApp juga mendukung dua fitur pesan massal:
+
+**Broadcast ke Banyak Grup**
+- Kirim satu pesan ke semua grup yang terdaftar di daftar `broadcastGroups` sekaligus
+- Cocok untuk mengumumkan promosi, perubahan harga, atau info toko
+- Konfigurasi grup broadcast via API: `POST /whatsapp/broadcast` dengan payload `{ message: "..." }`
+
+**Announcement Channel**
+- Kirim pesan ke satu saluran pengumuman khusus (`announcementChannelId`)
+- Cocok untuk notifikasi internal ke tim atau channel toko
+- Endpoint: `POST /whatsapp/announce` dengan payload `{ message: "..." }`
+
+Konfigurasi `broadcastGroups[]` dan `announcementChannelId` disimpan di `backend/whatsapp_bot_config.json` (sama seperti `reportGroupId`).
+
+> **Perbedaan Broadcast vs Report**: Broadcast mengirim ke **semua** grup di `broadcastGroups[]`, sedangkan laporan shift hanya dikirim ke **satu** `reportGroupId` yang ditentukan.
+
 ### Jika Bot Terputus
 
 Masuk ke **Pengaturan → WhatsApp Bot**, klik **Logout & Restart Bot**, lalu scan QR Code ulang.
@@ -344,8 +364,10 @@ Dokumentasi lengkap untuk fitur-fitur bisnis tingkat lanjut:
 | [🗺️ Peta Cuan Lokasi](peta-cuan.md) | Peta cabang, kompetitor, pencarian bisnis by keyword |
 | [🖨️ Antrian Produksi](produksi.md) | Antrian cetak, batch, produk rakitan multi-tahap, search pelanggan, detail invoice 🆕 |
 | [📋 Stok Opname](stock-opname.md) | Link operator blind count, review admin, update stok otomatis 🆕 |
+| [🏭 Data Supplier](suppliers.md) | Kelola supplier dan harga beli per varian produk 🆕 |
+| [💾 Backup & Restore](backup.md) | Backup database ke ZIP, restore dengan mode skip/overwrite 🆕 |
 | [🚀 Panduan Deployment Cloudflare](deployment.md) | Setup produksi di Home Server (MySQL, PM2, Cloudflare Tunnel) |
 
 ---
 
-*Dokumentasi PosPro — Terakhir diperbarui: 9 Maret 2026 | v2.5 — Tanpa Lacak Stok, multi-satuan area (m/cm/menit), JFIF support, HPP kategori sync*
+*Dokumentasi PosPro — Terakhir diperbarui: 17 Maret 2026 | v2.6 — Supplier management, Backup & Restore, WhatsApp Broadcast & Announcement*

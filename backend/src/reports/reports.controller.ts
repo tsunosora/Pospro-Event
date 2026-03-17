@@ -3,6 +3,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { ReportsService } from './reports.service';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { compressImage } from '../common/utils/compress-image.util';
 
 export type StructuredExpenseItem = { name: string; amount: number };
 export type StructuredExpenses = Record<string, StructuredExpenseItem[]>;
@@ -90,6 +91,10 @@ export class ReportsController {
         };
 
         const uploadedPaths = files ? files.map((f) => f.path) : [];
+
+        if (files && files.length > 0) {
+            await Promise.all(files.map(f => compressImage(f.path)));
+        }
 
         return this.reportsService.closeShift(dto, uploadedPaths);
     }

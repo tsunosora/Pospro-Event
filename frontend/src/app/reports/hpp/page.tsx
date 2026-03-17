@@ -8,7 +8,7 @@ import {
     Calculator, ArrowRight, Loader2, Save, X, Database
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getHppWorksheets, createHppWorksheet, updateHppWorksheet, deleteHppWorksheet, getProducts, createProduct, getCategories, getUnits, uploadProductImage, uploadProductImages, addProductVariant, updateProductVariant, applyHppToVariant } from "@/lib/api";
+import { getHppWorksheets, createHppWorksheet, updateHppWorksheet, deleteHppWorksheet, getProducts, createProduct, getCategories, getUnits, uploadProductImage, uploadProductImages, addProductVariant, updateProductVariant, applyHppToVariant, uploadVariantImage } from "@/lib/api";
 
 function CustomNameInput({ value, onChange, onSwitchToStock }: { value: string; onChange: (val: string) => void; onSwitchToStock: () => void }) {
     const [local, setLocal] = useState(value);
@@ -224,6 +224,18 @@ export default function HppCalculatorPage() {
     // Link worksheet to variant & apply HPP
     const [linkedVariantId, setLinkedVariantId] = useState<number | null>(null);
     const [isApplyingHpp, setIsApplyingHpp] = useState(false);
+
+    // Auto-pull selling price from linked variant
+    useEffect(() => {
+        if (!linkedVariantId || !dbProducts.length) return;
+        for (const p of dbProducts) {
+            const v = p.variants?.find((vx: any) => vx.id === linkedVariantId);
+            if (v) {
+                setCustomSellingPrice(Number(v.price));
+                break;
+            }
+        }
+    }, [linkedVariantId, dbProducts]);
 
     // Image upload ref
     const imageFileRef = useRef<HTMLInputElement>(null);
@@ -539,13 +551,44 @@ export default function HppCalculatorPage() {
             : (hppPerPcs > 0 ? Math.round(hppPerPcs / (1 - margin / 100)) : 0);
 
         try {
-            await addProductVariant(addVariantProductId, {
+            const newVariant = await addProductVariant(addVariantProductId, {
                 sku,
                 variantName: variantLabel,
                 price: sellingPrice,
                 hpp: hppPerPcs,
                 stock: 0,
             });
+
+            // Upload gambar jika user sudah memilih gambar di form kalkulator
+            if (imageFileRef.current?.files?.[0]) {
+                try {
+                    await uploadVariantImage(newVariant.id, imageFileRef.current.files[0]);
+                } catch (imgError) {
+                    console.error("Gagal mengupload gambar varian:", imgError);
+                }
+            }
+
+            // Link worksheet aktif ke varian baru
+            if (activeWorksheetId) {
+                await updateHppWorksheet(activeWorksheetId, {
+                    productName,
+                    targetVolume,
+                    targetMargin,
+                    productVariantId: newVariant.id,
+                    variableCosts: variableCosts
+                        .filter(vc => vc.productVariantId || (vc.name && vc.price > 0))
+                        .map(vc => ({
+                            productVariantId: vc.productVariantId || null,
+                            customMaterialName: !vc.productVariantId ? vc.name : null,
+                            customPrice: !vc.productVariantId ? vc.price : null,
+                            usageAmount: vc.usageAmount,
+                            usageUnit: vc.usageUnit,
+                        })),
+                    fixedCosts: fixedCosts.map(fc => ({ name: fc.name, amount: fc.amount })),
+                });
+                setLinkedVariantId(newVariant.id);
+            }
+
             alert(`Varian "${variantLabel}" berhasil ditambahkan ke produk "${product.name}"!\nHarga: Rp ${sellingPrice.toLocaleString('id-ID')} | HPP: Rp ${Math.round(hppPerPcs).toLocaleString('id-ID')}`);
             setShowAddVariantModal(false);
             setAddVariantProductId(null);

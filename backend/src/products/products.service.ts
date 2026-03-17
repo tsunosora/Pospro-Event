@@ -82,9 +82,16 @@ export class ProductsService {
 
     async update(id: number, data: any) {
         await this.findOne(id);
-        const { variants, ingredients, ...productData } = data;
+        const { variants, ingredients, deletedVariantIds, ...productData } = data;
 
         await this.prisma.product.update({ where: { id }, data: productData });
+
+        // Hapus varian yang dihapus dari frontend
+        if (deletedVariantIds?.length) {
+            await this.prisma.productVariant.deleteMany({
+                where: { id: { in: deletedVariantIds }, productId: id },
+            });
+        }
 
         if (variants) {
             for (const v of variants) {
@@ -137,6 +144,88 @@ export class ProductsService {
         }
 
         return this.findOne(id);
+    }
+
+    async bulkImport(payload: { products: any[] }) {
+        const results: { created: number; skipped: number; errors: { name: string; message: string }[] } = {
+            created: 0,
+            skipped: 0,
+            errors: [],
+        };
+
+        for (const item of payload.products) {
+            try {
+                const category = await this.prisma.category.upsert({
+                    where: { name: item.category },
+                    create: { name: item.category },
+                    update: {},
+                });
+                const unit = await this.prisma.unit.upsert({
+                    where: { name: item.unit },
+                    create: { name: item.unit },
+                    update: {},
+                });
+
+                // Map variants from bulk format to create format
+                const variants = (item.variants || []).map((v: any) => ({
+                    variantName: v.variantName || null,
+                    sku: v.sku,
+                    price: v.price,
+                    hpp: v.hpp || 0,
+                    stock: v.stock || 0,
+                    size: v.size || null,
+                    color: v.color || null,
+                }));
+
+                const product = await this.create({
+                    name: item.name,
+                    categoryId: category.id,
+                    unitId: unit.id,
+                    pricingMode: item.pricingMode || 'UNIT',
+                    productType: item.productType || 'SELLABLE',
+                    description: item.description || null,
+                    requiresProduction: item.requiresProduction || false,
+                    trackStock: true,
+                    variants,
+                });
+
+                // Create HPP worksheets if provided
+                for (const ws of (item.hppWorksheets || [])) {
+                    const variant = product.variants.find((v: any) => v.sku === ws.variantSku);
+                    const varCosts = (ws.variableCosts || []).filter((vc: any) => vc.customMaterialName && vc.usageAmount);
+                    const fixCosts = (ws.fixedCosts || []).filter((fc: any) => fc.name && fc.amount);
+
+                    await this.prisma.hppWorksheet.create({
+                        data: {
+                            productName: `${item.name}${ws.variantSku ? ' - ' + ws.variantSku : ''}`,
+                            targetVolume: ws.targetVolume || 1,
+                            targetMargin: ws.targetMargin || 50,
+                            productVariantId: variant?.id || null,
+                            variableCosts: {
+                                create: varCosts.map((vc: any) => ({
+                                    customMaterialName: vc.customMaterialName,
+                                    customPrice: vc.customPrice || 0,
+                                    usageAmount: vc.usageAmount,
+                                    usageUnit: vc.usageUnit || 'pcs',
+                                })),
+                            },
+                            fixedCosts: {
+                                create: fixCosts.map((fc: any) => ({
+                                    name: fc.name,
+                                    amount: fc.amount,
+                                })),
+                            },
+                        },
+                    });
+                }
+
+                results.created++;
+            } catch (err: any) {
+                results.errors.push({ name: item.name, message: err.message });
+            }
+        }
+
+        return results;
     }
 
     async updateImageUrl(id: number, imageUrl: string) {

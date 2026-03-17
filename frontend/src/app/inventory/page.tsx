@@ -2,12 +2,14 @@
 
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProducts, logStockMovement, deleteProduct } from '@/lib/api';
-import { Search, Plus, Package, RefreshCw, X, Image as ImageIcon, Pencil, Trash2, ChevronDown, Filter } from 'lucide-react';
+import { getProducts, logStockMovement, deleteProduct, bulkImportProducts } from '@/lib/api';
+import { downloadBulkTemplate, parseBulkExcel, BulkProductInput } from '@/lib/bulk-import';
+import { Search, Plus, Package, RefreshCw, X, Image as ImageIcon, Pencil, Trash2, ChevronDown, Filter, Download, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 
 export default function InventoryPage() {
     const router = useRouter();
@@ -41,6 +43,49 @@ export default function InventoryPage() {
     const [filterMaxPrice, setFilterMaxPrice] = useState('');
     const [filterMinStock, setFilterMinStock] = useState('');
     const [filterType, setFilterType] = useState('');
+
+    // Bulk import modal
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [bulkStep, setBulkStep] = useState<'upload' | 'preview' | 'result'>('upload');
+    const [bulkFile, setBulkFile] = useState<File | null>(null);
+    const [bulkPreview, setBulkPreview] = useState<BulkProductInput[] | null>(null);
+    const [bulkParseErrors, setBulkParseErrors] = useState<string[]>([]);
+    const [bulkImporting, setBulkImporting] = useState(false);
+    const [bulkResult, setBulkResult] = useState<{ created: number; errors: { name: string; message: string }[] } | null>(null);
+
+    const handleBulkFileChange = async (file: File | null) => {
+        if (!file) return;
+        setBulkFile(file);
+        const { products, errors } = await parseBulkExcel(file);
+        setBulkPreview(products);
+        setBulkParseErrors(errors);
+        setBulkStep('preview');
+    };
+
+    const handleBulkImport = async () => {
+        if (!bulkPreview) return;
+        setBulkImporting(true);
+        try {
+            const result = await bulkImportProducts({ products: bulkPreview });
+            setBulkResult(result);
+            setBulkStep('result');
+            queryClient.invalidateQueries({ queryKey: ['products'] });
+        } catch (err: any) {
+            setBulkResult({ created: 0, errors: [{ name: 'Request Error', message: err.message }] });
+            setBulkStep('result');
+        } finally {
+            setBulkImporting(false);
+        }
+    };
+
+    const closeBulkModal = () => {
+        setShowBulkModal(false);
+        setBulkStep('upload');
+        setBulkFile(null);
+        setBulkPreview(null);
+        setBulkParseErrors([]);
+        setBulkResult(null);
+    };
 
     const movementMutation = useMutation({
         mutationFn: logStockMovement,
@@ -145,6 +190,18 @@ export default function InventoryPage() {
                     <Link href="/inventory/units" className="flex items-center gap-2 bg-muted text-foreground px-4 py-2 rounded-lg font-medium hover:bg-muted/80 transition-colors border border-border text-sm">
                         Unit
                     </Link>
+                    <button
+                        onClick={() => downloadBulkTemplate()}
+                        className="flex items-center gap-2 bg-muted text-foreground px-4 py-2 rounded-lg font-medium hover:bg-muted/80 transition-colors border border-border text-sm"
+                    >
+                        <Download className="h-4 w-4" /> Template
+                    </button>
+                    <button
+                        onClick={() => setShowBulkModal(true)}
+                        className="flex items-center gap-2 bg-muted text-foreground px-4 py-2 rounded-lg font-medium hover:bg-muted/80 transition-colors border border-border text-sm"
+                    >
+                        <Upload className="h-4 w-4" /> Import Bulk
+                    </button>
                     <Link href="/inventory/products/new" className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-sm text-sm">
                         <Plus className="h-4 w-4" /> Tambah Produk
                     </Link>
@@ -416,7 +473,6 @@ export default function InventoryPage() {
                                                                 <div className="flex items-center gap-2 flex-wrap">
                                                                     <span className="font-medium text-foreground">{product.name}</span>
                                                                     {(() => { const cfg = PRODUCT_TYPE_CONFIG[product.productType || 'SELLABLE']; return cfg ? <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${cfg.className}`}>{cfg.label}</span> : null; })()}
-                                                                    {/* Variant badge + toggle — hanya tampil saat collapsed */}
                                                                     {hasMultiple && !isFilterActive && (
                                                                         <button
                                                                             onClick={() => toggleExpand(product.id)}
@@ -540,6 +596,134 @@ export default function InventoryPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Import Modal */}
+            {showBulkModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-card rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+                            <h2 className="text-lg font-semibold">
+                                {bulkStep === 'upload' && 'Import Produk Bulk'}
+                                {bulkStep === 'preview' && 'Preview Data Import'}
+                                {bulkStep === 'result' && 'Hasil Import'}
+                            </h2>
+                            <button onClick={closeBulkModal} className="text-muted-foreground hover:text-foreground">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="overflow-y-auto flex-1 p-6">
+                            {/* Step 1: Upload */}
+                            {bulkStep === 'upload' && (
+                                <div className="space-y-4">
+                                    <p className="text-sm text-muted-foreground">
+                                        Upload file Excel (.xlsx) yang sudah diisi sesuai template. Klik tombol <strong>Template</strong> di halaman inventory untuk mengunduh template terlebih dahulu.
+                                    </p>
+                                    <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-border rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
+                                        <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                                        <span className="text-sm text-muted-foreground">Klik atau drag & drop file .xlsx di sini</span>
+                                        <input
+                                            type="file"
+                                            accept=".xlsx"
+                                            className="hidden"
+                                            onChange={e => handleBulkFileChange(e.target.files?.[0] || null)}
+                                        />
+                                    </label>
+                                </div>
+                            )}
+
+                            {/* Step 2: Preview */}
+                            {bulkStep === 'preview' && bulkPreview && (
+                                <div className="space-y-4">
+                                    {bulkParseErrors.length > 0 && (
+                                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+                                            <p className="text-xs font-semibold text-amber-700">Peringatan ({bulkParseErrors.length} baris dilewati):</p>
+                                            {bulkParseErrors.map((e, i) => (
+                                                <p key={i} className="text-xs text-amber-600">{e}</p>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {bulkPreview.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground text-center py-8">Tidak ada data valid yang ditemukan di file.</p>
+                                    ) : (
+                                        <>
+                                            <p className="text-sm text-muted-foreground">
+                                                Ditemukan <strong>{bulkPreview.length} produk</strong> ({bulkPreview.reduce((a, p) => a + p.variants.length, 0)} varian total). Konfirmasi untuk mulai import.
+                                            </p>
+                                            <div className="border border-border rounded-lg overflow-hidden">
+                                                <table className="w-full text-sm">
+                                                    <thead className="bg-muted/50">
+                                                        <tr>
+                                                            <th className="text-left px-3 py-2 font-medium text-xs text-muted-foreground">Nama Produk</th>
+                                                            <th className="text-left px-3 py-2 font-medium text-xs text-muted-foreground">Kategori</th>
+                                                            <th className="text-center px-3 py-2 font-medium text-xs text-muted-foreground">Varian</th>
+                                                            <th className="text-left px-3 py-2 font-medium text-xs text-muted-foreground">SKU</th>
+                                                            <th className="text-center px-3 py-2 font-medium text-xs text-muted-foreground">HPP</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-border">
+                                                        {bulkPreview.map((p, i) => (
+                                                            <tr key={i} className="hover:bg-muted/30">
+                                                                <td className="px-3 py-2 font-medium">{p.name}</td>
+                                                                <td className="px-3 py-2 text-muted-foreground">{p.category}</td>
+                                                                <td className="px-3 py-2 text-center">{p.variants.length}</td>
+                                                                <td className="px-3 py-2 text-xs text-muted-foreground">{p.variants.map(v => v.sku).join(', ')}</td>
+                                                                <td className="px-3 py-2 text-center">{p.hppWorksheets.length > 0 ? '✓' : '—'}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Step 3: Result */}
+                            {bulkStep === 'result' && bulkResult && (
+                                <div className="space-y-4">
+                                    <div className={`rounded-lg p-4 border ${bulkResult.errors.length === 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                                        <p className={`font-semibold ${bulkResult.errors.length === 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                            {bulkResult.created} produk berhasil dibuat.{bulkResult.errors.length > 0 ? ` ${bulkResult.errors.length} gagal.` : ''}
+                                        </p>
+                                    </div>
+                                    {bulkResult.errors.length > 0 && (
+                                        <div className="space-y-2">
+                                            <p className="text-sm font-medium text-destructive">Detail error:</p>
+                                            {bulkResult.errors.map((e, i) => (
+                                                <div key={i} className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-xs">
+                                                    <span className="font-medium">{e.name}:</span> {e.message}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
+                            {bulkStep === 'upload' && (
+                                <button onClick={closeBulkModal} className="px-4 py-2 rounded-lg border border-border hover:bg-muted font-medium text-sm">Batal</button>
+                            )}
+                            {bulkStep === 'preview' && (
+                                <>
+                                    <button onClick={() => setBulkStep('upload')} className="px-4 py-2 rounded-lg border border-border hover:bg-muted font-medium text-sm">Kembali</button>
+                                    <button
+                                        onClick={handleBulkImport}
+                                        disabled={bulkImporting || !bulkPreview || bulkPreview.length === 0}
+                                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 text-sm"
+                                    >
+                                        {bulkImporting ? 'Mengimport...' : `Konfirmasi & Import ${bulkPreview?.length || 0} Produk`}
+                                    </button>
+                                </>
+                            )}
+                            {bulkStep === 'result' && (
+                                <button onClick={closeBulkModal} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 text-sm">Selesai</button>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

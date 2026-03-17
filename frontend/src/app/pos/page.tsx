@@ -526,7 +526,7 @@ export default function POSPage() {
                                                         <Minus className="h-4 w-4" />
                                                     </button>
                                                     <span className="w-6 text-center text-sm font-medium">{item.qty}</span>
-                                                    <button onClick={() => updateQuantity(item.lineId, 1)} disabled={item.qty >= item.stock}
+                                                    <button onClick={() => updateQuantity(item.lineId, 1)} disabled={item.trackStock !== false && item.qty >= item.stock}
                                                         className="p-1 hover:bg-background rounded text-muted-foreground transition-colors disabled:opacity-50">
                                                         <Plus className="h-4 w-4" />
                                                     </button>

@@ -28,7 +28,7 @@ model Branch {
   latitude  Decimal?  @db.Decimal(9, 6)
   longitude Decimal?  @db.Decimal(9, 6)
   omset     Decimal?  @default(0) @db.Decimal(15, 2) // Omset bulanan (Rp)
-  margin    Decimal?  @default(0) @db.Decimal(5, 2)  // Margin (%)
+  margin    Decimal?  @default(0) @db.Decimal(5, 2) // Margin (%)
   createdAt DateTime? @default(now()) @map("created_at")
 
   @@map("branches")
@@ -65,12 +65,12 @@ model User {
 }
 
 model Category {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique @db.VarChar(100)
-  products  Product[]
+  id             Int                  @id @default(autoincrement())
+  name           String               @unique @db.VarChar(100)
+  products       Product[]
   opnameSessions StockOpnameSession[]
-  createdAt DateTime? @default(now()) @map("created_at")
-  updatedAt DateTime? @default(now()) @updatedAt @map("updated_at")
+  createdAt      DateTime?            @default(now()) @map("created_at")
+  updatedAt      DateTime?            @default(now()) @updatedAt @map("updated_at")
 
   @@map("categories")
 }
@@ -98,7 +98,7 @@ model Product {
   pricePerUnit       Decimal?    @map("price_per_unit") @db.Decimal(15, 2)
   requiresProduction Boolean     @default(false) @map("requires_production")
   hasAssemblyStage   Boolean     @default(false) @map("has_assembly_stage")
-  trackStock         Boolean     @default(true)  @map("track_stock")
+  trackStock         Boolean     @default(true) @map("track_stock")
   createdAt          DateTime?   @default(now()) @map("created_at")
   updatedAt          DateTime?   @default(now()) @updatedAt @map("updated_at")
 
@@ -111,36 +111,36 @@ model Product {
 }
 
 model ProductVariant {
-  id                     Int       @id @default(autoincrement())
-  productId              Int       @map("product_id")
-  sku                    String    @unique @db.VarChar(100)
-  variantName            String?   @map("variant_name") @db.VarChar(100)
-  price                  Decimal   @db.Decimal(15, 2)
-  hpp                    Decimal   @default(0) @db.Decimal(15, 2)
-  stock                  Int       @default(0)
-  size                   String?   @db.VarChar(50)
-  color                  String?   @db.VarChar(50)
-  variantImageUrl        String?   @map("variant_image_url") @db.Text
-  isRollMaterial         Boolean   @default(false) @map("is_roll_material")
-  rollPhysicalWidth      Decimal?  @map("roll_physical_width") @db.Decimal(10, 2)
-  rollEffectivePrintWidth Decimal? @map("roll_effective_print_width") @db.Decimal(10, 2)
-  createdAt              DateTime? @default(now()) @map("created_at")
-  updatedAt              DateTime? @default(now()) @updatedAt @map("updated_at")
+  id                      Int       @id @default(autoincrement())
+  productId               Int       @map("product_id")
+  sku                     String    @unique @db.VarChar(100)
+  variantName             String?   @map("variant_name") @db.VarChar(100)
+  price                   Decimal   @db.Decimal(15, 2)
+  hpp                     Decimal   @default(0) @db.Decimal(15, 2)
+  stock                   Int       @default(0)
+  size                    String?   @db.VarChar(50)
+  color                   String?   @db.VarChar(50)
+  variantImageUrl         String?   @map("variant_image_url") @db.Text
+  isRollMaterial          Boolean   @default(false) @map("is_roll_material")
+  rollPhysicalWidth       Decimal?  @map("roll_physical_width") @db.Decimal(10, 2)
+  rollEffectivePrintWidth Decimal?  @map("roll_effective_print_width") @db.Decimal(10, 2)
+  createdAt               DateTime? @default(now()) @map("created_at")
+  updatedAt               DateTime? @default(now()) @updatedAt @map("updated_at")
 
-  product          Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
-  batches          Batch[]
-  movements        StockMovement[]
-  transactionItems TransactionItem[]
-  hppVariableCosts HppVariableCost[]
-  ingredientsAsRaw Ingredient[]         @relation("RawMaterial")
-  opnameItems      StockOpnameItem[]
-  rollJobs         ProductionJob[]      @relation("RollUsedInJob")
-  batchRolls       ProductionBatch[]    @relation("RollUsedInBatch")
-  supplierItems    SupplierItem[]
-  priceTiers       VariantPriceTier[]
-  variantIngredients VariantIngredient[] @relation("VariantBOM")
+  product                 Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  batches                 Batch[]
+  movements               StockMovement[]
+  transactionItems        TransactionItem[]
+  hppVariableCosts        HppVariableCost[]
+  ingredientsAsRaw        Ingredient[]        @relation("RawMaterial")
+  opnameItems             StockOpnameItem[]
+  rollJobs                ProductionJob[]     @relation("RollUsedInJob")
+  batchRolls              ProductionBatch[]   @relation("RollUsedInBatch")
+  supplierItems           SupplierItem[]
+  priceTiers              VariantPriceTier[]
+  variantIngredients      VariantIngredient[] @relation("VariantBOM")
   variantIngredientsAsRaw VariantIngredient[] @relation("VariantRawMaterial")
-  hppWorksheets    HppWorksheet[]
+  hppWorksheets           HppWorksheet[]
 
   @@map("product_variants")
 }
@@ -220,27 +220,27 @@ enum TransactionStatus {
 }
 
 model Transaction {
-  id                 Int                @id @default(autoincrement())
-  invoiceNumber      String             @unique @map("invoice_number") @db.VarChar(100)
-  totalAmount        Decimal            @map("total_amount") @db.Decimal(15, 2)
-  tax                Decimal            @db.Decimal(15, 2)
-  discount           Decimal            @default(0) @db.Decimal(15, 2)
-  grandTotal         Decimal            @map("grand_total") @db.Decimal(15, 2)
-  paymentMethod      PaymentMethod      @map("payment_method")
-  status             TransactionStatus  @default(PENDING)
-  customerName       String?            @map("customer_name") @db.VarChar(200)
-  customerPhone      String?            @map("customer_phone") @db.VarChar(50)
-  customerAddress    String?            @map("customer_address") @db.Text
-  dueDate            DateTime?          @map("due_date")
-  downPayment        Decimal            @default(0) @map("down_payment") @db.Decimal(15, 2)
-  cashierName        String?            @map("cashier_name") @db.VarChar(100)
-  employeeName       String?            @map("employee_name") @db.VarChar(100)
-  bankAccountId      Int?               @map("bank_account_id")
-  productionPriority String             @default("NORMAL") @map("production_priority") @db.VarChar(20)
-  productionDeadline DateTime?          @map("production_deadline")
-  productionNotes    String?            @map("production_notes") @db.Text
-  createdAt          DateTime?          @default(now()) @map("created_at")
-  updatedAt          DateTime?          @default(now()) @updatedAt @map("updated_at")
+  id                 Int               @id @default(autoincrement())
+  invoiceNumber      String            @unique @map("invoice_number") @db.VarChar(100)
+  totalAmount        Decimal           @map("total_amount") @db.Decimal(15, 2)
+  tax                Decimal           @db.Decimal(15, 2)
+  discount           Decimal           @default(0) @db.Decimal(15, 2)
+  grandTotal         Decimal           @map("grand_total") @db.Decimal(15, 2)
+  paymentMethod      PaymentMethod     @map("payment_method")
+  status             TransactionStatus @default(PENDING)
+  customerName       String?           @map("customer_name") @db.VarChar(200)
+  customerPhone      String?           @map("customer_phone") @db.VarChar(50)
+  customerAddress    String?           @map("customer_address") @db.Text
+  dueDate            DateTime?         @map("due_date")
+  downPayment        Decimal           @default(0) @map("down_payment") @db.Decimal(15, 2)
+  cashierName        String?           @map("cashier_name") @db.VarChar(100)
+  employeeName       String?           @map("employee_name") @db.VarChar(100)
+  bankAccountId      Int?              @map("bank_account_id")
+  productionPriority String            @default("NORMAL") @map("production_priority") @db.VarChar(20)
+  productionDeadline DateTime?         @map("production_deadline")
+  productionNotes    String?           @map("production_notes") @db.Text
+  createdAt          DateTime?         @default(now()) @map("created_at")
+  updatedAt          DateTime?         @default(now()) @updatedAt @map("updated_at")
 
   items          TransactionItem[]
   bankAccount    BankAccount?      @relation(fields: [bankAccountId], references: [id])
@@ -298,9 +298,9 @@ enum InvoiceStatus {
   SENT
   PAID
   CANCELLED
-  ACCEPTED   // Quotation accepted
-  REJECTED   // Quotation rejected
-  EXPIRED    // Quotation past valid date
+  ACCEPTED // Quotation accepted
+  REJECTED // Quotation rejected
+  EXPIRED // Quotation past valid date
 }
 
 enum InvoiceType {
@@ -314,9 +314,9 @@ model Invoice {
   type          InvoiceType   @default(INVOICE)
   clientName    String        @map("client_name") @db.VarChar(200)
   clientCompany String?       @map("client_company") @db.VarChar(200) // Instansi/PT
-  clientAddress String?       @map("client_address") @db.Text         // Alamat Lengkap
-  clientPhone   String?       @map("client_phone") @db.VarChar(50)    // No. HP/Telp
-  clientEmail   String?       @map("client_email") @db.VarChar(150)   // Email Perusahaan
+  clientAddress String?       @map("client_address") @db.Text // Alamat Lengkap
+  clientPhone   String?       @map("client_phone") @db.VarChar(50) // No. HP/Telp
+  clientEmail   String?       @map("client_email") @db.VarChar(150) // Email Perusahaan
   date          DateTime      @default(now())
   dueDate       DateTime?     @map("due_date")
   validUntil    DateTime?     @map("valid_until") // Quotation: masa berlaku penawaran
@@ -339,7 +339,7 @@ model InvoiceItem {
   id          Int     @id @default(autoincrement())
   invoiceId   Int     @map("invoice_id")
   description String  @db.VarChar(255)
-  unit        String? @db.VarChar(50)  // Satuan: pcs, m², lembar, set, dll
+  unit        String? @db.VarChar(50) // Satuan: pcs, m², lembar, set, dll
   quantity    Int
   price       Decimal @db.Decimal(15, 2)
 
@@ -351,14 +351,14 @@ model InvoiceItem {
 // ----- HPP Calculator & Recipe Templates ----- //
 
 model HppWorksheet {
-  id                 Int       @id @default(autoincrement())
-  productName        String    @map("product_name") @db.VarChar(200)
-  targetVolume       Int       @default(1) @map("target_volume")
-  targetMargin       Decimal   @default(50) @map("target_margin") @db.Decimal(10, 2)
-  productVariantId   Int?      @map("product_variant_id")
-  appliedAt          DateTime? @map("applied_at")
-  createdAt          DateTime? @default(now()) @map("created_at")
-  updatedAt          DateTime? @default(now()) @updatedAt @map("updated_at")
+  id               Int       @id @default(autoincrement())
+  productName      String    @map("product_name") @db.VarChar(200)
+  targetVolume     Int       @default(1) @map("target_volume")
+  targetMargin     Decimal   @default(50) @map("target_margin") @db.Decimal(10, 2)
+  productVariantId Int?      @map("product_variant_id")
+  appliedAt        DateTime? @map("applied_at")
+  createdAt        DateTime? @default(now()) @map("created_at")
+  updatedAt        DateTime? @default(now()) @updatedAt @map("updated_at")
 
   variableCosts  HppVariableCost[]
   fixedCosts     HppFixedCost[]
@@ -413,14 +413,14 @@ model StoreSettings {
 }
 
 model BankAccount {
-  id            Int       @id @default(autoincrement())
-  bankName      String    @map("bank_name") @db.VarChar(100)
-  accountNumber String    @map("account_number") @db.VarChar(100)
-  accountOwner  String    @map("account_owner") @db.VarChar(100)
-  currentBalance Decimal  @default(0) @map("current_balance") @db.Decimal(15, 2)
-  isActive      Boolean   @default(true) @map("is_active")
-  createdAt     DateTime? @default(now()) @map("created_at")
-  updatedAt     DateTime? @default(now()) @updatedAt @map("updated_at")
+  id             Int       @id @default(autoincrement())
+  bankName       String    @map("bank_name") @db.VarChar(100)
+  accountNumber  String    @map("account_number") @db.VarChar(100)
+  accountOwner   String    @map("account_owner") @db.VarChar(100)
+  currentBalance Decimal   @default(0) @map("current_balance") @db.Decimal(15, 2)
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime? @default(now()) @map("created_at")
+  updatedAt      DateTime? @default(now()) @updatedAt @map("updated_at")
 
   transactions Transaction[]
   cashflows    Cashflow[]
@@ -483,43 +483,43 @@ model StockOpnameItem {
 // ----- Produksi / Production Queue ----- //
 
 model ProductionJob {
-  id                Int      @id @default(autoincrement())
-  jobNumber         String   @unique @map("job_number") @db.VarChar(50)
-  transactionId     Int      @map("transaction_id")
-  transactionItemId Int      @unique @map("transaction_item_id")
-  status            String   @default("ANTRIAN") @db.VarChar(20)
-  priority          String   @default("NORMAL") @db.VarChar(20)
-  deadline          DateTime?
-  notes             String?  @db.Text
-  operatorNote      String?  @map("operator_note") @db.Text
-  usedWaste         Boolean  @default(false) @map("used_waste")
-  rollVariantId     Int?     @map("roll_variant_id")
-  rollLengthUsed    Decimal? @map("roll_length_used") @db.Decimal(10, 2)
-  batchId           Int?     @map("batch_id")
+  id                  Int       @id @default(autoincrement())
+  jobNumber           String    @unique @map("job_number") @db.VarChar(50)
+  transactionId       Int       @map("transaction_id")
+  transactionItemId   Int       @unique @map("transaction_item_id")
+  status              String    @default("ANTRIAN") @db.VarChar(20)
+  priority            String    @default("NORMAL") @db.VarChar(20)
+  deadline            DateTime?
+  notes               String?   @db.Text
+  operatorNote        String?   @map("operator_note") @db.Text
+  usedWaste           Boolean   @default(false) @map("used_waste")
+  rollVariantId       Int?      @map("roll_variant_id")
+  rollLengthUsed      Decimal?  @map("roll_length_used") @db.Decimal(10, 2)
+  batchId             Int?      @map("batch_id")
   startedAt           DateTime? @map("started_at")
   completedAt         DateTime? @map("completed_at")
   assemblyStartedAt   DateTime? @map("assembly_started_at")
   assemblyCompletedAt DateTime? @map("assembly_completed_at")
   assemblyNote        String?   @map("assembly_note") @db.Text
   pickedUpAt          DateTime? @map("picked_up_at")
-  createdAt         DateTime? @default(now()) @map("created_at")
-  updatedAt         DateTime? @default(now()) @updatedAt @map("updated_at")
+  createdAt           DateTime? @default(now()) @map("created_at")
+  updatedAt           DateTime? @default(now()) @updatedAt @map("updated_at")
 
-  transaction     Transaction     @relation(fields: [transactionId], references: [id])
-  transactionItem TransactionItem @relation(fields: [transactionItemId], references: [id])
-  rollVariant     ProductVariant? @relation("RollUsedInJob", fields: [rollVariantId], references: [id])
+  transaction     Transaction      @relation(fields: [transactionId], references: [id])
+  transactionItem TransactionItem  @relation(fields: [transactionItemId], references: [id])
+  rollVariant     ProductVariant?  @relation("RollUsedInJob", fields: [rollVariantId], references: [id])
   batch           ProductionBatch? @relation(fields: [batchId], references: [id])
 
   @@map("production_jobs")
 }
 
 model ProductionBatch {
-  id             Int      @id @default(autoincrement())
-  batchNumber    String   @unique @map("batch_number") @db.VarChar(50)
-  rollVariantId  Int?     @map("roll_variant_id")
-  usedWaste      Boolean  @default(false) @map("used_waste")
-  rollLengthUsed Decimal? @map("roll_length_used") @db.Decimal(10, 2)
-  status         String   @default("PROSES") @db.VarChar(20)
+  id             Int       @id @default(autoincrement())
+  batchNumber    String    @unique @map("batch_number") @db.VarChar(50)
+  rollVariantId  Int?      @map("roll_variant_id")
+  usedWaste      Boolean   @default(false) @map("used_waste")
+  rollLengthUsed Decimal?  @map("roll_length_used") @db.Decimal(10, 2)
+  status         String    @default("PROSES") @db.VarChar(20)
   startedAt      DateTime? @map("started_at")
   completedAt    DateTime? @map("completed_at")
   createdAt      DateTime? @default(now()) @map("created_at")
@@ -531,15 +531,15 @@ model ProductionBatch {
 }
 
 model Supplier {
-  id            Int            @id @default(autoincrement())
-  name          String         @db.VarChar(200)
-  contactPerson String?        @map("contact_person") @db.VarChar(200)
-  phone         String?        @db.VarChar(50)
-  email         String?        @db.VarChar(200)
-  address       String?        @db.Text
-  notes         String?        @db.Text
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at")
+  id            Int      @id @default(autoincrement())
+  name          String   @db.VarChar(200)
+  contactPerson String?  @map("contact_person") @db.VarChar(200)
+  phone         String?  @db.VarChar(50)
+  email         String?  @db.VarChar(200)
+  address       String?  @db.Text
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
   items SupplierItem[]
 
@@ -564,14 +564,14 @@ model SupplierItem {
 // ----- Variant Price Tiers (Harga Bertingkat) ----- //
 
 model VariantPriceTier {
-  id         Int      @id @default(autoincrement())
-  variantId  Int      @map("variant_id")
-  tierName   String?  @map("tier_name") @db.VarChar(100)
-  minQty     Int      @map("min_qty")
-  maxQty     Int?     @map("max_qty")
-  price      Decimal  @db.Decimal(15, 2)
-  createdAt  DateTime? @default(now()) @map("created_at")
-  updatedAt  DateTime? @default(now()) @updatedAt @map("updated_at")
+  id        Int       @id @default(autoincrement())
+  variantId Int       @map("variant_id")
+  tierName  String?   @map("tier_name") @db.VarChar(100)
+  minQty    Int       @map("min_qty")
+  maxQty    Int?      @map("max_qty")
+  price     Decimal   @db.Decimal(15, 2)
+  createdAt DateTime? @default(now()) @map("created_at")
+  updatedAt DateTime? @default(now()) @updatedAt @map("updated_at")
 
   variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
@@ -581,14 +581,14 @@ model VariantPriceTier {
 // ----- Variant Ingredients (BOM per Varian) ----- //
 
 model VariantIngredient {
-  id                   Int      @id @default(autoincrement())
-  variantId            Int      @map("variant_id")
-  name                 String   @db.VarChar(200)
-  quantity             Decimal  @db.Decimal(10, 3)
-  unit                 String   @db.VarChar(50)
-  price                Decimal  @default(0) @db.Decimal(15, 2)
-  isServiceCost        Boolean  @default(false) @map("is_service_cost")
-  rawMaterialVariantId Int?     @map("raw_material_variant_id")
+  id                   Int       @id @default(autoincrement())
+  variantId            Int       @map("variant_id")
+  name                 String    @db.VarChar(200)
+  quantity             Decimal   @db.Decimal(10, 3)
+  unit                 String    @db.VarChar(50)
+  price                Decimal   @default(0) @db.Decimal(15, 2)
+  isServiceCost        Boolean   @default(false) @map("is_service_cost")
+  rawMaterialVariantId Int?      @map("raw_material_variant_id")
   createdAt            DateTime? @default(now()) @map("created_at")
   updatedAt            DateTime? @default(now()) @updatedAt @map("updated_at")
 
@@ -599,38 +599,38 @@ model VariantIngredient {
 }
 
 model ShiftReport {
-  id                 Int       @id @default(autoincrement())
-  adminName          String    @map("admin_name") @db.VarChar(100)
-  shiftName          String    @map("shift_name") @db.VarChar(50)
-  openedAt           DateTime  @map("opened_at")
-  closedAt           DateTime  @map("closed_at") @default(now())
+  id        Int      @id @default(autoincrement())
+  adminName String   @map("admin_name") @db.VarChar(100)
+  shiftName String   @map("shift_name") @db.VarChar(50)
+  openedAt  DateTime @map("opened_at")
+  closedAt  DateTime @default(now()) @map("closed_at")
 
   // Cash Information
-  expectedCash       Decimal   @map("expected_cash") @db.Decimal(15, 2)
-  actualCash         Decimal   @map("actual_cash") @db.Decimal(15, 2)
-  cashDifference     Decimal   @map("cash_difference") @db.Decimal(15, 2)
+  expectedCash   Decimal @map("expected_cash") @db.Decimal(15, 2)
+  actualCash     Decimal @map("actual_cash") @db.Decimal(15, 2)
+  cashDifference Decimal @map("cash_difference") @db.Decimal(15, 2)
 
   // QRIS Information
-  expectedQris       Decimal   @map("expected_qris") @db.Decimal(15, 2)
-  actualQris         Decimal   @map("actual_qris") @db.Decimal(15, 2)
-  qrisDifference     Decimal   @map("qris_difference") @db.Decimal(15, 2)
+  expectedQris   Decimal @map("expected_qris") @db.Decimal(15, 2)
+  actualQris     Decimal @map("actual_qris") @db.Decimal(15, 2)
+  qrisDifference Decimal @map("qris_difference") @db.Decimal(15, 2)
 
   // Transfer Information
-  expectedTransfer   Decimal   @map("expected_transfer") @db.Decimal(15, 2)
-  actualTransfer     Decimal   @map("actual_transfer") @db.Decimal(15, 2)
-  transferDifference Decimal   @map("transfer_difference") @db.Decimal(15, 2)
+  expectedTransfer   Decimal @map("expected_transfer") @db.Decimal(15, 2)
+  actualTransfer     Decimal @map("actual_transfer") @db.Decimal(15, 2)
+  transferDifference Decimal @map("transfer_difference") @db.Decimal(15, 2)
 
   // Detailed breakdowns for WA report
-  expectedBankBalances Json?   @map("expected_bank_balances")
-  actualBankBalances   Json?   @map("actual_bank_balances")   // Saldo Laporan mBanking
-  realBankBalances     Json?   @map("real_bank_balances")     // Saldo Real di Bank
-  shiftExpenses        Json?   @map("shift_expenses")
-  structuredExpenses   Json?   @map("structured_expenses")   // Pengeluaran terstruktur per metode
+  expectedBankBalances Json? @map("expected_bank_balances")
+  actualBankBalances   Json? @map("actual_bank_balances") // Saldo Laporan mBanking
+  realBankBalances     Json? @map("real_bank_balances") // Saldo Real di Bank
+  shiftExpenses        Json? @map("shift_expenses")
+  structuredExpenses   Json? @map("structured_expenses") // Pengeluaran terstruktur per metode
 
-  expensesTotal      Decimal   @map("expenses_total") @db.Decimal(15, 2)
-  notes              String?   @db.Text
-  proofImages        Json?     @map("proof_images") // Store array of uploaded image paths
-  createdAt          DateTime? @default(now()) @map("created_at")
+  expensesTotal Decimal   @map("expenses_total") @db.Decimal(15, 2)
+  notes         String?   @db.Text
+  proofImages   Json?     @map("proof_images") // Store array of uploaded image paths
+  createdAt     DateTime? @default(now()) @map("created_at")
 
   @@map("shift_reports")
 }

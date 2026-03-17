@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { compressImage } from '../common/utils/compress-image.util';
 
 const randomHex = () => Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
 
@@ -37,6 +38,7 @@ export class SettingsController {
         })
     }))
     async uploadQrisImage(@UploadedFile() file: Express.Multer.File) {
+        await compressImage(file.path);
         const fileUrl = `/uploads/${file.filename}`;
         await this.settingsService.updateQrisImage(fileUrl);
         return { url: fileUrl };
@@ -51,6 +53,7 @@ export class SettingsController {
         })
     }))
     async uploadLogoImage(@UploadedFile() file: Express.Multer.File) {
+        await compressImage(file.path);
         const fileUrl = `/uploads/${file.filename}`;
         await this.settingsService.updateLogoImage(fileUrl);
         return { url: fileUrl };
@@ -65,6 +68,7 @@ export class SettingsController {
         })
     }))
     async uploadLoginBgImage(@UploadedFile() file: Express.Multer.File) {
+        await compressImage(file.path);
         return { url: `/uploads/${file.filename}` };
     }
 }
