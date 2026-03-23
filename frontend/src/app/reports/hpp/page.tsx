@@ -176,7 +176,7 @@ interface FixedCost {
     amount: number;
 }
 
-export default function HppCalculatorPage() {
+function HppCalculatorContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const editProductId = searchParams.get('editProductId') ? parseInt(searchParams.get('editProductId')!) : null;
@@ -2296,5 +2296,13 @@ export default function HppCalculatorPage() {
             )}
 
         </div >
+    );
+}
+
+export default function HppCalculatorPage() {
+    return (
+        <React.Suspense fallback={null}>
+            <HppCalculatorContent />
+        </React.Suspense>
     );
 }
