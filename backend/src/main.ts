@@ -5,7 +5,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   // Enable CORS
   app.enableCors({
-    origin: '*',
+    origin: ['https://kasir.volikoprint.com'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
