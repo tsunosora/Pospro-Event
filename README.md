@@ -8,7 +8,7 @@
 
 **Solusi kasir modern untuk toko kelontong, percetakan digital, café, dan usaha kecil menengah lainnya.**
 
-> 🆕 **Update Maret 2026** — Ditambahkan: **Antrian Produksi** (antrian cetak per job, produk rakitan multi-tahap) & **Stok Opname** (hitung fisik stok via link operator). HPP kini mendukung input **Lebar × Tinggi m²** per baris bahan baku. Produk kini bisa diset **Tanpa Lacak Stok** (unlimited stock, tetap bisa diorder). Kasir area-based mendukung satuan **m², cm², dan menit** dengan perhitungan harga dan stok yang tepat per satuan.
+> 🆕 **Update Maret 2026 (v2.7)** — Ditambahkan: **Harga Bertingkat** (tiered pricing per varian, harga otomatis berubah sesuai qty di kasir), **Impor Produk Massal** (template Excel + preview sebelum simpan), **Kalkulator HPP Multi-Varian** (biaya tambah per baris, simpan sebagai produk multi-varian), **Laporan Laba Kotor**, **Supplier Management**, **Backup & Restore**. Produk **Tanpa Lacak Stok** kini tidak pernah masuk daftar peringatan Stok Menipis.
 
 ---
 
@@ -42,7 +42,10 @@ Cukup buka browser, tap, dan transaksi selesai — tanpa perlu instalasi aplikas
 - Dukung produk dengan **varian** (ukuran, warna, dll)
 - Mode harga khusus untuk **Digital Printing** — harga dihitung per area (m² atau cm²) atau per menit
 - Toggle **Lacak Stok**: aktifkan untuk produk yang butuh kontrol stok; nonaktifkan untuk produk/jasa unlimited (tampil simbol **∞** di kasir dan inventori, stok tidak pernah habis)
-- Pantau stok real-time, dengan notifikasi ketika stok menipis
+- **Harga Bertingkat (Price Tiers)** per varian — set harga berbeda berdasarkan qty pembelian (misal: 1–5 pcs = Rp 25.000, 6+ = Rp 20.000). Harga berubah **otomatis di kasir** sesuai qty yang diorder
+- **Impor Produk Massal** — download template Excel, isi data ratusan produk, upload dan preview validasi sebelum disimpan
+- Tipe produk: **Produk Jual** (muncul di kasir), **Bahan Baku** (untuk BOM/ingredient), **Jasa** (tanpa stok)
+- Notifikasi stok menipis hanya untuk produk yang mengaktifkan Lacak Stok — produk ∞ tidak pernah masuk peringatan
 
 ### 🏦 4. Multi-Rekening Bank
 - Daftarkan beberapa rekening bank toko (BCA, Mandiri, BRI, dll)
@@ -68,10 +71,12 @@ Cukup buka browser, tap, dan transaksi selesai — tanpa perlu instalasi aplikas
 
 ### 📊 7. Laporan Penjualan & Profit
 - Lihat riwayat semua transaksi dengan filter tanggal
-- Laporan **Profit** — kalkulasi margin per produk
-- Laporan **HPP** (Harga Pokok Penjualan) untuk analisis biaya produksi
-  - Setiap bahan baku dapat diinput **Lebar × Tinggi (m)** untuk auto-hitung luas m² — cocok untuk bahan banner/vinyl
-  - Toggle mode L×T per baris; hasil `= X.XXXX m²` tampil langsung
+- Laporan **Laba Kotor** — analisis margin per produk/varian: pendapatan, HPP, laba kotor, dan margin %
+- Laporan **HPP** (Harga Pokok Penjualan) dengan **Kalkulator HPP** lengkap:
+  - Worksheet biaya variabel + biaya tetap per produk
+  - Setiap bahan baku bisa diinput **Lebar × Tinggi (m)** untuk auto-hitung luas m² — cocok untuk bahan banner/vinyl
+  - **Kalkulasi Multi-Varian**: hitung HPP beberapa ukuran sekaligus dengan biaya tambah (laminasi, cutting) per baris
+  - Simpan hasil langsung sebagai **produk baru multi-varian** atau apply ke varian yang sudah ada
 - Export laporan ke Excel
 
 ### 🔄 8. Laporan Tutup Shift Kasir
@@ -165,15 +170,17 @@ Hitung fisik stok gudang dengan sistem link operator yang aman dan terstruktur.
 ├── /invoices               → Invoice Generator & Penawaran Harga (SPH)
 ├── /cashflow               → Arus kas bisnis dengan chart & filter
 ├── /maps                   → Peta Cuan Lokasi (cabang + kompetitor)
+├── /inventory/suppliers    → Data Supplier & harga beli per varian 🆕
 ├── /reports/sales          → Laporan riwayat transaksi
-├── /reports/profit         → Laporan profit & margin
-├── /reports/hpp            → Kalkulator HPP
+├── /reports/profit         → Laporan Laba Kotor & margin per produk
+├── /reports/hpp            → Kalkulator HPP & Kalkulasi Multi-Varian
 └── /settings               → Pengaturan toko, bot WhatsApp, rekening bank
     ├── /settings/general       → Profil toko (nama, logo, pajak, PIN operator)
     ├── /settings/payments      → Metode pembayaran & QRIS
     ├── /settings/users         → Manajemen staf / akun kasir
     ├── /settings/whatsapp      → Bot WhatsApp QR & konfigurasi grup
     ├── /settings/bank-accounts → Rekening bank & reset saldo
+    ├── /settings/backup        → Backup & Restore database ke ZIP 🆕
     └── /settings/login         → Kustomisasi tampilan halaman login
 ```
 
@@ -529,8 +536,10 @@ Pos-Web-Application/
 │   │   ├── customers/              # Data pelanggan
 │   │   ├── bank-accounts/          # Multi-rekening bank
 │   │   ├── hpp/                    # Kalkulator HPP
-│   │   ├── production/             # Antrian produksi cetak (job & batch) 🆕
-│   │   ├── stock-opname/           # Stok opname (sesi, item, operator public) 🆕
+│   │   ├── production/             # Antrian produksi cetak (job & batch)
+│   │   ├── stock-opname/           # Stok opname (sesi, item, operator public)
+│   │   ├── suppliers/              # Data supplier & item harga beli 🆕
+│   │   ├── backup/                 # Export/import database ZIP 🆕
 │   │   ├── settings/               # Pengaturan toko, logo, QRIS
 │   │   └── whatsapp/               # Bot WhatsApp engine
 │   └── public/
@@ -564,12 +573,16 @@ Pos-Web-Application/
 
 | Dokumen | Isi |
 |---|---|
-| [Panduan Umum](docs/wiki/README.md) | Login, Dashboard, Kasir, Tutup Shift |
+| [Panduan Umum](docs/wiki/README.md) | Login, Dashboard, Kasir, Produk, Tutup Shift |
+| [Kalkulator HPP](docs/wiki/hpp-calculator.md) | Worksheet HPP, multi-varian, biaya tambah, simpan produk 🆕 |
 | [Cashflow Bisnis](docs/wiki/cashflow.md) | Cara kelola arus kas, filter, chart, export |
 | [Invoice & Penawaran Harga](docs/wiki/invoice-sph.md) | Buat invoice, SPH, catalog picker |
 | [Peta Cuan Lokasi](docs/wiki/peta-cuan.md) | Kelola cabang, tambah kompetitor |
-| [Antrian Produksi](docs/wiki/produksi.md) | Antrian cetak, job satuan & batch, stok roll 🆕 |
-| [Stok Opname](docs/wiki/stock-opname.md) | Hitung fisik stok via link operator 🆕 |
+| [Antrian Produksi](docs/wiki/produksi.md) | Antrian cetak, job satuan & batch, stok roll |
+| [Stok Opname](docs/wiki/stock-opname.md) | Hitung fisik stok via link operator |
+| [Data Supplier](docs/wiki/suppliers.md) | Kelola supplier dan harga beli per varian 🆕 |
+| [Backup & Restore](docs/wiki/backup.md) | Backup database ke ZIP, restore skip/overwrite 🆕 |
+| [Deployment Cloudflare](docs/wiki/deployment.md) | Setup produksi di home server (MySQL, PM2, Cloudflare Tunnel) |
 
 ---
 
@@ -612,12 +625,18 @@ Pos-Web-Application/
 - [x] Antrian Produksi — pencarian pelanggan, detail invoice, badge kategori bahan
 - [x] Stok Opname — link operator, blind count, review & konfirmasi stok
 - [x] HPP Calculator — input Lebar × Tinggi m² per baris bahan baku (auto-hitung luas)
+- [x] HPP Kalkulasi Multi-Varian — biaya tambah per baris, HPP Final = base + biaya tambah, simpan sebagai produk multi-varian
+- [x] Harga Bertingkat (Price Tiers) — tiered pricing per varian, harga otomatis di kasir POS sesuai qty
+- [x] Impor Produk Massal — template Excel, preview validasi sebelum simpan, error per baris
+- [x] Laporan Laba Kotor — profit & margin per produk dengan filter tanggal dan export Excel
+- [x] Supplier Management — kelola supplier dan harga beli per varian produk
+- [x] Backup & Restore — export selective tables ke ZIP, restore mode skip/overwrite
 - [x] Produk "Tanpa Lacak Stok" — unlimited stock, tetap bisa diorder, tampil ∞ di kasir & inventori
 - [x] Kasir Area-Based multi-satuan — m², cm², dan menit dengan harga & stok per satuan yang benar
 - [x] Upload gambar produk mendukung format JFIF dan nama file kapital (JPG, JPEG)
 - [x] HPP: sync kategori produk dari database inventori (bukan hardcoded)
+- [x] Notifikasi stok menipis — dashboard card + badge di inventori (hanya produk Lacak Stok aktif)
 - [ ] Mode offline (PWA)
-- [ ] Notifikasi stok menipis otomatis
 - [ ] Fitur loyalty point pelanggan
 
 ---

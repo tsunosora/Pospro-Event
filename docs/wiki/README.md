@@ -18,20 +18,22 @@ Yang membedakan PosPro dari kasir biasa adalah **ekosistemnya yang lengkap**: bu
 |---|---|---|
 | 1 | [Login & Dashboard](#-1-login-ke-aplikasi) | Cara masuk dan membaca ringkasan bisnis harian |
 | 2 | [Kasir / POS](#-3-kasir--point-of-sale-pos) | Cara melayani pelanggan dan mencatat transaksi |
-| 3 | [Manajemen Produk & Stok](#-4-manajemen-produk--stok) | Cara kelola produk, varian, foto, dan stok |
+| 3 | [Manajemen Produk & Stok](#-4-manajemen-produk--stok) | Cara kelola produk, varian, foto, stok, harga bertingkat |
 | 4 | [DP / Piutang](#-5-daftar-dp--piutang) | Melacak pelanggan yang belum lunas |
 | 5 | [Laporan Penjualan](#-6-laporan-penjualan) | Riwayat semua transaksi dengan filter tanggal |
 | 6 | [Laporan Tutup Shift](#-7-laporan-tutup-shift-) | Rekonsiliasi kas dan rekening bank akhir shift |
-| 7 | [Data Pelanggan](#-8-data-pelanggan) | Database & riwayat belanja pelanggan |
-| 8 | [WhatsApp Bot](#-9-pengaturan-whatsapp-bot) | Setup bot laporan otomatis ke grup WA owner |
-| 9 | [💰 Cashflow Bisnis](cashflow.md) | Arus kas pemasukan & pengeluaran, chart, export |
-| 10 | [📄 Invoice & Penawaran Harga](invoice-sph.md) | Buat invoice & SPH profesional untuk klien B2B |
-| 11 | [🗺️ Peta Cuan Lokasi](peta-cuan.md) | Peta cabang, kompetitor, dan pencarian bisnis |
-| 12 | [🎨 Tampilan Login](#-10-pengaturan-tampilan-halaman-login) | Upload foto latar, atur tagline, animated logo |
-| 13 | [🖨️ Antrian Produksi](produksi.md) | Antrian cetak, job satuan & batch, produk rakitan multi-tahap, search, detail invoice 🆕 |
-| 14 | [📋 Stok Opname](stock-opname.md) | Hitung fisik stok via link operator untuk karyawan 🆕 |
-| 15 | [🏭 Data Supplier](suppliers.md) | Kelola data supplier dan harga beli per varian produk 🆕 |
-| 16 | [💾 Backup & Restore](backup.md) | Backup database ke ZIP, preview, dan restore dari file 🆕 |
+| 7 | [Laporan Laba Kotor](#-laporan-laba-kotor) | Profit & margin per produk berdasarkan HPP 🆕 |
+| 8 | [Data Pelanggan](#-8-data-pelanggan) | Database & riwayat belanja pelanggan |
+| 9 | [WhatsApp Bot](#-9-pengaturan-whatsapp-bot) | Setup bot laporan otomatis ke grup WA owner |
+| 10 | [💰 Cashflow Bisnis](cashflow.md) | Arus kas pemasukan & pengeluaran, chart, export |
+| 11 | [📄 Invoice & Penawaran Harga](invoice-sph.md) | Buat invoice & SPH profesional untuk klien B2B |
+| 12 | [🗺️ Peta Cuan Lokasi](peta-cuan.md) | Peta cabang, kompetitor, dan pencarian bisnis |
+| 13 | [🎨 Tampilan Login](#-10-pengaturan-tampilan-halaman-login) | Upload foto latar, atur tagline, animated logo |
+| 14 | [🖨️ Antrian Produksi](produksi.md) | Antrian cetak, job satuan & batch, produk rakitan multi-tahap, search, detail invoice |
+| 15 | [📋 Stok Opname](stock-opname.md) | Hitung fisik stok via link operator untuk karyawan |
+| 16 | [🏭 Data Supplier](suppliers.md) | Kelola data supplier dan harga beli per varian produk |
+| 17 | [💾 Backup & Restore](backup.md) | Backup database ke ZIP, preview, dan restore dari file |
+| 18 | [🧮 Kalkulator HPP](hpp-calculator.md) | Worksheet biaya produksi, multi-varian, biaya tambah, simpan sebagai produk 🆕 |
 
 ---
 
@@ -134,7 +136,57 @@ Halaman untuk mengelola semua produk, varian, bahan baku, dan stok yang dijual d
 
 Cocok untuk produk yang punya variasi. Contoh:
 - Kaos → Varian: S, M, L, XL (stok dan harga bisa berbeda per varian)
-- Tinta Printer → Varian: Hitam, Cyan, Magenta, Yellow.
+- Tinta Printer → Varian: Hitam, Cyan, Magenta, Yellow
+
+**Harga Bertingkat (Price Tiers)**
+
+Setiap varian bisa punya beberapa level harga berdasarkan jumlah qty yang dibeli. Contoh:
+
+| Range Qty | Harga per Unit |
+|---|---|
+| 1–5 pcs | Rp 25.000 |
+| 6–20 pcs | Rp 22.000 |
+| 21 pcs ke atas | Rp 18.000 |
+
+- Cara set: buka halaman **Edit Produk** → bagian **Varian** → klik **+ Tambah Tier**
+- Di kasir POS: harga otomatis berubah sesuai qty yang dimasukkan operator
+- Harga yang tampil di kartu produk kasir = harga tier pertama (harga qty terendah)
+- Harga yang tampil di inventori = harga tier pertama, dengan badge jumlah tier aktif
+- Jika qty tidak cocok tier manapun, harga fallback ke **Harga Jual** utama varian
+
+**Tipe Produk**
+
+Saat membuat produk, pilih tipe yang sesuai:
+
+| Tipe | Keterangan |
+|---|---|
+| **Produk Jual** (SELLABLE) | Produk/jasa yang dijual ke pelanggan — muncul di kasir |
+| **Bahan Baku** (RAW_MATERIAL) | Material produksi — tidak muncul di kasir, dipakai di BOM/Ingredient |
+| **Jasa** (SERVICE) | Layanan tanpa stok fisik |
+
+**Impor Produk Massal (Bulk Import)**
+
+Untuk menambahkan banyak produk sekaligus tanpa input satu per satu:
+
+1. Buka halaman **Inventori** → klik tombol **Import Excel**
+2. Klik **Download Template** — unduh file Excel dengan contoh isi dan panduan kolom
+3. Isi data produk di file Excel (nama, kategori, varian, harga, HPP, stok)
+4. Upload file yang sudah diisi → sistem menampilkan **preview validasi** sebelum data disimpan
+5. Klik **Impor** — produk yang valid langsung tersimpan; error per baris ditampilkan terpisah
+
+**Pengaturan Material Roll**
+
+Untuk produk berbahan gulungan (banner, vinyl, MMT, kain):
+
+1. Di halaman Edit Produk → bagian Varian → centang **Bahan roll (banner, MMT, dll)**
+2. Isi **Lebar Fisik (m)** — lebar total gulungan saat diterima dari supplier
+3. Isi **Lebar Cetak Efektif (m)** — lebar yang bisa dipakai untuk cetak (setelah dikurangi tepi/waste)
+
+Data ini digunakan operator di halaman Antrian Produksi untuk menghitung pemakaian bahan aktual per job.
+
+**Stok Menipis**
+
+Badge **"Menipis"** (merah) hanya muncul untuk produk yang mengaktifkan **Lacak Stok**. Produk dengan simbol **∞** (Tanpa Lacak Stok) tidak pernah masuk daftar peringatan stok menipis — baik di dashboard maupun di halaman inventori.
 
 ---
 
@@ -175,6 +227,28 @@ Ringkasan lengkap semua transaksi yang pernah terjadi, bisa difilter berdasarkan
 - Detail setiap transaksi: waktu, kasir, item terjual, metode bayar, total
 - Tombol **Cetak Ulang Struk** untuk transaksi lama
 - **Export ke Excel** untuk laporan eksternal atau pembukuan manual
+
+---
+
+## 📈 Laporan Laba Kotor
+
+Analisis margin profit per produk dalam periode tertentu — tersedia di **Laporan → Laba Kotor** (`/reports/profit`).
+
+| Kolom | Keterangan |
+|---|---|
+| Nama Produk / Varian | Item yang terjual pada periode tersebut |
+| Total Pendapatan | Harga jual × jumlah terjual |
+| Total HPP | Modal per unit × jumlah terjual |
+| Laba Kotor | Pendapatan − Total HPP |
+| Margin % | (Laba Kotor ÷ Pendapatan) × 100% |
+
+**Cara menggunakan:**
+1. Buka **Laporan → Laba Kotor**
+2. Pilih rentang tanggal (filter dari–sampai)
+3. Laporan menampilkan breakdown per produk/varian yang terjual dalam periode tersebut
+4. Klik **Export Excel** untuk menyimpan laporan
+
+> **Sumber HPP:** nilai HPP yang dipakai di laporan ini berasal dari field **Modal/HPP** yang diset di setiap varian produk. Pastikan HPP varian sudah diisi (bisa melalui Kalkulator HPP) agar laporan ini akurat.
 
 ---
 
@@ -362,12 +436,13 @@ Dokumentasi lengkap untuk fitur-fitur bisnis tingkat lanjut:
 | [💰 Cashflow Bisnis](cashflow.md) | Arus kas, chart tren, kategorisasi, export Excel |
 | [📄 Invoice & Penawaran Harga](invoice-sph.md) | Invoice B2B, SPH, catalog picker, area-based pricing |
 | [🗺️ Peta Cuan Lokasi](peta-cuan.md) | Peta cabang, kompetitor, pencarian bisnis by keyword |
-| [🖨️ Antrian Produksi](produksi.md) | Antrian cetak, batch, produk rakitan multi-tahap, search pelanggan, detail invoice 🆕 |
-| [📋 Stok Opname](stock-opname.md) | Link operator blind count, review admin, update stok otomatis 🆕 |
-| [🏭 Data Supplier](suppliers.md) | Kelola supplier dan harga beli per varian produk 🆕 |
-| [💾 Backup & Restore](backup.md) | Backup database ke ZIP, restore dengan mode skip/overwrite 🆕 |
+| [🖨️ Antrian Produksi](produksi.md) | Antrian cetak, batch, produk rakitan multi-tahap, search pelanggan, detail invoice |
+| [📋 Stok Opname](stock-opname.md) | Link operator blind count, review admin, update stok otomatis |
+| [🏭 Data Supplier](suppliers.md) | Kelola supplier dan harga beli per varian produk |
+| [💾 Backup & Restore](backup.md) | Backup database ke ZIP, restore dengan mode skip/overwrite |
+| [🧮 Kalkulator HPP](hpp-calculator.md) | Worksheet biaya produksi, multi-varian, biaya tambah, simpan sebagai produk 🆕 |
 | [🚀 Panduan Deployment Cloudflare](deployment.md) | Setup produksi di Home Server (MySQL, PM2, Cloudflare Tunnel) |
 
 ---
 
-*Dokumentasi PosPro — Terakhir diperbarui: 17 Maret 2026 | v2.6 — Supplier management, Backup & Restore, WhatsApp Broadcast & Announcement*
+*Dokumentasi PosPro — Terakhir diperbarui: 23 Maret 2026 | v2.7 — Harga Bertingkat (Price Tiers), Kalkulator HPP Multi-Varian, Laporan Laba Kotor, Impor Produk Massal, Roll Material, Tipe Produk*

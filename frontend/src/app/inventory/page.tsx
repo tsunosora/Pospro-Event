@@ -10,6 +10,15 @@ import { useRouter } from 'next/navigation';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+/** Harga display: ambil harga tier pertama (minQty terkecil) jika ada, fallback ke variant.price */
+function getEffectivePrice(variant: any): number {
+    const base = Number(variant.price || 0);
+    const tiers: any[] = variant.priceTiers || [];
+    if (tiers.length === 0) return base;
+    const sorted = [...tiers].sort((a, b) => Number(a.minQty) - Number(b.minQty));
+    return Number(sorted[0].price);
+}
+
 
 export default function InventoryPage() {
     const router = useRouter();
@@ -370,7 +379,8 @@ export default function InventoryPage() {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center flex-wrap gap-2 mt-1.5">
-                                                        <span className="text-sm font-bold text-primary">Rp {Number(variant.price).toLocaleString('id-ID')}</span>
+                                                        <span className="text-sm font-bold text-primary">Rp {getEffectivePrice(variant).toLocaleString('id-ID')}</span>
+                                                        {(variant.priceTiers?.length > 0) && <span className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded font-medium">{variant.priceTiers.length} tier</span>}
                                                         {Number(variant.hpp) > 0 && <span className="text-xs text-muted-foreground">Modal: Rp {Number(variant.hpp).toLocaleString('id-ID')}</span>}
                                                         {isFirst && product.category?.name && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{product.category.name}</span>}
                                                         {isFirst && typeCfg && <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${typeCfg.className}`}>{typeCfg.label}</span>}
@@ -494,7 +504,8 @@ export default function InventoryPage() {
                                                     {isFirst && <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{product.category?.name}</span>}
                                                 </td>
                                                 <td className="px-5 py-4 whitespace-nowrap text-sm text-foreground/80 text-right font-medium">
-                                                    Rp {Number(variant.price).toLocaleString('id-ID')}
+                                                    Rp {getEffectivePrice(variant).toLocaleString('id-ID')}
+                                                    {variant.priceTiers?.length > 0 && <span className="ml-1 text-[10px] text-orange-500">({variant.priceTiers.length} tier)</span>}
                                                 </td>
                                                 <td className="px-5 py-4 whitespace-nowrap text-sm text-muted-foreground text-right">
                                                     Rp {Number(variant.hpp || 0).toLocaleString('id-ID')}

@@ -11,6 +11,15 @@ import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+/** Harga display: ambil harga tier pertama (minQty terkecil) jika ada, fallback ke variant.price */
+function getEffectivePrice(variant: any): number {
+    const base = Number(variant.price || 0);
+    const tiers: any[] = variant.priceTiers || [];
+    if (tiers.length === 0) return base;
+    const sorted = [...tiers].sort((a, b) => Number(a.minQty) - Number(b.minQty));
+    return Number(sorted[0].price);
+}
+
 interface AreaModalState {
     open: boolean;
     mode: 'add' | 'edit';   // 'add' = new line, 'edit' = update existing line
@@ -392,8 +401,9 @@ export default function POSPage() {
                                             <p className="text-xs text-muted-foreground truncate mb-1">{v.sku}</p>
                                             <div className="flex items-center justify-between">
                                                 <p className="font-bold text-primary text-sm">
-                                                    Rp {Number(v.price || 0).toLocaleString('id-ID')}
+                                                    Rp {getEffectivePrice(v).toLocaleString('id-ID')}
                                                     {isAreaBased && <span className="text-xs font-normal text-muted-foreground">/m²</span>}
+                                                    {!isAreaBased && v.priceTiers?.length > 0 && <span className="text-[10px] font-normal text-orange-500 ml-1">bertingkat</span>}
                                                 </p>
                                                 <p className={`text-xs font-medium ${p.trackStock === false ? 'text-blue-500' : Number(v.stock) < 10 ? 'text-destructive' : 'text-muted-foreground'}`}>
                                                     {p.trackStock === false ? '∞' : `${v.stock}${isAreaBased ? 'm²' : ''}`}
@@ -774,10 +784,10 @@ export default function POSPage() {
                                                 <p className="text-sm font-medium truncate">{item.name}</p>
                                                 {item.pricingMode === 'AREA_BASED'
                                                     ? <p className="text-xs text-muted-foreground">{item.widthCm}×{item.heightCm}cm = {item.areaM2?.toFixed(4)}m²{item.note ? ` · ${item.note}` : ''}</p>
-                                                    : <p className="text-xs text-muted-foreground">×{item.qty} × Rp {item.pricePerUnit.toLocaleString('id-ID')}</p>
+                                                    : <p className="text-xs text-muted-foreground">×{item.qty} × Rp {item.price.toLocaleString('id-ID')}{item.priceTiers.length > 0 && item.price !== item.pricePerUnit ? <span className="ml-1 text-orange-500 font-semibold">tier</span> : null}</p>
                                                 }
                                             </div>
-                                            <p className="text-sm font-semibold shrink-0">Rp {item.price.toLocaleString('id-ID')}</p>
+                                            <p className="text-sm font-semibold shrink-0">Rp {(item.price * item.qty).toLocaleString('id-ID')}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -1015,10 +1025,10 @@ export default function POSPage() {
                                             <p className="text-sm font-medium truncate">{item.name}</p>
                                             {item.pricingMode === 'AREA_BASED'
                                                 ? <p className="text-xs text-muted-foreground">{item.unitType === 'menit' ? `${item.widthCm} unit` : `${item.widthCm}×${item.heightCm} ${item.unitType || 'm'} = ${item.areaM2?.toFixed(4)} ${item.unitType === 'm' || item.unitType === 'cm' ? 'm²' : 'unit'}`}{item.note ? ` • ${item.note}` : ''}</p>
-                                                : <p className="text-xs text-muted-foreground">×{item.qty} @ Rp {item.pricePerUnit.toLocaleString('id-ID')}</p>
+                                                : <p className="text-xs text-muted-foreground">×{item.qty} @ Rp {item.price.toLocaleString('id-ID')}{item.priceTiers.length > 0 && item.price !== item.pricePerUnit ? <span className="ml-1 text-orange-500 font-semibold">tier</span> : null}</p>
                                             }
                                         </div>
-                                        <p className="text-sm font-semibold shrink-0">Rp {item.price.toLocaleString('id-ID')}</p>
+                                        <p className="text-sm font-semibold shrink-0">Rp {(item.price * item.qty).toLocaleString('id-ID')}</p>
                                     </div>
                                 ))}
                             </div>

@@ -34,6 +34,13 @@ function generateSku(productName: string, index: number): string {
     return `${prefix}-${num}`;
 }
 
+interface PriceTierForm {
+    tierName: string;
+    minQty: string;
+    maxQty: string;
+    price: string;
+}
+
 interface VariantForm {
     id?: number;
     sku: string;
@@ -49,6 +56,7 @@ interface VariantForm {
     isRollMaterial: boolean;
     rollPhysicalWidth: string;
     rollEffectivePrintWidth: string;
+    priceTiers: PriceTierForm[];
 }
 
 interface IngredientForm {
@@ -65,6 +73,7 @@ const defaultVariant = (sku = ''): VariantForm => ({
     sku, variantName: '', price: '', hpp: '', stock: '', size: '', color: '',
     imageFile: null, imagePreview: null, existingImageUrl: null,
     isRollMaterial: false, rollPhysicalWidth: '', rollEffectivePrintWidth: '',
+    priceTiers: [],
 });
 
 export default function EditProductPage() {
@@ -274,6 +283,12 @@ export default function EditProductPage() {
                 isRollMaterial: v.isRollMaterial || false,
                 rollPhysicalWidth: v.rollPhysicalWidth ? String(v.rollPhysicalWidth) : '',
                 rollEffectivePrintWidth: v.rollEffectivePrintWidth ? String(v.rollEffectivePrintWidth) : '',
+                priceTiers: (v.priceTiers || []).map((t: any) => ({
+                    tierName: t.tierName || '',
+                    minQty: String(t.minQty),
+                    maxQty: t.maxQty !== null && t.maxQty !== undefined ? String(t.maxQty) : '',
+                    price: String(t.price),
+                })),
             })) || [defaultVariant()]);
 
             // Ingredients
@@ -320,6 +335,12 @@ export default function EditProductPage() {
                     isRollMaterial: v.isRollMaterial,
                     rollPhysicalWidth: v.isRollMaterial && v.rollPhysicalWidth ? Number(v.rollPhysicalWidth) : null,
                     rollEffectivePrintWidth: v.isRollMaterial && v.rollEffectivePrintWidth ? Number(v.rollEffectivePrintWidth) : null,
+                    priceTiers: v.priceTiers.filter(t => t.minQty && t.price).map(t => ({
+                        tierName: t.tierName || null,
+                        minQty: parseInt(t.minQty),
+                        maxQty: t.maxQty ? parseInt(t.maxQty) : null,
+                        price: parseInt(t.price),
+                    })),
                 })),
                 ingredients: ingredients
                     .filter(ing => ing.name.trim())
@@ -388,6 +409,30 @@ export default function EditProductPage() {
 
     const updateVariant = (index: number, field: keyof VariantForm, value: any) => {
         setVariants(prev => { const next = [...prev]; (next[index] as any)[field] = value; return next; });
+    };
+
+    const addTier = (variantIndex: number) => {
+        setVariants(prev => {
+            const next = [...prev];
+            next[variantIndex] = { ...next[variantIndex], priceTiers: [...next[variantIndex].priceTiers, { tierName: '', minQty: '', maxQty: '', price: '' }] };
+            return next;
+        });
+    };
+    const removeTier = (variantIndex: number, tierIndex: number) => {
+        setVariants(prev => {
+            const next = [...prev];
+            next[variantIndex] = { ...next[variantIndex], priceTiers: next[variantIndex].priceTiers.filter((_, i) => i !== tierIndex) };
+            return next;
+        });
+    };
+    const updateTier = (variantIndex: number, tierIndex: number, field: keyof PriceTierForm, value: string) => {
+        setVariants(prev => {
+            const next = [...prev];
+            const tiers = [...next[variantIndex].priceTiers];
+            tiers[tierIndex] = { ...tiers[tierIndex], [field]: value };
+            next[variantIndex] = { ...next[variantIndex], priceTiers: tiers };
+            return next;
+        });
     };
 
     const generateSkuForVariant = (index: number) => {
@@ -520,7 +565,7 @@ export default function EditProductPage() {
 
                         <div className="space-y-2 md:col-span-2">
                             <label className="text-sm font-medium">Tipe Produk</label>
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 min-[480px]:grid-cols-3 gap-2">
                                 {([
                                     { value: 'SELLABLE',     label: 'Siap Jual',  desc: 'Produk retail / dagangan langsung.',   cls: 'border-emerald-400 bg-emerald-50',   dot: 'bg-emerald-500' },
                                     { value: 'RAW_MATERIAL', label: 'Bahan Baku', desc: 'Material untuk produksi / resep.',      cls: 'border-amber-400 bg-amber-50',       dot: 'bg-amber-500' },
@@ -626,115 +671,194 @@ export default function EditProductPage() {
                         </button>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {variants.map((v, index) => (
-                            <div key={index} className="bg-muted/30 p-4 rounded-xl border border-border/60 relative group space-y-4">
-                                <div className="flex items-start gap-3">
-                                    {/* Variant Image */}
-                                    <div className="shrink-0">
-                                        <label className="block w-16 h-16 rounded-lg overflow-hidden border-2 border-dashed border-border cursor-pointer hover:border-primary/50 transition-colors relative bg-muted/50">
-                                            {v.imagePreview ? (
-                                                <>
-                                                    <img src={v.imagePreview} alt="" className="w-full h-full object-cover" />
-                                                    <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
-                                                        <Upload className="w-4 h-4 text-white" />
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <div className="flex flex-col items-center justify-center h-full">
-                                                    <ImageIcon className="w-5 h-5 text-muted-foreground/50" />
-                                                    <span className="text-xs text-muted-foreground/50 mt-0.5">Foto</span>
-                                                </div>
-                                            )}
-                                            <input type="file" className="hidden" accept="image/*" onChange={e => handleVariantImageChange(index, e)} />
-                                        </label>
-                                    </div>
+                            <div key={index} className="bg-muted/30 rounded-xl border border-border/60 overflow-hidden">
 
-                                    <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-3">
-                                        <div className="md:col-span-2 space-y-1">
-                                            <label className="text-xs font-medium text-muted-foreground">Nama Varian</label>
-                                            <input type="text" value={v.variantName} onChange={e => updateVariant(index, 'variantName', e.target.value)} placeholder="Contoh: Ukuran L, Rasa Original" className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-medium text-muted-foreground">SKU *</label>
-                                            <div className="flex gap-1.5">
-                                                <input required type="text" value={v.sku} onChange={e => updateVariant(index, 'sku', e.target.value)} className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => generateSkuForVariant(index)}
-                                                    title="Generate SKU otomatis dari nama produk"
-                                                    className="px-2.5 py-2 bg-muted border border-border rounded-lg hover:bg-primary/10 hover:border-primary/40 transition-colors text-muted-foreground hover:text-primary shrink-0"
-                                                >
-                                                    <RefreshCw className="w-3.5 h-3.5" />
-                                                </button>
+                                {/* Header: Foto + Nama + Hapus */}
+                                <div className="flex items-center gap-3 p-3 bg-background border-b border-border/40">
+                                    <label className="shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 border-dashed border-border cursor-pointer hover:border-primary/50 transition-colors relative bg-muted/50">
+                                        {v.imagePreview ? (
+                                            <img src={v.imagePreview} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full gap-0.5">
+                                                <ImageIcon className="w-4 h-4 text-muted-foreground/50" />
+                                                <span className="text-[10px] text-muted-foreground/50">Foto</span>
                                             </div>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-medium text-muted-foreground">
-                                                {pricingMode === 'AREA_BASED' ? 'Harga/m² (Rp) *' : 'Harga Jual (Rp) *'}
-                                            </label>
-                                            <input required type="number" min="0" value={v.price} onChange={e => updateVariant(index, 'price', e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-medium text-muted-foreground">
-                                                Harga Modal / HPP
-                                            </label>
-                                            <input type="number" min="0" value={v.hpp} onChange={e => updateVariant(index, 'hpp', e.target.value)} placeholder="Opsional" className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-                                        </div>
-                                        {trackStock && (
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-medium text-muted-foreground">
-                                                {pricingMode === 'AREA_BASED' ? 'Stok Bahan (m²)' : 'Stok'}
-                                            </label>
-                                            <input type="number" min="0" step={pricingMode === 'AREA_BASED' ? '0.01' : '1'} value={v.stock} onChange={e => updateVariant(index, 'stock', e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-                                        </div>
                                         )}
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-medium text-muted-foreground">Size</label>
-                                            <input type="text" value={v.size} onChange={e => updateVariant(index, 'size', e.target.value)} placeholder="M, L, XL" className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-medium text-muted-foreground">Warna</label>
-                                            <input type="text" value={v.color} onChange={e => updateVariant(index, 'color', e.target.value)} placeholder="Merah, Biru" className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-                                        </div>
+                                        <input type="file" className="hidden" accept="image/*" onChange={e => handleVariantImageChange(index, e)} />
+                                    </label>
+                                    <div className="flex-1 min-w-0">
+                                        <input
+                                            type="text" value={v.variantName}
+                                            onChange={e => updateVariant(index, 'variantName', e.target.value)}
+                                            placeholder="Nama varian (mis. Ukuran L)"
+                                            className="w-full px-3 py-2.5 bg-muted/40 border border-border rounded-lg text-sm font-semibold outline-none focus:border-primary"
+                                        />
                                     </div>
-
                                     {variants.length > 1 && (
-                                        <button type="button" onClick={() => removeVariant(index)} className="shrink-0 p-1.5 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                                        <button type="button" onClick={() => removeVariant(index)} className="shrink-0 p-2 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     )}
                                 </div>
 
-                                {/* Roll Material fields — di luar flex agar tampil full-width */}
-                                <div className="border-t border-border/50 pt-3 space-y-3">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="checkbox" checked={v.isRollMaterial} onChange={e => updateVariant(index, 'isRollMaterial', e.target.checked)}
-                                            className="w-4 h-4 rounded accent-primary" />
-                                        <span className="text-sm font-medium">Ini adalah bahan roll (banner, MMT, dll)</span>
-                                    </label>
-                                    {v.isRollMaterial && (
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-medium text-muted-foreground">Lebar Fisik Roll (m)</label>
-                                                <input type="number" step="0.1" min="0" value={v.rollPhysicalWidth}
-                                                    onChange={e => updateVariant(index, 'rollPhysicalWidth', e.target.value)}
-                                                    placeholder="3.2"
-                                                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
+                                {/* Body: Fields */}
+                                <div className="p-3 space-y-3">
+                                    {/* SKU */}
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">SKU *</label>
+                                        <div className="flex gap-2">
+                                            <input required type="text" value={v.sku}
+                                                onChange={e => updateVariant(index, 'sku', e.target.value)}
+                                                className="flex-1 min-w-0 px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
+                                            <button type="button" onClick={() => generateSkuForVariant(index)}
+                                                title="Generate SKU"
+                                                className="px-3 py-2.5 bg-muted border border-border rounded-lg hover:bg-primary/10 hover:border-primary/40 transition-colors text-muted-foreground hover:text-primary shrink-0">
+                                                <RefreshCw className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Harga Jual + HPP */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">
+                                                {pricingMode === 'AREA_BASED' ? 'Harga/m² (Rp)' : 'Harga Jual (Rp)'} *
+                                            </label>
+                                            <input required type="number" min="0" inputMode="numeric" value={v.price}
+                                                onChange={e => updateVariant(index, 'price', e.target.value)}
+                                                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">Modal / HPP</label>
+                                            <input type="number" min="0" inputMode="numeric" value={v.hpp}
+                                                onChange={e => updateVariant(index, 'hpp', e.target.value)}
+                                                placeholder="Opsional"
+                                                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                        </div>
+                                    </div>
+
+                                    {/* Stok + Size + Warna */}
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {trackStock && (
+                                            <div>
+                                                <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">
+                                                    {pricingMode === 'AREA_BASED' ? 'Stok (m²)' : 'Stok'}
+                                                </label>
+                                                <input type="number" min="0" inputMode="decimal"
+                                                    step={pricingMode === 'AREA_BASED' ? '0.01' : '1'}
+                                                    value={v.stock}
+                                                    onChange={e => updateVariant(index, 'stock', e.target.value)}
+                                                    className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
                                             </div>
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-medium text-muted-foreground">Lebar Cetak Efektif (m)</label>
-                                                <input type="number" step="0.1" min="0" value={v.rollEffectivePrintWidth}
-                                                    onChange={e => updateVariant(index, 'rollEffectivePrintWidth', e.target.value)}
-                                                    placeholder="3.0"
-                                                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
-                                                <p className="text-xs text-muted-foreground">Area cetak aktual (biasanya lebar fisik - 0.1~0.2m)</p>
+                                        )}
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">Size</label>
+                                            <input type="text" value={v.size}
+                                                onChange={e => updateVariant(index, 'size', e.target.value)}
+                                                placeholder="M, L, XL"
+                                                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">Warna</label>
+                                            <input type="text" value={v.color}
+                                                onChange={e => updateVariant(index, 'color', e.target.value)}
+                                                placeholder="Merah"
+                                                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                        </div>
+                                    </div>
+
+                                    {/* Harga Bertingkat (Price Tiers) */}
+                                    {pricingMode !== 'AREA_BASED' && (
+                                        <div className="border-t border-border/40 pt-3 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+                                                    Harga Bertingkat
+                                                    {v.priceTiers.length > 0 && <span className="ml-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded font-semibold">{v.priceTiers.length} tier</span>}
+                                                </span>
+                                                <button type="button" onClick={() => addTier(index)} className="flex items-center gap-1 text-xs text-primary font-semibold py-1 px-2 bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors">
+                                                    <Plus className="w-3.5 h-3.5" /> Tambah Tier
+                                                </button>
                                             </div>
+                                            {v.priceTiers.length === 0 && (
+                                                <p className="text-[11px] text-muted-foreground">Harga Jual di atas berlaku untuk semua qty.</p>
+                                            )}
+                                            {v.priceTiers.map((tier, ti) => (
+                                                <div key={ti} className="bg-orange-50/60 dark:bg-orange-950/10 border border-orange-200/60 dark:border-orange-800/30 rounded-lg p-2.5 space-y-2">
+                                                    <div className="flex gap-2 items-center">
+                                                        <input type="text" value={tier.tierName}
+                                                            onChange={e => updateTier(index, ti, 'tierName', e.target.value)}
+                                                            placeholder="Label tier (mis. Grosir)"
+                                                            className="flex-1 px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                                        <button type="button" onClick={() => removeTier(index, ti)} className="w-9 h-9 flex items-center justify-center text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors shrink-0">
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <div>
+                                                            <label className="block text-[10px] text-muted-foreground mb-1">Min Qty</label>
+                                                            <input type="number" min="1" inputMode="numeric" value={tier.minQty}
+                                                                onChange={e => updateTier(index, ti, 'minQty', e.target.value)}
+                                                                placeholder="1"
+                                                                className="w-full px-2 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary text-center" />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[10px] text-muted-foreground mb-1">Max Qty</label>
+                                                            <input type="number" min="1" inputMode="numeric" value={tier.maxQty}
+                                                                onChange={e => updateTier(index, ti, 'maxQty', e.target.value)}
+                                                                placeholder="∞"
+                                                                className="w-full px-2 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary text-center" />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[10px] text-muted-foreground mb-1">Harga/unit (Rp)</label>
+                                                            <input type="number" min="0" inputMode="numeric" value={tier.price}
+                                                                onChange={e => updateTier(index, ti, 'price', e.target.value)}
+                                                                placeholder="0"
+                                                                className="w-full px-2 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {v.priceTiers.length > 0 && (
+                                                <p className="text-[10px] text-muted-foreground">Harga Jual dipakai jika qty tidak cocok tier manapun.</p>
+                                            )}
                                         </div>
                                     )}
+
+                                    {/* Roll Material */}
+                                    <div className="border-t border-border/40 pt-3 space-y-3">
+                                        <label className="flex items-center gap-2.5 cursor-pointer">
+                                            <input type="checkbox" checked={v.isRollMaterial}
+                                                onChange={e => updateVariant(index, 'isRollMaterial', e.target.checked)}
+                                                className="w-4 h-4 rounded accent-primary" />
+                                            <span className="text-sm font-medium">Bahan roll (banner, MMT, dll)</span>
+                                        </label>
+                                        {v.isRollMaterial && (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">Lebar Fisik (m)</label>
+                                                    <input type="number" step="0.1" min="0" inputMode="decimal" value={v.rollPhysicalWidth}
+                                                        onChange={e => updateVariant(index, 'rollPhysicalWidth', e.target.value)}
+                                                        placeholder="3.2"
+                                                        className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">Lebar Cetak (m)</label>
+                                                    <input type="number" step="0.1" min="0" inputMode="decimal" value={v.rollEffectivePrintWidth}
+                                                        onChange={e => updateVariant(index, 'rollEffectivePrintWidth', e.target.value)}
+                                                        placeholder="3.0"
+                                                        className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary font-mono" />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
+
                                 {v.id && (
-                                    <p className="text-xs text-muted-foreground/50 font-mono">ID Varian: {v.id}</p>
+                                    <div className="px-3 pb-2">
+                                        <p className="text-[10px] text-muted-foreground/40 font-mono">ID: {v.id}</p>
+                                    </div>
                                 )}
                                 {/* HPP Worksheet — only for saved variants */}
                                 {v.id && (
@@ -829,43 +953,68 @@ export default function EditProductPage() {
                     {showIngredients && (
                         <div className="mt-4 space-y-3">
                             {ingredients.map((ing, i) => (
-                                <div key={i} className="space-y-2 p-3 bg-muted/20 rounded-lg border border-border/60">
-                                    {/* Stock link row */}
-                                    <div className="flex items-center gap-2">
-                                        <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                        <select
-                                            value={ing.rawMaterialVariantId ?? ''}
-                                            onChange={e => handleIngredientStockLink(i, e.target.value ? Number(e.target.value) : null)}
-                                            className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-xs outline-none focus:border-primary"
-                                        >
-                                            <option value="">— Bahan manual (tidak terhubung ke stok) —</option>
-                                            {allVariants.map((v: any) => (
-                                                <option key={v.id} value={v.id}>{v.label}</option>
-                                            ))}
-                                        </select>
-                                        {ing.rawMaterialVariantId && (
-                                            <span className="text-xs text-green-600 font-medium shrink-0">Terhubung</span>
-                                        )}
-                                    </div>
-                                    {/* Detail row */}
-                                    <div className="flex gap-2 items-center">
-                                        <input type="text" value={ing.name} onChange={e => updateIngredient(i, 'name', e.target.value)} placeholder="Nama bahan" className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-                                        <input type="number" min="0" step="any" value={ing.quantity} onChange={e => updateIngredient(i, 'quantity', e.target.value)} placeholder="Jumlah" title="Jumlah (Kuantitas)" className="w-20 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-                                        <input type="text" value={ing.unit} onChange={e => updateIngredient(i, 'unit', e.target.value)} placeholder="Unit" title="Satuan (Pcs, Gram, dll)" className="w-16 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
-                                        {/* HPP Extra Details (Read Only) */}
-                                        <div className="flex gap-2">
-                                            <div className="relative group">
-                                                <span className="absolute -top-5 left-2 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-card px-1 rounded border border-border">Harga Satuan</span>
-                                                <input type="number" readOnly value={ing.price} placeholder="Rp 0" className="w-24 px-3 py-2 bg-muted border border-border rounded-lg text-sm text-muted-foreground outline-none cursor-not-allowed" />
-                                            </div>
-                                            <div className="relative group">
-                                                <span className="absolute -top-5 left-2 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-card px-1 rounded border border-border">Subtotal HPP</span>
-                                                <input type="number" readOnly value={ing.subtotal} placeholder="Rp 0" className="w-28 px-3 py-2 bg-muted border border-border rounded-lg text-sm text-muted-foreground outline-none cursor-not-allowed font-medium" />
-                                            </div>
+                                <div key={i} className="bg-muted/30 rounded-xl border border-border/60 overflow-hidden">
+
+                                    {/* Header: Nama Bahan + Hapus */}
+                                    <div className="flex items-center gap-3 p-3 bg-background border-b border-border/40">
+                                        <div className="flex-1 min-w-0">
+                                            <input
+                                                type="text" value={ing.name}
+                                                onChange={e => updateIngredient(i, 'name', e.target.value)}
+                                                placeholder="Nama bahan (mis. Kertas Art, Tinta, Laminasi)"
+                                                className="w-full px-3 py-2.5 bg-muted/40 border border-border rounded-lg text-sm font-semibold outline-none focus:border-primary"
+                                            />
                                         </div>
-                                        <button type="button" onClick={() => removeIngredient(i)} className="p-2 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+                                        <button type="button" onClick={() => removeIngredient(i)} className="shrink-0 p-2 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
+                                    </div>
+
+                                    {/* Body */}
+                                    <div className="p-3 space-y-3">
+                                        {/* Stock link */}
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">
+                                                <span className="flex items-center gap-1"><Link2 className="w-3 h-3" /> Terhubung ke Stok</span>
+                                            </label>
+                                            <div className="flex items-center gap-2">
+                                                <select
+                                                    value={ing.rawMaterialVariantId ?? ''}
+                                                    onChange={e => handleIngredientStockLink(i, e.target.value ? Number(e.target.value) : null)}
+                                                    className="flex-1 px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"
+                                                >
+                                                    <option value="">— Bahan manual (tidak potong stok) —</option>
+                                                    {allVariants.map((v: any) => (
+                                                        <option key={v.id} value={v.id}>{v.label}</option>
+                                                    ))}
+                                                </select>
+                                                {ing.rawMaterialVariantId && (
+                                                    <span className="text-xs text-green-600 font-semibold shrink-0 bg-green-50 dark:bg-green-950/20 px-2 py-1 rounded-lg border border-green-200 dark:border-green-800">✓ Link</span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Qty + Unit + Harga + Subtotal */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">Jumlah</label>
+                                                <input type="number" min="0" step="any" inputMode="decimal" value={ing.quantity} onChange={e => updateIngredient(i, 'quantity', e.target.value)} placeholder="0" className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">Satuan</label>
+                                                <input type="text" value={ing.unit} onChange={e => updateIngredient(i, 'unit', e.target.value)} placeholder="pcs, gram, lembar..." className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary" />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">Harga Satuan (Rp)</label>
+                                                <input type="number" readOnly value={ing.price} placeholder="0" className="w-full px-3 py-2.5 bg-muted border border-border rounded-lg text-sm text-muted-foreground outline-none cursor-not-allowed" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[11px] font-semibold text-muted-foreground uppercase mb-1">Subtotal HPP (Rp)</label>
+                                                <input type="number" readOnly value={ing.subtotal} placeholder="0" className="w-full px-3 py-2.5 bg-muted border border-border rounded-lg text-sm text-muted-foreground outline-none cursor-not-allowed font-bold" />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -917,11 +1066,11 @@ export default function EditProductPage() {
                     )}
                 </div>
 
-                <div className="flex justify-end gap-3 pt-2">
-                    <Link href="/inventory" className="px-5 py-2.5 rounded-lg border border-border hover:bg-muted font-medium text-sm transition-colors">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                    <Link href="/inventory" className="flex items-center justify-center px-5 py-3 rounded-lg border border-border hover:bg-muted font-medium text-sm transition-colors">
                         Batal
                     </Link>
-                    <button type="submit" disabled={mutation.isPending} className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-md disabled:opacity-50 text-sm">
+                    <button type="submit" disabled={mutation.isPending} className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-md disabled:opacity-50 text-sm">
                         {mutation.isPending ? 'Menyimpan...' : <><Save className="w-4 h-4" /> Simpan Perubahan</>}
                     </button>
                 </div>

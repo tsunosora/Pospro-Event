@@ -128,4 +128,169 @@ export class HppService {
             hppPerUnit
         };
     }
+
+    async applyVariantsCustom(worksheetId: number, variants: { variantId: number; hppPerUnit: number; scaleFactor: number }[]) {
+        const sourceWs = await this.prisma.hppWorksheet.findUnique({
+            where: { id: worksheetId },
+            include: { variableCosts: true, fixedCosts: true }
+        });
+        if (!sourceWs) throw new NotFoundException('Worksheet tidak ditemukan.');
+
+        await Promise.all(variants.map(async ({ variantId, hppPerUnit, scaleFactor }) => {
+            // 1. Update hpp field varian
+            await this.prisma.productVariant.update({
+                where: { id: variantId },
+                data: { hpp: hppPerUnit }
+            });
+
+            // 2. Scale variable costs berdasarkan scaleFactor
+            const vcData = sourceWs.variableCosts.map((vc: any) => ({
+                productVariantId: vc.productVariantId ?? null,
+                customMaterialName: vc.customMaterialName ?? null,
+                customPrice: vc.customPrice ?? null,
+                usageAmount: Number(vc.usageAmount) * scaleFactor,
+                usageUnit: vc.usageUnit,
+            }));
+            const fcData = sourceWs.fixedCosts.map((fc: any) => ({ name: fc.name, amount: fc.amount }));
+
+            // 3. Buat / update worksheet untuk varian ini
+            const existingWs = await this.prisma.hppWorksheet.findFirst({ where: { productVariantId: variantId } });
+            if (existingWs) {
+                await this.prisma.hppVariableCost.deleteMany({ where: { worksheetId: existingWs.id } });
+                await this.prisma.hppFixedCost.deleteMany({ where: { worksheetId: existingWs.id } });
+                await this.prisma.hppWorksheet.update({
+                    where: { id: existingWs.id },
+                    data: {
+                        targetVolume: sourceWs.targetVolume,
+                        targetMargin: sourceWs.targetMargin,
+                        appliedAt: new Date(),
+                        variableCosts: { create: vcData },
+                        fixedCosts: { create: fcData },
+                    }
+                });
+            } else {
+                const variant = await this.prisma.productVariant.findUnique({
+                    where: { id: variantId },
+                    include: { product: true }
+                });
+                const wsName = variant
+                    ? (variant.product.name + (variant.variantName ? ` — ${variant.variantName}` : ''))
+                    : sourceWs.productName;
+                await this.prisma.hppWorksheet.create({
+                    data: {
+                        productName: wsName,
+                        targetVolume: sourceWs.targetVolume,
+                        targetMargin: sourceWs.targetMargin,
+                        productVariantId: variantId,
+                        appliedAt: new Date(),
+                        variableCosts: { create: vcData },
+                        fixedCosts: { create: fcData },
+                    }
+                });
+            }
+        }));
+
+        await this.prisma.hppWorksheet.update({ where: { id: worksheetId }, data: { appliedAt: new Date() } });
+        return { message: `HPP berhasil diterapkan ke ${variants.length} varian.`, count: variants.length };
+    }
+
+    async applyToVariants(worksheetId: number, variantIds: number[], hppPerUnit: number) {
+        if (!variantIds || variantIds.length === 0) {
+            throw new BadRequestException('Pilih minimal satu varian.');
+        }
+
+        // Ambil source worksheet beserta semua biaya
+        const sourceWs = await this.prisma.hppWorksheet.findUnique({
+            where: { id: worksheetId },
+            include: { variableCosts: true, fixedCosts: true }
+        });
+        if (!sourceWs) throw new NotFoundException('Worksheet tidak ditemukan.');
+
+        await Promise.all(variantIds.map(async (variantId) => {
+            // 1. Update hpp field varian
+            await this.prisma.productVariant.update({
+                where: { id: variantId },
+                data: { hpp: hppPerUnit }
+            });
+
+            // 2. Jika ini adalah varian yang sudah di-link ke source worksheet, update appliedAt saja
+            if (sourceWs.productVariantId === variantId) {
+                await this.prisma.hppWorksheet.update({
+                    where: { id: worksheetId },
+                    data: { appliedAt: new Date() }
+                });
+                return;
+            }
+
+            // 3. Cari worksheet yang sudah ada untuk varian ini
+            const existingWs = await this.prisma.hppWorksheet.findFirst({
+                where: { productVariantId: variantId }
+            });
+
+            const vcData = sourceWs.variableCosts.map((vc: any) => ({
+                productVariantId: vc.productVariantId ?? null,
+                customMaterialName: vc.customMaterialName ?? null,
+                customPrice: vc.customPrice ?? null,
+                usageAmount: vc.usageAmount,
+                usageUnit: vc.usageUnit,
+            }));
+            const fcData = sourceWs.fixedCosts.map((fc: any) => ({
+                name: fc.name,
+                amount: fc.amount,
+            }));
+
+            if (existingWs) {
+                // Update worksheet yang sudah ada — sync biaya dari source
+                await this.prisma.hppVariableCost.deleteMany({ where: { worksheetId: existingWs.id } });
+                await this.prisma.hppFixedCost.deleteMany({ where: { worksheetId: existingWs.id } });
+                await this.prisma.hppWorksheet.update({
+                    where: { id: existingWs.id },
+                    data: {
+                        targetVolume: sourceWs.targetVolume,
+                        targetMargin: sourceWs.targetMargin,
+                        appliedAt: new Date(),
+                        variableCosts: { create: vcData },
+                        fixedCosts: { create: fcData },
+                    }
+                });
+            } else {
+                // Buat worksheet baru untuk varian ini
+                const variant = await this.prisma.productVariant.findUnique({
+                    where: { id: variantId },
+                    include: { product: true }
+                });
+                const wsName = variant
+                    ? (variant.product.name + (variant.variantName ? ` — ${variant.variantName}` : ''))
+                    : sourceWs.productName;
+
+                await this.prisma.hppWorksheet.create({
+                    data: {
+                        productName: wsName,
+                        targetVolume: sourceWs.targetVolume,
+                        targetMargin: sourceWs.targetMargin,
+                        productVariantId: variantId,
+                        appliedAt: new Date(),
+                        variableCosts: { create: vcData },
+                        fixedCosts: { create: fcData },
+                    }
+                });
+            }
+        }));
+
+        // Stamp appliedAt pada source worksheet juga (jika belum di-handle di atas)
+        if (!variantIds.includes(sourceWs.productVariantId as number)) {
+            await this.prisma.hppWorksheet.update({
+                where: { id: worksheetId },
+                data: { appliedAt: new Date() }
+            });
+        }
+
+        return {
+            message: `HPP Rp ${hppPerUnit.toLocaleString('id-ID')}/unit berhasil diterapkan ke ${variantIds.length} varian.`,
+            worksheetId,
+            variantIds,
+            hppPerUnit,
+            count: variantIds.length
+        };
+    }
 }

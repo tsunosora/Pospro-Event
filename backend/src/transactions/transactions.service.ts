@@ -552,7 +552,7 @@ export class TransactionsService {
                 this.prisma.transaction.aggregate({ where: { createdAt: { gte: yesterdayStart, lt: todayStart }, status: TransactionStatus.PAID }, _sum: { grandTotal: true }, _count: { id: true } }),
                 this.prisma.cashflow.aggregate({ where: { createdAt: { gte: todayStart }, type: CashflowType.INCOME }, _sum: { amount: true } }),
                 this.prisma.cashflow.aggregate({ where: { createdAt: { gte: yesterdayStart, lt: todayStart }, type: CashflowType.INCOME }, _sum: { amount: true } }),
-                this.prisma.productVariant.findMany({ where: { stock: { lte: 10 } }, include: { product: true }, orderBy: { stock: 'asc' }, take: 5 })
+                this.prisma.productVariant.findMany({ where: { stock: { lte: 10 }, product: { trackStock: true } }, include: { product: true }, orderBy: { stock: 'asc' }, take: 5 })
             ]);
 
         // Get last 7 days sales for chart
@@ -596,7 +596,7 @@ export class TransactionsService {
         const todayCashIn = Number(todayCashflow?._sum?.amount || 0);
         const yesterdayCashIn = Number(yesterdayCashflow?._sum?.amount || 0);
         const cashTrend = yesterdayCashIn === 0 ? 100 : ((todayCashIn - yesterdayCashIn) / yesterdayCashIn) * 100;
-        const lowStockCount = await this.prisma.productVariant.count({ where: { stock: { lte: 10 } } });
+        const lowStockCount = await this.prisma.productVariant.count({ where: { stock: { lte: 10 }, product: { trackStock: true } } });
 
         return {
             sales: { value: todaySales, trend: `${salesTrend > 0 ? '+' : ''}${salesTrend.toFixed(1)}%`, trendUp: salesTrend >= 0 },

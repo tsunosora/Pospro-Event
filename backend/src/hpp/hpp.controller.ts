@@ -40,6 +40,22 @@ export class HppController {
         return this.hppService.applyToVariant(id, body.hppPerUnit);
     }
 
+    @Post(':id/apply-variants-custom')
+    applyVariantsCustom(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { variants: { variantId: number; hppPerUnit: number; scaleFactor: number }[] }
+    ) {
+        return this.hppService.applyVariantsCustom(id, body.variants);
+    }
+
+    @Post(':id/apply-to-variants')
+    applyToVariants(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { variantIds: number[]; hppPerUnit: number }
+    ) {
+        return this.hppService.applyToVariants(id, body.variantIds, body.hppPerUnit);
+    }
+
     @Delete(':id')
     remove(@Param('id') id: string) {
         return this.hppService.remove(+id);

@@ -8,7 +8,7 @@ import {
     Calculator, ArrowRight, Loader2, Save, X, Database
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getHppWorksheets, createHppWorksheet, updateHppWorksheet, deleteHppWorksheet, getProducts, createProduct, getCategories, getUnits, uploadProductImage, uploadProductImages, addProductVariant, updateProductVariant, applyHppToVariant, uploadVariantImage } from "@/lib/api";
+import { getHppWorksheets, createHppWorksheet, updateHppWorksheet, deleteHppWorksheet, getProducts, createProduct, getCategories, getUnits, uploadProductImage, uploadProductImages, addProductVariant, updateProductVariant, applyHppToVariant, applyHppToVariants, applyHppVariantsCustom, uploadVariantImage, replaceVariantPriceTiers } from "@/lib/api";
 
 function CustomNameInput({ value, onChange, onSwitchToStock }: { value: string; onChange: (val: string) => void; onSwitchToStock: () => void }) {
     const [local, setLocal] = useState(value);
@@ -225,6 +225,34 @@ export default function HppCalculatorPage() {
     const [linkedVariantId, setLinkedVariantId] = useState<number | null>(null);
     const [isApplyingHpp, setIsApplyingHpp] = useState(false);
 
+    // Bulk apply HPP to multiple variants
+    const [linkedProductId, setLinkedProductId] = useState<number | null>(null);
+    const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>([]);
+    const [isApplyingBulk, setIsApplyingBulk] = useState(false);
+
+    // Multi-variant calculator
+    interface VariantCalcRow {
+        id: string;
+        name: string;
+        widthM: string;
+        heightM: string;
+        multiplier: string;
+        linkedVariantId: number | null;
+        isNew?: boolean;
+        newProductName?: string;
+        newVariantName?: string;
+        newCategoryId?: number | null;
+        newUnitId?: number | null;
+        customPrice?: number | null;
+        additionalCost?: number | null;
+        priceTiers?: { tierName: string; minQty: string; maxQty: string; price: string }[];
+        showTierEditor?: boolean;
+    }
+    const [variantCalcRows, setVariantCalcRows] = useState<VariantCalcRow[]>([]);
+    const [variantCalcMode, setVariantCalcMode] = useState<'area' | 'unit'>('area');
+    const [showVariantCalc, setShowVariantCalc] = useState(false);
+    const [isSavingVariantCalc, setIsSavingVariantCalc] = useState(false);
+
     // Auto-pull selling price from linked variant
     useEffect(() => {
         if (!linkedVariantId || !dbProducts.length) return;
@@ -267,6 +295,17 @@ export default function HppCalculatorPage() {
             console.error(error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Refresh hanya data produk & worksheet tanpa toggle isLoading (agar UI tidak di-unmount)
+    const refreshProductData = async () => {
+        try {
+            const [wsData, pData] = await Promise.all([getHppWorksheets(), getProducts()]);
+            setWorksheets(wsData);
+            setDbProducts(pData);
+        } catch (error) {
+            console.error(error);
         }
     };
 
@@ -322,6 +361,8 @@ export default function HppCalculatorPage() {
         setCustomSellingPrice(null);
         setSellingPricingMode('UNIT');
         setLinkedVariantId(null);
+        setLinkedProductId(null);
+        setSelectedVariantIds([]);
     };
 
     const handleSaveWorksheet = async () => {
@@ -400,6 +441,133 @@ export default function HppCalculatorPage() {
             alert(e?.response?.data?.message || "Gagal menerapkan HPP.");
         } finally {
             setIsApplyingHpp(false);
+        }
+    };
+
+    const handleApplyHppToVariants = async () => {
+        if (!activeWorksheetId) return alert("Simpan worksheet terlebih dahulu sebelum menerapkan HPP.");
+        if (selectedVariantIds.length === 0) return alert("Centang minimal satu varian.");
+        if (!hasCalculated) return alert("Lakukan kalkulasi HPP terlebih dahulu.");
+        if (hppPerPcs <= 0) return alert("HPP tidak valid.");
+        if (isApplyingBulk) return;
+
+        const confirm = window.confirm(
+            `Terapkan HPP Rp ${hppPerPcs.toLocaleString('id-ID', { maximumFractionDigits: 0 })}/unit ke ${selectedVariantIds.length} varian yang dipilih?`
+        );
+        if (!confirm) return;
+
+        setIsApplyingBulk(true);
+        try {
+            const appliedIds = [...selectedVariantIds];
+            const result = await applyHppToVariants(activeWorksheetId, appliedIds, hppPerPcs);
+            // Refresh produk tanpa toggle isLoading agar linkedProductId & checkbox list tetap visible
+            await refreshProductData();
+            setSelectedVariantIds([]);
+            alert(result.message || `HPP berhasil diterapkan ke ${appliedIds.length} varian!`);
+        } catch (e: any) {
+            alert(e?.response?.data?.message || "Gagal menerapkan HPP.");
+        } finally {
+            setIsApplyingBulk(false);
+        }
+    };
+
+    const buildTiersPayload = (row: VariantCalcRow) =>
+        (row.priceTiers || [])
+            .filter(t => t.minQty && t.price)
+            .map(t => ({
+                tierName: t.tierName || null,
+                minQty: parseInt(t.minQty),
+                maxQty: t.maxQty ? parseInt(t.maxQty) : null,
+                price: parseInt(t.price),
+            }));
+
+    const calcHppFinal = (row: VariantCalcRow) => {
+        const scaleFactor = variantCalcMode === 'area'
+            ? (parseFloat(row.widthM) || 0) * (parseFloat(row.heightM) || 0)
+            : (parseFloat(row.multiplier) || 1);
+        const hppBase = scaleFactor > 0 && hppPerPcs > 0 ? Math.round(hppPerPcs * scaleFactor) : 0;
+        return { scaleFactor, hppBase, hppFinal: hppBase + (row.additionalCost || 0) };
+    };
+
+    const handleSaveVariantCalc = async () => {
+        if (!activeWorksheetId) return alert('Simpan worksheet terlebih dahulu sebelum menggunakan kalkulator multi-varian.');
+        if (!hasCalculated) return alert('Lakukan kalkulasi HPP terlebih dahulu (klik Refresh Kalkulasi).');
+
+        setIsSavingVariantCalc(true);
+        try {
+            // Step 1: Create new products for rows with isNew = true
+            const createdVariantIds: Record<string, number> = {};
+            const newRows = variantCalcRows.filter(r => r.isNew && r.newProductName?.trim());
+            for (const row of newRows) {
+                const { scaleFactor, hppFinal } = calcHppFinal(row);
+                if (scaleFactor <= 0) continue;
+                const categoryId = row.newCategoryId || dbCategories[0]?.id || null;
+                const unitId = row.newUnitId || dbUnits.find((u: any) => u.name === 'pcs')?.id || dbUnits[0]?.id || null;
+                if (!categoryId || !unitId) {
+                    alert(`Baris "${row.newProductName}" membutuhkan kategori dan satuan. Silakan pilih terlebih dahulu.`);
+                    setIsSavingVariantCalc(false);
+                    return;
+                }
+                const suggestedPrice = Math.round(hppFinal * (1 + targetMargin / 100));
+                const sellingPrice = row.customPrice && row.customPrice > 0 ? row.customPrice : suggestedPrice;
+                const initials = (row.newProductName || 'NEW').trim().split(/\s+/).map((w: string) => w[0] || '').join('').toUpperCase().substring(0, 5);
+                const rand = Math.floor(1000 + Math.random() * 9000);
+                const newProduct = await createProduct({
+                    name: row.newProductName!.trim(),
+                    categoryId,
+                    unitId,
+                    pricingMode: 'UNIT',
+                    variants: [{
+                        sku: `HPP-${initials}-${rand}`,
+                        variantName: row.newVariantName?.trim() || null,
+                        price: sellingPrice,
+                        hpp: hppFinal,
+                        stock: 0,
+                        priceTiers: buildTiersPayload(row),
+                    }]
+                });
+                const createdVariantId = newProduct?.variants?.[0]?.id;
+                if (createdVariantId) {
+                    createdVariantIds[row.id] = createdVariantId;
+                }
+            }
+
+            // Step 2: Build toSave with existing + newly created variant IDs (using hppFinal)
+            const toSave = variantCalcRows
+                .map(r => {
+                    const variantId = r.linkedVariantId ?? createdVariantIds[r.id] ?? null;
+                    if (!variantId) return null;
+                    const { scaleFactor, hppFinal } = calcHppFinal(r);
+                    return { variantId, hppPerUnit: hppFinal, scaleFactor };
+                })
+                .filter((r): r is { variantId: number; hppPerUnit: number; scaleFactor: number } => r !== null && r.scaleFactor > 0 && r.hppPerUnit > 0);
+
+            if (toSave.length === 0) {
+                alert('Tidak ada baris valid untuk disimpan. Pastikan dimensi/multiplier diisi dan varian dipilih atau nama produk baru diisi.');
+                return;
+            }
+
+            const result = await applyHppVariantsCustom(activeWorksheetId, toSave);
+
+            // Step 3: Update selling price for existing variants that have customPrice set
+            const priceUpdateRows = variantCalcRows.filter(r => r.linkedVariantId && r.customPrice && r.customPrice > 0);
+            await Promise.all(priceUpdateRows.map(r => updateProductVariant(r.linkedVariantId!, { price: r.customPrice })));
+
+            // Step 4: Replace price tiers for existing variants that have tiers defined
+            const tierUpdateRows = variantCalcRows.filter(r => r.linkedVariantId && r.priceTiers && r.priceTiers.length > 0);
+            await Promise.all(tierUpdateRows.map(r => replaceVariantPriceTiers(r.linkedVariantId!, buildTiersPayload(r))));
+
+            await refreshProductData();
+            setVariantCalcRows(rows => rows.map(r => {
+                const newVId = createdVariantIds[r.id];
+                if (newVId) return { ...r, isNew: false, linkedVariantId: newVId, newProductName: '', newVariantName: '' };
+                return r;
+            }));
+            alert(result.message);
+        } catch (e: any) {
+            alert(e?.response?.data?.message || 'Gagal menyimpan.');
+        } finally {
+            setIsSavingVariantCalc(false);
         }
     };
 
@@ -484,6 +652,37 @@ export default function HppCalculatorPage() {
             rawMaterialVariantId: vc.productVariantId || null
         }));
 
+        // Build variants: jika multi-varian sudah diisi, gunakan baris-baris tersebut
+        const activeMultiRows = variantCalcRows.filter(r => r.name.trim() !== '');
+        let variantsPayload: any[];
+        if (activeMultiRows.length > 0) {
+            variantsPayload = activeMultiRows.map(row => {
+                const scaleFactor = variantCalcMode === 'area'
+                    ? (parseFloat(row.widthM) || 0) * (parseFloat(row.heightM) || 0)
+                    : (parseFloat(row.multiplier) || 1);
+                const hppBase = scaleFactor > 0 && hppPerPcs > 0 ? Math.round(hppPerPcs * scaleFactor) : Math.round(hppPerPcs);
+                const hppFinal = hppBase + (row.additionalCost || 0);
+                const suggested = hppFinal > 0 ? Math.round(hppFinal * (1 + targetMargin / 100)) : sellingPrice;
+                const rowPrice = row.customPrice && row.customPrice > 0 ? row.customPrice : suggested;
+                const rowInitials = (row.name || productName).trim().split(/\s+/).map((w: string) => w[0] || '').join('').toUpperCase().substring(0, 4);
+                return {
+                    variantName: row.name.trim() || null,
+                    sku: `HPP-${rowInitials}-${Math.floor(1000 + Math.random() * 9000)}`,
+                    price: rowPrice,
+                    hpp: hppFinal || Math.round(hppPerPcs),
+                    stock: 0,
+                    priceTiers: buildTiersPayload(row),
+                };
+            });
+        } else {
+            variantsPayload = [{
+                sku,
+                price: sellingPrice,
+                hpp: Math.round(hppPerPcs),
+                stock: calculatedStock,
+            }];
+        }
+
         try {
             const newProduct = await createProduct({
                 name: productName,
@@ -491,12 +690,7 @@ export default function HppCalculatorPage() {
                 unitId,
                 pricingMode: sellingPricingMode,
                 ingredients,
-                variants: [{
-                    sku,
-                    price: sellingPrice,
-                    hpp: hppPerPcs,
-                    stock: calculatedStock,
-                }]
+                variants: variantsPayload,
             });
 
             // Upload Image if selected and loaded into preview
@@ -515,7 +709,10 @@ export default function HppCalculatorPage() {
                 await handleSaveWorksheet();
             }
 
-            alert(`Produk berhasil dibuat dan ditambahkan ke daftar Manajemen Stok!\nHarga jual: Rp ${sellingPrice.toLocaleString('id-ID')}\nSKU: ${sku}`);
+            const variantInfo = activeMultiRows.length > 0
+                ? `${activeMultiRows.length} varian: ${activeMultiRows.map(r => r.name).join(', ')}`
+                : `SKU: ${sku}`;
+            alert(`Produk "${productName}" berhasil dibuat!\n${variantInfo}`);
             // Redirect to product management
             window.location.href = '/inventory/products';
         } catch (error: any) {
@@ -823,43 +1020,88 @@ export default function HppCalculatorPage() {
                                     </div>
                                 </div>
 
-                                {/* Link ke Varian & Apply HPP */}
+                                {/* Terapkan HPP ke Banyak Varian */}
                                 <div className="p-3 bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-800/40 rounded-[10px] space-y-2">
-                                    <label className="block text-[13px] font-semibold text-purple-700 dark:text-purple-400">Tautkan ke Varian Produk (opsional)</label>
-                                    <p className="text-xs text-muted-foreground">Pilih varian untuk menyimpan hasil HPP langsung ke field HPP varian tersebut.</p>
-                                    <div className="flex gap-2 items-center">
-                                        <div className="relative flex-1">
-                                            <select
-                                                value={linkedVariantId ?? ''}
-                                                onChange={e => setLinkedVariantId(e.target.value ? Number(e.target.value) : null)}
-                                                className="w-full appearance-none bg-background border border-border rounded-[8px] pl-3 pr-8 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-400/30 focus:border-purple-400 transition-all"
-                                            >
-                                                <option value="">— Pilih varian (opsional) —</option>
-                                                {dbProducts.flatMap((p: any) =>
-                                                    (p.variants || []).map((v: any) => (
-                                                        <option key={v.id} value={v.id}>
-                                                            {p.name}{v.variantName ? ` — ${v.variantName}` : ''} [{v.sku}]
-                                                        </option>
-                                                    ))
-                                                )}
-                                            </select>
-                                            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                                        </div>
-                                        {linkedVariantId && hasCalculated && activeWorksheetId && (
-                                            <button
-                                                type="button"
-                                                onClick={handleApplyHppToVariant}
-                                                disabled={isApplyingHpp}
-                                                className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white hover:bg-purple-700 rounded-[8px] text-xs font-bold transition-colors disabled:opacity-60 shrink-0"
-                                            >
-                                                {isApplyingHpp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                                                Terapkan HPP
-                                            </button>
-                                        )}
+                                    <label className="block text-[13px] font-semibold text-purple-700 dark:text-purple-400">Terapkan HPP ke Varian Produk</label>
+                                    <p className="text-xs text-muted-foreground">Pilih produk, centang varian yang ingin di-update HPP-nya, lalu klik Terapkan.</p>
+
+                                    {/* Pilih produk */}
+                                    <div className="relative">
+                                        <select
+                                            value={linkedProductId ?? ''}
+                                            onChange={e => {
+                                                setLinkedProductId(e.target.value ? Number(e.target.value) : null);
+                                                setSelectedVariantIds([]);
+                                            }}
+                                            className="w-full appearance-none bg-background border border-border rounded-[8px] pl-3 pr-8 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-400/30 focus:border-purple-400 transition-all"
+                                        >
+                                            <option value="">— Pilih produk —</option>
+                                            {dbProducts.map((p: any) => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                                     </div>
-                                    {linkedVariantId && (
+
+                                    {/* Daftar varian dengan checkbox */}
+                                    {linkedProductId && (() => {
+                                        const prod = dbProducts.find((p: any) => p.id === linkedProductId);
+                                        const variants = prod?.variants || [];
+                                        if (variants.length === 0) return <p className="text-xs text-muted-foreground">Produk ini tidak memiliki varian.</p>;
+                                        return (
+                                            <div className="space-y-1 mt-1">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const allIds = variants.map((v: any) => v.id);
+                                                            setSelectedVariantIds(selectedVariantIds.length === allIds.length ? [] : allIds);
+                                                        }}
+                                                        className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                                                    >
+                                                        {selectedVariantIds.length === variants.length ? 'Hapus semua' : 'Pilih semua'}
+                                                    </button>
+                                                    <span className="text-xs text-muted-foreground">{selectedVariantIds.length} dipilih</span>
+                                                </div>
+                                                {variants.map((v: any) => (
+                                                    <label key={v.id} className="flex items-center gap-2 cursor-pointer py-1 px-2 rounded-[6px] hover:bg-purple-100/50 dark:hover:bg-purple-900/20 transition-colors">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedVariantIds.includes(v.id)}
+                                                            onChange={e => {
+                                                                if (e.target.checked) setSelectedVariantIds(prev => [...prev, v.id]);
+                                                                else setSelectedVariantIds(prev => prev.filter(id => id !== v.id));
+                                                            }}
+                                                            className="w-3.5 h-3.5 accent-purple-600"
+                                                        />
+                                                        <span className="text-xs font-medium flex-1">
+                                                            {v.variantName || prod.name}{v.sku ? ` [${v.sku}]` : ''}
+                                                        </span>
+                                                        <span className="text-xs text-muted-foreground shrink-0">
+                                                            HPP: {Number(v.hpp) > 0 ? `Rp ${Number(v.hpp).toLocaleString('id-ID', { maximumFractionDigits: 0 })}` : '—'}
+                                                        </span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Tombol apply */}
+                                    {selectedVariantIds.length > 0 && hasCalculated && activeWorksheetId && (
+                                        <button
+                                            type="button"
+                                            onClick={handleApplyHppToVariants}
+                                            disabled={isApplyingBulk}
+                                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 text-white hover:bg-purple-700 rounded-[8px] text-xs font-bold transition-colors disabled:opacity-60"
+                                        >
+                                            {isApplyingBulk ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                                            Terapkan ke Varian Terpilih ({selectedVariantIds.length})
+                                        </button>
+                                    )}
+
+                                    {hppPerPcs > 0 && (
                                         <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
-                                            Worksheet ini terhubung ke varian. HPP dihitung: Rp {hppPerPcs > 0 ? hppPerPcs.toLocaleString('id-ID', { maximumFractionDigits: 0 }) : '—'}/unit
+                                            HPP dihitung: Rp {hppPerPcs.toLocaleString('id-ID', { maximumFractionDigits: 0 })}/unit
                                         </p>
                                     )}
                                 </div>
@@ -973,6 +1215,365 @@ export default function HppCalculatorPage() {
                             </div>
                         </div>
 
+                        {/* Kalkulasi Multi-Varian */}
+                        <div className="bg-card rounded-[12px] md:rounded-[16px] shadow-sm border border-border overflow-hidden transition-shadow hover:shadow-md">
+                            <button
+                                type="button"
+                                onClick={() => setShowVariantCalc(v => !v)}
+                                className="w-full flex items-center justify-between p-5 md:p-6 text-left"
+                            >
+                                <div>
+                                    <h2 className="text-base md:text-lg font-bold text-foreground">Kalkulasi Multi-Varian</h2>
+                                    <span className="text-xs font-medium text-muted-foreground mt-0.5 block">Hitung HPP untuk beberapa ukuran/varian sekaligus berdasarkan HPP base worksheet.</span>
+                                </div>
+                                <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0", showVariantCalc && "rotate-180")} />
+                            </button>
+
+                            {showVariantCalc && (
+                                <div className="p-5 md:p-6 pt-0 space-y-4">
+                                    {/* Mode toggle */}
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm font-semibold text-foreground">Mode:</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setVariantCalcMode('area')}
+                                            className={cn("px-3 py-1.5 text-xs font-bold rounded-full border transition-colors", variantCalcMode === 'area' ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:border-primary")}
+                                        >
+                                            Area (m²)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setVariantCalcMode('unit')}
+                                            className={cn("px-3 py-1.5 text-xs font-bold rounded-full border transition-colors", variantCalcMode === 'unit' ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:border-primary")}
+                                        >
+                                            Unit (×)
+                                        </button>
+                                    </div>
+
+                                    {/* HPP base info */}
+                                    {hasCalculated && hppPerPcs > 0 && (
+                                        <div className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+                                            HPP Base: <span className="font-bold text-foreground">Rp {Math.round(hppPerPcs).toLocaleString('id-ID')}</span>/unit
+                                            {variantCalcMode === 'area' && ' (per m²)'}
+                                        </div>
+                                    )}
+
+                                    {/* Card List */}
+                                    {variantCalcRows.length > 0 && (
+                                        <div className="space-y-3">
+                                            {variantCalcRows.map((row, idx) => {
+                                                const scaleFactor = variantCalcMode === 'area'
+                                                    ? (parseFloat(row.widthM) || 0) * (parseFloat(row.heightM) || 0)
+                                                    : (parseFloat(row.multiplier) || 0);
+                                                const hppBase = scaleFactor > 0 && hppPerPcs > 0 ? Math.round(hppPerPcs * scaleFactor) : null;
+                                                const hppFinal = hppBase !== null ? hppBase + (row.additionalCost || 0) : null;
+                                                const suggestedPrice = hppFinal ? Math.round(hppFinal * (1 + targetMargin / 100)) : null;
+                                                const tierCount = (row.priceTiers || []).filter(t => t.minQty && t.price).length;
+                                                return (
+                                                    <div key={row.id} className="border border-border rounded-[10px] overflow-hidden bg-background">
+                                                        {/* Baris 1: Nomor + Nama + Hapus */}
+                                                        <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+                                                            <span className="text-[11px] font-bold text-muted-foreground shrink-0">{idx + 1}</span>
+                                                            <input
+                                                                type="text"
+                                                                value={row.name}
+                                                                onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, name: e.target.value } : r))}
+                                                                placeholder="Nama varian, mis. 60×90 cm"
+                                                                className="flex-1 min-w-0 px-3 py-2 bg-muted/40 border border-border rounded-[8px] text-[14px] font-semibold outline-none focus:border-primary"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setVariantCalcRows(rows => rows.filter(r => r.id !== row.id))}
+                                                                className="p-2 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Baris 2: Dimensi (full width, grid) */}
+                                                        <div className="px-3 pb-2">
+                                                            {variantCalcMode === 'area' ? (
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Lebar (m)</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={row.widthM}
+                                                                            onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, widthM: e.target.value } : r))}
+                                                                            placeholder="0.60"
+                                                                            step="0.01"
+                                                                            inputMode="decimal"
+                                                                            className="w-full px-3 py-2.5 bg-muted/40 border border-border rounded-[8px] text-[14px] outline-none focus:border-primary text-center"
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Tinggi (m)</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={row.heightM}
+                                                                            onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, heightM: e.target.value } : r))}
+                                                                            placeholder="0.90"
+                                                                            step="0.01"
+                                                                            inputMode="decimal"
+                                                                            className="w-full px-3 py-2.5 bg-muted/40 border border-border rounded-[8px] text-[14px] outline-none focus:border-primary text-center"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div>
+                                                                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Multiplier (×)</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={row.multiplier}
+                                                                        onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, multiplier: e.target.value } : r))}
+                                                                        placeholder="1"
+                                                                        step="0.1"
+                                                                        inputMode="decimal"
+                                                                        className="w-full px-3 py-2.5 bg-muted/40 border border-border rounded-[8px] text-[14px] outline-none focus:border-primary text-center"
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Baris 3: HPP Base + Biaya Tambah (grid 2 col) */}
+                                                        <div className="px-3 pb-2 grid grid-cols-2 gap-2">
+                                                            <div>
+                                                                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">HPP Base</label>
+                                                                <div className={cn("px-3 py-2.5 rounded-[8px] text-[13px] font-bold border", hppBase ? "bg-primary/5 border-primary/20 text-primary" : "bg-muted/40 border-border text-muted-foreground")}>
+                                                                    {hppBase ? `Rp ${hppBase.toLocaleString('id-ID')}` : '—'}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">+ Biaya Tambah</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={row.additionalCost ?? ''}
+                                                                    onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, additionalCost: e.target.value ? parseInt(e.target.value) : null } : r))}
+                                                                    placeholder="0"
+                                                                    min="0"
+                                                                    inputMode="numeric"
+                                                                    className="w-full px-3 py-2.5 bg-muted/40 border border-border rounded-[8px] text-[14px] outline-none focus:border-primary"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Baris 4: HPP Final + Harga Jual (grid 2 col) */}
+                                                        <div className="px-3 pb-2 grid grid-cols-2 gap-2">
+                                                            <div>
+                                                                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">HPP Final</label>
+                                                                <div className={cn("px-3 py-2.5 rounded-[8px] text-[14px] font-bold border", hppFinal ? "bg-primary/10 border-primary/30 text-primary" : "bg-muted/40 border-border text-muted-foreground")}>
+                                                                    {hppFinal ? `Rp ${hppFinal.toLocaleString('id-ID')}` : '—'}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
+                                                                    Harga Jual
+                                                                    {suggestedPrice && !row.customPrice && (
+                                                                        <span className="ml-1 font-normal normal-case text-[10px] text-muted-foreground">(saran: Rp {suggestedPrice.toLocaleString('id-ID')})</span>
+                                                                    )}
+                                                                </label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={row.customPrice ?? ''}
+                                                                    onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, customPrice: e.target.value ? parseInt(e.target.value) : null } : r))}
+                                                                    placeholder={suggestedPrice ? suggestedPrice.toLocaleString('id-ID') : 'auto'}
+                                                                    inputMode="numeric"
+                                                                    className="w-full px-3 py-2.5 bg-muted/40 border border-border rounded-[8px] text-[14px] outline-none focus:border-primary"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Baris 5: Tier badge */}
+                                                        <div className="px-3 pb-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, showTierEditor: !r.showTierEditor, priceTiers: r.priceTiers ?? [] } : r))}
+                                                                className={cn(
+                                                                    "w-full py-2 text-[12px] font-bold rounded-[8px] border transition-colors",
+                                                                    tierCount > 0
+                                                                        ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700"
+                                                                        : "border-border text-muted-foreground hover:border-orange-400 hover:text-orange-500 bg-muted/40"
+                                                                )}
+                                                            >
+                                                                {tierCount > 0 ? `${tierCount} Tier Harga — Klik untuk edit` : '+ Tambah Tier Harga'}
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Baris 6: Link Varian */}
+                                                        <div className="px-3 pb-3">
+                                                            {row.isNew ? (
+                                                                <div className="space-y-2 p-3 bg-green-50/60 dark:bg-green-950/20 border border-green-200/60 dark:border-green-800/40 rounded-[8px]">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-[11px] font-bold text-green-700 dark:text-green-400">Daftarkan sebagai Produk Baru</span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, isNew: false, newProductName: '', newVariantName: '' } : r))}
+                                                                            className="text-[11px] text-muted-foreground hover:text-primary underline"
+                                                                        >
+                                                                            pilih existing
+                                                                        </button>
+                                                                    </div>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={row.newProductName ?? ''}
+                                                                        onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, newProductName: e.target.value } : r))}
+                                                                        placeholder="Nama Produk *"
+                                                                        className="w-full px-3 py-2.5 bg-background border border-green-400 rounded-[8px] text-[14px] outline-none focus:border-primary"
+                                                                    />
+                                                                    <input
+                                                                        type="text"
+                                                                        value={row.newVariantName ?? ''}
+                                                                        onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, newVariantName: e.target.value } : r))}
+                                                                        placeholder="Nama Varian (opsional)"
+                                                                        className="w-full px-3 py-2.5 bg-background border border-border rounded-[8px] text-[14px] outline-none focus:border-primary"
+                                                                    />
+                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                        <select
+                                                                            value={row.newCategoryId ?? ''}
+                                                                            onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, newCategoryId: e.target.value ? parseInt(e.target.value) : null } : r))}
+                                                                            className="w-full px-3 py-2.5 bg-background border border-border rounded-[8px] text-[13px] outline-none"
+                                                                        >
+                                                                            <option value="">Kategori *</option>
+                                                                            {dbCategories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                                        </select>
+                                                                        <select
+                                                                            value={row.newUnitId ?? ''}
+                                                                            onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, newUnitId: e.target.value ? parseInt(e.target.value) : null } : r))}
+                                                                            className="w-full px-3 py-2.5 bg-background border border-border rounded-[8px] text-[13px] outline-none"
+                                                                        >
+                                                                            <option value="">Satuan *</option>
+                                                                            {dbUnits.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <select
+                                                                    value={row.linkedVariantId ?? ''}
+                                                                    onChange={e => {
+                                                                        if (e.target.value === '__new__') {
+                                                                            const defaultUnitId = dbUnits.find((u: any) => u.name?.toLowerCase() === 'pcs')?.id || dbUnits[0]?.id || null;
+                                                                            setVariantCalcRows(rows => rows.map(r => r.id === row.id ? {
+                                                                                ...r,
+                                                                                isNew: true,
+                                                                                linkedVariantId: null,
+                                                                                newProductName: productName || r.name,
+                                                                                newCategoryId: productCategory ? parseInt(productCategory) : null,
+                                                                                newUnitId: r.newUnitId ?? defaultUnitId,
+                                                                            } : r));
+                                                                        } else {
+                                                                            setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, linkedVariantId: e.target.value ? parseInt(e.target.value) : null } : r));
+                                                                        }
+                                                                    }}
+                                                                    className="w-full px-3 py-2.5 bg-muted/40 border border-border rounded-[8px] text-[13px] outline-none focus:border-primary"
+                                                                >
+                                                                    <option value="">— Link ke Varian Existing —</option>
+                                                                    <option value="__new__">➕ Daftarkan sebagai Produk Baru</option>
+                                                                    {dbProducts.map((p: any) =>
+                                                                        (p.variants || []).map((v: any) => (
+                                                                            <option key={v.id} value={v.id}>
+                                                                                {p.name}{v.variantName ? ` — ${v.variantName}` : ''}{v.sku ? ` [${v.sku}]` : ''}
+                                                                            </option>
+                                                                        ))
+                                                                    )}
+                                                                </select>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Tier Editor (expandable) */}
+                                                        {row.showTierEditor && (
+                                                            <div className="px-3 pb-3 pt-1 border-t border-orange-200/50 dark:border-orange-800/30 bg-orange-50/40 dark:bg-orange-950/10 space-y-2">
+                                                                <p className="text-[11px] text-muted-foreground">
+                                                                    Harga default (kolom Jual) dipakai jika qty tidak cocok tier manapun.
+                                                                </p>
+                                                                {(row.priceTiers || []).map((tier, ti) => (
+                                                                    <div key={ti} className="flex gap-2 items-center bg-background border border-orange-200/50 dark:border-orange-800/30 rounded-lg p-2 flex-wrap">
+                                                                        <input
+                                                                            type="text"
+                                                                            value={tier.tierName}
+                                                                            onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, priceTiers: (r.priceTiers || []).map((t, i) => i === ti ? { ...t, tierName: e.target.value } : t) } : r))}
+                                                                            placeholder="Label (opsional)"
+                                                                            className="w-28 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary"
+                                                                        />
+                                                                        <input
+                                                                            type="number" min="1"
+                                                                            value={tier.minQty}
+                                                                            onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, priceTiers: (r.priceTiers || []).map((t, i) => i === ti ? { ...t, minQty: e.target.value } : t) } : r))}
+                                                                            placeholder="Min Qty"
+                                                                            className="w-20 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary"
+                                                                        />
+                                                                        <span className="text-xs text-muted-foreground">—</span>
+                                                                        <input
+                                                                            type="number" min="1"
+                                                                            value={tier.maxQty}
+                                                                            onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, priceTiers: (r.priceTiers || []).map((t, i) => i === ti ? { ...t, maxQty: e.target.value } : t) } : r))}
+                                                                            placeholder="Max (kosong=∞)"
+                                                                            className="w-28 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary"
+                                                                        />
+                                                                        <input
+                                                                            type="number" min="0"
+                                                                            value={tier.price}
+                                                                            onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, priceTiers: (r.priceTiers || []).map((t, i) => i === ti ? { ...t, price: e.target.value } : t) } : r))}
+                                                                            placeholder="Harga/unit (Rp)"
+                                                                            className="flex-1 min-w-[100px] px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary"
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, priceTiers: (r.priceTiers || []).filter((_, i) => i !== ti) } : r))}
+                                                                            className="p-1 text-destructive/60 hover:text-destructive transition-colors"
+                                                                        >
+                                                                            <X className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, priceTiers: [...(r.priceTiers || []), { tierName: '', minQty: '', maxQty: '', price: '' }] } : r))}
+                                                                    className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium transition-colors"
+                                                                >
+                                                                    <Plus className="w-3.5 h-3.5" /> Tambah Tier Harga
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {variantCalcRows.length === 0 && (
+                                        <p className="text-sm text-muted-foreground text-center py-4">Belum ada baris. Klik &quot;+ Tambah Baris&quot; untuk memulai.</p>
+                                    )}
+
+                                    <div className="flex items-center gap-3 pt-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setVariantCalcRows(rows => [...rows, {
+                                                id: `vc-${Date.now()}`,
+                                                name: '',
+                                                widthM: '',
+                                                heightM: '',
+                                                multiplier: '1',
+                                                linkedVariantId: null,
+                                            }])}
+                                            className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+                                        >
+                                            <Plus className="w-4 h-4" /> Tambah Baris
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveVariantCalc}
+                                            disabled={isSavingVariantCalc || !hasCalculated || !activeWorksheetId || !variantCalcRows.some(r => r.linkedVariantId || (r.isNew && r.newProductName?.trim()))}
+                                            className="ml-auto flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg disabled:opacity-40 hover:bg-primary/90 transition-colors"
+                                        >
+                                            {isSavingVariantCalc ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                                            Simpan &amp; Terapkan Semua ({variantCalcRows.filter(r => r.linkedVariantId || (r.isNew && r.newProductName?.trim())).length} varian)
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Biaya Variabel */}
                         <div className="bg-card rounded-[12px] md:rounded-[16px] shadow-sm border border-border overflow-hidden transition-shadow hover:shadow-md">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 md:p-6 border-b border-border/50 gap-3">
@@ -981,258 +1582,129 @@ export default function HppCalculatorPage() {
                                     <span className="text-xs font-medium text-muted-foreground mt-0.5 block">Diambil dari stok produk gudang Anda. Harga tersinkronisasi.</span>
                                 </div>
                             </div>
-                            {/* Mobile Cards — Biaya Variabel */}
-                            <div className="md:hidden p-4 space-y-3">
+                            {/* Card List — Biaya Variabel */}
+                            <div className="p-4 space-y-2">
                                 {variableCosts.map((v) => (
-                                    <div key={v.id} className="bg-muted/30 border border-border rounded-xl p-3 space-y-3">
-                                        {/* Bahan Baku */}
-                                        {v.isCustom ? (
-                                            <CustomNameInput
-                                                value={v.name}
-                                                onChange={(val) => updateVariableCost(v.id, 'name', val)}
-                                                onSwitchToStock={() => updateVariableCost(v.id, 'isCustom', false)}
-                                            />
-                                        ) : (
-                                            <VariantCombobox
-                                                rowId={v.id}
-                                                currentVariantId={v.productVariantId}
-                                                currentName={v.name}
-                                                dbProducts={dbProducts}
-                                                onSelectVariant={applyVariantToVariableCost}
-                                                onSelectManual={(rowId, initialName) => setVariableCosts(prev => prev.map(c => c.id === rowId ? { ...c, isCustom: true, productVariantId: undefined, name: initialName || '' } : c))}
-                                            />
-                                        )}
-
-                                        {/* Acuan Stok */}
-                                        {!v.isCustom && v.productVariantId && (
-                                            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer" title="Stok Produk akhir dihitung berdasarkan sisa stok bahan ini dibagi Takaran.">
-                                                <input type="checkbox" checked={v.isAcuanStok || false} onChange={(e) => updateVariableCost(v.id, 'isAcuanStok', e.target.checked)} className="w-4 h-4 text-primary cursor-pointer rounded" />
-                                                Jadikan Acuan Stok Produk
-                                            </label>
-                                        )}
-
-                                        {/* Takaran + Harga */}
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Takaran / Pcs</p>
-                                                {v.isAreaBased ? (
-                                                    <div className="space-y-1.5">
-                                                        <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-[8px] px-2.5 py-2">
-                                                            <span className="text-[10px] font-bold text-blue-500 shrink-0">L</span>
-                                                            <input type="text" inputMode="decimal" value={v.widthMStr ?? ''} onChange={(e) => updateAreaDimension(v.id, 'widthM', e.target.value)}
-                                                                className="flex-1 min-w-0 bg-transparent text-center text-[13px] font-semibold text-blue-700 outline-none placeholder:text-blue-300" placeholder="0" />
-                                                            <span className="text-[12px] text-blue-400 font-bold shrink-0">×</span>
-                                                            <span className="text-[10px] font-bold text-blue-500 shrink-0">T</span>
-                                                            <input type="text" inputMode="decimal" value={v.heightMStr ?? ''} onChange={(e) => updateAreaDimension(v.id, 'heightM', e.target.value)}
-                                                                className="flex-1 min-w-0 bg-transparent text-center text-[13px] font-semibold text-blue-700 outline-none placeholder:text-blue-300" placeholder="0" />
-                                                            <span className="text-[10px] font-semibold text-blue-500 shrink-0">m</span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between px-0.5">
-                                                            <span className="text-[11px] text-blue-600 font-mono font-bold">= {((v.widthM || 0) * (v.heightM || 0)).toFixed(4)} m²</span>
-                                                            <button onClick={() => toggleAreaMode(v.id, false)} className="text-[10px] text-muted-foreground hover:text-red-500 transition-colors" title="Kembali ke mode satuan">✕ kembali</button>
-                                                        </div>
-                                                    </div>
+                                    <div key={v.id} className="border border-border rounded-[10px] bg-background">
+                                        {/* Baris 1: Nama bahan + hapus */}
+                                        <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+                                            <div className="flex-1 min-w-0">
+                                                {v.isCustom ? (
+                                                    <CustomNameInput
+                                                        value={v.name}
+                                                        onChange={(val) => updateVariableCost(v.id, 'name', val)}
+                                                        onSwitchToStock={() => updateVariableCost(v.id, 'isCustom', false)}
+                                                    />
                                                 ) : (
-                                                    <div className="flex gap-1.5">
-                                                        <input type="number" value={v.usageAmount || ''} onChange={(e) => updateVariableCost(v.id, 'usageAmount', Number(e.target.value))}
-                                                            className="w-14 px-2 py-2 bg-background border border-border rounded-[6px] text-[13px] font-medium text-foreground outline-none focus:border-primary text-center" placeholder="0" />
-                                                        <select value={v.usageUnit} onChange={(e) => updateVariableCost(v.id, 'usageUnit', e.target.value)}
-                                                            className="flex-1 pl-2 pr-1 py-2 border border-border rounded-[6px] bg-background text-[12px] text-foreground font-semibold outline-none cursor-pointer focus:border-primary">
-                                                            <option value="gram">gram</option><option value="kg">kg</option><option value="mg">mg</option>
-                                                            <option value="ml">ml</option><option value="L">L</option><option value="gelas">gelas</option><option value="sdm">sdm</option><option value="sdt">sdt</option>
-                                                            <option value="pcs">pcs</option><option value="buah">buah</option><option value="lembar">lembar</option><option value="bungkus">bungkus</option><option value="box">box</option><option value="pak">pak</option>
-                                                            <option value="cm">cm</option><option value="m">m</option><option value="m²">m²</option>
-                                                        </select>
-                                                        <button onClick={() => toggleAreaMode(v.id, true)} title="Hitung luas Lebar × Tinggi (m²)"
-                                                            className="px-1.5 py-2 border border-dashed border-border rounded-[6px] text-[10px] font-bold text-muted-foreground hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0">m²</button>
-                                                    </div>
+                                                    <VariantCombobox
+                                                        rowId={v.id}
+                                                        currentVariantId={v.productVariantId}
+                                                        currentName={v.name}
+                                                        dbProducts={dbProducts}
+                                                        onSelectVariant={applyVariantToVariableCost}
+                                                        onSelectManual={(rowId, initialName) => setVariableCosts(prev => prev.map(c => c.id === rowId ? { ...c, isCustom: true, productVariantId: undefined, name: initialName || '' } : c))}
+                                                    />
                                                 )}
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Harga</p>
-                                                <div className="flex bg-background border border-border rounded-[6px] overflow-hidden focus-within:border-primary">
-                                                    <span className="bg-muted px-2 py-2 font-semibold text-[12px] border-r border-border text-muted-foreground">Rp</span>
-                                                    <input type="number" value={v.price || ''} onChange={(e) => updateVariableCost(v.id, 'price', Number(e.target.value))} className="w-full bg-transparent px-2 py-2 text-[13px] font-semibold outline-none text-right" placeholder="0" />
+                                            <button onClick={() => removeVariableCost(v.id)} className="p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-[6px] border border-transparent hover:border-red-200 transition-all shrink-0">
+                                                <Trash className="h-4 w-4" />
+                                            </button>
+                                        </div>
+
+                                        {/* Baris 2: Takaran */}
+                                        <div className="px-3 pb-2">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase">Takaran</label>
+                                                {!v.isAreaBased && (
+                                                    <button onClick={() => toggleAreaMode(v.id, true)} title="Hitung luas Lebar × Tinggi (m²)"
+                                                        className="text-[10px] font-bold text-blue-500 hover:text-blue-700 underline transition-colors">
+                                                        pakai m²
+                                                    </button>
+                                                )}
+                                                {v.isAreaBased && (
+                                                    <button onClick={() => toggleAreaMode(v.id, false)} className="text-[10px] text-muted-foreground hover:text-red-500 transition-colors underline" title="Kembali ke mode satuan">
+                                                        kembali ke satuan
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {v.isAreaBased ? (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="flex items-center bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-[8px] px-3 py-2.5 gap-2">
+                                                        <span className="text-[11px] font-bold text-blue-500 shrink-0">L (m)</span>
+                                                        <input type="text" inputMode="decimal" value={v.widthMStr ?? ''} onChange={e => updateAreaDimension(v.id, 'widthM', e.target.value)}
+                                                            className="flex-1 min-w-0 bg-transparent text-center text-[14px] font-semibold text-blue-700 dark:text-blue-300 outline-none placeholder:text-blue-300" placeholder="0" />
+                                                    </div>
+                                                    <div className="flex items-center bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-[8px] px-3 py-2.5 gap-2">
+                                                        <span className="text-[11px] font-bold text-blue-500 shrink-0">T (m)</span>
+                                                        <input type="text" inputMode="decimal" value={v.heightMStr ?? ''} onChange={e => updateAreaDimension(v.id, 'heightM', e.target.value)}
+                                                            className="flex-1 min-w-0 bg-transparent text-center text-[14px] font-semibold text-blue-700 dark:text-blue-300 outline-none placeholder:text-blue-300" placeholder="0" />
+                                                    </div>
                                                 </div>
+                                            ) : (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <input type="number" inputMode="decimal" value={v.usageAmount || ''} onChange={e => updateVariableCost(v.id, 'usageAmount', Number(e.target.value))}
+                                                        className="w-full px-3 py-2.5 bg-muted/40 border border-border rounded-[8px] text-[14px] font-medium outline-none focus:border-primary text-center" placeholder="0" />
+                                                    <select value={v.usageUnit} onChange={e => updateVariableCost(v.id, 'usageUnit', e.target.value)}
+                                                        className="w-full px-2 py-2.5 border border-border rounded-[8px] bg-muted/40 text-[13px] font-semibold outline-none cursor-pointer focus:border-primary">
+                                                        <optgroup label="Berat"><option value="gram">gram</option><option value="kg">kg</option><option value="mg">mg</option></optgroup>
+                                                        <optgroup label="Volume"><option value="ml">ml</option><option value="L">L</option><option value="gelas">gelas</option><option value="sdm">sdm</option><option value="sdt">sdt</option></optgroup>
+                                                        <optgroup label="Satuan"><option value="pcs">pcs</option><option value="buah">buah</option><option value="lembar">lembar</option><option value="bungkus">bungkus</option><option value="box">box</option><option value="pak">pak</option></optgroup>
+                                                        <optgroup label="Panjang / Luas"><option value="cm">cm</option><option value="m">m</option><option value="m²">m²</option></optgroup>
+                                                    </select>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Baris 3: Harga per satuan */}
+                                        <div className="px-3 pb-2">
+                                            <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Harga per Satuan</label>
+                                            <div className="flex bg-muted/40 border border-border rounded-[8px] overflow-hidden focus-within:border-primary">
+                                                <span className="bg-muted px-3 py-2.5 font-semibold text-[12px] border-r border-border text-muted-foreground shrink-0">Rp</span>
+                                                <input type="number" inputMode="numeric" value={v.price || ''} onChange={e => updateVariableCost(v.id, 'price', Number(e.target.value))}
+                                                    className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-[14px] font-semibold outline-none" placeholder="0" />
+                                                <span className="px-2 py-2.5 text-[12px] text-muted-foreground border-l border-border shrink-0">/</span>
+                                                <select value={v.priceUnit || 'pcs'} onChange={e => updateVariableCost(v.id, 'priceUnit', e.target.value)}
+                                                    className="bg-transparent pr-2 py-2.5 text-[12px] font-semibold outline-none cursor-pointer">
+                                                    <optgroup label="Berat"><option value="gram">gram</option><option value="kg">kg</option><option value="mg">mg</option></optgroup>
+                                                    <optgroup label="Volume"><option value="ml">ml</option><option value="L">L</option><option value="gelas">gelas</option></optgroup>
+                                                    <optgroup label="Satuan"><option value="pcs">pcs</option><option value="buah">buah</option><option value="lembar">lembar</option><option value="bungkus">bungkus</option><option value="box">box</option></optgroup>
+                                                    <optgroup label="Panjang"><option value="cm">cm</option><option value="m">m</option></optgroup>
+                                                </select>
                                             </div>
                                         </div>
 
-                                        {/* Per unit + Subtotal + Delete */}
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="text-[11px] text-muted-foreground">Per</span>
-                                                <select value={v.priceUnit || 'pcs'} onChange={(e) => updateVariableCost(v.id, 'priceUnit', e.target.value)}
-                                                    className="pl-2 pr-5 py-1.5 border border-border rounded-[6px] bg-background text-[12px] font-semibold outline-none cursor-pointer focus:border-primary appearance-none">
-                                                    <option value="gram">gram</option><option value="kg">kg</option><option value="mg">mg</option>
-                                                    <option value="ml">ml</option><option value="L">L</option><option value="gelas">gelas</option>
-                                                    <option value="pcs">pcs</option><option value="buah">buah</option><option value="lembar">lembar</option><option value="bungkus">bungkus</option><option value="box">box</option>
-                                                    <option value="cm">cm</option><option value="m">m</option>
-                                                </select>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="bg-green-50 text-green-700 font-bold text-[13px] px-3 py-1.5 rounded-[6px] border border-green-200">
-                                                    Rp {Math.round(calculateVariableSubtotal(v)).toLocaleString('id-ID')}
-                                                </div>
-                                                <button onClick={() => removeVariableCost(v.id)} className="p-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-[6px] border border-border hover:border-red-200 transition-all">
-                                                    <Trash className="h-4 w-4" />
-                                                </button>
+                                        {/* Subtotal */}
+                                        <div className="px-3 pb-3">
+                                            <div className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 font-bold text-[14px] px-3 py-2.5 rounded-[8px] border border-green-200 dark:border-green-800/50 text-right">
+                                                = Rp {Math.round(calculateVariableSubtotal(v)).toLocaleString('id-ID')}
                                             </div>
                                         </div>
+
+                                        {/* Baris 3: Acuan stok + info area */}
+                                        {(!v.isCustom && v.productVariantId || v.isAreaBased) && (
+                                            <div className="flex items-center gap-3 px-3 pb-2.5 flex-wrap">
+                                                {!v.isCustom && v.productVariantId && (
+                                                    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer" title="Stok Produk akhir dihitung berdasarkan sisa stok bahan ini dibagi Takaran.">
+                                                        <input type="checkbox" checked={v.isAcuanStok || false} onChange={e => updateVariableCost(v.id, 'isAcuanStok', e.target.checked)} className="w-3.5 h-3.5 text-primary cursor-pointer rounded" />
+                                                        Jadikan Acuan Stok Produk
+                                                    </label>
+                                                )}
+                                                {v.isAreaBased && (
+                                                    <span className="text-[11px] text-blue-600 font-mono font-bold">
+                                                        = {((v.widthM || 0) * (v.heightM || 0)).toFixed(4)} m²
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
+
                                 {variableCosts.length > 0 && (
-                                    <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 flex justify-between items-center">
+                                    <div className="bg-primary/5 border border-primary/20 rounded-[10px] px-4 py-3 flex justify-between items-center">
                                         <span className="font-semibold text-[13px] text-muted-foreground">Total Biaya B.Baku/Pcs:</span>
                                         <span className="font-bold text-[15px] text-primary">Rp {Math.round(totalVariablePerPcs).toLocaleString('id-ID')}</span>
                                     </div>
                                 )}
-                            </div>
-
-                            {/* Desktop Table — Biaya Variabel */}
-                            <div className="hidden md:block overflow-x-auto">
-                                <table className="w-full text-left border-collapse min-w-[800px]">
-                                    <thead>
-                                        <tr className="bg-muted/50 border-b border-border/50 bg-slate-50">
-                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide w-1/4">BAHAN BAKU</th>
-                                            <th className="px-2 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide text-center" title="Jadikan Acuan Stok Produk">ACUAN STOK</th>
-                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">TAKARAN / PCS</th>
-                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">HARGA</th>
-                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">JML</th>
-                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide">UNIT</th>
-                                            <th className="px-3 py-3 text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-wide text-right">SUBTOTAL</th>
-                                            <th className="w-10"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border/50">
-                                        {variableCosts.map((v) => (
-                                            <tr key={v.id} className="group hover:bg-muted/30 transition-colors">
-                                                <td className="px-3 py-2 md:py-3 align-middle min-w-[200px]">
-                                                    {v.isCustom ? (
-                                                        <CustomNameInput
-                                                            value={v.name}
-                                                            onChange={(val) => updateVariableCost(v.id, 'name', val)}
-                                                            onSwitchToStock={() => updateVariableCost(v.id, 'isCustom', false)}
-                                                        />
-                                                    ) : (
-                                                        <VariantCombobox
-                                                            rowId={v.id}
-                                                            currentVariantId={v.productVariantId}
-                                                            currentName={v.name}
-                                                            dbProducts={dbProducts}
-                                                            onSelectVariant={applyVariantToVariableCost}
-                                                            onSelectManual={(rowId, initialName) => setVariableCosts(prev => prev.map(c => c.id === rowId ? { ...c, isCustom: true, productVariantId: undefined, name: initialName || '' } : c))}
-                                                        />
-                                                    )}
-                                                </td>
-                                                <td className="px-2 py-2 md:py-3 align-middle text-center">
-                                                    {!v.isCustom && v.productVariantId && (
-                                                        <div className="flex justify-center" title="Stok Produk akhir akan dihitung berdasarkan sisa stok bahan ini dibagi Takaran.">
-                                                            <input type="checkbox" checked={v.isAcuanStok || false} onChange={(e) => updateVariableCost(v.id, 'isAcuanStok', e.target.checked)} className="w-4 h-4 text-primary focus:ring-primary/50 cursor-pointer rounded" />
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2 md:py-3 align-middle">
-                                                    {v.isAreaBased ? (
-                                                        <div className="space-y-1.5 min-w-[155px]">
-                                                            <div className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-[8px] px-2 py-1.5">
-                                                                <span className="text-[10px] font-bold text-blue-500 shrink-0">L</span>
-                                                                <input
-                                                                    type="text" inputMode="decimal"
-                                                                    value={v.widthMStr ?? ''}
-                                                                    onChange={e => updateAreaDimension(v.id, 'widthM', e.target.value)}
-                                                                    className="w-0 flex-1 bg-transparent text-center text-[13px] font-semibold text-blue-700 outline-none placeholder:text-blue-300"
-                                                                    placeholder="0"
-                                                                />
-                                                                <span className="text-[12px] text-blue-400 font-bold shrink-0">×</span>
-                                                                <span className="text-[10px] font-bold text-blue-500 shrink-0">T</span>
-                                                                <input
-                                                                    type="text" inputMode="decimal"
-                                                                    value={v.heightMStr ?? ''}
-                                                                    onChange={e => updateAreaDimension(v.id, 'heightM', e.target.value)}
-                                                                    className="w-0 flex-1 bg-transparent text-center text-[13px] font-semibold text-blue-700 outline-none placeholder:text-blue-300"
-                                                                    placeholder="0"
-                                                                />
-                                                                <span className="text-[10px] font-semibold text-blue-500 shrink-0">m</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between px-0.5">
-                                                                <span className="text-[11px] text-blue-600 font-mono font-bold">= {((v.widthM || 0) * (v.heightM || 0)).toFixed(4)} m²</span>
-                                                                <button type="button" onClick={() => toggleAreaMode(v.id, false)} className="text-[10px] text-muted-foreground hover:text-red-500 transition-colors" title="Kembali ke mode satuan">✕</button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <input type="number" value={v.usageAmount || ''} onChange={(e) => updateVariableCost(v.id, 'usageAmount', Number(e.target.value))}
-                                                                className="w-[70px] px-3 py-2 bg-background border border-border rounded-[6px] text-[13px] font-medium text-foreground outline-none focus:border-primary text-center" placeholder="0" />
-                                                            <div className="relative">
-                                                                <select value={v.usageUnit} onChange={(e) => updateVariableCost(v.id, 'usageUnit', e.target.value)}
-                                                                    className="appearance-none w-[80px] pl-3 pr-6 py-2 border border-border rounded-[6px] bg-background text-[13px] text-foreground font-semibold outline-none cursor-pointer focus:border-primary">
-                                                                    <optgroup label="Berat">
-                                                                        <option value="gram">gram</option><option value="kg">kg</option><option value="mg">mg</option>
-                                                                    </optgroup>
-                                                                    <optgroup label="Volume">
-                                                                        <option value="ml">ml</option><option value="L">L</option><option value="gelas">gelas</option><option value="sdm">sdm</option><option value="sdt">sdt</option>
-                                                                    </optgroup>
-                                                                    <optgroup label="Satuan">
-                                                                        <option value="pcs">pcs</option><option value="buah">buah</option><option value="lembar">lembar</option><option value="bungkus">bungkus</option><option value="box">box</option><option value="pak">pak</option>
-                                                                    </optgroup>
-                                                                    <optgroup label="Panjang / Luas">
-                                                                        <option value="cm">cm</option><option value="m">m</option><option value="m²">m²</option>
-                                                                    </optgroup>
-                                                                </select>
-                                                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-muted-foreground opacity-70" />
-                                                            </div>
-                                                            <button type="button" onClick={() => toggleAreaMode(v.id, true)} title="Hitung luas dari Lebar × Tinggi (m²)"
-                                                                className="px-1.5 py-2 border border-dashed border-border rounded-[6px] text-[10px] font-bold text-muted-foreground hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all shrink-0">m²</button>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2 md:py-3 align-middle">
-                                                    <div className="flex bg-background border border-border rounded-[6px] overflow-hidden min-w-[110px] focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
-                                                        <span className="bg-muted px-2 py-2 font-semibold text-[13px] border-r border-border text-muted-foreground">Rp</span>
-                                                        <input type="number" value={v.price || ''} onChange={(e) => updateVariableCost(v.id, 'price', Number(e.target.value))} className="w-full bg-transparent px-2 py-2 text-[13px] font-semibold outline-none text-right" placeholder="0" />
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-2 md:py-3 align-middle">
-                                                    <input type="number" value={v.usageAmount || ''} readOnly className="w-[50px] px-2 py-2 bg-muted/40 border border-border text-muted-foreground rounded-[6px] text-[13px] font-semibold text-center outline-none opacity-70" title="Jumlah diisi di Takaran/PCS" />
-                                                </td>
-                                                <td className="px-3 py-2 md:py-3 align-middle">
-                                                    <div className="relative min-w-[80px]">
-                                                        <select value={v.priceUnit || 'pcs'} onChange={(e) => updateVariableCost(v.id, 'priceUnit', e.target.value)} className="appearance-none w-full pl-2 pr-6 py-2 border border-border text-foreground rounded-[6px] bg-background text-[13px] font-semibold outline-none cursor-pointer focus:border-primary">
-                                                            <optgroup label="Berat">
-                                                                <option value="gram">gram</option><option value="kg">kg</option><option value="mg">mg</option>
-                                                            </optgroup>
-                                                            <optgroup label="Volume">
-                                                                <option value="ml">ml</option><option value="L">L</option><option value="gelas">gelas</option>
-                                                            </optgroup>
-                                                            <optgroup label="Satuan">
-                                                                <option value="pcs">pcs</option><option value="buah">buah</option><option value="lembar">lembar</option><option value="bungkus">bungkus</option><option value="box">box</option>
-                                                            </optgroup>
-                                                            <optgroup label="Panjang">
-                                                                <option value="cm">cm</option><option value="m">m</option>
-                                                            </optgroup>
-                                                        </select>
-                                                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-muted-foreground opacity-50" />
-                                                    </div>
-                                                </td>
-                                                <td className="px-3 py-2 md:py-3 align-middle text-right">
-                                                    <div className="bg-green-50 text-green-700 font-bold text-[14px] px-3 py-1.5 rounded-[6px] inline-block border border-green-200 min-w-[100px] text-center">
-                                                        Rp {Math.round(calculateVariableSubtotal(v)).toLocaleString('id-ID')}
-                                                    </div>
-                                                </td>
-                                                <td className="py-2 md:py-3 align-middle text-center pr-2">
-                                                    <button onClick={() => removeVariableCost(v.id)} className="p-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-[4px] border border-transparent hover:border-red-200 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100">
-                                                        <Trash className="h-4 w-4" />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        <tr className="bg-primary/5">
-                                            <td colSpan={6} className="px-4 py-4 text-right"><span className="font-semibold text-[13px] text-muted-foreground">Total Biaya B.Baku/Pcs:</span></td>
-                                            <td className="px-3 py-4 text-right"><span className="font-bold text-[15px] text-primary">Rp {Math.round(totalVariablePerPcs).toLocaleString('id-ID')}</span></td>
-                                            <td></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
                             </div>
                             <div className="p-5 md:p-6 bg-muted/50 border-t border-border/50">
                                 <button onClick={addVariableCost} className="flex items-center justify-center sm:justify-start gap-2 px-4 py-2 border border-border bg-card text-foreground/80 font-semibold rounded-[10px] hover:border-primary hover:text-primary transition-all text-sm w-full sm:w-auto">

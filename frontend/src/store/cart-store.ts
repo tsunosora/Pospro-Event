@@ -3,6 +3,13 @@ import { create } from 'zustand';
 // A unique line key is used so AREA_BASED products can have multiple lines (different sizes/finishing)
 // UNIT items: lineId = String(productVariantId)  → merges on re-click
 // AREA_BASED: lineId = `${productVariantId}_${Date.now()}` → always a new line
+export interface PriceTier {
+    minQty: number;
+    maxQty: number | null;
+    price: number;
+    tierName?: string | null;
+}
+
 export interface CartItem {
     lineId: string;
     id: number;                  // product id
@@ -15,6 +22,7 @@ export interface CartItem {
     stock: number;
     trackStock: boolean;         // false = unlimited stock, no deduction
     pricingMode: 'UNIT' | 'AREA_BASED';
+    priceTiers: PriceTier[];     // [] = no tiering, price is always pricePerUnit
     note?: string;               // operator note: design name, finishing type, custom text, etc.
     // AREA_BASED only
     unitType?: 'm' | 'cm' | 'menit';
@@ -42,6 +50,14 @@ interface CartState {
     grandTotal: () => number;
 }
 
+/** Returns the unit price that applies for a given qty based on price tiers. Falls back to basePrice. */
+function applyTierPrice(qty: number, basePrice: number, tiers: PriceTier[]): number {
+    if (!tiers || tiers.length === 0) return basePrice;
+    const sorted = [...tiers].sort((a, b) => b.minQty - a.minQty); // descending
+    const matched = sorted.find(t => qty >= t.minQty && (t.maxQty === null || qty <= t.maxQty));
+    return matched ? matched.price : basePrice;
+}
+
 function computeAreaPrice(width: number, height: number, unitPrice: number, unitType: 'm' | 'cm' | 'menit') {
     // priceMultiplier: raw area in input unit — matches how price is set per product
     //   m    → price per m²,  multiplier = w × h (m²)
@@ -64,6 +80,12 @@ export const useCartStore = create<CartState>((set, get) => ({
     addItem: (product, variant, areaDimensions) => {
         const pricingMode: 'UNIT' | 'AREA_BASED' = product.pricingMode || 'UNIT';
         const pricePerUnit = Number(variant.price || 0);
+        const tiers: PriceTier[] = (variant.priceTiers || []).map((t: any) => ({
+            minQty: Number(t.minQty),
+            maxQty: t.maxQty !== null && t.maxQty !== undefined ? Number(t.maxQty) : null,
+            price: Number(t.price),
+            tierName: t.tierName ?? null,
+        }));
 
         set((state) => {
             if (pricingMode === 'AREA_BASED') {
@@ -87,6 +109,7 @@ export const useCartStore = create<CartState>((set, get) => ({
                         stock: Number(variant.stock),
                         trackStock: product.trackStock !== false,
                         pricingMode: 'AREA_BASED',
+                        priceTiers: tiers,
                         note,
                         unitType,
                         widthCm,
@@ -102,12 +125,15 @@ export const useCartStore = create<CartState>((set, get) => ({
             const existing = state.items.find(i => i.lineId === lineId);
             if (existing) {
                 if (trackStock && existing.qty >= Number(variant.stock)) return state;
+                const newQty = existing.qty + 1;
+                const newPrice = applyTierPrice(newQty, existing.pricePerUnit, existing.priceTiers);
                 return {
                     items: state.items.map(i =>
-                        i.lineId === lineId ? { ...i, qty: i.qty + 1 } : i
+                        i.lineId === lineId ? { ...i, qty: newQty, price: newPrice } : i
                     )
                 };
             }
+            const initPrice = applyTierPrice(1, pricePerUnit, tiers);
             return {
                 items: [...state.items, {
                     lineId,
@@ -115,12 +141,13 @@ export const useCartStore = create<CartState>((set, get) => ({
                     productVariantId: variant.id,
                     name: product.name + (variant.variantName ? ` — ${variant.variantName}` : '') + (variant.size ? ` — ${variant.size}` : ''),
                     sku: variant.sku,
-                    price: pricePerUnit,
+                    price: initPrice,
                     pricePerUnit,
                     qty: 1,
                     stock: Number(variant.stock),
                     trackStock,
-                    pricingMode: 'UNIT'
+                    pricingMode: 'UNIT',
+                    priceTiers: tiers,
                 }]
             };
         });
@@ -136,7 +163,8 @@ export const useCartStore = create<CartState>((set, get) => ({
                 if (i.lineId !== lineId || i.pricingMode === 'AREA_BASED') return i;
                 const newQty = i.qty + delta;
                 if (newQty <= 0 || (i.trackStock !== false && newQty > i.stock)) return i;
-                return { ...i, qty: newQty };
+                const newPrice = applyTierPrice(newQty, i.pricePerUnit, i.priceTiers);
+                return { ...i, qty: newQty, price: newPrice };
             })
         }));
     },
