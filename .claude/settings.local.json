@@ -11,7 +11,9 @@
       "Bash(find /d/FAISAL/appdev/comprehensive-pos-web-application/backend/src -name \"*.service.ts\" -exec wc -l {} +)",
       "Bash(wc -l pos/page.tsx inventory/page.tsx inventory/products/[id]/edit/page.tsx reports/hpp/page.tsx)",
       "Bash(wc -l \"D:/FAISAL/appdev/comprehensive-pos-web-application/frontend/src/app/inventory/products/\"*\"/edit/page.tsx\")",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(find /d/FAISAL/appdev/comprehensive-pos-web-application -maxdepth 1 -name *config*)",
+      "Bash(wc:*)"
     ]
   }
 }

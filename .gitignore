@@ -23,6 +23,11 @@ frontend/build/
 # NestJS
 backend/dist/
 
+# VitePress
+.vitepress/dist
+.vitepress/cache
+docs-site/
+
 # TypeScript
 *.tsbuildinfo
 frontend/tsconfig.tsbuildinfo
