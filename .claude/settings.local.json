@@ -13,7 +13,9 @@
       "Bash(wc -l \"D:/FAISAL/appdev/comprehensive-pos-web-application/frontend/src/app/inventory/products/\"*\"/edit/page.tsx\")",
       "Bash(npm run:*)",
       "Bash(find /d/FAISAL/appdev/comprehensive-pos-web-application -maxdepth 1 -name *config*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(find D:WEBDEVPos-Web-Application/backend/src -type f \\\\\\(-name *.ts -o -name *.js \\\\\\))",
+      "Bash(find D:WEBDEVPos-Web-Application/frontend/src -type f -name *.vue)"
     ]
   }
 }

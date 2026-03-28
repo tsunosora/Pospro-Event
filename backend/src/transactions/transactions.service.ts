@@ -14,6 +14,7 @@ export class TransactionsService {
             heightCm?: number;
             unitType?: string;
             note?: string;
+            customPrice?: number;
         }[];
         paymentMethod: PaymentMethod;
         discount?: number;
@@ -67,6 +68,10 @@ export class TransactionsService {
                     );
                     if (matchedTier) resolvedPrice = Number(matchedTier.price);
                 }
+                // Admin custom price override for UNIT mode
+                if (pricingMode === 'UNIT' && item.customPrice != null) {
+                    resolvedPrice = item.customPrice;
+                }
 
                 // Calculate HPP from variant ingredients if defined; fallback to variant.hpp
                 const variantIngredients: any[] = (variant as any).variantIngredients || [];
@@ -106,6 +111,8 @@ export class TransactionsService {
                     areaCm2 = areaM2 * 10000;
 
                     lineTotal = priceMultiplier * resolvedPrice;
+                    // Admin custom price override for AREA_BASED mode (overrides full line total)
+                    if (item.customPrice != null) lineTotal = item.customPrice;
 
                     if (!requiresProduction && trackStock) {
                         const currentStock = Number(variant.stock);
@@ -407,6 +414,33 @@ export class TransactionsService {
                     paymentMethod: data.paymentMethod // overwrite or keep original? Usually we reflect the final method, or we could just leave original. Let's update paymentMethod to the latest payoff method.
                 }
             });
+        });
+    }
+
+    async updatePaymentMethod(id: number, data: { paymentMethod: PaymentMethod; bankAccountId?: number }) {
+        return this.prisma.$transaction(async (tx) => {
+            const transaction = await tx.transaction.findUniqueOrThrow({ where: { id } });
+
+            const updated = await tx.transaction.update({
+                where: { id },
+                data: {
+                    paymentMethod: data.paymentMethod,
+                    bankAccountId: data.bankAccountId ?? null,
+                }
+            });
+
+            await tx.cashflow.updateMany({
+                where: {
+                    note: { contains: transaction.invoiceNumber },
+                    type: CashflowType.INCOME,
+                },
+                data: {
+                    paymentMethod: data.paymentMethod,
+                    bankAccountId: data.bankAccountId ?? null,
+                }
+            });
+
+            return updated;
         });
     }
 

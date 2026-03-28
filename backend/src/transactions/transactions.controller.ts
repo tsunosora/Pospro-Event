@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, ParseIntPipe, UseGuards, Query } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { PaymentMethod } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -10,7 +10,7 @@ export class TransactionsController {
 
     @Post()
     create(@Body() createTransactionDto: {
-        items: { productVariantId: number; quantity: number; widthCm?: number; heightCm?: number; note?: string }[];
+        items: { productVariantId: number; quantity: number; widthCm?: number; heightCm?: number; note?: string; customPrice?: number }[];
         paymentMethod: PaymentMethod;
         discount?: number;
         customerName?: string;
@@ -54,5 +54,10 @@ export class TransactionsController {
     @Post(':id/pay-off')
     payOff(@Param('id', ParseIntPipe) id: number, @Body() body: { paymentMethod: PaymentMethod, bankAccountId?: number }) {
         return this.transactionsService.payOff(id, body);
+    }
+
+    @Patch(':id/payment-method')
+    updatePaymentMethod(@Param('id', ParseIntPipe) id: number, @Body() body: { paymentMethod: PaymentMethod; bankAccountId?: number }) {
+        return this.transactionsService.updatePaymentMethod(id, body);
     }
 }

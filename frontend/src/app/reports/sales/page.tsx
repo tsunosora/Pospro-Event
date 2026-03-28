@@ -1,20 +1,34 @@
 "use client";
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSalesSummary, getTransactions, getSettings, getBankAccounts } from '@/lib/api';
+import { updateTransactionPaymentMethod } from '@/lib/api/transactions';
 import { mapTransactionToReceipt, handlePrintSnap, handleShareWA } from '@/lib/receipt';
 import { exportToExcel, exportToPDF } from '@/lib/export';
-import { Calendar, Download, TrendingUp, BarChart, CreditCard, Banknote, Landmark, X, Receipt, Printer, MessageCircle, FileSpreadsheet } from "lucide-react";
+import { Download, BarChart, CreditCard, Banknote, Landmark, X, Receipt, Printer, MessageCircle, FileSpreadsheet, Pencil, Check } from "lucide-react";
 import dayjs from "dayjs";
 
 export default function SalesReportPage() {
+    const queryClient = useQueryClient();
     const { data: summary, isLoading: isLoadingSummary } = useQuery({ queryKey: ['salesSummary'], queryFn: () => getSalesSummary() });
     const { data: transactions, isLoading: isLoadingTxs } = useQuery({ queryKey: ['transactions'], queryFn: getTransactions });
     const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: getSettings });
     const { data: bankAccounts } = useQuery({ queryKey: ['bank-accounts'], queryFn: getBankAccounts });
 
     const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null);
+    const [editPayment, setEditPayment] = useState<{ method: string; bankId: string } | null>(null);
+
+    const updatePaymentMutation = useMutation({
+        mutationFn: ({ id, method, bankId }: { id: number; method: string; bankId: string }) =>
+            updateTransactionPaymentMethod(id, { paymentMethod: method, bankAccountId: bankId ? Number(bankId) : undefined }),
+        onSuccess: (updated) => {
+            queryClient.invalidateQueries({ queryKey: ['transactions'] });
+            queryClient.invalidateQueries({ queryKey: ['salesSummary'] });
+            setSelectedTransaction((prev: any) => prev ? { ...prev, paymentMethod: updated.paymentMethod, bankAccountId: updated.bankAccountId } : null);
+            setEditPayment(null);
+        }
+    });
 
     const recentTransactions = transactions?.slice(0, 10) || []; // Show last 10
 
@@ -217,7 +231,7 @@ export default function SalesReportPage() {
                                 <Receipt className="w-5 h-5 text-primary" />
                                 <h3 className="font-semibold text-foreground">Detail Transaksi</h3>
                             </div>
-                            <button onClick={() => setSelectedTransaction(null)} className="p-1.5 text-muted-foreground hover:bg-muted rounded-lg transition-colors">
+                            <button onClick={() => { setSelectedTransaction(null); setEditPayment(null); }} className="p-1.5 text-muted-foreground hover:bg-muted rounded-lg transition-colors">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -245,6 +259,59 @@ export default function SalesReportPage() {
                                         }`}>
                                         {selectedTransaction.status === 'PARTIAL' ? 'DP / SEBAGIAN' : selectedTransaction.status === 'PAID' ? 'LUNAS' : selectedTransaction.status}
                                     </span>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className="text-muted-foreground text-xs mb-1">Metode Pembayaran</p>
+                                    {editPayment ? (
+                                        <div className="space-y-2">
+                                            <div className="flex gap-1.5">
+                                                {(['CASH', 'QRIS', 'BANK_TRANSFER'] as const).map(m => (
+                                                    <button key={m} onClick={() => setEditPayment(p => p ? { ...p, method: m, bankId: m !== 'BANK_TRANSFER' ? '' : p.bankId } : null)}
+                                                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border-2 transition-all ${editPayment.method === m ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/50 text-muted-foreground'}`}>
+                                                        {m === 'BANK_TRANSFER' ? 'TRANSFER' : m}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            {editPayment.method === 'BANK_TRANSFER' && (
+                                                <select value={editPayment.bankId} onChange={e => setEditPayment(p => p ? { ...p, bankId: e.target.value } : null)}
+                                                    className="w-full text-xs border border-border rounded-lg px-2 py-1.5 bg-background">
+                                                    <option value="">Pilih rekening bank...</option>
+                                                    {bankAccounts?.map((b: any) => (
+                                                        <option key={b.id} value={b.id}>{b.bankName} – {b.accountNumber} ({b.accountOwner})</option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        if (editPayment.method === 'BANK_TRANSFER' && !editPayment.bankId) {
+                                                            alert('Pilih rekening bank tujuan!');
+                                                            return;
+                                                        }
+                                                        updatePaymentMutation.mutate({ id: selectedTransaction.id, method: editPayment.method, bankId: editPayment.bankId });
+                                                    }}
+                                                    disabled={updatePaymentMutation.isPending}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 disabled:opacity-50">
+                                                    <Check className="w-3.5 h-3.5" /> Simpan
+                                                </button>
+                                                <button onClick={() => setEditPayment(null)} className="px-3 py-1.5 bg-muted border border-border rounded-lg text-xs font-medium hover:bg-muted/80">
+                                                    Batal
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                                                {selectedTransaction.paymentMethod}
+                                            </span>
+                                            <button
+                                                onClick={() => setEditPayment({ method: selectedTransaction.paymentMethod, bankId: selectedTransaction.bankAccountId ? String(selectedTransaction.bankAccountId) : '' })}
+                                                className="p-1 text-muted-foreground hover:text-primary transition-colors rounded"
+                                                title="Edit metode pembayaran">
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -322,7 +389,7 @@ export default function SalesReportPage() {
                                     <MessageCircle className="w-4 h-4" /> WA
                                 </button>
                             </div>
-                            <button onClick={() => setSelectedTransaction(null)} className="px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors">
+                            <button onClick={() => { setSelectedTransaction(null); setEditPayment(null); }} className="px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors">
                                 Tutup
                             </button>
                         </div>

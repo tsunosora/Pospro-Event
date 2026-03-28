@@ -10,6 +10,7 @@ export interface ReceiptItem {
   widthCm?: number;
   heightCm?: number;
   areaM2?: number;
+  customPrice?: number | null;
 }
 
 export interface ReceiptSnapshot {
@@ -128,8 +129,10 @@ export const buildInvoiceHTML = (snap: ReceiptSnapshot, status: 'TAGIHAN' | 'LUN
     const qtyStr = `${item.qty}`;
     const noteStr = item.note ? `<br><span style="font-size:10px; color:#555;">${item.note}</span>` : '';
 
-    const displayPrice = isArea ? item.pricePerUnit : item.pricePerUnit;
-    const subtotalPrice = isArea ? item.price : (item.pricePerUnit * item.qty);
+    const displayPrice = item.customPrice != null ? item.customPrice : item.pricePerUnit;
+    const subtotalPrice = isArea
+        ? item.price
+        : (item.customPrice != null ? item.customPrice : item.pricePerUnit * item.qty);
 
     return `<tr style="border-bottom:1px solid #000;">
             <td style="padding:4px; text-align:right;">${i + 1}</td>

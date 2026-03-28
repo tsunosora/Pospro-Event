@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getProducts, getSettings, getBankAccounts, getCustomers, createCustomer, getUsers, createTransaction } from '@/lib/api';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle2, Ruler, X, RefreshCw, StickyNote, Printer, MessageCircle } from "lucide-react";
+import { Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle2, Ruler, X, RefreshCw, StickyNote, Printer, MessageCircle, Pencil, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCartStore, CartItem } from '@/store/cart-store';
 import { useState, useMemo, useCallback } from 'react';
@@ -77,12 +77,16 @@ export default function POSPage() {
     // Note Modal State for UNIT products
     const [unitNoteModal, setUnitNoteModal] = useState<{ open: boolean, lineId: string, currentNote: string }>({ open: false, lineId: '', currentNote: '' });
 
+    // Inline price edit state
+    const [priceEditState, setPriceEditState] = useState<{ lineId: string; value: string } | null>(null);
+
     const cart = useCartStore((state) => state.items);
     const addItem = useCartStore((state) => state.addItem);
     const removeItem = useCartStore((state) => state.removeItem);
     const updateQuantity = useCartStore((state) => state.updateQuantity);
     const updateAreaDimensions = useCartStore((state) => state.updateAreaDimensions);
     const updateNote = useCartStore((state) => state.updateNote);
+    const updateCustomPrice = useCartStore((state) => state.updateCustomPrice);
     const clearCart = useCartStore((state) => state.clearCart);
     const _subtotal = useCartStore((state) => state.subtotal());
     const taxRate = settings?.enableTax ? Number(settings.taxRate ?? 10) : 0;
@@ -112,7 +116,8 @@ export default function POSPage() {
             unitType: item.unitType,
             widthCm: item.widthCm,
             heightCm: item.heightCm,
-            areaM2: item.areaM2
+            areaM2: item.areaM2,
+            customPrice: item.customPrice,
         })),
         subtotal,
         taxAmount,
@@ -250,7 +255,8 @@ export default function POSPage() {
                 widthCm: item.widthCm ? Number(item.widthCm) : undefined,
                 heightCm: item.heightCm ? Number(item.heightCm) : undefined,
                 unitType: item.unitType,
-                note: item.note
+                note: item.note,
+                customPrice: item.customPrice != null ? item.customPrice : undefined,
             })),
             paymentMethod,
             discount: 0,
@@ -271,6 +277,7 @@ export default function POSPage() {
             const { saveOfflineTransaction } = await import('@/lib/sync');
             await saveOfflineTransaction(payload);
             clearCart(); setCheckoutModalOpen(false);
+            setPaymentMethod('CASH'); setSelectedBankId('');
             setReceipt(snap);
         } else {
             transactionMutation.mutate(payload, {
@@ -280,6 +287,7 @@ export default function POSPage() {
                     clearCart();
                     setCustomerName(''); setCustomerPhone(''); setCustomerAddress('');
                     setProductionPriority('NORMAL'); setProductionDeadline(''); setProductionNotes('');
+                    setPaymentMethod('CASH'); setSelectedBankId('');
                     setReceipt(snap);
                 }
             });
@@ -518,7 +526,62 @@ export default function POSPage() {
                                             </div>
                                         )}
 
-                                        <p className="text-sm font-semibold text-primary mt-1">Rp {item.price.toLocaleString('id-ID')}</p>
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                            {priceEditState?.lineId === item.lineId ? (
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-xs text-muted-foreground">Rp</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="any"
+                                                        autoFocus
+                                                        value={priceEditState.value}
+                                                        onChange={e => setPriceEditState({ lineId: item.lineId, value: e.target.value })}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') {
+                                                                const v = Number(priceEditState.value);
+                                                                updateCustomPrice(item.lineId, (!isNaN(v) && v > 0) ? v : null);
+                                                                setPriceEditState(null);
+                                                            }
+                                                            if (e.key === 'Escape') setPriceEditState(null);
+                                                        }}
+                                                        className="w-28 px-2 py-0.5 text-sm font-semibold bg-background border border-primary rounded outline-none focus:ring-1 focus:ring-primary font-mono"
+                                                    />
+                                                    <button
+                                                        onClick={() => {
+                                                            const v = Number(priceEditState.value);
+                                                            updateCustomPrice(item.lineId, (!isNaN(v) && v > 0) ? v : null);
+                                                            setPriceEditState(null);
+                                                        }}
+                                                        className="p-0.5 text-emerald-500 hover:text-emerald-600 transition-colors">
+                                                        <Check className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => setPriceEditState(null)} className="p-0.5 text-muted-foreground hover:text-foreground transition-colors">
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <p className={`text-sm font-semibold ${item.customPrice != null ? 'text-amber-500' : 'text-primary'}`}>
+                                                        Rp {item.price.toLocaleString('id-ID')}
+                                                    </p>
+                                                    <button
+                                                        onClick={() => setPriceEditState({ lineId: item.lineId, value: String(item.price) })}
+                                                        className="p-0.5 text-muted-foreground hover:text-primary transition-colors"
+                                                        title="Override harga">
+                                                        <Pencil className="w-3 h-3" />
+                                                    </button>
+                                                    {item.customPrice != null && (
+                                                        <button
+                                                            onClick={() => updateCustomPrice(item.lineId, null)}
+                                                            className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                                                            title="Reset ke harga normal">
+                                                            ↺
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="flex flex-col items-end gap-2 justify-center shrink-0">

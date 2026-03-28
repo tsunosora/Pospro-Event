@@ -11,6 +11,7 @@ export const createTransaction = async (data: {
         heightCm?: number;
         unitType?: string;
         note?: string;
+        customPrice?: number;
     }[];
     paymentMethod: 'CASH' | 'QRIS' | 'BANK_TRANSFER';
     discount?: number;
@@ -28,6 +29,8 @@ export const createTransaction = async (data: {
 }) => (await api.post('/transactions', data)).data;
 export const payOffTransaction = async (id: number, data: { paymentMethod: string, bankAccountId?: number }) =>
     (await api.post(`/transactions/${id}/pay-off`, data)).data;
+export const updateTransactionPaymentMethod = async (id: number, data: { paymentMethod: string; bankAccountId?: number }) =>
+    (await api.patch(`/transactions/${id}/payment-method`, data)).data;
 
 // Bank Accounts
 export const getBankAccounts = async () => (await api.get('/bank-accounts')).data;

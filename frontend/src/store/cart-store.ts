@@ -24,6 +24,7 @@ export interface CartItem {
     pricingMode: 'UNIT' | 'AREA_BASED';
     priceTiers: PriceTier[];     // [] = no tiering, price is always pricePerUnit
     note?: string;               // operator note: design name, finishing type, custom text, etc.
+    customPrice?: number | null; // admin-overridden price; when set, replaces computed price
     // AREA_BASED only
     unitType?: 'm' | 'cm' | 'menit';
     widthCm?: number;
@@ -42,6 +43,7 @@ interface CartState {
     updateQuantity: (lineId: string, delta: number) => void;
     updateAreaDimensions: (lineId: string, widthCm: number, heightCm: number, unitType: 'm' | 'cm' | 'menit', pricePerUnitM2: number, note?: string) => void;
     updateNote: (lineId: string, note: string) => void;
+    updateCustomPrice: (lineId: string, customPrice: number | null) => void;
     clearCart: () => void;
     setDiscount: (amount: number) => void;
 
@@ -126,7 +128,9 @@ export const useCartStore = create<CartState>((set, get) => ({
             if (existing) {
                 if (trackStock && existing.qty >= Number(variant.stock)) return state;
                 const newQty = existing.qty + 1;
-                const newPrice = applyTierPrice(newQty, existing.pricePerUnit, existing.priceTiers);
+                const newPrice = existing.customPrice != null
+                    ? existing.customPrice
+                    : applyTierPrice(newQty, existing.pricePerUnit, existing.priceTiers);
                 return {
                     items: state.items.map(i =>
                         i.lineId === lineId ? { ...i, qty: newQty, price: newPrice } : i
@@ -163,6 +167,7 @@ export const useCartStore = create<CartState>((set, get) => ({
                 if (i.lineId !== lineId || i.pricingMode === 'AREA_BASED') return i;
                 const newQty = i.qty + delta;
                 if (newQty <= 0 || (i.trackStock !== false && newQty > i.stock)) return i;
+                if (i.customPrice != null) return { ...i, qty: newQty };
                 const newPrice = applyTierPrice(newQty, i.pricePerUnit, i.priceTiers);
                 return { ...i, qty: newQty, price: newPrice };
             })
@@ -182,6 +187,24 @@ export const useCartStore = create<CartState>((set, get) => ({
     updateNote: (lineId, note) => {
         set((state) => ({
             items: state.items.map(i => i.lineId === lineId ? { ...i, note } : i)
+        }));
+    },
+
+    updateCustomPrice: (lineId, customPrice) => {
+        set((state) => ({
+            items: state.items.map(i => {
+                if (i.lineId !== lineId) return i;
+                if (customPrice === null) {
+                    const { customPrice: _removed, ...rest } = i;
+                    if (i.pricingMode === 'UNIT') {
+                        return { ...rest, price: applyTierPrice(i.qty, i.pricePerUnit, i.priceTiers) };
+                    } else {
+                        const { price } = computeAreaPrice(i.widthCm!, i.heightCm!, i.pricePerUnit, i.unitType!);
+                        return { ...rest, price };
+                    }
+                }
+                return { ...i, customPrice, price: customPrice };
+            })
         }));
     },
 
