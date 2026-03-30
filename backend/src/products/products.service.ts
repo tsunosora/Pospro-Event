@@ -80,6 +80,26 @@ export class ProductsService {
         return product;
     }
 
+    async findOnePublic(id: number) {
+        const product = await this.prisma.product.findUnique({
+            where: { id },
+            include: {
+                category: true,
+                unit: true,
+                variants: {
+                    include: {
+                        priceTiers: { orderBy: { minQty: 'asc' as const } }
+                    }
+                }
+            }
+        });
+        if (!product) throw new NotFoundException(`Product #${id} not found`);
+        return {
+            ...product,
+            variants: product.variants.map(({ hpp, stock, ...rest }) => rest)
+        };
+    }
+
     async update(id: number, data: any) {
         await this.findOne(id);
         const { variants, ingredients, deletedVariantIds, ...productData } = data;

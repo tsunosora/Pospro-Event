@@ -13,8 +13,9 @@ export function MainLayout({ children }: MainLayoutProps) {
     const isLoginPage = pathname === "/login";
     const isOpnamePage = pathname.startsWith("/opname/");
     const isProduksiPage = pathname.startsWith("/produksi");
+    const isPublicProductPage = pathname.startsWith("/p/");
 
-    if (isLoginPage || isOpnamePage || isProduksiPage) {
+    if (isLoginPage || isOpnamePage || isProduksiPage || isPublicProductPage) {
         return <>{children}</>;
     }
 

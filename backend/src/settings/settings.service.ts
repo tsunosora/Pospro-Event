@@ -46,6 +46,7 @@ export class SettingsService {
         const s = await this.getSettings();
         return {
             storeName: s.storeName,
+            storePhone: s.storePhone ?? null,
             logoImageUrl: s.logoImageUrl ?? null,
             loginBgImages: s.loginBgImages ? JSON.parse(s.loginBgImages) : [],
             loginTaglines: s.loginTaglines ? JSON.parse(s.loginTaglines) : [],

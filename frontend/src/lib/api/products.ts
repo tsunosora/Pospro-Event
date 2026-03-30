@@ -84,6 +84,14 @@ export const getWasteMovements = async (variantId: number, since?: string) => {
     return (await api.get(`/stock-movements/waste?${params.toString()}`)).data;
 };
 
+// Public product detail (no JWT — untuk halaman share ke customer)
+export const getPublicProduct = async (id: number) => {
+    const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+    const res = await fetch(`${base}/products/public/${id}`);
+    if (!res.ok) throw new Error('Produk tidak ditemukan');
+    return res.json();
+};
+
 // Batches
 export const getBatches = async () => (await api.get('/batches')).data;
 export const createBatch = async (data: any) => (await api.post('/batches', data)).data;

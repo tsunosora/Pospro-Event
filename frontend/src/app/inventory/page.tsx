@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProducts, logStockMovement, deleteProduct, bulkDeleteProducts, bulkImportProducts } from '@/lib/api';
 import { downloadBulkTemplate, parseBulkExcel, BulkProductInput } from '@/lib/bulk-import';
-import { Search, Plus, Package, RefreshCw, X, Image as ImageIcon, Pencil, Trash2, ChevronDown, Filter, Download, Upload, Calculator } from 'lucide-react';
+import { Search, Plus, Package, RefreshCw, X, Image as ImageIcon, Pencil, Trash2, ChevronDown, Filter, Download, Upload, Calculator, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -57,6 +57,15 @@ export default function InventoryPage() {
         next.has(id) ? next.delete(id) : next.add(id);
         return next;
     });
+
+    const [shareToastId, setShareToastId] = useState<number | null>(null);
+    const handleShare = (productId: number) => {
+        const url = `${window.location.origin}/p/${productId}`;
+        navigator.clipboard.writeText(url).then(() => {
+            setShareToastId(productId);
+            setTimeout(() => setShareToastId(null), 2000);
+        });
+    };
 
     // Filters
     const [searchText, setSearchText] = useState('');
@@ -493,6 +502,14 @@ export default function InventoryPage() {
                                                         </button>
                                                         {isFirst && (
                                                             <>
+                                                                <button
+                                                                    onClick={() => handleShare(product.id)}
+                                                                    className="flex items-center gap-1 text-xs border border-green-200 bg-green-50 text-green-700 px-2.5 py-1.5 rounded-lg hover:bg-green-100 transition-colors"
+                                                                    title="Salin link produk"
+                                                                >
+                                                                    <Share2 className="h-3 w-3" />
+                                                                    {shareToastId === product.id ? 'Disalin!' : 'Share'}
+                                                                </button>
                                                                 <button onClick={() => router.push(`/inventory/products/${product.id}/edit`)} className="flex items-center gap-1 text-xs border border-border bg-muted/50 px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors">
                                                                     <Pencil className="h-3 w-3" /> Edit
                                                                 </button>
@@ -656,6 +673,14 @@ export default function InventoryPage() {
                                                         </button>
                                                         {isFirst && (
                                                             <>
+                                                                <button
+                                                                    onClick={() => handleShare(product.id)}
+                                                                    className="flex items-center gap-1 text-xs border border-green-200 bg-green-50 text-green-700 px-2 py-1 rounded hover:bg-green-100 transition-colors opacity-0 group-hover:opacity-100"
+                                                                    title="Salin link produk untuk customer"
+                                                                >
+                                                                    <Share2 className="h-3 w-3" />
+                                                                    {shareToastId === product.id ? 'Disalin!' : 'Share'}
+                                                                </button>
                                                                 <button onClick={() => router.push(`/inventory/products/${product.id}/edit`)} className="flex items-center gap-1 text-xs border border-border bg-muted/50 px-2 py-1 rounded hover:bg-muted transition-colors opacity-0 group-hover:opacity-100" title="Edit Produk">
                                                                     <Pencil className="h-3 w-3" /> Edit
                                                                 </button>
