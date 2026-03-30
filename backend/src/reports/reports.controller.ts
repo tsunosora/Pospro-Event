@@ -36,6 +36,7 @@ export class CloseShiftDto {
     kasbon?: { name: string; amount: number; source?: string }[];  // Kasbon karyawan
     setorKas?: { bankName: string; amount: number }[];  // Setor kas ke rekening
     tarikTunai?: { bankName: string; amount: number }[]; // Tarik tunai dari rekening ke kas
+    tukarTransferKeCash?: number; // Konversi transfer masuk menjadi kas fisik
 }
 
 @Controller('reports')
@@ -96,6 +97,7 @@ export class ReportsController {
             kasbon: body.kasbon ? JSON.parse(body.kasbon) : [],
             setorKas: body.setorKas ? JSON.parse(body.setorKas) : [],
             tarikTunai: body.tarikTunai ? JSON.parse(body.tarikTunai) : [],
+            tukarTransferKeCash: Number(body.tukarTransferKeCash || 0),
         };
 
         const uploadedPaths = files ? files.map((f) => f.path) : [];

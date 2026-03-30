@@ -635,6 +635,7 @@ model ShiftReport {
   kasbon               Json? @map("kasbon")               // [{name: string, amount: number}]
   setorKas             Json? @map("setor_kas")            // [{bankName: string, amount: number}]
   tarikTunai           Json? @map("tarik_tunai")          // [{bankName: string, amount: number}]
+  tukarTransferKeCash  Decimal @default(0) @map("tukar_transfer_ke_cash") @db.Decimal(15, 2) // Konversi transfer masuk menjadi kas fisik
 
   expensesTotal Decimal   @map("expenses_total") @db.Decimal(15, 2)
   notes         String?   @db.Text

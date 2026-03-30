@@ -25,7 +25,10 @@
       "mcp__TestSprite__testsprite_generate_code_and_execute",
       "Bash(ls:*)",
       "mcp__TestSprite__testsprite_open_test_result_dashboard",
-      "Bash(find D:FAISALappdevcomprehensive-pos-web-applicationfrontendsrc -type f \\\\\\(-name *cart* -o -name *sidebar* \\\\\\))"
+      "Bash(find D:FAISALappdevcomprehensive-pos-web-applicationfrontendsrc -type f \\\\\\(-name *cart* -o -name *sidebar* \\\\\\))",
+      "Bash(find D:FAISALappdevcomprehensive-pos-web-application -maxdepth 3 -name *testsprite* -o -name *TestSprite*)",
+      "Read(//c/Users/awokawok/.claude/**)",
+      "Bash(claude mcp:*)"
     ]
   }
 }

@@ -279,6 +279,7 @@ export class ReportsService {
                 kasbon: dto.kasbon || [],
                 setorKas: dto.setorKas || [],
                 tarikTunai: dto.tarikTunai || [],
+                tukarTransferKeCash: dto.tukarTransferKeCash || 0,
             },
         });
 
@@ -311,6 +312,7 @@ export class ReportsService {
             dto.setorKas || [],
             dto.tarikTunai || [],
             dto.reportDate,
+            dto.tukarTransferKeCash || 0,
         );
 
         this.whatsappService.sendReport(reportMsg, proofImages).catch((err) => {
@@ -332,6 +334,7 @@ export class ReportsService {
         setorKas: { bankName: string; amount: number }[] = [],
         tarikTunai: { bankName: string; amount: number }[] = [],
         reportDate?: string,
+        tukarTransferKeCash: number = 0,
     ): string {
         const formatRp = (val: number) => {
             return 'Rp ' + new Intl.NumberFormat('id-ID', {
@@ -409,6 +412,11 @@ export class ReportsService {
             });
         }
 
+        // Tukar Transfer ke Cash
+        if (tukarTransferKeCash > 0) {
+            msg += `\n💱 Tukar Transfer ke Cash : ${formatRp(tukarTransferKeCash)}\n`;
+        }
+
         // Kasbon Karyawan
         if (kasbon && kasbon.length > 0) {
             const kasbonToko = kasbon.filter(k => !k.source || k.source === 'Kas Toko');
@@ -437,7 +445,24 @@ export class ReportsService {
             }
         }
 
-        msg += `\nCash real : ${formatRp(shift.actualCash)}\n`;
+        // Hitung Saldo Kas Bersih
+        const totalCashExpenses = structuredExpenses?.['CASH']
+            ? structuredExpenses['CASH'].reduce((s, i) => s + Number(i.amount), 0)
+            : (exp.shiftExpenses || []).filter((e: any) => e.method === 'CASH').reduce((s: number, e: any) => s + e.amount, 0);
+        const totalSetorKas = setorKas.reduce((s, k) => s + Number(k.amount), 0);
+        const totalTarikTunai = tarikTunai.reduce((s, k) => s + Number(k.amount), 0);
+        const totalKasbonToko = kasbon
+            .filter(k => !k.source || k.source === 'Kas Toko')
+            .reduce((s, k) => s + Number(k.amount), 0);
+        const saldoKasBersih = Number(shift.actualCash)
+            - totalCashExpenses
+            - totalSetorKas
+            + totalTarikTunai
+            + tukarTransferKeCash
+            - totalKasbonToko;
+
+        msg += `\nCash real : ${formatRp(Number(shift.actualCash))}\n`;
+        msg += `Saldo Kas Bersih : ${formatRp(saldoKasBersih)}\n`;
         msg += `===============================\n\n`;
 
         // Saldo Laporan mBanking (yang kasir lihat di layar)

@@ -44,6 +44,7 @@ export default function CloseShiftPage() {
     const [kasbon, setKasbon] = useState<{ name: string; amount: number; source: string }[]>([]);
     const [setorKas, setSetorKas] = useState<{ bankName: string; amount: number }[]>([]);
     const [tarikTunai, setTarikTunai] = useState<{ bankName: string; amount: number }[]>([]);
+    const [tukarTransferKeCash, setTukarTransferKeCash] = useState<number>(0);
 
     // ─── State: Catatan & Bukti ──────────────────────────────────────────
     const [notes, setNotes] = useState('');
@@ -153,9 +154,11 @@ export default function CloseShiftPage() {
     // ─── Adjusted Expected ───────────────────────────────────────────────
     // Setor kas: kas berkurang, bank bertambah
     // Tarik tunai: kas bertambah, bank berkurang
+    // Tukar transfer ke cash: kas bertambah (dari konversi transfer)
     const adjustedExpectedCash = (shiftData?.expectedCash || 0)
         - getTotalSetorKas()
         + getTotalTarikTunai()
+        + tukarTransferKeCash
         - getCashExpenseTotal()
         - getTotalKasbonToko();
     const getAdjustedExpectedBank = (bankName: string) => {
@@ -211,6 +214,7 @@ export default function CloseShiftPage() {
         formData.append('kasbon', JSON.stringify(kasbon.filter(k => k.name && k.amount > 0)));
         formData.append('setorKas', JSON.stringify(setorKas.filter(s => s.bankName && s.amount > 0)));
         formData.append('tarikTunai', JSON.stringify(tarikTunai.filter(s => s.bankName && s.amount > 0)));
+        formData.append('tukarTransferKeCash', String(tukarTransferKeCash || 0));
 
         files.forEach(file => formData.append('proofImages', file));
         closeShiftMutation.mutate(formData);
@@ -586,6 +590,29 @@ export default function CloseShiftPage() {
                                     {tarikTunai.length > 0 && (
                                         <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
                                             💡 Target kas tunai otomatis bertambah {formatCurrency(getTotalTarikTunai())} — target saldo rekening asal berkurang.
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Tukar Transfer ke Cash */}
+                                <div className="space-y-2">
+                                    <p className="font-semibold text-slate-700 text-sm flex items-center gap-1.5">
+                                        <Banknote className="w-4 h-4 text-violet-600" /> Tukar Transfer ke Cash
+                                    </p>
+                                    <p className="text-xs text-slate-500">Jumlah transfer masuk yang dikonversi menjadi uang tunai (contoh: tarik tunai dari rekening transfer).</p>
+                                    <div className="flex gap-2 items-center">
+                                        <span className="text-slate-400 text-xs shrink-0">Rp</span>
+                                        <Input
+                                            type="number" min="0"
+                                            className="text-right text-sm"
+                                            value={tukarTransferKeCash || ''}
+                                            onChange={(e) => setTukarTransferKeCash(Number(e.target.value) || 0)}
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                    {tukarTransferKeCash > 0 && (
+                                        <p className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded px-2 py-1">
+                                            💡 Target kas tunai otomatis bertambah {formatCurrency(tukarTransferKeCash)} dari konversi transfer.
                                         </p>
                                     )}
                                 </div>
