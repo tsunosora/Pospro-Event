@@ -36,24 +36,30 @@ type CashflowEntry = {
     bankAccount?: { bankName: string; accountNumber: string } | null;
 };
 
-type PeriodKey = 'this_month' | 'last_3_months' | 'this_year' | 'all';
+type PeriodKey = 'today' | 'yesterday' | 'this_month' | 'last_3_months' | 'this_year' | 'all' | 'custom';
 
 const PERIODS: { key: PeriodKey; label: string }[] = [
+    { key: 'today', label: 'Hari Ini' },
+    { key: 'yesterday', label: 'Kemarin' },
     { key: 'this_month', label: 'Bulan Ini' },
     { key: 'last_3_months', label: '3 Bulan' },
     { key: 'this_year', label: 'Tahun Ini' },
     { key: 'all', label: 'Semua' },
+    { key: 'custom', label: 'Kustom' },
 ];
 
 const INCOME_CATEGORIES = ['Penjualan Lunas', 'Pembayaran DP', 'Pelunasan DP', 'Modal Usaha', 'Investasi', 'Pinjaman', 'Lainnya'];
 const EXPENSE_CATEGORIES = ['Operasional', 'Bahan Baku', 'Gaji Karyawan', 'Sewa', 'Listrik & Air', 'Transportasi', 'Marketing', 'Pemeliharaan', 'Pajak', 'Lainnya'];
 const PLATFORM_OPTIONS = ['POS (Offline)', 'Tokopedia', 'Shopee', 'Lincah', 'TikTok Shop', 'Lainnya'];
 
-function getPeriodDates(period: PeriodKey): { startDate?: string; endDate?: string } {
+function getPeriodDates(period: PeriodKey, customStart?: string, customEnd?: string): { startDate?: string; endDate?: string } {
     const now = dayjs();
+    if (period === 'today') return { startDate: now.format('YYYY-MM-DD'), endDate: now.format('YYYY-MM-DD') };
+    if (period === 'yesterday') { const y = now.subtract(1, 'day'); return { startDate: y.format('YYYY-MM-DD'), endDate: y.format('YYYY-MM-DD') }; }
     if (period === 'this_month') return { startDate: now.startOf('month').format('YYYY-MM-DD'), endDate: now.endOf('month').format('YYYY-MM-DD') };
     if (period === 'last_3_months') return { startDate: now.subtract(2, 'month').startOf('month').format('YYYY-MM-DD'), endDate: now.endOf('month').format('YYYY-MM-DD') };
     if (period === 'this_year') return { startDate: now.startOf('year').format('YYYY-MM-DD'), endDate: now.endOf('year').format('YYYY-MM-DD') };
+    if (period === 'custom') return { startDate: customStart || undefined, endDate: customEnd || undefined };
     return {};
 }
 
@@ -381,7 +387,9 @@ export default function CashflowPage() {
 
     // Period filter
     const [period, setPeriod] = useState<PeriodKey>('this_month');
-    const { startDate, endDate } = getPeriodDates(period);
+    const [customStart, setCustomStart] = useState('');
+    const [customEnd, setCustomEnd] = useState('');
+    const { startDate, endDate } = getPeriodDates(period, customStart, customEnd);
 
     const { data: bankAccounts = [] } = useQuery({
         queryKey: ['bank-accounts'],
@@ -570,15 +578,40 @@ export default function CashflowPage() {
             </div>
 
             {/* Period filter */}
-            <div className="flex items-center gap-2 flex-wrap">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Periode:</span>
-                {PERIODS.map(p => (
-                    <button key={p.key} onClick={() => setPeriod(p.key)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${period === p.key ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'}`}>
-                        {p.label}
-                    </button>
-                ))}
+            <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Periode:</span>
+                    {PERIODS.map(p => (
+                        <button key={p.key} onClick={() => setPeriod(p.key)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${period === p.key ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'}`}>
+                            {p.label}
+                        </button>
+                    ))}
+                </div>
+                {period === 'custom' && (
+                    <div className="flex flex-wrap items-center gap-3 pl-6">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm text-muted-foreground whitespace-nowrap">Dari</label>
+                            <input
+                                type="date"
+                                value={customStart}
+                                onChange={e => setCustomStart(e.target.value)}
+                                className="border border-border rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm text-muted-foreground whitespace-nowrap">Sampai</label>
+                            <input
+                                type="date"
+                                value={customEnd}
+                                onChange={e => setCustomEnd(e.target.value)}
+                                min={customStart}
+                                className="border border-border rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Summary cards */}

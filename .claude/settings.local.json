@@ -34,7 +34,8 @@
       "Bash(npm install:*)",
       "Read(//backend/**)",
       "Bash(ls -la /backend)",
-      "Bash(sqlite3 /dev/null \"SELECT name FROM sqlite_master;\")"
+      "Bash(sqlite3 /dev/null \"SELECT name FROM sqlite_master;\")",
+      "Bash(find D:WEBDEVPos-Web-Application -type f -path */src/* -name *controller*)"
     ]
   }
 }

@@ -497,8 +497,16 @@ export class TransactionsService {
         }
     }
 
-    async findAll() {
+    async findAll(startDate?: string, endDate?: string) {
+        const where: any = {};
+        if (startDate && endDate) {
+            where.createdAt = {
+                gte: new Date(startDate),
+                lte: new Date(endDate + 'T23:59:59.999Z'),
+            };
+        }
         return this.prisma.transaction.findMany({
+            where,
             include: {
                 items: {
                     include: { productVariant: { include: { product: true } } }

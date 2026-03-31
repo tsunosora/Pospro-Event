@@ -6,13 +6,53 @@ import { getSalesSummary, getTransactions, getSettings, getBankAccounts } from '
 import { updateTransactionPaymentMethod } from '@/lib/api/transactions';
 import { mapTransactionToReceipt, handlePrintSnap, handleShareWA } from '@/lib/receipt';
 import { exportToExcel, exportToPDF } from '@/lib/export';
-import { Download, BarChart, CreditCard, Banknote, Landmark, X, Receipt, Printer, MessageCircle, FileSpreadsheet, Pencil, Check } from "lucide-react";
+import { Download, BarChart, CreditCard, Banknote, Landmark, X, Receipt, Printer, MessageCircle, FileSpreadsheet, Pencil, Check, CalendarDays } from "lucide-react";
 import dayjs from "dayjs";
+
+type SalesPeriodKey = 'today' | 'yesterday' | 'this_week' | 'this_month' | 'last_month' | 'this_year' | 'all' | 'custom';
+
+const SALES_PERIODS: { key: SalesPeriodKey; label: string }[] = [
+    { key: 'today', label: 'Hari Ini' },
+    { key: 'yesterday', label: 'Kemarin' },
+    { key: 'this_week', label: 'Minggu Ini' },
+    { key: 'this_month', label: 'Bulan Ini' },
+    { key: 'last_month', label: 'Bulan Lalu' },
+    { key: 'this_year', label: 'Tahun Ini' },
+    { key: 'all', label: 'Semua' },
+    { key: 'custom', label: 'Kustom' },
+];
+
+function getSalesPeriodDates(period: SalesPeriodKey, customStart: string, customEnd: string): { startDate?: string; endDate?: string } {
+    const now = dayjs();
+    switch (period) {
+        case 'today': return { startDate: now.format('YYYY-MM-DD'), endDate: now.format('YYYY-MM-DD') };
+        case 'yesterday': { const y = now.subtract(1, 'day'); return { startDate: y.format('YYYY-MM-DD'), endDate: y.format('YYYY-MM-DD') }; }
+        case 'this_week': return { startDate: now.startOf('week').format('YYYY-MM-DD'), endDate: now.endOf('week').format('YYYY-MM-DD') };
+        case 'this_month': return { startDate: now.startOf('month').format('YYYY-MM-DD'), endDate: now.endOf('month').format('YYYY-MM-DD') };
+        case 'last_month': { const lm = now.subtract(1, 'month'); return { startDate: lm.startOf('month').format('YYYY-MM-DD'), endDate: lm.endOf('month').format('YYYY-MM-DD') }; }
+        case 'this_year': return { startDate: now.startOf('year').format('YYYY-MM-DD'), endDate: now.endOf('year').format('YYYY-MM-DD') };
+        case 'custom': return { startDate: customStart || undefined, endDate: customEnd || undefined };
+        default: return {};
+    }
+}
 
 export default function SalesReportPage() {
     const queryClient = useQueryClient();
-    const { data: summary, isLoading: isLoadingSummary } = useQuery({ queryKey: ['salesSummary'], queryFn: () => getSalesSummary() });
-    const { data: transactions, isLoading: isLoadingTxs } = useQuery({ queryKey: ['transactions'], queryFn: getTransactions });
+
+    const [period, setPeriod] = useState<SalesPeriodKey>('this_month');
+    const [customStart, setCustomStart] = useState('');
+    const [customEnd, setCustomEnd] = useState('');
+
+    const { startDate, endDate } = getSalesPeriodDates(period, customStart, customEnd);
+
+    const { data: summary, isLoading: isLoadingSummary } = useQuery({
+        queryKey: ['salesSummary', startDate, endDate],
+        queryFn: () => getSalesSummary(startDate, endDate),
+    });
+    const { data: transactions, isLoading: isLoadingTxs } = useQuery({
+        queryKey: ['transactions', startDate, endDate],
+        queryFn: () => getTransactions(startDate, endDate),
+    });
     const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: getSettings });
     const { data: bankAccounts } = useQuery({ queryKey: ['bank-accounts'], queryFn: getBankAccounts });
 
@@ -23,8 +63,8 @@ export default function SalesReportPage() {
         mutationFn: ({ id, method, bankId }: { id: number; method: string; bankId: string }) =>
             updateTransactionPaymentMethod(id, { paymentMethod: method, bankAccountId: bankId ? Number(bankId) : undefined }),
         onSuccess: (updated) => {
-            queryClient.invalidateQueries({ queryKey: ['transactions'] });
-            queryClient.invalidateQueries({ queryKey: ['salesSummary'] });
+            queryClient.invalidateQueries({ queryKey: ['transactions', startDate, endDate] });
+            queryClient.invalidateQueries({ queryKey: ['salesSummary', startDate, endDate] });
             setSelectedTransaction((prev: any) => prev ? { ...prev, paymentMethod: updated.paymentMethod, bankAccountId: updated.bankAccountId } : null);
             setEditPayment(null);
         }
@@ -66,12 +106,17 @@ export default function SalesReportPage() {
         return <div className="flex h-screen items-center justify-center text-muted-foreground">Memuat Laporan Kelola Penjualan...</div>;
     }
 
+    const periodLabel = SALES_PERIODS.find(p => p.key === period)?.label ?? '';
+
     return (
         <div className="space-y-6">
             <div className="sm:flex sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Laporan Penjualan</h1>
-                    <p className="mt-1 text-sm text-muted-foreground">Ringkasan transaksi riil (Semua Waktu).</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Ringkasan transaksi riil — <span className="font-medium text-primary">{periodLabel}</span>
+                        {period === 'custom' && startDate && endDate ? ` (${dayjs(startDate).format('D MMM')} – ${dayjs(endDate).format('D MMM YYYY')})` : ''}
+                    </p>
                 </div>
                 <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
                     <button onClick={handleExportExcel} className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 text-green-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-500/20 transition-colors shadow-sm">
@@ -83,6 +128,52 @@ export default function SalesReportPage() {
                         Export PDF
                     </button>
                 </div>
+            </div>
+
+            {/* Period filter */}
+            <div className="glass rounded-xl border border-border p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <CalendarDays className="h-4 w-4" />
+                    Filter Periode
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {SALES_PERIODS.map(p => (
+                        <button
+                            key={p.key}
+                            onClick={() => setPeriod(p.key)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                period === p.key
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                            }`}
+                        >
+                            {p.label}
+                        </button>
+                    ))}
+                </div>
+                {period === 'custom' && (
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm text-muted-foreground whitespace-nowrap">Dari</label>
+                            <input
+                                type="date"
+                                value={customStart}
+                                onChange={e => setCustomStart(e.target.value)}
+                                className="border border-border rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm text-muted-foreground whitespace-nowrap">Sampai</label>
+                            <input
+                                type="date"
+                                value={customEnd}
+                                onChange={e => setCustomEnd(e.target.value)}
+                                min={customStart}
+                                className="border border-border rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

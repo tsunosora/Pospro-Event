@@ -1,7 +1,13 @@
 import api from './client';
 
 // Transactions
-export const getTransactions = async () => (await api.get('/transactions')).data;
+export const getTransactions = async (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const query = params.toString();
+    return (await api.get(`/transactions${query ? `?${query}` : ''}`)).data;
+};
 export const getTransactionById = async (id: number) => (await api.get(`/transactions/${id}`)).data;
 export const createTransaction = async (data: {
     items: {

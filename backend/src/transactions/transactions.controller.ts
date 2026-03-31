@@ -26,8 +26,11 @@ export class TransactionsController {
     }
 
     @Get()
-    findAll() {
-        return this.transactionsService.findAll();
+    findAll(
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+    ) {
+        return this.transactionsService.findAll(startDate, endDate);
     }
 
     @Get('dashboard/metrics')
@@ -41,9 +44,11 @@ export class TransactionsController {
     }
 
     @Get('reports/summary')
-    getSummaryReport() {
-        // Todo: accept startDate/endDate query parameters later if needed
-        return this.transactionsService.getSummaryReport();
+    getSummaryReport(
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+    ) {
+        return this.transactionsService.getSummaryReport(startDate, endDate);
     }
 
     @Get(':id')
