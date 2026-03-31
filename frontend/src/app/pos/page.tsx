@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useCartStore, CartItem } from '@/store/cart-store';
 import { useState, useMemo, useCallback } from 'react';
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
+import { useNotificationStore } from '@/store/notification-store';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -98,6 +99,7 @@ export default function POSPage() {
     const taxAmount = _subtotal * (taxRate / 100);
     const grandTotal = _subtotal + taxAmount;
     const subtotal = _subtotal;
+    const addNotification = useNotificationStore(s => s.addNotification);
 
     const transactionMutation = useMutation({
         mutationFn: createTransaction,
@@ -298,6 +300,19 @@ export default function POSPage() {
                     setProductionPriority('NORMAL'); setProductionDeadline(''); setProductionNotes('');
                     setPaymentMethod('CASH'); setSelectedBankId('');
                     setReceipt(snap);
+
+                    // Notif transaksi berhasil
+                    const namaCustomer = snap.customerName || 'Pelanggan';
+                    const jumlahItem = snap.items.length;
+                    const totalFmt = `Rp ${snap.grandTotal.toLocaleString('id-ID')}`;
+                    const metodeFmt = snap.paymentMethod === 'CASH' ? 'Tunai'
+                        : snap.paymentMethod === 'QRIS' ? 'QRIS'
+                        : 'Transfer';
+                    addNotification({
+                        type: 'transaction',
+                        title: '✅ Order Berhasil Masuk',
+                        message: `${namaCustomer} • ${jumlahItem} item • ${totalFmt} • ${metodeFmt}`,
+                    });
                 }
             });
         }

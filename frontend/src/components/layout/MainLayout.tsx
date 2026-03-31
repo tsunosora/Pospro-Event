@@ -1,11 +1,28 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { ShiftReminderBanner } from "./ShiftReminderBanner";
+import { useNotificationStream } from "@/hooks/useNotificationStream";
+import { useShiftReminder } from "@/hooks/useShiftReminder";
+import { useNotificationStore } from "@/store/notification-store";
 
 interface MainLayoutProps {
     children: React.ReactNode;
+}
+
+function AppInitializer() {
+    const loadFromIDB = useNotificationStore(s => s.loadFromIDB);
+    useNotificationStream();
+    useShiftReminder();
+
+    useEffect(() => {
+        loadFromIDB();
+    }, [loadFromIDB]);
+
+    return null;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
@@ -21,6 +38,8 @@ export function MainLayout({ children }: MainLayoutProps) {
 
     return (
         <div className="flex h-screen overflow-hidden bg-background">
+            <AppInitializer />
+            <ShiftReminderBanner />
             <Sidebar />
             <div className="flex flex-1 flex-col overflow-hidden">
                 <Header />

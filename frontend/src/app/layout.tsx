@@ -10,7 +10,6 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "PosPro - Comprehensive POS Web Application",
   description: "All-in-one POS for retail, cafe, and mobile vendors",
-  manifest: "/manifest.json",
 };
 
 export default function RootLayout({

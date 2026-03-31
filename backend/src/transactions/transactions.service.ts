@@ -1,10 +1,14 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentMethod, TransactionStatus, CashflowType } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class TransactionsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationsService: NotificationsService,
+    ) { }
 
     async create(data: {
         items: {
@@ -355,7 +359,142 @@ export class TransactionsService {
             }
 
             return transaction;
+        }).then(async (result) => {
+            // Cek stok menipis setelah transaksi selesai (di luar prisma.$transaction)
+            this.checkLowStock(data.items.map(i => i.productVariantId)).catch(() => { });
+
+            // Kirim notif transaksi baru ke Discord
+            this.notifyNewTransactionDiscord(result, data).catch(() => { });
+
+            return result;
         });
+    }
+
+    private async notifyNewTransactionDiscord(transaction: any, data: any) {
+        const settings = await this.prisma.storeSettings.findFirst();
+        const discordUrl = (settings as any)?.discordWebhookUrl;
+        if (!discordUrl) return;
+        if ((settings as any)?.notifyNewTransaction === false) return;
+
+        // Ambil nama produk dari DB
+        const variantIds = data.items.map((i: any) => i.productVariantId);
+        const variants = await this.prisma.productVariant.findMany({
+            where: { id: { in: variantIds } },
+            include: { product: true },
+        });
+        const variantMap = new Map(variants.map(v => [v.id, v]));
+
+        // Bangun detail per item
+        const itemLines = data.items.map((item: any, idx: number) => {
+            const variant = variantMap.get(item.productVariantId);
+            const productName = variant
+                ? (variant.variantName
+                    ? `${(variant as any).product?.name} - ${variant.variantName}`
+                    : (variant as any).product?.name || 'Produk')
+                : `Produk #${item.productVariantId}`;
+
+            const txItem = (transaction.items || [])[idx];
+            const price = txItem ? Number(txItem.priceAtTime) : 0;
+            const priceStr = `Rp ${price.toLocaleString('id-ID')}`;
+
+            // Format dimensi untuk produk area-based
+            let dimensiStr = '';
+            if (item.widthCm && item.heightCm) {
+                const unit = item.unitType || 'm';
+                if (unit === 'menit') {
+                    dimensiStr = ` [${item.widthCm} unit]`;
+                } else {
+                    const suffix = unit === 'cm' ? 'cm' : 'm';
+                    dimensiStr = ` [${item.widthCm}×${item.heightCm}${suffix}]`;
+                }
+                if (item.pcs && item.pcs > 1) dimensiStr += ` ×${item.pcs}pcs`;
+            } else if (item.quantity > 1) {
+                dimensiStr = ` ×${item.quantity}`;
+            }
+
+            const noteStr = item.note ? `\n     📝 _${item.note}_` : '';
+
+            return `  ${idx + 1}. **${productName}**${dimensiStr} — ${priceStr}${noteStr}`;
+        }).join('\n');
+
+        const customerName = data.customerName || 'Umum';
+        const grandTotal = Number(transaction.grandTotal).toLocaleString('id-ID');
+        const paymentLabel = data.paymentMethod === 'CASH' ? 'Tunai'
+            : data.paymentMethod === 'QRIS' ? 'QRIS'
+            : 'Transfer';
+        const invoiceNumber = transaction.invoiceNumber || '-';
+        const cashierLine = data.cashierName ? `\n👤 Kasir: ${data.cashierName}` : '';
+        const employeeLine = data.employeeName ? `\n🧑‍🔧 Desainer/Operator: ${data.employeeName}` : '';
+
+        // Estimasi deadline / jatuh tempo
+        let deadlineLine = '';
+        if (data.productionDeadline) {
+            const dl = new Date(data.productionDeadline);
+            const fmt = dl.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+            deadlineLine = `\n📅 Estimasi Selesai: **${fmt}**`;
+        } else if (data.dueDate) {
+            const dl = new Date(data.dueDate);
+            const fmt = dl.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+            deadlineLine = `\n📅 Jatuh Tempo: **${fmt}**`;
+        }
+
+        const priorityLine = data.productionPriority === 'EXPRESS'
+            ? '\n🚀 **PRIORITAS: EXPRESS**'
+            : '';
+
+        const orderNotes = data.productionNotes
+            ? `\n📋 Catatan Order: _${data.productionNotes}_`
+            : '';
+
+        await this.notificationsService.sendToDiscord(
+            discordUrl,
+            `🛒 **Order Berhasil Masuk**\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📋 Invoice: \`${invoiceNumber}\`\n` +
+            `👥 Pelanggan: **${customerName}**` +
+            cashierLine +
+            employeeLine +
+            deadlineLine +
+            priorityLine +
+            orderNotes +
+            `\n\n**🧾 Detail Item:**\n${itemLines}\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n` +
+            `💰 Total: **Rp ${grandTotal}**  |  💳 ${paymentLabel}`,
+        );
+    }
+
+    private async checkLowStock(variantIds: number[]) {
+        const settings = await this.prisma.storeSettings.findFirst();
+        if (!(settings as any)?.notifyLowStock) return;
+        const threshold = (settings as any)?.lowStockThreshold ?? 5;
+
+        const variants = await this.prisma.productVariant.findMany({
+            where: {
+                id: { in: variantIds },
+                product: { trackStock: true }, // Hanya produk yang tracking stok
+            },
+            include: { product: true },
+        });
+
+        for (const variant of variants) {
+            if (variant.stock <= threshold) {
+                const name = variant.variantName
+                    ? `${(variant as any).product?.name} - ${variant.variantName}`
+                    : (variant as any).product?.name || 'Produk';
+                this.notificationsService.emit({
+                    type: 'stock',
+                    title: 'Stok Hampir Habis',
+                    message: `${name}: sisa ${variant.stock} ${(variant as any).product?.unit || 'pcs'}`,
+                });
+                const discordUrl = (settings as any)?.discordWebhookUrl;
+                if (discordUrl) {
+                    await this.notificationsService.sendToDiscord(
+                        discordUrl,
+                        `⚠️ **Stok Hampir Habis**\n${name}: sisa **${variant.stock}** unit`,
+                    );
+                }
+            }
+        }
     }
 
     async findAll() {

@@ -28,7 +28,10 @@
       "Bash(find D:FAISALappdevcomprehensive-pos-web-applicationfrontendsrc -type f \\\\\\(-name *cart* -o -name *sidebar* \\\\\\))",
       "Bash(find D:FAISALappdevcomprehensive-pos-web-application -maxdepth 3 -name *testsprite* -o -name *TestSprite*)",
       "Read(//c/Users/awokawok/.claude/**)",
-      "Bash(claude mcp:*)"
+      "Bash(claude mcp:*)",
+      "Bash(find /d/FAISAL/appdev/comprehensive-pos-web-application/frontend/.next -type f -name *service* -o -name *sw*)",
+      "Bash(find D:FAISALappdevcomprehensive-pos-web-application/backend/src/settings -type f -name *.ts -o -name *.js)",
+      "Bash(npm install:*)"
     ]
   }
 }

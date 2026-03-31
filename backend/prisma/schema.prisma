@@ -410,6 +410,16 @@ model StoreSettings {
   loginBgImages         String?   @map("login_bg_images") @db.Text
   loginTaglines         String?   @map("login_taglines") @db.Text
   operatorPin           String?   @map("operator_pin") @db.VarChar(10)
+  notifyNewTransaction  Boolean   @default(true) @map("notify_new_transaction")
+  notifyLowStock        Boolean   @default(true) @map("notify_low_stock")
+  notifyOfflineSync     Boolean   @default(true) @map("notify_offline_sync")
+  notifyShiftReminder   Boolean   @default(false) @map("notify_shift_reminder")
+  lowStockThreshold     Int       @default(5) @map("low_stock_threshold")
+  shiftReminderTime     String?   @map("shift_reminder_time") @db.VarChar(5)
+  shiftReminderTime2    String?   @map("shift_reminder_time_2") @db.VarChar(5)
+  notifyGithubCommit     Boolean   @default(true) @map("notify_github_commit")
+  discordWebhookUrl      String?   @map("discord_webhook_url") @db.Text
+  githubWebhookSecret    String?   @map("github_webhook_secret") @db.VarChar(200)
   createdAt             DateTime? @default(now()) @map("created_at")
   updatedAt             DateTime? @default(now()) @updatedAt @map("updated_at")
 

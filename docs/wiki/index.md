@@ -35,6 +35,9 @@ features:
   - icon: 🗺️
     title: Peta Cuan Lokasi
     details: Visualisasi cabang toko dan kompetitor di peta interaktif. Cari bisnis sejenis di sekitar lokasi untuk analisis ekspansi.
+  - icon: 🔔
+    title: Notifikasi Real-Time & Webhook
+    details: Bell icon dengan riwayat notifikasi, popup pengingat shift, integrasi Discord webhook, dan notifikasi commit GitHub langsung di aplikasi.
   - icon: 💾
     title: Backup & Deployment Mandiri
     details: Export backup database ke ZIP, restore kapan saja. Pasang di home server atau VPS dengan panduan deployment lengkap.

@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { getOfflineTransactions, clearOfflineTransaction } from "./sync";
 import { createTransaction } from "./api";
 import { Wifi, WifiOff } from "lucide-react";
+import { useNotificationStore } from "@/store/notification-store";
 
 export function SyncManager() {
     const [isOnline, setIsOnline] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
+    const addNotification = useNotificationStore(s => s.addNotification);
 
     useEffect(() => {
         // Initial check
@@ -57,8 +59,12 @@ export function SyncManager() {
                     }
                 }
 
-                // Alert sync success if it was offline before
-                alert(`${offlineTxs.length} transaksi offline berhasil disinkronkan!`);
+                // Notify sync success via notification store
+                addNotification({
+                    type: 'sync',
+                    title: 'Sinkronisasi Selesai',
+                    message: `${offlineTxs.length} transaksi offline berhasil disinkronkan ke server.`,
+                });
             }
         } catch (error) {
             console.error("Error during sync", error);

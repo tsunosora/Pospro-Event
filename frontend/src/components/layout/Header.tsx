@@ -1,12 +1,44 @@
 "use client";
 
-import { Bell, User, Menu, ChevronDown, LogOut, FileText, Settings, Building2, AlertCircle } from "lucide-react";
+import { Bell, User, Menu, ChevronDown, LogOut, FileText, Settings, Building2, ShoppingCart, Package, RefreshCw, GitCommit, Info, CheckCheck, Trash2 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getSettings } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
+import { useNotificationStore, AppNotification } from "@/store/notification-store";
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function relativeTime(timestamp: number): string {
+    const diff = (Date.now() - timestamp) / 1000;
+    if (diff < 60) return 'Baru saja';
+    if (diff < 3600) return `${Math.floor(diff / 60)} menit lalu`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} jam lalu`;
+    return `${Math.floor(diff / 86400)} hari lalu`;
+}
+
+function NotifIcon({ type }: { type: AppNotification['type'] }) {
+    const base = "w-4 h-4";
+    switch (type) {
+        case 'transaction': return <ShoppingCart className={`${base} text-emerald-600`} />;
+        case 'stock': return <Package className={`${base} text-amber-600`} />;
+        case 'sync': return <RefreshCw className={`${base} text-blue-600`} />;
+        case 'shift': return <FileText className={`${base} text-indigo-600`} />;
+        case 'update': return <GitCommit className={`${base} text-violet-600`} />;
+        default: return <Info className={`${base} text-slate-500`} />;
+    }
+}
+
+function notifBg(type: AppNotification['type']): string {
+    switch (type) {
+        case 'transaction': return 'bg-emerald-100';
+        case 'stock': return 'bg-amber-100';
+        case 'sync': return 'bg-blue-100';
+        case 'shift': return 'bg-indigo-100';
+        case 'update': return 'bg-violet-100';
+        default: return 'bg-slate-100';
+    }
+}
 
 export function Header() {
     const toggleSidebar = useUIStore((state) => state.toggleSidebar);
@@ -16,17 +48,24 @@ export function Header() {
     const dropdownRef = useRef<HTMLDivElement>(null);
     const notifRef = useRef<HTMLDivElement>(null);
 
-    // Ambil nama dan logo toko dari settings
+    // Notification store
+    const notifications = useNotificationStore(s => s.notifications);
+    const unreadCount = useNotificationStore(s => s.unreadCount);
+    const markRead = useNotificationStore(s => s.markRead);
+    const markAllRead = useNotificationStore(s => s.markAllRead);
+    const clearAll = useNotificationStore(s => s.clearAll);
+
+    // Store settings
     const { data: settings } = useQuery({
         queryKey: ['store-settings'],
         queryFn: getSettings,
-        staleTime: 5 * 60 * 1000, // cache 5 menit
+        staleTime: 5 * 60 * 1000,
     });
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     const logoUrl = settings?.logoImageUrl ? `${API_URL}${settings.logoImageUrl}` : null;
 
-    // Ambil nama user dari localStorage/JWT
+    // Decode user from JWT
     const [userName, setUserName] = useState('Admin');
     useEffect(() => {
         try {
@@ -39,15 +78,11 @@ export function Header() {
         } catch { /* ignore */ }
     }, []);
 
-    // Tutup dropdown saat klik di luar
+    // Close dropdowns on outside click
     useEffect(() => {
         function handleClick(e: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-                setDropdownOpen(false);
-            }
-            if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-                setNotifOpen(false);
-            }
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setDropdownOpen(false);
+            if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
         }
         document.addEventListener('mousedown', handleClick);
         return () => document.removeEventListener('mousedown', handleClick);
@@ -63,6 +98,11 @@ export function Header() {
     };
 
     const storeName = settings?.storeName || 'PosPro';
+    const visibleNotifs = notifications.slice(0, 12);
+
+    const handleBellClick = () => {
+        setNotifOpen(prev => !prev);
+    };
 
     return (
         <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background/80 backdrop-blur-md px-4 sm:gap-x-6 sm:px-6 lg:px-8">
@@ -76,7 +116,7 @@ export function Header() {
 
                 <div className="flex items-center gap-x-3 lg:gap-x-5">
 
-                    {/* Tombol Laporan Shift */}
+                    {/* Laporan Shift Button */}
                     <button
                         type="button"
                         onClick={() => router.push('/pos/close-shift')}
@@ -86,46 +126,103 @@ export function Header() {
                         <span className="hidden sm:inline">Laporan Shift</span>
                     </button>
 
-                    {/* Notifikasi Bell */}
+                    {/* ── Notification Bell ─────────────────────────────────── */}
                     <div className="relative" ref={notifRef}>
                         <button
                             type="button"
-                            onClick={() => setNotifOpen(!notifOpen)}
+                            onClick={handleBellClick}
                             className="-m-2.5 p-2.5 text-muted-foreground hover:text-foreground transition-colors relative"
+                            aria-label="Notifikasi"
                         >
                             <Bell className="h-5 w-5" />
-                            <span className="absolute top-2.5 right-2.5 block h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
+                            {unreadCount > 0 && (
+                                <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-background">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
                         </button>
 
                         {notifOpen && (
-                            <div className="absolute right-0 mt-2 w-80 rounded-xl bg-background shadow-xl ring-1 ring-black/5 border border-border overflow-hidden z-50">
-                                <div className="flex items-center justify-between px-4 py-3 bg-muted/50 border-b">
-                                    <p className="font-semibold text-sm">Notifikasi</p>
-                                    <span className="text-xs text-muted-foreground">Hari ini</span>
-                                </div>
-                                <div className="divide-y divide-border">
-                                    <div className="flex gap-3 p-4 hover:bg-muted/40 cursor-pointer">
-                                        <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                                            <AlertCircle className="w-4 h-4 text-amber-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium">Shift belum ditutup</p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">Jangan lupa kirim laporan tutup shift sebelum pulang.</p>
-                                        </div>
+                            <div className="absolute right-0 mt-2 w-96 rounded-xl bg-background shadow-2xl ring-1 ring-black/5 border border-border overflow-hidden z-50 flex flex-col max-h-[80vh]">
+                                {/* Header */}
+                                <div className="flex items-center justify-between px-4 py-3 bg-muted/50 border-b shrink-0">
+                                    <div className="flex items-center gap-2">
+                                        <Bell className="w-4 h-4 text-muted-foreground" />
+                                        <p className="font-semibold text-sm">Notifikasi</p>
+                                        {unreadCount > 0 && (
+                                            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                                {unreadCount}
+                                            </span>
+                                        )}
                                     </div>
-                                    <div className="flex gap-3 p-4 hover:bg-muted/40 cursor-pointer">
-                                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                                            <Building2 className="w-4 h-4 text-blue-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium">Rekening Bank</p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">Pastikan saldo awal rekening sudah diatur di Pengaturan.</p>
-                                        </div>
+                                    <div className="flex items-center gap-1">
+                                        {unreadCount > 0 && (
+                                            <button
+                                                onClick={markAllRead}
+                                                className="flex items-center gap-1 text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-muted transition-colors"
+                                                title="Tandai semua dibaca"
+                                            >
+                                                <CheckCheck className="w-3.5 h-3.5" />
+                                                <span className="hidden sm:inline">Semua dibaca</span>
+                                            </button>
+                                        )}
+                                        {notifications.length > 0 && (
+                                            <button
+                                                onClick={clearAll}
+                                                className="flex items-center gap-1 text-xs text-red-500 hover:underline px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                                title="Hapus semua"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="px-4 py-2 text-center border-t">
-                                    <button onClick={() => { router.push('/settings'); setNotifOpen(false); }} className="text-xs text-primary hover:underline">
-                                        Buka Pengaturan
+
+                                {/* List */}
+                                <div className="overflow-y-auto flex-1 divide-y divide-border">
+                                    {visibleNotifs.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
+                                            <Bell className="w-8 h-8 opacity-30" />
+                                            <p className="text-sm">Tidak ada notifikasi</p>
+                                        </div>
+                                    ) : (
+                                        visibleNotifs.map(notif => (
+                                            <div
+                                                key={notif.id}
+                                                onClick={() => markRead(notif.id)}
+                                                className={`flex gap-3 p-4 hover:bg-muted/40 cursor-pointer transition-colors ${!notif.read ? 'bg-primary/5' : ''}`}
+                                            >
+                                                <div className={`w-8 h-8 rounded-full ${notifBg(notif.type)} flex items-center justify-center shrink-0`}>
+                                                    <NotifIcon type={notif.type} />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 justify-between">
+                                                        <p className={`text-sm font-medium truncate ${!notif.read ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                                            {notif.title}
+                                                        </p>
+                                                        {!notif.read && (
+                                                            <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">
+                                                        {notif.message}
+                                                    </p>
+                                                    <p className="text-[10px] text-muted-foreground/70 mt-1">
+                                                        {relativeTime(notif.timestamp)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="px-4 py-2.5 text-center border-t shrink-0">
+                                    <button
+                                        onClick={() => { router.push('/settings/notifications'); setNotifOpen(false); }}
+                                        className="text-xs text-primary hover:underline"
+                                    >
+                                        Pengaturan Notifikasi
                                     </button>
                                 </div>
                             </div>
@@ -135,14 +232,13 @@ export function Header() {
                     {/* Separator */}
                     <div className="hidden lg:block lg:h-6 lg:w-px lg:bg-border" />
 
-                    {/* Dropdown Akun */}
+                    {/* Account Dropdown */}
                     <div className="relative" ref={dropdownRef}>
                         <button
                             type="button"
                             onClick={() => setDropdownOpen(!dropdownOpen)}
                             className="-m-1.5 flex items-center gap-2 p-1.5 hover:bg-muted rounded-lg transition-colors"
                         >
-                            {/* Avatar: logo toko atau inisial */}
                             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 overflow-hidden">
                                 {logoUrl ? (
                                     // eslint-disable-next-line @next/next/no-img-element
@@ -161,7 +257,6 @@ export function Header() {
 
                         {dropdownOpen && (
                             <div className="absolute right-0 mt-2 w-56 rounded-xl bg-background shadow-xl ring-1 ring-black/5 border border-border overflow-hidden z-50">
-                                {/* Info nama toko */}
                                 <div className="px-4 py-3 bg-muted/50 border-b">
                                     <p className="text-xs text-muted-foreground">Login sebagai</p>
                                     <p className="text-sm font-semibold truncate">{userName}</p>

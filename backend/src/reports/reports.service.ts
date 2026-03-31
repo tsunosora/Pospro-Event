@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CloseShiftDto, StructuredExpenses } from './reports.controller';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class ReportsService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly whatsappService: WhatsappService,
+        private readonly notificationsService: NotificationsService,
     ) { }
 
     async getStaffList() {
@@ -318,6 +320,24 @@ export class ReportsService {
         this.whatsappService.sendReport(reportMsg, proofImages).catch((err) => {
             this.logger.error('Background WhatsApp send failed', err);
         });
+
+        // Kirim ringkasan ke Discord jika dikonfigurasi
+        const discordUrl = (settings as any)?.discordWebhookUrl;
+        if (discordUrl) {
+            const totalCash = dto.actualCash + dto.actualQris + dto.actualTransfer;
+            const shiftName = dto.shiftName || 'Shift';
+            const adminName = dto.adminName || 'Kasir';
+            const discordMsg = [
+                `📊 **Laporan Tutup Shift — ${shiftName}**`,
+                `👤 Kasir: ${adminName}`,
+                `💰 Total Penerimaan: Rp ${totalCash.toLocaleString('id-ID')}`,
+                `   • Tunai: Rp ${dto.actualCash.toLocaleString('id-ID')}`,
+                `   • QRIS: Rp ${dto.actualQris.toLocaleString('id-ID')}`,
+                `   • Transfer: Rp ${dto.actualTransfer.toLocaleString('id-ID')}`,
+                dto.notes ? `📝 Catatan: ${dto.notes}` : '',
+            ].filter(Boolean).join('\n');
+            this.notificationsService.sendToDiscord(discordUrl, discordMsg).catch(() => { });
+        }
 
         return { success: true, message: 'Shift closed successfully.', data: shift };
     }
