@@ -13,7 +13,15 @@ export function useCurrentUser() {
     const isManager = useMemo(() => {
         if (!data?.role) return false;
         const n = data.role.name.toLowerCase();
-        return n === 'admin' || n.includes('manajer');
+        return (
+            n === 'admin' ||
+            n === 'owner' ||
+            n === 'pemilik' ||
+            n.includes('manajer') ||
+            n.includes('manager') ||
+            n.includes('supervisor') ||
+            n.includes('kepala')
+        );
     }, [data]);
 
     return { currentUser: data, isManager };

@@ -823,8 +823,8 @@ export default function CashflowPage() {
                                             {entry.type === 'INCOME' ? '+' : '-'} {fmt(parseFloat(entry.amount))}
                                         </p>
                                     </div>
-                                    {/* Edit/delete: manager=direct, cashier=request */}
-                                    {entry.userId && (() => {
+                                    {/* Edit/delete: manager sees all entries, cashier only sees manual entries */}
+                                    {(isManager || entry.userId) && (() => {
                                         const hasPending = !isManager && myRequests.some(
                                             r => r.cashflowId === entry.id && r.status === 'PENDING'
                                         );

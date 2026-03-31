@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { CashflowService } from './cashflow.service';
 import { Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -9,8 +9,11 @@ export class CashflowController {
     constructor(private readonly cashflowService: CashflowService) { }
 
     @Post()
-    create(@Body() createData: Prisma.CashflowCreateInput) {
-        return this.cashflowService.create(createData);
+    create(@Body() createData: Prisma.CashflowCreateInput, @Request() req: any) {
+        return this.cashflowService.create({
+            ...createData,
+            user: { connect: { id: req.user.userId } },
+        });
     }
 
     @Get()

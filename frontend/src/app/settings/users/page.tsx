@@ -168,8 +168,14 @@ export default function UserManagementSettings() {
                     </div>
 
                     <div className="p-4 border border-primary/20 bg-primary/5 rounded-xl text-xs space-y-2">
-                        <p className="font-semibold text-primary">Info Implementasi Role:</p>
-                        <p className="text-muted-foreground">Saat ini Role berfungsi sebagai "Label" pembeda (misal: Kasir, Desainer, Admin) yang tampil di invoice. Pembatasan akses ke menu lain masih dalam pengembangan lanjutan.</p>
+                        <p className="font-semibold text-primary">Hak Akses Berdasarkan Nama Role:</p>
+                        <p className="text-muted-foreground">Role dengan nama berikut otomatis mendapat akses <strong className="text-foreground">Manajer</strong> (bisa setujui/tolak permintaan edit cashflow):</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                            {['Admin', 'Owner', 'Pemilik', 'Manajer*', 'Manager*', 'Supervisor*', 'Kepala*'].map(r => (
+                                <span key={r} className="px-2 py-0.5 bg-primary/10 text-primary rounded font-medium">{r}</span>
+                            ))}
+                        </div>
+                        <p className="text-muted-foreground">*) Nama mengandung kata tersebut. Role lain (misal: Kasir) hanya dapat mengajukan permintaan perubahan.</p>
                     </div>
                 </div>
 
