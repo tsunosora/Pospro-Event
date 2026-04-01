@@ -70,7 +70,7 @@ export default function SalesReportPage() {
         }
     });
 
-    const recentTransactions = transactions?.slice(0, 10) || []; // Show last 10
+    const recentTransactions = transactions || [];
 
     const handleExportExcel = () => {
         if (!transactions?.length) return alert('Tidak ada transaksi untuk di-export');
@@ -270,8 +270,11 @@ export default function SalesReportPage() {
             </div>
 
             <div className="glass rounded-xl border border-border overflow-hidden pb-10">
-                <div className="px-6 py-4 border-b border-border bg-card/50">
-                    <h3 className="text-base font-semibold text-foreground">Transaksi Terbaru</h3>
+                <div className="px-6 py-4 border-b border-border bg-card/50 flex items-center justify-between">
+                    <h3 className="text-base font-semibold text-foreground">
+                        Histori Transaksi — {periodLabel}
+                    </h3>
+                    <span className="text-sm text-muted-foreground">{recentTransactions.length} transaksi</span>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-border">
