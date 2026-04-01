@@ -4,11 +4,14 @@ import { PaymentMethod, TransactionStatus, CashflowType } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 
 type EditItemData = {
-    id: number;
+    id?: number;           // unset = item baru
+    newVariantId?: number; // variant produk baru (id=undefined)
     quantity?: number;
     widthCm?: number;
     heightCm?: number;
     unitType?: string;
+    priceOverride?: number; // custom price override
+    remove?: boolean;       // hapus item ini dari transaksi
 };
 
 type TransactionEditData = {
@@ -839,8 +842,173 @@ export class TransactionsService {
 
         let newSubtotal = 0;
 
-        for (const editItem of editData.items) {
+        // ── HAPUS ITEM yang ditandai remove: true ──────────────────────────────
+        const removeItems = editData.items.filter((e) => e.remove && e.id);
+        for (const editItem of removeItems) {
             const txItem = transaction.items.find((i: any) => i.id === editItem.id);
+            if (!txItem) continue;
+            const variant = txItem.productVariant;
+            const product = variant.product;
+            const pricingMode = product.pricingMode || 'UNIT';
+            const trackStock = product.trackStock !== false;
+            const variantIngredients: any[] = variant.variantIngredients || [];
+            const productIngredients: any[] = product.ingredients || [];
+
+            if (trackStock) {
+                if (pricingMode === 'AREA_BASED') {
+                    const areaM2 = txItem.areaCm2 ? Number(txItem.areaCm2) / 10000 : 0;
+                    if (areaM2 > 0) {
+                        await tx.productVariant.update({ where: { id: variant.id }, data: { stock: { increment: Math.floor(areaM2 * 100) / 100 } } });
+                        await tx.stockMovement.create({ data: { productVariantId: variant.id, type: 'IN', quantity: Math.ceil(areaM2 * 100), reason: `Hapus Item Edit Transaksi ${transaction.invoiceNumber}` } });
+                        for (const ing of productIngredients) {
+                            if (ing.rawMaterialVariantId) {
+                                const ret = Number(ing.quantity) * areaM2;
+                                await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { increment: Math.floor(ret * 100) / 100 } } });
+                                await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'IN', quantity: Math.ceil(ret * 100), reason: `Hapus Item (BOM) Edit Transaksi ${transaction.invoiceNumber}` } });
+                            }
+                        }
+                        for (const ing of variantIngredients) {
+                            if (ing.rawMaterialVariantId && !ing.isServiceCost) {
+                                const ret = Number(ing.quantity) * areaM2;
+                                await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { increment: Math.floor(ret * 100) / 100 } } });
+                                await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'IN', quantity: Math.ceil(ret * 100), reason: `Hapus Item (varian BOM) Edit Transaksi ${transaction.invoiceNumber}` } });
+                            }
+                        }
+                    }
+                } else {
+                    const qty = txItem.quantity;
+                    if (qty > 0) {
+                        await tx.productVariant.update({ where: { id: variant.id }, data: { stock: { increment: qty } } });
+                        await tx.stockMovement.create({ data: { productVariantId: variant.id, type: 'IN', quantity: qty, reason: `Hapus Item Edit Transaksi ${transaction.invoiceNumber}` } });
+                        for (const ing of productIngredients) {
+                            if (ing.rawMaterialVariantId) {
+                                const ret = Number(ing.quantity) * qty;
+                                await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { increment: Math.floor(ret * 100) / 100 } } });
+                                await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'IN', quantity: Math.ceil(ret * 100), reason: `Hapus Item (BOM) Edit Transaksi ${transaction.invoiceNumber}` } });
+                            }
+                        }
+                        for (const ing of variantIngredients) {
+                            if (ing.rawMaterialVariantId && !ing.isServiceCost) {
+                                const ret = Number(ing.quantity) * qty;
+                                await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { increment: Math.floor(ret * 100) / 100 } } });
+                                await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'IN', quantity: Math.ceil(ret * 100), reason: `Hapus Item (varian BOM) Edit Transaksi ${transaction.invoiceNumber}` } });
+                            }
+                        }
+                    }
+                }
+            }
+            await tx.transactionItem.delete({ where: { id: txItem.id } });
+        }
+
+        // ── TAMBAH ITEM BARU ────────────────────────────────────────────────────
+        const newItems = editData.items.filter((e) => !e.id && e.newVariantId && !e.remove);
+        for (const editItem of newItems) {
+            const variant = await tx.productVariant.findUnique({
+                where: { id: editItem.newVariantId },
+                include: { product: { include: { ingredients: true } }, variantIngredients: true, priceTiers: { orderBy: { minQty: 'asc' } } }
+            });
+            if (!variant) throw new NotFoundException(`Variant ID ${editItem.newVariantId} tidak ditemukan`);
+            const product = (variant as any).product;
+            const pricingMode = product.pricingMode || 'UNIT';
+            const trackStock = product.trackStock !== false;
+            const variantIngredients: any[] = (variant as any).variantIngredients || [];
+            const productIngredients: any[] = product.ingredients || [];
+
+            let lineTotal = 0;
+            let widthCm: number | null = null;
+            let heightCm: number | null = null;
+            let areaCm2: number | null = null;
+            let qty = editItem.quantity ?? 1;
+
+            if (pricingMode === 'AREA_BASED') {
+                const w = editItem.widthCm ?? 1;
+                const h = editItem.heightCm ?? 1;
+                const unit = editItem.unitType || 'm';
+                widthCm = w; heightCm = h;
+                let priceMultiplier = 0;
+                let areaM2 = 0;
+                if (unit === 'm') { priceMultiplier = w * h; areaM2 = w * h; }
+                else if (unit === 'cm') { priceMultiplier = w * h; areaM2 = (w * h) / 10000; }
+                else if (unit === 'menit') { priceMultiplier = w; areaM2 = w; }
+                else { priceMultiplier = (w * h) / 10000; areaM2 = (w * h) / 10000; }
+                areaCm2 = areaM2 * 10000;
+                lineTotal = editItem.priceOverride != null ? editItem.priceOverride : priceMultiplier * Number(variant.price);
+
+                if (trackStock) {
+                    const current = await tx.productVariant.findUnique({ where: { id: variant.id } });
+                    if (Number(current.stock) < areaM2) throw new BadRequestException(`Stok ${product.name} tidak cukup. Sisa: ${Number(current.stock).toFixed(2)} m²`);
+                    await tx.productVariant.update({ where: { id: variant.id }, data: { stock: Math.floor((Number(current.stock) - areaM2) * 100) / 100 } });
+                    await tx.stockMovement.create({ data: { productVariantId: variant.id, type: 'OUT', quantity: Math.ceil(areaM2 * 100), reason: `Tambah Item Edit Transaksi ${transaction.invoiceNumber}` } });
+                    for (const ing of productIngredients) {
+                        if (ing.rawMaterialVariantId) {
+                            const needed = Number(ing.quantity) * areaM2;
+                            await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { decrement: Math.floor(needed * 100) / 100 } } });
+                            await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'OUT', quantity: Math.ceil(needed * 100), reason: `Tambah Item (BOM) Edit Transaksi ${transaction.invoiceNumber}` } });
+                        }
+                    }
+                    for (const ing of variantIngredients) {
+                        if (ing.rawMaterialVariantId && !ing.isServiceCost) {
+                            const needed = Number(ing.quantity) * areaM2;
+                            await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { decrement: Math.floor(needed * 100) / 100 } } });
+                            await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'OUT', quantity: Math.ceil(needed * 100), reason: `Tambah Item (varian BOM) Edit Transaksi ${transaction.invoiceNumber}` } });
+                        }
+                    }
+                }
+                qty = 1;
+            } else {
+                let resolvedPrice = Number(variant.price);
+                const priceTiers: any[] = (variant as any).priceTiers || [];
+                if (priceTiers.length > 0) {
+                    const matched = priceTiers.find((t: any) => qty >= t.minQty && (t.maxQty === null || qty <= t.maxQty));
+                    if (matched) resolvedPrice = Number(matched.price);
+                }
+                if (editItem.priceOverride != null) resolvedPrice = editItem.priceOverride;
+                lineTotal = resolvedPrice * qty;
+
+                if (trackStock) {
+                    const current = await tx.productVariant.findUnique({ where: { id: variant.id } });
+                    if (Number(current.stock) < qty) throw new BadRequestException(`Stok tidak cukup untuk ${product.name}. Sisa: ${current.stock}`);
+                    await tx.productVariant.update({ where: { id: variant.id }, data: { stock: Number(current.stock) - qty } });
+                    await tx.stockMovement.create({ data: { productVariantId: variant.id, type: 'OUT', quantity: qty, reason: `Tambah Item Edit Transaksi ${transaction.invoiceNumber}` } });
+                    for (const ing of productIngredients) {
+                        if (ing.rawMaterialVariantId) {
+                            const needed = Number(ing.quantity) * qty;
+                            await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { decrement: Math.floor(needed * 100) / 100 } } });
+                            await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'OUT', quantity: Math.ceil(needed * 100), reason: `Tambah Item (BOM) Edit Transaksi ${transaction.invoiceNumber}` } });
+                        }
+                    }
+                    for (const ing of variantIngredients) {
+                        if (ing.rawMaterialVariantId && !ing.isServiceCost) {
+                            const needed = Number(ing.quantity) * qty;
+                            await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { decrement: Math.floor(needed * 100) / 100 } } });
+                            await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'OUT', quantity: Math.ceil(needed * 100), reason: `Tambah Item (varian BOM) Edit Transaksi ${transaction.invoiceNumber}` } });
+                        }
+                    }
+                }
+            }
+
+            // Hitung HPP dari variantIngredients atau fallback ke variant.hpp
+            let hppAtTime = Number(variant.hpp);
+            if (variantIngredients.length > 0) {
+                hppAtTime = variantIngredients.reduce((s: number, ing: any) => s + Number(ing.price) * Number(ing.quantity), 0);
+            }
+
+            await tx.transactionItem.create({
+                data: { transactionId, productVariantId: variant.id, quantity: qty, priceAtTime: lineTotal, hppAtTime, widthCm, heightCm, areaCm2 }
+            });
+            newSubtotal += lineTotal;
+        }
+
+        // Reload transaction items after removals/additions
+        const updatedTransaction = await tx.transaction.findUniqueOrThrow({
+            where: { id: transactionId },
+            include: { items: { include: { productVariant: { include: { product: { include: { ingredients: true } }, variantIngredients: true } } } } }
+        });
+
+        // ── EDIT ITEM EXISTING ─────────────────────────────────────────────────
+        const editExistingItems = editData.items.filter((e) => e.id && !e.remove);
+        for (const editItem of editExistingItems) {
+            const txItem = updatedTransaction.items.find((i: any) => i.id === editItem.id);
             if (!txItem) throw new NotFoundException(`Item ID ${editItem.id} tidak ditemukan di transaksi ini`);
 
             const variant = txItem.productVariant;
@@ -949,8 +1117,8 @@ export class TransactionsService {
                     }
                 }
 
-                const unitPrice = Number(variant.price);
-                const newLineTotal = newPriceMultiplier * unitPrice;
+                const unitPrice = editItem.priceOverride != null ? editItem.priceOverride / (newPriceMultiplier || 1) : Number(variant.price);
+                const newLineTotal = editItem.priceOverride != null ? editItem.priceOverride : newPriceMultiplier * Number(variant.price);
 
                 await tx.transactionItem.update({
                     where: { id: txItem.id },
@@ -1015,20 +1183,23 @@ export class TransactionsService {
                     }
                 }
 
-                await tx.transactionItem.update({ where: { id: txItem.id }, data: { quantity: newQty } });
-                newSubtotal += Number(txItem.priceAtTime) * newQty;
+                // Price override untuk UNIT mode
+                const resolvedPrice = editItem.priceOverride != null ? editItem.priceOverride : Number(txItem.priceAtTime);
+                await tx.transactionItem.update({ where: { id: txItem.id }, data: { quantity: newQty, priceAtTime: resolvedPrice } });
+                newSubtotal += resolvedPrice * newQty;
             }
         }
 
-        // Items NOT in editData keep their existing subtotals
-        for (const existingItem of transaction.items) {
-            const wasEdited = editData.items.some((e) => e.id === existingItem.id);
-            if (!wasEdited) {
-                if (existingItem.widthCm !== null) {
-                    newSubtotal += Number(existingItem.priceAtTime);
-                } else {
-                    newSubtotal += Number(existingItem.priceAtTime) * existingItem.quantity;
-                }
+        // Items NOT in editData (not removed, not edited) keep their existing subtotals
+        const removedIds = new Set(removeItems.map((e) => e.id));
+        const editedIds = new Set(editExistingItems.map((e) => e.id));
+        for (const existingItem of updatedTransaction.items) {
+            if (removedIds.has(existingItem.id) || editedIds.has(existingItem.id)) continue;
+            // newItems are already counted in newSubtotal above
+            if (existingItem.widthCm !== null) {
+                newSubtotal += Number(existingItem.priceAtTime);
+            } else {
+                newSubtotal += Number(existingItem.priceAtTime) * existingItem.quantity;
             }
         }
 
@@ -1151,6 +1322,96 @@ export class TransactionsService {
                 transaction: { select: { id: true, invoiceNumber: true } },
                 requestedBy: { select: { id: true, name: true, email: true } },
             }
+        });
+    }
+
+    // ─── Delete Transaction ──────────────────────────────────────────────────
+
+    async deleteTransaction(id: number, roleId: number | null) {
+        if (!(await this.isAdminOrOwner(roleId))) {
+            throw new ForbiddenException('Hanya Admin/Owner yang dapat menghapus transaksi');
+        }
+        return this.prisma.$transaction(async (tx) => {
+            const transaction = await tx.transaction.findUnique({
+                where: { id },
+                include: {
+                    items: {
+                        include: {
+                            productVariant: {
+                                include: {
+                                    product: { include: { ingredients: true } },
+                                    variantIngredients: true,
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            if (!transaction) throw new NotFoundException('Transaksi tidak ditemukan');
+
+            // Restore stok semua item
+            for (const txItem of transaction.items) {
+                const variant = txItem.productVariant;
+                const product = (variant as any).product;
+                const pricingMode = product.pricingMode || 'UNIT';
+                const trackStock = product.trackStock !== false;
+                const variantIngredients: any[] = (variant as any).variantIngredients || [];
+                const productIngredients: any[] = product.ingredients || [];
+
+                if (!trackStock) continue;
+
+                if (pricingMode === 'AREA_BASED') {
+                    const areaM2 = txItem.areaCm2 ? Number(txItem.areaCm2) / 10000 : 0;
+                    if (areaM2 > 0) {
+                        await tx.productVariant.update({ where: { id: variant.id }, data: { stock: { increment: Math.floor(areaM2 * 100) / 100 } } });
+                        await tx.stockMovement.create({ data: { productVariantId: variant.id, type: 'IN', quantity: Math.ceil(areaM2 * 100), reason: `Hapus Transaksi ${transaction.invoiceNumber}` } });
+                        for (const ing of productIngredients) {
+                            if (ing.rawMaterialVariantId) {
+                                const ret = Number(ing.quantity) * areaM2;
+                                await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { increment: Math.floor(ret * 100) / 100 } } });
+                                await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'IN', quantity: Math.ceil(ret * 100), reason: `Hapus Transaksi (BOM) ${transaction.invoiceNumber}` } });
+                            }
+                        }
+                        for (const ing of variantIngredients) {
+                            if (ing.rawMaterialVariantId && !ing.isServiceCost) {
+                                const ret = Number(ing.quantity) * areaM2;
+                                await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { increment: Math.floor(ret * 100) / 100 } } });
+                                await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'IN', quantity: Math.ceil(ret * 100), reason: `Hapus Transaksi (varian BOM) ${transaction.invoiceNumber}` } });
+                            }
+                        }
+                    }
+                } else {
+                    const qty = txItem.quantity;
+                    if (qty > 0) {
+                        await tx.productVariant.update({ where: { id: variant.id }, data: { stock: { increment: qty } } });
+                        await tx.stockMovement.create({ data: { productVariantId: variant.id, type: 'IN', quantity: qty, reason: `Hapus Transaksi ${transaction.invoiceNumber}` } });
+                        for (const ing of productIngredients) {
+                            if (ing.rawMaterialVariantId) {
+                                const ret = Number(ing.quantity) * qty;
+                                await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { increment: Math.floor(ret * 100) / 100 } } });
+                                await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'IN', quantity: Math.ceil(ret * 100), reason: `Hapus Transaksi (BOM) ${transaction.invoiceNumber}` } });
+                            }
+                        }
+                        for (const ing of variantIngredients) {
+                            if (ing.rawMaterialVariantId && !ing.isServiceCost) {
+                                const ret = Number(ing.quantity) * qty;
+                                await tx.productVariant.update({ where: { id: ing.rawMaterialVariantId }, data: { stock: { increment: Math.floor(ret * 100) / 100 } } });
+                                await tx.stockMovement.create({ data: { productVariantId: ing.rawMaterialVariantId, type: 'IN', quantity: Math.ceil(ret * 100), reason: `Hapus Transaksi (varian BOM) ${transaction.invoiceNumber}` } });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Hapus cashflow terkait
+            await tx.cashflow.deleteMany({
+                where: { note: { contains: transaction.invoiceNumber }, type: CashflowType.INCOME }
+            });
+
+            // Hapus transaksi (cascade hapus items)
+            await tx.transaction.delete({ where: { id } });
+
+            return { success: true, invoiceNumber: transaction.invoiceNumber };
         });
     }
 }

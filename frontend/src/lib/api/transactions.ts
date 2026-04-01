@@ -39,14 +39,17 @@ export const updateTransactionPaymentMethod = async (id: number, data: { payment
     (await api.patch(`/transactions/${id}/payment-method`, data)).data;
 
 // Edit Transaction
-type EditItemPayload = {
-    id: number;
+export type EditItemPayload = {
+    id?: number;           // unset = item baru
+    newVariantId?: number; // variant produk baru
     quantity?: number;
     widthCm?: number;
     heightCm?: number;
     unitType?: string;
+    priceOverride?: number;
+    remove?: boolean;
 };
-type EditTransactionPayload = {
+export type EditTransactionPayload = {
     items: EditItemPayload[];
     discount?: number;
     customerName?: string;
@@ -57,6 +60,8 @@ export const editTransaction = async (id: number, data: EditTransactionPayload) 
     (await api.patch(`/transactions/${id}`, data)).data;
 export const submitEditRequest = async (id: number, data: EditTransactionPayload & { reason: string }) =>
     (await api.post(`/transactions/${id}/edit-request`, data)).data;
+export const deleteTransaction = async (id: number) =>
+    (await api.delete(`/transactions/${id}`)).data;
 
 export type TransactionEditRequest = {
     id: number;

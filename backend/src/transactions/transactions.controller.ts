@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, ParseIntPipe, UseGuards, Query, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, UseGuards, Query, Request } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { PaymentMethod } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -92,7 +92,16 @@ export class TransactionsController {
         @Param('id', ParseIntPipe) id: number,
         @Request() req: any,
         @Body() body: {
-            items: { id: number; quantity?: number; widthCm?: number; heightCm?: number; unitType?: string }[];
+            items: {
+                id?: number;
+                newVariantId?: number;
+                quantity?: number;
+                widthCm?: number;
+                heightCm?: number;
+                unitType?: string;
+                priceOverride?: number;
+                remove?: boolean;
+            }[];
             discount?: number;
             customerName?: string;
             customerPhone?: string;
@@ -108,7 +117,16 @@ export class TransactionsController {
         @Request() req: any,
         @Body() body: {
             reason: string;
-            items: { id: number; quantity?: number; widthCm?: number; heightCm?: number; unitType?: string }[];
+            items: {
+                id?: number;
+                newVariantId?: number;
+                quantity?: number;
+                widthCm?: number;
+                heightCm?: number;
+                unitType?: string;
+                priceOverride?: number;
+                remove?: boolean;
+            }[];
             discount?: number;
             customerName?: string;
             customerPhone?: string;
@@ -117,5 +135,13 @@ export class TransactionsController {
     ) {
         const { reason, ...editData } = body;
         return this.transactionsService.createEditRequest(id, req.user.userId, reason, editData);
+    }
+
+    @Delete(':id')
+    deleteTransaction(
+        @Param('id', ParseIntPipe) id: number,
+        @Request() req: any,
+    ) {
+        return this.transactionsService.deleteTransaction(id, req.user.role);
     }
 }

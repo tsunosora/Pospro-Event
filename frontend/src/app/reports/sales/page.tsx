@@ -518,6 +518,12 @@ export default function SalesReportPage() {
                             queryClient.invalidateQueries({ queryKey: ['salesSummary', startDate, endDate] });
                         }
                     }}
+                    onDeleted={() => {
+                        setShowEditModal(false);
+                        setSelectedTransaction(null);
+                        queryClient.invalidateQueries({ queryKey: ['transactions', startDate, endDate] });
+                        queryClient.invalidateQueries({ queryKey: ['salesSummary', startDate, endDate] });
+                    }}
                 />
             )}
         </div>
