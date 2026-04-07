@@ -74,7 +74,18 @@ export const deleteVariantIngredient = async (variantId: number, ingId: number) 
     (await api.delete(`/products/variants/${variantId}/variant-ingredients/${ingId}`)).data;
 
 // Stock Movements
-export const getStockMovements = async () => (await api.get('/stock-movements')).data;
+export const getStockMovements = async (params?: { startDate?: string; endDate?: string; type?: string; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.append('startDate', params.startDate);
+    if (params?.endDate)   q.append('endDate',   params.endDate);
+    if (params?.type)      q.append('type',      params.type);
+    if (params?.search)    q.append('search',    params.search);
+    const qs = q.toString();
+    return (await api.get(`/stock-movements${qs ? `?${qs}` : ''}`)).data as {
+        movements: any[];
+        summary: { totalIn: number; totalOut: number; totalAdjust: number; count: number };
+    };
+};
 export const logStockMovement = async (data: { productVariantId: number; type: 'IN' | 'OUT' | 'ADJUST'; quantity: number; reason?: string }) => {
     return (await api.post('/stock-movements', data)).data;
 };

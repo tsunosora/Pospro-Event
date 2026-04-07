@@ -70,8 +70,8 @@ export default function StockHistoryModal({ variant, productName, onClose }: Pro
                     ) : movements.map((m: any) => {
                         const cfg = TYPE_CONFIG[m.type as keyof typeof TYPE_CONFIG] ?? TYPE_CONFIG.ADJUST;
                         const Icon = cfg.icon;
-                        const qty = m.quantity / 100;
-                        const qtyDisplay = Number.isInteger(qty) ? qty : qty.toFixed(2);
+                        const qty = Number(m.quantity);
+                        const qtyDisplay = Number.isInteger(qty) ? qty : qty.toFixed(4).replace(/\.?0+$/, '');
                         return (
                             <div key={m.id} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 ${cfg.bg}`}>
                                 {/* Icon */}
@@ -95,7 +95,7 @@ export default function StockHistoryModal({ variant, productName, onClose }: Pro
                                         {cfg.sign}{qtyDisplay}
                                     </span>
                                     {m.balanceAfter != null && (
-                                        <p className="text-[10px] text-muted-foreground mt-0.5">Sisa: {Number.isInteger(m.balanceAfter) ? m.balanceAfter : Number(m.balanceAfter).toFixed(2)}</p>
+                                        <p className="text-[10px] text-muted-foreground mt-0.5">Sisa: {Number.isInteger(Number(m.balanceAfter)) ? Number(m.balanceAfter) : Number(m.balanceAfter).toFixed(4).replace(/\.?0+$/, '')}</p>
                                     )}
                                 </div>
                             </div>

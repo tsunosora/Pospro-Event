@@ -13,6 +13,7 @@ export class TransactionsController {
         items: { productVariantId: number; quantity: number; widthCm?: number; heightCm?: number; note?: string; customPrice?: number }[];
         paymentMethod: PaymentMethod;
         discount?: number;
+        shippingCost?: number;
         customerName?: string;
         customerPhone?: string;
         customerAddress?: string;

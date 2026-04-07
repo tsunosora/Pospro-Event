@@ -49,6 +49,7 @@ export class TransactionsService {
         }[];
         paymentMethod: PaymentMethod;
         discount?: number;
+        shippingCost?: number;
         customerName?: string;
         customerPhone?: string;
         customerAddress?: string;
@@ -158,7 +159,7 @@ export class TransactionsService {
                             where: { id: variant.id },
                             data: { stock: Math.floor((currentStock - areaM2) * 100) / 100 }
                         });
-                        await this.logMovement(tx, variant.id, 'OUT', Math.ceil(areaM2 * 100), `Penjualan Cetak ${widthCm}×${heightCm}cm (${areaM2.toFixed(2)}m²)`);
+                        await this.logMovement(tx, variant.id, 'OUT', areaM2, `Penjualan Cetak ${widthCm}×${heightCm}cm (${areaM2.toFixed(2)}m²)`);
 
                         // Deduct product-level BOM (AREA_BASED)
                         const ingredients = (variant.product as any).ingredients || [];
@@ -171,7 +172,7 @@ export class TransactionsService {
                                         where: { id: rawVariant.id },
                                         data: { stock: Math.floor((Number(rawVariant.stock) - neededStock) * 100) / 100 }
                                     });
-                                    await this.logMovement(tx, rawVariant.id, 'OUT', Math.ceil(neededStock * 100), `Terpotong oleh Penjualan ${variant.product.name}`);
+                                    await this.logMovement(tx, rawVariant.id, 'OUT', neededStock, `Terpotong oleh Penjualan ${variant.product.name}`);
                                 }
                             }
                         }
@@ -186,7 +187,7 @@ export class TransactionsService {
                                         where: { id: rawVariant.id },
                                         data: { stock: Math.floor((Number(rawVariant.stock) - neededStock) * 100) / 100 }
                                     });
-                                    await this.logMovement(tx, rawVariant.id, 'OUT', Math.ceil(neededStock * 100), `Terpotong (varian) oleh Penjualan ${variant.product.name}`);
+                                    await this.logMovement(tx, rawVariant.id, 'OUT', neededStock, `Terpotong (varian) oleh Penjualan ${variant.product.name}`);
                                 }
                             }
                         }
@@ -238,7 +239,7 @@ export class TransactionsService {
                                     where: { id: rawVariant.id },
                                     data: { stock: Math.floor((Number(rawVariant.stock) - neededStock) * 100) / 100 }
                                 });
-                                await this.logMovement(tx, rawVariant.id, 'OUT', Math.ceil(neededStock * 100), `Terpotong oleh Penjualan ${variant.product.name}`);
+                                await this.logMovement(tx, rawVariant.id, 'OUT', neededStock, `Terpotong oleh Penjualan ${variant.product.name}`);
                             }
                         }
                     }
@@ -253,7 +254,7 @@ export class TransactionsService {
                                     where: { id: rawVariant.id },
                                     data: { stock: Math.floor((Number(rawVariant.stock) - neededStock) * 100) / 100 }
                                 });
-                                await this.logMovement(tx, rawVariant.id, 'OUT', Math.ceil(neededStock * 100), `Terpotong (varian) oleh Penjualan ${variant.product.name}`);
+                                await this.logMovement(tx, rawVariant.id, 'OUT', neededStock, `Terpotong (varian) oleh Penjualan ${variant.product.name}`);
                             }
                         }
                     }
@@ -270,7 +271,8 @@ export class TransactionsService {
                 taxAmount = amountAfterDiscount * (taxRate / 100);
             }
 
-            const grandTotal = amountAfterDiscount + taxAmount;
+            const shippingCost = data.shippingCost || 0;
+            const grandTotal = amountAfterDiscount + taxAmount + shippingCost;
             const downPayment = data.downPayment !== undefined ? data.downPayment : grandTotal;
             const status = downPayment < grandTotal ? TransactionStatus.PARTIAL : TransactionStatus.PAID;
 
@@ -298,6 +300,7 @@ export class TransactionsService {
                     invoiceNumber,
                     totalAmount: subtotal,
                     discount: discountAmount,
+                    shippingCost: shippingCost,
                     tax: taxAmount,
                     grandTotal,
                     paymentMethod: data.paymentMethod,
@@ -342,8 +345,8 @@ export class TransactionsService {
             }
 
             // Log initial payment into Cashflow
+            const customerInfo = data.customerName ? ` untuk Bpk/Ibu ${data.customerName}` : '';
             if (downPayment > 0) {
-                const customerInfo = data.customerName ? ` untuk Bpk/Ibu ${data.customerName}` : '';
                 await tx.cashflow.create({
                     data: {
                         type: CashflowType.INCOME,
@@ -352,7 +355,22 @@ export class TransactionsService {
                         paymentMethod: data.paymentMethod,
                         bankAccountId: data.bankAccountId || null,
                         note: `Pembayaran Invoice ${invoiceNumber}${customerInfo} via ${data.paymentMethod}`,
-                        date: effectiveCashflowDate,  // backdate / cashflow date support
+                        date: effectiveCashflowDate,
+                    }
+                });
+            }
+
+            // Catat diskon sebagai pengeluaran agar laporan keuangan akurat
+            if (discountAmount > 0) {
+                await tx.cashflow.create({
+                    data: {
+                        type: CashflowType.EXPENSE,
+                        category: 'Diskon',
+                        amount: discountAmount,
+                        paymentMethod: data.paymentMethod,
+                        bankAccountId: data.bankAccountId || null,
+                        note: `Diskon Invoice ${invoiceNumber}${customerInfo}`,
+                        date: effectiveCashflowDate,
                     }
                 });
             }

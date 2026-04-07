@@ -18,7 +18,9 @@ export interface ReceiptSnapshot {
   transactionId?: number;
   items: ReceiptItem[];
   subtotal: number;
+  discount?: number;
   taxAmount: number;
+  shippingCost?: number;
   grandTotal: number;
   paymentMethod: string;
   customerName?: string;
@@ -80,7 +82,9 @@ export const buildWhatsAppText = (snap: ReceiptSnapshot, status: 'TAGIHAN' | 'LU
     ``,
     `----------------------`,
     `Subtotal   : Rp ${snap.subtotal.toLocaleString('id-ID')}`,
+    snap.discount ? `Diskon      : -Rp ${snap.discount.toLocaleString('id-ID')}` : '',
     `Pajak ${(snap.taxRate).toFixed(2)}% : Rp ${snap.taxAmount.toLocaleString('id-ID')}`,
+    snap.shippingCost ? `Ongkos Kirim: Rp ${snap.shippingCost.toLocaleString('id-ID')}` : '',
     `*TOTAL BAYAR: Rp ${snap.grandTotal.toLocaleString('id-ID')}*`,
     `----------------------`,
     `Pembayaran : ${pm}`,
@@ -248,8 +252,9 @@ export const buildInvoiceHTML = (snap: ReceiptSnapshot, status: 'TAGIHAN' | 'LUN
     </div>
     <div class="totals-box">
       <div class="total-row"><div class="total-label"><span>Total Transaksi</span><span>:</span></div><span>${snap.subtotal.toLocaleString('id-ID')}</span></div>
-      <div class="total-row"><div class="total-label"><span>Diskon</span><span>:</span></div><span style="width:50px; text-align:right;">0,00 %</span><span style="width:70px; text-align:right;">0</span></div>
+      ${snap.discount ? `<div class="total-row"><div class="total-label"><span>Diskon</span><span>:</span></div><span style="color:#dc2626;">-${snap.discount.toLocaleString('id-ID')}</span></div>` : ''}
       <div class="total-row"><div class="total-label"><span>PPN</span><span>:</span></div><span style="width:50px; text-align:right;">${(snap.taxRate).toFixed(2)} %</span><span style="width:70px; text-align:right;">${snap.taxAmount.toLocaleString('id-ID')}</span></div>
+      ${snap.shippingCost ? `<div class="total-row"><div class="total-label"><span>Ongkos Kirim</span><span>:</span></div><span>${snap.shippingCost.toLocaleString('id-ID')}</span></div>` : ''}
       <div class="total-row"><div class="total-label"><span>Grand Total</span><span>:</span></div><span>${snap.grandTotal.toLocaleString('id-ID')}</span></div>
       
       <br>

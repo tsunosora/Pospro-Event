@@ -202,7 +202,7 @@ model StockMovement {
   id               Int          @id @default(autoincrement())
   productVariantId Int          @map("product_variant_id")
   type             MovementType
-  quantity         Int
+  quantity         Decimal      @db.Decimal(10, 4)
   reason           String?      @db.VarChar(255)
   balanceAfter     Float?       @map("balance_after")
   referenceId      String?      @db.VarChar(100) @map("reference_id")
@@ -233,6 +233,7 @@ model Transaction {
   totalAmount        Decimal           @map("total_amount") @db.Decimal(15, 2)
   tax                Decimal           @db.Decimal(15, 2)
   discount           Decimal           @default(0) @db.Decimal(15, 2)
+  shippingCost       Decimal           @default(0) @map("shipping_cost") @db.Decimal(15, 2)
   grandTotal         Decimal           @map("grand_total") @db.Decimal(15, 2)
   paymentMethod      PaymentMethod     @map("payment_method")
   status             TransactionStatus @default(PENDING)

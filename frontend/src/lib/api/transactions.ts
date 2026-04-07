@@ -21,6 +21,7 @@ export const createTransaction = async (data: {
     }[];
     paymentMethod: 'CASH' | 'QRIS' | 'BANK_TRANSFER';
     discount?: number;
+    shippingCost?: number;
     customerName?: string;
     customerPhone?: string;
     customerAddress?: string;

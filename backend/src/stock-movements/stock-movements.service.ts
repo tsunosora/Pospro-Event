@@ -38,11 +38,42 @@ export class StockMovementsService {
         });
     }
 
-    async findAll() {
-        return this.prisma.stockMovement.findMany({
+    async findAll(params?: { startDate?: string; endDate?: string; type?: MovementType; search?: string }) {
+        const where: any = {};
+
+        if (params?.startDate || params?.endDate) {
+            where.createdAt = {};
+            if (params.startDate) where.createdAt.gte = new Date(params.startDate + 'T00:00:00');
+            if (params.endDate)   where.createdAt.lte = new Date(params.endDate   + 'T23:59:59');
+        }
+
+        if (params?.type) where.type = params.type;
+
+        if (params?.search) {
+            where.productVariant = {
+                OR: [
+                    { sku: { contains: params.search } },
+                    { variantName: { contains: params.search } },
+                    { product: { name: { contains: params.search } } },
+                ],
+            };
+        }
+
+        const movements = await this.prisma.stockMovement.findMany({
+            where,
             include: { productVariant: { include: { product: true } } },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            take: 1000,
         });
+
+        const summary = {
+            totalIn:     movements.filter(m => m.type === 'IN').reduce((s, m) => s + Number(m.quantity), 0),
+            totalOut:    movements.filter(m => m.type === 'OUT').reduce((s, m) => s + Number(m.quantity), 0),
+            totalAdjust: movements.filter(m => m.type === 'ADJUST').length,
+            count:       movements.length,
+        };
+
+        return { movements, summary };
     }
 
     async findOne(id: number) {

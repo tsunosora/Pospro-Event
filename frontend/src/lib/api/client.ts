@@ -21,4 +21,20 @@ api.interceptors.request.use((config) => {
     return Promise.reject(error);
 });
 
+// Auto-logout jika token expired atau tidak valid (401)
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (typeof window !== 'undefined' && error?.response?.status === 401) {
+            localStorage.removeItem('token');
+            sessionStorage.removeItem('token');
+            // Redirect ke login hanya jika bukan sudah di halaman login
+            if (!window.location.pathname.startsWith('/login')) {
+                window.location.href = '/login';
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
 export default api;

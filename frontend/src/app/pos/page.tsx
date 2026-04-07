@@ -71,6 +71,8 @@ export default function POSPage() {
     const [customerSearchQuery, setCustomerSearchQuery] = useState('');
     const [dueDate, setDueDate] = useState('');
     const [downPayment, setDownPayment] = useState<string>('');
+    const [discount, setDiscount] = useState<string>('');
+    const [shippingCost, setShippingCost] = useState<string>('');
     const [cashierName, setCashierName] = useState('');
     const [employeeName, setEmployeeName] = useState('');
     const [receipt, setReceipt] = useState<ReceiptSnapshot | null>(null);
@@ -103,8 +105,10 @@ export default function POSPage() {
     const clearCart = useCartStore((state) => state.clearCart);
     const _subtotal = useCartStore((state) => state.subtotal());
     const taxRate = settings?.enableTax ? Number(settings.taxRate ?? 10) : 0;
-    const taxAmount = _subtotal * (taxRate / 100);
-    const grandTotal = _subtotal + taxAmount;
+    const discountNum = Number(discount) || 0;
+    const taxAmount = (_subtotal - discountNum) * (taxRate / 100);
+    const shippingCostNum = Number(shippingCost) || 0;
+    const grandTotal = _subtotal - discountNum + taxAmount + shippingCostNum;
     const subtotal = _subtotal;
     const addNotification = useNotificationStore(s => s.addNotification);
 
@@ -113,6 +117,8 @@ export default function POSPage() {
         onSuccess: (data) => {
             setCheckoutModalOpen(false);
             clearCart();
+            setDiscount('');
+            setShippingCost('');
             // Receipt is shown from snapshot captured before cart was cleared
         }
     });
@@ -135,7 +141,9 @@ export default function POSPage() {
             pcs: item.pcs,
         })),
         subtotal,
+        discount: discountNum > 0 ? discountNum : undefined,
         taxAmount,
+        shippingCost: shippingCostNum > 0 ? shippingCostNum : undefined,
         grandTotal,
         paymentMethod,
         customerName: customerName.trim() || undefined,
@@ -158,13 +166,19 @@ export default function POSPage() {
 
     const categories = useMemo(() => {
         if (!products) return ['Semua'];
-        const cats = new Set(products.map((p: any) => p.category?.name).filter(Boolean));
+        const cats = new Set(
+            products
+                .filter((p: any) => (p.productType || 'SELLABLE') !== 'RAW_MATERIAL')
+                .map((p: any) => p.category?.name)
+                .filter(Boolean)
+        );
         return ['Semua', ...Array.from(cats)] as string[];
     }, [products]);
 
     const filteredProducts = useMemo(() => {
         if (!products) return [];
         return products.filter((p: any) => {
+            if ((p.productType || 'SELLABLE') === 'RAW_MATERIAL') return false;
             const matchesCat = selectedCategory === 'Semua' || p.category?.name === selectedCategory;
             const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 p.variants.some((v: any) => v.sku.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -248,7 +262,9 @@ export default function POSPage() {
         const snap: ReceiptSnapshot = {
             items: [...cart],
             subtotal,
+            discount: discountNum > 0 ? discountNum : undefined,
             taxAmount,
+            shippingCost: shippingCostNum > 0 ? shippingCostNum : undefined,
             grandTotal,
             paymentMethod,
             customerName: customerName.trim() || undefined,
@@ -277,7 +293,8 @@ export default function POSPage() {
                 customPrice: item.customPrice != null ? item.customPrice : undefined,
             })),
             paymentMethod,
-            discount: 0,
+            discount: discountNum > 0 ? discountNum : 0,
+            shippingCost: shippingCostNum > 0 ? shippingCostNum : undefined,
             customerName: customerName.trim() || undefined,
             customerPhone: customerPhone.trim() || undefined,
             customerAddress: customerAddress.trim() || undefined,
@@ -918,200 +935,189 @@ export default function POSPage() {
                         )}
 
                         {/* Header */}
-                        <div className="p-5 border-b border-border flex items-center justify-between shrink-0">
+                        <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
                             <div>
-                                <h2 className="text-lg font-bold">Tagihan Order</h2>
-                                <p className="text-xs text-muted-foreground">{cart.length} baris item · {new Date().toLocaleDateString('id-ID', { dateStyle: 'medium' })}</p>
+                                <h2 className="text-base font-bold">Tagihan Order</h2>
+                                <p className="text-[11px] text-muted-foreground">{cart.length} item · {new Date().toLocaleDateString('id-ID', { dateStyle: 'medium' })}</p>
                             </div>
                             <div className="text-right">
-                                <p className="text-xs text-muted-foreground">Grand Total</p>
-                                <p className="text-2xl font-black text-primary">Rp {grandTotal.toLocaleString('id-ID')}</p>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Grand Total</p>
+                                <p className="text-xl font-black text-primary">Rp {grandTotal.toLocaleString('id-ID')}</p>
                             </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto">
-                            {/* Order summary */}
-                            <div className="p-5 border-b border-border">
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Rincian Pesanan</p>
-                                <div className="space-y-2">
+
+                            {/* ── Ringkasan + Harga ── */}
+                            <div className="px-4 pt-3 pb-3 border-b border-border">
+                                {/* Item list — scrollable */}
+                                <div className="space-y-1 max-h-24 overflow-y-auto mb-2 pr-1">
                                     {cart.map((item) => (
-                                        <div key={item.lineId} className="flex gap-2">
+                                        <div key={item.lineId} className="flex gap-2 text-xs">
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium truncate">{item.name}</p>
+                                                <span className="font-medium truncate block">{item.name}</span>
                                                 {item.pricingMode === 'AREA_BASED'
-                                                    ? <p className="text-xs text-muted-foreground">{item.widthCm}×{item.heightCm}cm = {item.areaM2?.toFixed(4)}m²{item.note ? ` · ${item.note}` : ''}</p>
-                                                    : <p className="text-xs text-muted-foreground">×{item.qty} × Rp {item.price.toLocaleString('id-ID')}{item.priceTiers.length > 0 && item.price !== item.pricePerUnit ? <span className="ml-1 text-orange-500 font-semibold">tier</span> : null}</p>
+                                                    ? <span className="text-muted-foreground">{item.widthCm}×{item.heightCm}cm · {item.areaM2?.toFixed(2)}m²{item.note ? ` · ${item.note}` : ''}</span>
+                                                    : <span className="text-muted-foreground">×{item.qty} × Rp {item.price.toLocaleString('id-ID')}{item.priceTiers.length > 0 && item.price !== item.pricePerUnit ? <span className="ml-1 text-orange-500 font-semibold"> tier</span> : null}</span>
                                                 }
                                             </div>
-                                            <p className="text-sm font-semibold shrink-0">Rp {(item.price * item.qty).toLocaleString('id-ID')}</p>
+                                            <span className="font-semibold shrink-0">Rp {(item.price * item.qty).toLocaleString('id-ID')}</span>
                                         </div>
                                     ))}
                                 </div>
-                                <div className="mt-3 pt-3 border-t border-dashed border-border text-sm space-y-1">
+
+                                {/* Totals dengan input diskon & ongkir inline */}
+                                <div className="border-t border-dashed border-border pt-2 space-y-1 text-xs">
                                     <div className="flex justify-between text-muted-foreground">
                                         <span>Subtotal</span><span>Rp {subtotal.toLocaleString('id-ID')}</span>
                                     </div>
-                                    <div className="flex justify-between text-muted-foreground">
-                                        <span>Pajak 10%</span><span>Rp {taxAmount.toLocaleString('id-ID')}</span>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-muted-foreground">Diskon (Rp)</span>
+                                        <input type="number" value={discount} onChange={e => setDiscount(e.target.value)} placeholder="0" min="0"
+                                            className="w-28 text-right px-2 py-0.5 border border-border rounded text-xs bg-background outline-none focus:border-destructive transition-colors text-destructive font-medium" />
                                     </div>
-                                    <div className="flex justify-between font-bold pt-1 border-t border-border text-base">
+                                    {taxRate > 0 && (
+                                        <div className="flex justify-between text-muted-foreground">
+                                            <span>Pajak {taxRate}%</span><span>Rp {taxAmount.toLocaleString('id-ID')}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-muted-foreground">Ongkos Kirim</span>
+                                        <input type="number" value={shippingCost} onChange={e => setShippingCost(e.target.value)} placeholder="0" min="0"
+                                            className="w-28 text-right px-2 py-0.5 border border-border rounded text-xs bg-background outline-none focus:border-primary transition-colors" />
+                                    </div>
+                                    <div className="flex justify-between font-bold text-sm pt-1 border-t border-border">
                                         <span>Total</span><span className="text-primary">Rp {grandTotal.toLocaleString('id-ID')}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Customer & Order Data Form */}
-                            <div className="p-5 border-b border-border space-y-4">
-                                <div>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data Pelanggan <span className="text-destructive">*Wajib</span></p>
-                                        <button
-                                            type="button"
-                                            onClick={() => setCustomerModalOpen(true)}
-                                            className="text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-                                        >
-                                            <Search className="w-3.5 h-3.5" />
-                                            Cari Data Pelanggan
-                                        </button>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3 mb-3">
-                                        <div className="relative mb-2">
-                                            <input type="text" placeholder="Nama Pelanggan" value={customerName} onChange={e => setCustomerName(e.target.value)}
-                                                className="w-full px-3 py-2 bg-background border border-border rounded-lg outline-none text-sm focus:border-primary transition-colors" />
-                                            {customerName && !customers?.some((c: any) => c.name.toLowerCase() === customerName.toLowerCase()) && (
-                                                <button type="button" disabled={createCustomerMutation.isPending} onClick={() => createCustomerMutation.mutate({ name: customerName, phone: customerPhone, address: customerAddress })} className="absolute right-0 -bottom-5 text-[10px] text-primary hover:underline">
-                                                    {createCustomerMutation.isPending ? 'Menyimpan...' : 'Simpan Baru +'}
-                                                </button>
-                                            )}
-                                        </div>
-                                        <input type="text" placeholder="No. HP / WhatsApp" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
-                                            className="w-full px-3 py-2 bg-background border border-border rounded-lg outline-none text-sm focus:border-primary transition-colors h-[38px]" />
-                                    </div>
-                                    <input type="text" placeholder="Alamat (opsional)" value={customerAddress} onChange={e => setCustomerAddress(e.target.value)}
-                                        className="w-full px-3 py-2 bg-background border border-border rounded-lg outline-none text-sm focus:border-primary transition-colors" />
+                            {/* ── Data Pelanggan ── */}
+                            <div className="px-4 pt-3 pb-3 border-b border-border space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pelanggan <span className="text-destructive">*Wajib</span></p>
+                                    <button type="button" onClick={() => setCustomerModalOpen(true)}
+                                        className="text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1">
+                                        <Search className="w-3 h-3" /> Cari
+                                    </button>
                                 </div>
-
-                                <div className="border-t border-dashed border-border pt-4">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Info Tambahan & Pembayaran</p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1">
-                                            <label className="text-xs text-muted-foreground">Estimasi Selesai</label>
-                                            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-                                                className="w-full px-3 py-2 bg-background border border-border rounded-lg outline-none text-sm focus:border-primary transition-colors" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs text-muted-foreground">Uang Muka (DP) - Opsional</label>
-                                            <input type="number" placeholder="Contoh: 50000" value={downPayment} onChange={e => setDownPayment(e.target.value)} min="0" max={grandTotal}
-                                                className="w-full px-3 py-2 bg-background border border-border rounded-lg outline-none text-sm focus:border-primary transition-colors" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs text-muted-foreground">Nama Kasir / Karyawan</label>
-                                            <select value={cashierName} onChange={e => setCashierName(e.target.value)}
-                                                className="w-full px-3 py-2 bg-background border border-border rounded-lg outline-none text-sm focus:border-primary transition-colors appearance-none">
-                                                <option value="">Pilih Kasir/Staff...</option>
-                                                {users?.map((u: any) => (
-                                                    <option key={u.id} value={u.name}>{u.name} {u.role?.name ? `- ${u.role.name}` : ''} {u.phone ? `(${u.phone})` : ''}</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="relative">
+                                        <input type="text" placeholder="Nama Pelanggan *" value={customerName} onChange={e => setCustomerName(e.target.value)}
+                                            className="w-full px-2.5 py-1.5 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors" />
+                                        {customerName && !customers?.some((c: any) => c.name.toLowerCase() === customerName.toLowerCase()) && (
+                                            <button type="button" disabled={createCustomerMutation.isPending}
+                                                onClick={() => createCustomerMutation.mutate({ name: customerName, phone: customerPhone, address: customerAddress })}
+                                                className="absolute right-0 -bottom-4 text-[10px] text-primary hover:underline">
+                                                {createCustomerMutation.isPending ? 'Menyimpan...' : 'Simpan +'}
+                                            </button>
+                                        )}
                                     </div>
-                                    {downPayment !== '' && Number(downPayment) < grandTotal && (
-                                        <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-600 dark:text-amber-400 font-semibold">
-                                            Status Transaksi: PARTIAL (Belum Lunas). Sisa tagihan: Rp {(grandTotal - Number(downPayment)).toLocaleString('id-ID')}
-                                        </div>
-                                    )}
+                                    <input type="text" placeholder="No. HP / WA *" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
+                                        className="w-full px-2.5 py-1.5 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors" />
                                 </div>
+                                <input type="text" placeholder="Alamat (opsional)" value={customerAddress} onChange={e => setCustomerAddress(e.target.value)}
+                                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors mt-2" />
+                            </div>
 
-                                {/* Production Info */}
+                            {/* ── Info Order ── */}
+                            <div className="px-4 pt-3 pb-3 border-b border-border">
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="space-y-0.5">
+                                        <label className="text-[11px] text-muted-foreground">Est. Selesai</label>
+                                        <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+                                            className="w-full px-2 py-1.5 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors" />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <label className="text-[11px] text-muted-foreground">Kasir / Staff</label>
+                                        <select value={cashierName} onChange={e => setCashierName(e.target.value)}
+                                            className="w-full px-2 py-1.5 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors appearance-none">
+                                            <option value="">Pilih...</option>
+                                            {users?.map((u: any) => (
+                                                <option key={u.id} value={u.name}>{u.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <label className="text-[11px] text-muted-foreground">Uang Muka (DP)</label>
+                                        <input type="number" placeholder="0" value={downPayment} onChange={e => setDownPayment(e.target.value)} min="0" max={grandTotal}
+                                            className="w-full px-2 py-1.5 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors" />
+                                    </div>
+                                </div>
+                                {downPayment !== '' && Number(downPayment) < grandTotal && (
+                                    <div className="mt-2 px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[11px] text-amber-600 font-semibold">
+                                        DP — sisa tagihan: Rp {(grandTotal - Number(downPayment)).toLocaleString('id-ID')}
+                                    </div>
+                                )}
+
+                                {/* Info Produksi — conditional */}
                                 {cart.some((i: any) => i.pricingMode === 'AREA_BASED') && (
-                                    <div className="border-t border-dashed border-border pt-4">
-                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Info Produksi</p>
-                                        <div className="grid grid-cols-2 gap-3 mb-3">
-                                            <div className="space-y-1">
-                                                <label className="text-xs text-muted-foreground">Prioritas</label>
-                                                <div className="flex gap-2">
-                                                    {(['NORMAL', 'EXPRESS'] as const).map(p => (
-                                                        <button key={p} type="button" onClick={() => setProductionPriority(p)}
-                                                            className={`flex-1 py-2 rounded-lg text-xs font-bold border-2 transition-all ${productionPriority === p
-                                                                ? p === 'EXPRESS' ? 'border-red-500 bg-red-500/10 text-red-600' : 'border-primary bg-primary/10 text-primary'
-                                                                : 'border-border bg-muted/50 text-muted-foreground'}`}>
-                                                            {p === 'EXPRESS' ? 'EXPRESS' : 'Normal'}
-                                                        </button>
-                                                    ))}
-                                                </div>
+                                    <div className="mt-3 pt-3 border-t border-dashed border-border space-y-2">
+                                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Produksi</p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="flex gap-1.5">
+                                                {(['NORMAL', 'EXPRESS'] as const).map(p => (
+                                                    <button key={p} type="button" onClick={() => setProductionPriority(p)}
+                                                        className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border-2 transition-all ${productionPriority === p
+                                                            ? p === 'EXPRESS' ? 'border-red-500 bg-red-500/10 text-red-600' : 'border-primary bg-primary/10 text-primary'
+                                                            : 'border-border bg-muted/50 text-muted-foreground'}`}>
+                                                        {p === 'EXPRESS' ? 'EXPRESS' : 'Normal'}
+                                                    </button>
+                                                ))}
                                             </div>
-                                            <div className="space-y-1">
-                                                <label className="text-xs text-muted-foreground">Deadline Selesai</label>
-                                                <input type="datetime-local" value={productionDeadline} onChange={e => setProductionDeadline(e.target.value)}
-                                                    className="w-full px-2 py-2 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors" />
-                                            </div>
+                                            <input type="datetime-local" value={productionDeadline} onChange={e => setProductionDeadline(e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors" />
                                         </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs text-muted-foreground">Catatan untuk Operator Mesin</label>
-                                            <textarea rows={2} value={productionNotes} onChange={e => setProductionNotes(e.target.value)}
-                                                placeholder="Contoh: Finishing laminasi doff, warna harus vivid, dll."
-                                                className="w-full px-3 py-2 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors resize-none" />
-                                        </div>
+                                        <textarea rows={1} value={productionNotes} onChange={e => setProductionNotes(e.target.value)}
+                                            placeholder="Catatan operator mesin (finishing, warna, dll.)"
+                                            className="w-full px-2.5 py-1.5 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors resize-none" />
                                         {productionPriority === 'EXPRESS' && (
-                                            <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-600 font-medium">
-                                                ORDER EXPRESS — Antrian produksi akan didahulukan
-                                            </div>
+                                            <p className="text-[11px] text-red-600 font-medium bg-red-500/10 border border-red-500/20 rounded-lg px-2.5 py-1.5">
+                                                ORDER EXPRESS — Antrian produksi didahulukan
+                                            </p>
                                         )}
                                     </div>
                                 )}
                             </div>
 
-                            {/* Payment method */}
-                            <div className="p-5 space-y-4">
-                                <div className="space-y-2">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Metode Pembayaran</p>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {(['CASH', 'QRIS', 'BANK_TRANSFER'] as const).map(m => (
-                                            <button key={m} onClick={() => setPaymentMethod(m)}
-                                                className={`py-2.5 rounded-xl text-xs font-bold transition-all border-2 ${paymentMethod === m ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/50 text-muted-foreground hover:border-primary/30'}`}>
-                                                {m === 'BANK_TRANSFER' ? 'TRANSFER' : m}
-                                            </button>
-                                        ))}
-                                    </div>
+                            {/* ── Metode Pembayaran ── */}
+                            <div className="px-4 pt-3 pb-3 space-y-2">
+                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pembayaran</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(['CASH', 'QRIS', 'BANK_TRANSFER'] as const).map(m => (
+                                        <button key={m} onClick={() => setPaymentMethod(m)}
+                                            className={`py-2 rounded-xl text-xs font-bold transition-all border-2 ${paymentMethod === m ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/50 text-muted-foreground hover:border-primary/30'}`}>
+                                            {m === 'BANK_TRANSFER' ? 'TRANSFER' : m}
+                                        </button>
+                                    ))}
                                 </div>
 
                                 {paymentMethod === 'QRIS' && (
-                                    <div className="bg-muted/30 border border-border rounded-xl p-4 text-center">
-                                        <p className="text-xs font-semibold mb-2 text-muted-foreground">Scan QRIS:</p>
+                                    <div className="bg-muted/30 border border-border rounded-xl p-3 text-center">
                                         {settings?.qrisImageUrl
-                                            ? <img src={`${API_BASE}${settings.qrisImageUrl}`} alt="QRIS" className="w-40 h-40 object-contain rounded-lg border bg-white p-1 mx-auto shadow-sm" />
-                                            : <div className="w-40 h-28 bg-muted flex items-center justify-center rounded-lg border border-dashed mx-auto text-muted-foreground text-xs p-4">QRIS belum diupload</div>
+                                            ? <img src={`${API_BASE}${settings.qrisImageUrl}`} alt="QRIS" className="w-32 h-32 object-contain rounded-lg border bg-white p-1 mx-auto shadow-sm" />
+                                            : <div className="h-16 bg-muted flex items-center justify-center rounded-lg border border-dashed text-muted-foreground text-xs">QRIS belum diupload</div>
                                         }
                                     </div>
                                 )}
 
                                 {paymentMethod === 'BANK_TRANSFER' && (
-                                    <div className="space-y-2">
-                                        <p className="text-xs font-semibold text-muted-foreground">Pilih Rekening Bank Tujuan:</p>
-                                        <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                                            {!bankAccounts?.length
-                                                ? <p className="text-xs text-muted-foreground text-center py-3 bg-muted/20 border border-dashed border-border rounded-lg">Belum ada rekening bank.</p>
-                                                : bankAccounts.map((bank: any) => (
-                                                    <label key={bank.id} className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${selectedBankId === String(bank.id) ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-background hover:bg-muted/30'}`}>
-                                                        <input
-                                                            type="radio"
-                                                            name="bankSelection"
-                                                            value={bank.id}
-                                                            checked={selectedBankId === String(bank.id)}
-                                                            onChange={(e) => setSelectedBankId(e.target.value)}
-                                                            className="text-primary focus:ring-primary h-4 w-4"
-                                                        />
-                                                        <div className="flex-1">
-                                                            <p className="font-bold text-xs uppercase text-foreground">{bank.bankName}</p>
-                                                            <div className="flex items-center justify-between mt-0.5">
-                                                                <span className="font-mono text-primary font-bold">{bank.accountNumber}</span>
-                                                                <span className="text-xs text-muted-foreground">a.n {bank.accountOwner}</span>
-                                                            </div>
+                                    <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                                        {!bankAccounts?.length
+                                            ? <p className="text-xs text-muted-foreground text-center py-2 bg-muted/20 border border-dashed border-border rounded-lg">Belum ada rekening bank.</p>
+                                            : bankAccounts.map((bank: any) => (
+                                                <label key={bank.id} className={`flex items-center gap-2.5 px-3 py-2 border rounded-xl cursor-pointer transition-all ${selectedBankId === String(bank.id) ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-background hover:bg-muted/30'}`}>
+                                                    <input type="radio" name="bankSelection" value={bank.id} checked={selectedBankId === String(bank.id)} onChange={(e) => setSelectedBankId(e.target.value)} className="text-primary h-3.5 w-3.5" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-bold text-[11px] uppercase">{bank.bankName}</p>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-mono text-primary text-xs font-bold">{bank.accountNumber}</span>
+                                                            <span className="text-[10px] text-muted-foreground">a.n {bank.accountOwner}</span>
                                                         </div>
-                                                    </label>
-                                                ))
-                                            }
-                                        </div>
+                                                    </div>
+                                                </label>
+                                            ))
+                                        }
                                     </div>
                                 )}
                             </div>
@@ -1119,8 +1125,8 @@ export default function POSPage() {
 
                         {/* Backdate section — hanya untuk manager */}
                         {isManager && (
-                            <div className="px-4 pb-3">
-                                <div className={`rounded-xl border p-3 space-y-2.5 transition-colors ${transactionDate ? 'border-amber-400/60 bg-amber-500/5' : 'border-border bg-muted/20'}`}>
+                            <div className="px-4 pb-2">
+                                <div className={`rounded-xl border p-2.5 space-y-2 transition-colors ${transactionDate ? 'border-amber-400/60 bg-amber-500/5' : 'border-border bg-muted/20'}`}>
                                     <div className="flex items-center gap-2">
                                         <CalendarClock className={`w-4 h-4 shrink-0 ${transactionDate ? 'text-amber-500' : 'text-muted-foreground'}`} />
                                         <span className="text-xs font-semibold text-foreground">Tanggal Nota (Nota Terlambat)</span>

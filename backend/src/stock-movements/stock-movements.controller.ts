@@ -14,8 +14,13 @@ export class StockMovementsController {
     }
 
     @Get()
-    findAll() {
-        return this.stockMovementsService.findAll();
+    findAll(
+        @Query('startDate') startDate?: string,
+        @Query('endDate')   endDate?: string,
+        @Query('type')      type?: MovementType,
+        @Query('search')    search?: string,
+    ) {
+        return this.stockMovementsService.findAll({ startDate, endDate, type, search });
     }
 
     @Get('waste')

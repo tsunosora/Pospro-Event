@@ -204,12 +204,41 @@ export default function InventoryPage() {
         );
     };
 
-    // Unique categories for filter dropdown
-    const categoryOptions = useMemo(() => {
-        if (!products) return [];
-        const cats = products.map((p: any) => p.category?.name).filter(Boolean);
-        return [...new Set(cats)] as string[];
+    // Jumlah produk per tipe (untuk badge di tabs)
+    const typeCounts = useMemo(() => {
+        if (!products) return {} as Record<string, number>;
+        const counts: Record<string, number> = { '': 0 };
+        (products as any[]).forEach((p: any) => {
+            const type = p.productType || 'SELLABLE';
+            counts[type] = (counts[type] || 0) + 1;
+            counts[''] = (counts[''] || 0) + 1;
+        });
+        return counts;
     }, [products]);
+
+    // Kategori yang tersedia sesuai tipe yang dipilih (untuk sub-tabs)
+    const filteredCategoryOptions = useMemo(() => {
+        if (!products) return [] as string[];
+        const cats = (products as any[])
+            .filter((p: any) => !filterType || (p.productType || 'SELLABLE') === filterType)
+            .map((p: any) => p.category?.name)
+            .filter(Boolean);
+        return [...new Set(cats)] as string[];
+    }, [products, filterType]);
+
+    // Jumlah produk per kategori (dalam tipe yang dipilih, untuk badge sub-tabs)
+    const categoryCounts = useMemo(() => {
+        if (!products) return {} as Record<string, number>;
+        const counts: Record<string, number> = {};
+        (products as any[])
+            .filter((p: any) => !filterType || (p.productType || 'SELLABLE') === filterType)
+            .forEach((p: any) => {
+                const cat = p.category?.name || '';
+                if (cat) counts[cat] = (counts[cat] || 0) + 1;
+            });
+        return counts;
+    }, [products, filterType]);
+
 
     // Group by product, filter variants per product
     const groupedProducts = useMemo(() => {
@@ -254,6 +283,11 @@ export default function InventoryPage() {
     const toggleSelectAll = () => {
         const allIds = groupedProducts.map(({ product }: any) => product.id);
         setSelectedIds(prev => prev.size === allIds.length ? new Set() : new Set(allIds));
+    };
+
+    const handleTypeTabChange = (type: string) => {
+        setFilterType(type);
+        setFilterCategory(''); // reset kategori saat ganti tipe
     };
 
     const clearFilters = () => {
@@ -337,8 +371,75 @@ export default function InventoryPage() {
                 </div>
             )}
 
+            {/* ── Tabs Tipe Produk ── */}
+            <div className="mt-3">
+                <div className="flex gap-1 bg-muted/50 rounded-xl p-1 border border-border overflow-x-auto scrollbar-hide">
+                    {[
+                        { value: '', label: 'Semua Produk' },
+                        { value: 'SELLABLE', label: 'Siap Jual' },
+                        { value: 'RAW_MATERIAL', label: 'Bahan Baku' },
+                        { value: 'SERVICE', label: 'Jasa' },
+                    ].map(tab => (
+                        <button
+                            key={tab.value}
+                            onClick={() => handleTypeTabChange(tab.value)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
+                                filterType === tab.value
+                                    ? 'bg-background text-foreground shadow-sm border border-border'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                            }`}
+                        >
+                            {tab.label}
+                            {typeCounts[tab.value] !== undefined && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold leading-none ${
+                                    filterType === tab.value
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'bg-muted text-muted-foreground'
+                                }`}>
+                                    {typeCounts[tab.value] ?? 0}
+                                </span>
+                            )}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Sub-tabs Kategori — tampil jika ada kategori pada tipe yang dipilih */}
+                {filteredCategoryOptions.length > 0 && (
+                    <div className="flex gap-1.5 mt-2 overflow-x-auto scrollbar-hide pb-0.5">
+                        <button
+                            onClick={() => setFilterCategory('')}
+                            className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap shrink-0 border ${
+                                filterCategory === ''
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                            }`}
+                        >
+                            Semua Kategori
+                        </button>
+                        {filteredCategoryOptions.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setFilterCategory(cat)}
+                                className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap shrink-0 border ${
+                                    filterCategory === cat
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                                }`}
+                            >
+                                {cat}
+                                <span className={`text-[10px] px-1 rounded-full leading-none font-semibold ${
+                                    filterCategory === cat ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                                }`}>
+                                    {categoryCounts[cat] ?? 0}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             {/* Search & Filter Bar */}
-            <div className="glass rounded-xl border border-border shadow-sm p-4 space-y-3">
+            <div className="glass rounded-xl border border-border shadow-sm p-4 space-y-3 mt-3">
                     <div className="flex flex-col sm:flex-row gap-3">
                         <div className="relative flex-1 min-w-0">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -365,36 +466,6 @@ export default function InventoryPage() {
                                 placeholder="SKU / Varian"
                                 className="px-3 py-1.5 bg-background border border-border rounded-lg text-xs outline-none focus:border-primary w-36"
                             />
-                        </div>
-
-                        {/* Category filter */}
-                        <div className="relative">
-                            <select
-                                value={filterCategory}
-                                onChange={e => setFilterCategory(e.target.value)}
-                                className="pl-3 pr-7 py-1.5 bg-background border border-border rounded-lg text-xs outline-none focus:border-primary appearance-none cursor-pointer w-36"
-                            >
-                                <option value="">Semua Kategori</option>
-                                {categoryOptions.map(cat => (
-                                    <option key={cat} value={cat}>{cat}</option>
-                                ))}
-                            </select>
-                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
-                        </div>
-
-                        {/* Type filter */}
-                        <div className="relative">
-                            <select
-                                value={filterType}
-                                onChange={e => setFilterType(e.target.value)}
-                                className="pl-3 pr-7 py-1.5 bg-background border border-border rounded-lg text-xs outline-none focus:border-primary appearance-none cursor-pointer w-36"
-                            >
-                                <option value="">Semua Tipe</option>
-                                <option value="SELLABLE">Siap Jual</option>
-                                <option value="RAW_MATERIAL">Bahan Baku</option>
-                                <option value="SERVICE">Jasa</option>
-                            </select>
-                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
                         </div>
 
                         {/* Price range */}
