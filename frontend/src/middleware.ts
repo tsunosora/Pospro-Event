@@ -2,8 +2,17 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-    const token = request.cookies.get('token')?.value;
+    const host = request.headers.get('host') ?? '';
     const { pathname } = request.nextUrl;
+
+    // Batasi share domain hanya untuk halaman produk publik (/p/*)
+    const shareEnv = process.env.NEXT_PUBLIC_SHARE_DOMAIN;
+    const shareHost = shareEnv ? new URL(shareEnv).host : null;
+    if (shareHost && host === shareHost && !pathname.startsWith('/p/') && !pathname.startsWith('/_next/') && pathname !== '/manifest.webmanifest') {
+        return new NextResponse(null, { status: 404 });
+    }
+
+    const token = request.cookies.get('token')?.value;
     const isLoginPage = pathname.startsWith('/login');
     const isPublicPage = pathname.startsWith('/opname/') || pathname.startsWith('/produksi') || pathname.startsWith('/p/');
 
