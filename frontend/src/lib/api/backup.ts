@@ -17,3 +17,13 @@ export const restoreBackup = async (file: File, mode: 'skip' | 'overwrite', tabl
     if (tables && tables.length > 0) formData.append('tables', tables.join(','));
     return (await api.post('/backup/restore', formData, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
 };
+
+// ── Rclone ────────────────────────────────────────────────────────────────────
+export const getRcloneStatus = async () => (await api.get('/backup/rclone/status')).data;
+export const saveRcloneSettings = async (data: {
+    enabled: boolean;
+    remote?: string;
+    schedule?: string;
+    keepCount?: number;
+}) => (await api.post('/backup/rclone/settings', data)).data;
+export const triggerRcloneBackup = async () => (await api.post('/backup/rclone/trigger')).data;

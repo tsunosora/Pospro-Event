@@ -22,7 +22,7 @@ export const BACKUP_GROUPS = {
     },
     products: {
         label: 'Produk & Inventori',
-        tables: ['product', 'productVariant', 'ingredient', 'variantIngredient', 'variantPriceTier', 'batch', 'stockMovement'],
+        tables: ['product', 'productVariant', 'ingredient', 'variantIngredient', 'variantPriceTier', 'batch', 'stockMovement', 'stockPurchase', 'stockPurchaseItem'],
     },
     suppliers: {
         label: 'Supplier',
@@ -38,7 +38,7 @@ export const BACKUP_GROUPS = {
     },
     transactions: {
         label: 'Transaksi & Penjualan',
-        tables: ['transaction', 'transactionItem', 'cashflow'],
+        tables: ['transaction', 'transactionItem', 'cashflow', 'cashflowChangeRequest', 'transactionEditRequest'],
     },
     invoices: {
         label: 'Invoice & Penawaran',
@@ -67,12 +67,15 @@ const RESTORE_ORDER = [
     'product', 'productVariant',
     'ingredient', 'variantIngredient', 'variantPriceTier',
     'batch', 'stockMovement', 'supplierItem',
+    'stockPurchase', 'stockPurchaseItem',       // pembelian stok → setelah supplier & variant
     'hppWorksheet', 'hppVariableCost', 'hppFixedCost',
-    'transaction', 'transactionItem', 'cashflow',
+    'transaction', 'transactionItem',
+    'shiftReport',                              // sebelum cashflow karena cashflow punya FK ke shiftReport
+    'cashflow', 'cashflowChangeRequest',        // cashflowChangeRequest → setelah cashflow & user
+    'transactionEditRequest',                   // → setelah transaction & user
     'invoice', 'invoiceItem',
     'productionBatch', 'productionJob',
     'stockOpnameSession', 'stockOpnameItem',
-    'shiftReport',
 ];
 
 // Path folder uploads gambar (3x up = backend root ketika dikompilasi ke dist/backup/)
@@ -427,5 +430,18 @@ export class BackupService {
             label: group.label,
             tables: group.tables,
         }));
+    }
+
+    // ── Write backup ZIP langsung ke file (untuk rclone) ───────────────────
+    async writeBackupToFile(filePath: string): Promise<void> {
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+        const writeStream = fs.createWriteStream(filePath);
+        await new Promise<void>((resolve, reject) => {
+            writeStream.on('finish', resolve);
+            writeStream.on('error', reject);
+            this.streamBackupZip('all', writeStream, true).catch(reject);
+        });
     }
 }

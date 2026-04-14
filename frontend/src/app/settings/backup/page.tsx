@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Download, Upload, Database, CheckSquare, Square, Shield,
     AlertTriangle, CheckCircle2, Loader2, ChevronDown, ChevronUp,
-    Trash2, ArrowLeft, Info, FileArchive, Image, Zap, MessageCircle
+    Trash2, ArrowLeft, Info, FileArchive, Image, Zap, MessageCircle,
+    Server, RefreshCw, Clock, Play, HardDrive, ToggleLeft, ToggleRight
 } from "lucide-react";
 import Link from "next/link";
-import { getBackupGroups, exportBackup, previewBackupFile, restoreBackup } from "@/lib/api";
+import { getBackupGroups, exportBackup, previewBackupFile, restoreBackup,
+    getRcloneStatus, saveRcloneSettings, triggerRcloneBackup } from "@/lib/api";
 
 const ICON_MAP: Record<string, string> = {
     master: "🏷️", users: "👤", products: "📦", suppliers: "🚚",
@@ -154,6 +156,79 @@ export default function BackupPage() {
     };
 
     const isZipFile = restoreFile?.name.endsWith(".zip");
+
+    // ── Rclone state ────────────────────────────────────────────────────────
+    const queryClient = useQueryClient();
+    const { data: rcloneStatus, isLoading: rcloneLoading } = useQuery({
+        queryKey: ["rclone-status"],
+        queryFn: getRcloneStatus,
+        refetchInterval: 15000,
+    });
+
+    const [rcloneEnabled, setRcloneEnabled] = useState(false);
+    const [rcloneRemote, setRcloneRemote] = useState("");
+    const [rcloneSchedule, setRcloneSchedule] = useState("0 2 * * *");
+    const [rcloneKeepCount, setRcloneKeepCount] = useState(7);
+    const [rcloneSaving, setRcloneSaving] = useState(false);
+    const [rcloneTriggering, setRcloneTriggering] = useState(false);
+    const [rcloneTriggerMsg, setRcloneTriggerMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+    useEffect(() => {
+        if (rcloneStatus) {
+            setRcloneEnabled(rcloneStatus.enabled ?? false);
+            setRcloneRemote(rcloneStatus.remote ?? "");
+            setRcloneSchedule(rcloneStatus.schedule ?? "0 2 * * *");
+            setRcloneKeepCount(rcloneStatus.keepCount ?? 7);
+        }
+    }, [rcloneStatus?.enabled, rcloneStatus?.remote, rcloneStatus?.schedule, rcloneStatus?.keepCount]);
+
+    const handleSaveRcloneSettings = async () => {
+        setRcloneSaving(true);
+        try {
+            await saveRcloneSettings({ enabled: rcloneEnabled, remote: rcloneRemote.trim(), schedule: rcloneSchedule, keepCount: rcloneKeepCount });
+            alert("Pengaturan rclone disimpan!");
+            queryClient.invalidateQueries({ queryKey: ["rclone-status"] });
+        } catch (e: any) {
+            alert("Gagal: " + (e?.response?.data?.message || e.message));
+        } finally {
+            setRcloneSaving(false);
+        }
+    };
+
+    const handleTriggerRclone = async () => {
+        setRcloneTriggering(true);
+        setRcloneTriggerMsg(null);
+        try {
+            await triggerRcloneBackup();
+            setRcloneTriggerMsg({ ok: true, text: "Backup sedang diproses di background server..." });
+            const prevStatus = rcloneStatus?.lastStatus;
+            let attempts = 0;
+            const poll = setInterval(async () => {
+                attempts++;
+                await queryClient.invalidateQueries({ queryKey: ["rclone-status"] });
+                const fresh: any = queryClient.getQueryData(["rclone-status"]);
+                if (fresh?.lastStatus && fresh.lastStatus !== prevStatus) {
+                    clearInterval(poll);
+                    setRcloneTriggering(false);
+                    setRcloneTriggerMsg({ ok: !fresh.lastStatus.startsWith("Gagal"), text: fresh.lastStatus });
+                } else if (attempts >= 20) {
+                    clearInterval(poll);
+                    setRcloneTriggering(false);
+                }
+            }, 4000);
+        } catch (e: any) {
+            setRcloneTriggerMsg({ ok: false, text: e?.response?.data?.message || e.message });
+            setRcloneTriggering(false);
+        }
+    };
+
+    const SCHEDULE_PRESETS = [
+        { label: "Setiap hari jam 02:00", value: "0 2 * * *" },
+        { label: "Setiap hari jam 23:00", value: "0 23 * * *" },
+        { label: "Setiap 12 jam", value: "0 */12 * * *" },
+        { label: "Setiap Senin jam 02:00", value: "0 2 * * 1" },
+        { label: "Setiap minggu (Minggu jam 01:00)", value: "0 1 * * 0" },
+    ];
 
     return (
         <div className="max-w-5xl mx-auto space-y-8 pb-20">
@@ -522,7 +597,164 @@ export default function BackupPage() {
                 </div>
             </div>
 
-            {/* ── Konfirmasi Modal ─────────────────────────────────────────── */}
+            {/* ═══════════════════════════════════════════════════════════════
+                RCLONE AUTO-BACKUP
+            ═══════════════════════════════════════════════════════════════ */}
+            <div className="glass rounded-2xl border border-border overflow-hidden">
+                <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-emerald-500/10 rounded-lg"><Server className="w-5 h-5 text-emerald-600" /></div>
+                        <div>
+                            <h2 className="font-semibold text-foreground">Backup Otomatis via Rclone</h2>
+                            <p className="text-xs text-muted-foreground mt-0.5">Backup terjadwal disimpan ke server & disync ke cloud (GDrive, S3, Dropbox, dll) menggunakan rclone</p>
+                        </div>
+                    </div>
+                    {rcloneStatus?.enabled && (
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Aktif
+                        </span>
+                    )}
+                </div>
+
+                <div className="p-6 space-y-6">
+
+                    {/* Status instalasi rclone */}
+                    {rcloneLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Memeriksa rclone...</div>
+                    ) : rcloneStatus?.installed ? (
+                        <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-sm">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span className="text-emerald-700 font-medium">rclone terinstal</span>
+                            <span className="text-muted-foreground font-mono text-xs">v{rcloneStatus.version}</span>
+                        </div>
+                    ) : (
+                        <div className="flex items-start gap-2 px-3 py-2.5 bg-red-500/5 border border-red-500/20 rounded-xl text-sm">
+                            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-red-700 font-medium">rclone tidak ditemukan di server</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Install rclone: <code className="bg-muted px-1 rounded">curl https://rclone.org/install.sh | sudo bash</code> lalu konfigurasikan remote dengan <code className="bg-muted px-1 rounded">rclone config</code></p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Konfigurasi remote */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shrink-0">1</span>
+                            Remote Destination
+                        </label>
+                        <input
+                            type="text"
+                            value={rcloneRemote}
+                            onChange={e => setRcloneRemote(e.target.value)}
+                            placeholder="Contoh: gdrive:Backups/PosPro  atau  s3:mybucket/pospro"
+                            className="w-full px-3 py-2.5 text-sm bg-background border border-border rounded-xl outline-none focus:border-primary transition-colors font-mono"
+                        />
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                            Format: <code className="bg-muted px-1 rounded">nama-remote:path/tujuan</code>. Remote dikonfigurasi di server via <code className="bg-muted px-1 rounded">rclone config</code>.
+                            Kosongkan untuk hanya simpan lokal tanpa upload.
+                        </p>
+                    </div>
+
+                    {/* Jadwal */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shrink-0">2</span>
+                            Jadwal Otomatis
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {SCHEDULE_PRESETS.map(p => (
+                                <button key={p.value} onClick={() => setRcloneSchedule(p.value)}
+                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm text-left transition-all ${rcloneSchedule === p.value ? 'border-primary bg-primary/5 text-primary font-semibold' : 'border-border bg-background text-muted-foreground hover:border-primary/30'}`}>
+                                    <Clock className="w-3.5 h-3.5 shrink-0" />{p.label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Cron aktif: <code className="bg-muted px-1.5 py-0.5 rounded font-mono">{rcloneSchedule}</code></p>
+                    </div>
+
+                    {/* Simpan lokal berapa file */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shrink-0">3</span>
+                            Simpan backup lokal (jumlah file)
+                        </label>
+                        <div className="flex items-center gap-3">
+                            {[3, 5, 7, 14, 30].map(n => (
+                                <button key={n} onClick={() => setRcloneKeepCount(n)}
+                                    className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${rcloneKeepCount === n ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/30'}`}>
+                                    {n}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">File backup lokal di <code className="bg-muted px-1 rounded">backend/backups/</code>. File lama dihapus otomatis.</p>
+                    </div>
+
+                    {/* Toggle + Simpan */}
+                    <div className="flex items-center justify-between pt-2 border-t border-border">
+                        <button onClick={() => setRcloneEnabled(p => !p)} className="flex items-center gap-2 select-none">
+                            {rcloneEnabled
+                                ? <ToggleRight className="w-8 h-8 text-primary" />
+                                : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
+                            <span className="text-sm font-medium text-foreground">
+                                {rcloneEnabled ? 'Auto-backup aktif' : 'Auto-backup nonaktif'}
+                            </span>
+                        </button>
+                        <button onClick={handleSaveRcloneSettings} disabled={rcloneSaving}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-sm shadow-primary/20">
+                            {rcloneSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                            Simpan Pengaturan
+                        </button>
+                    </div>
+
+                    {/* Status + Trigger manual */}
+                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border">
+                        <div>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Backup Server Terakhir</p>
+                            {rcloneStatus?.lastBackupAt ? (
+                                <p className="text-sm font-medium text-foreground">
+                                    {new Date(rcloneStatus.lastBackupAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                                </p>
+                            ) : <p className="text-sm text-muted-foreground">Belum pernah dijalankan</p>}
+                            {rcloneStatus?.lastStatus && (
+                                <p className={`text-xs mt-0.5 ${rcloneStatus.lastStatus.startsWith('Gagal') ? 'text-red-500' : 'text-emerald-600'}`}>
+                                    {rcloneStatus.lastStatus}
+                                </p>
+                            )}
+                        </div>
+                        <button onClick={handleTriggerRclone} disabled={rcloneTriggering || !rcloneStatus?.installed}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+                            {rcloneTriggering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                            {rcloneTriggering ? "Memproses..." : "Backup Sekarang"}
+                        </button>
+                    </div>
+
+                    {rcloneTriggerMsg && (
+                        <div className={`flex items-start gap-2 rounded-xl px-4 py-3 text-sm ${rcloneTriggerMsg.ok ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                            {rcloneTriggerMsg.ok ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" /> : <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />}
+                            <span>{rcloneTriggerMsg.text}</span>
+                        </div>
+                    )}
+
+                    {/* List file lokal */}
+                    {rcloneStatus?.localBackups?.length > 0 && (
+                        <div className="space-y-2">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                <HardDrive className="w-3.5 h-3.5" /> File Backup Lokal ({rcloneStatus.localBackups.length})
+                            </p>
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                {rcloneStatus.localBackups.map((f: any, i: number) => (
+                                    <div key={f.name} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs border ${i === 0 ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-border'}`}>
+                                        <span className="font-mono text-foreground truncate">{f.name}</span>
+                                        <span className="text-muted-foreground shrink-0 ml-2">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {showRestoreConfirm && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-background rounded-2xl border border-border shadow-2xl p-6 max-w-md w-full space-y-4">

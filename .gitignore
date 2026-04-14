@@ -112,3 +112,6 @@ testsprite_tests/
 # ============================================================
 .DS_Store
 desktop.ini
+
+google-service-account.json
+*.lean-ctx.bak

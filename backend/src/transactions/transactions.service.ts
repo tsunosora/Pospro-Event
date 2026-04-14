@@ -333,7 +333,7 @@ export class TransactionsService {
             const m = String(effectiveDate.getMonth() + 1).padStart(2, '0');
             const d = String(effectiveDate.getDate()).padStart(2, '0');
             const dateStr = `${y}${m}${d}`;
-            const prefix = `INV-${dateStr}-`;
+            const prefix = `SO-${dateStr}-`;
 
             // Cari invoice terakhir hari ini berdasarkan prefix (lebih reliable dari count)
             const lastToday = await tx.transaction.findFirst({
@@ -345,6 +345,19 @@ export class TransactionsService {
                 ? parseInt(lastToday.invoiceNumber.slice(prefix.length), 10) + 1
                 : 1;
             const invoiceNumber = `${prefix}${nextSeq.toString().padStart(4, '0')}`;
+
+            // Generate SC number jika transaksi langsung PAID (bayar lunas di kasir)
+            let checkoutNumber: string | null = null;
+            if (status === TransactionStatus.PAID) {
+                const scPrefix = `SC-${dateStr}-`;
+                const lastSC = await tx.transaction.findFirst({
+                    where: { checkoutNumber: { startsWith: scPrefix } },
+                    orderBy: { checkoutNumber: 'desc' },
+                    select: { checkoutNumber: true },
+                });
+                const nextSCSeq = lastSC ? parseInt(lastSC.checkoutNumber!.slice(scPrefix.length), 10) + 1 : 1;
+                checkoutNumber = `${scPrefix}${nextSCSeq.toString().padStart(4, '0')}`;
+            }
 
             // Strip internal flags before creating items
             const itemsForCreate = transactionItemsData.map(({ _requiresProduction, ...rest }: any) => rest);
@@ -367,6 +380,11 @@ export class TransactionsService {
                     cashierName: data.cashierName || null,
                     employeeName: data.employeeName || null,
                     bankAccountId: data.bankAccountId || null,
+                    dpPaymentMethod: status === TransactionStatus.PARTIAL && downPayment > 0 ? data.paymentMethod : null,
+                    dpBankAccountId: status === TransactionStatus.PARTIAL && downPayment > 0 ? (data.bankAccountId || null) : null,
+                    checkoutNumber: checkoutNumber,
+                    paidAt: status === TransactionStatus.PAID ? effectiveDate : null,
+                    checkoutCashierName: status === TransactionStatus.PAID ? (data.cashierName || null) : null,
                     productionPriority: data.productionPriority || 'NORMAL',
                     productionDeadline: data.productionDeadline ? new Date(data.productionDeadline) : null,
                     productionNotes: data.productionNotes || null,
@@ -378,15 +396,24 @@ export class TransactionsService {
 
             // Create ProductionJob for items that require production
             const hasProductionItems = transactionItemsData.some((d: any) => d._requiresProduction);
-            let jobSeq = hasProductionItems ? await (tx as any).productionJob.count() : 0;
+            const jobDateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+            const jobPrefix = `JOB-${jobDateStr}-`;
+            let jobSeq = 0;
+            if (hasProductionItems) {
+                const lastJob = await (tx as any).productionJob.findFirst({
+                    where: { jobNumber: { startsWith: jobPrefix } },
+                    orderBy: { jobNumber: 'desc' },
+                    select: { jobNumber: true },
+                });
+                jobSeq = lastJob ? parseInt(lastJob.jobNumber.slice(jobPrefix.length), 10) : 0;
+            }
             for (let i = 0; i < transactionItemsData.length; i++) {
                 if (transactionItemsData[i]._requiresProduction) {
                     jobSeq++;
                     const txItem = (transaction as any).items[i];
-                    const jobDateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
                     await (tx as any).productionJob.create({
                         data: {
-                            jobNumber: `JOB-${jobDateStr}-${String(jobSeq).padStart(4, '0')}`,
+                            jobNumber: `${jobPrefix}${String(jobSeq).padStart(4, '0')}`,
                             transactionId: transaction.id,
                             transactionItemId: txItem.id,
                             status: 'ANTRIAN',
@@ -587,7 +614,8 @@ export class TransactionsService {
             include: {
                 items: {
                     include: { productVariant: { include: { product: true } } }
-                }
+                },
+                bankAccount: true,
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -606,7 +634,7 @@ export class TransactionsService {
         return transaction;
     }
 
-    async payOff(id: number, data: { paymentMethod: PaymentMethod, bankAccountId?: number }) {
+    async payOff(id: number, data: { paymentMethod: PaymentMethod, bankAccountId?: number, checkoutCashierName?: string, paidAt?: string }) {
         return this.prisma.$transaction(async (tx) => {
             const transaction = await tx.transaction.findUnique({ where: { id } });
             if (!transaction) throw new NotFoundException('Transaction not found');
@@ -631,12 +659,34 @@ export class TransactionsService {
                 });
             }
 
+            // Tentukan tanggal checkout (manual dari kasir, atau sekarang)
+            const checkoutDate = data.paidAt ? new Date(data.paidAt) : new Date();
+
+            // Generate nomor SC berdasarkan tanggal checkout
+            const cy = checkoutDate.getFullYear();
+            const cm = String(checkoutDate.getMonth() + 1).padStart(2, '0');
+            const cd = String(checkoutDate.getDate()).padStart(2, '0');
+            const scPrefix = `SC-${cy}${cm}${cd}-`;
+
+            const lastSC = await tx.transaction.findFirst({
+                where: { checkoutNumber: { startsWith: scPrefix } },
+                orderBy: { checkoutNumber: 'desc' },
+                select: { checkoutNumber: true },
+            });
+            const nextSCSeq = lastSC ? parseInt(lastSC.checkoutNumber!.slice(scPrefix.length), 10) + 1 : 1;
+            const checkoutNumber = `${scPrefix}${nextSCSeq.toString().padStart(4, '0')}`;
+
             return tx.transaction.update({
                 where: { id },
                 data: {
                     status: TransactionStatus.PAID,
-                    downPayment: transaction.grandTotal, // fully paid
-                    paymentMethod: data.paymentMethod // overwrite or keep original? Usually we reflect the final method, or we could just leave original. Let's update paymentMethod to the latest payoff method.
+                    paymentMethod: data.paymentMethod,
+                    bankAccountId: data.bankAccountId ?? null,
+                    checkoutNumber,
+                    paidAt: checkoutDate,
+                    checkoutCashierName: data.checkoutCashierName ?? null,
+                    // downPayment TIDAK ditimpa — tetap menyimpan jumlah DP asli
+                    // Status PAID sudah cukup sebagai penanda "lunas penuh"
                 }
             });
         });
@@ -720,13 +770,37 @@ export class TransactionsService {
         const itemSales: Record<number, { variantId: number, name: string, variantName: string | null, sku: string, qty: number, revenue: number }> = {};
 
         for (const t of transactions) {
-            totalRevenue += Number(t.grandTotal);
-            paymentMethodsCount[t.paymentMethod] = (paymentMethodsCount[t.paymentMethod] || 0) + 1;
-            paymentMethodsRevenue[t.paymentMethod] = (paymentMethodsRevenue[t.paymentMethod] || 0) + Number(t.grandTotal);
+            const grandTotal = Number(t.grandTotal);
+            const dpAmount = Number(t.downPayment);
+            const dpMethod: string | null = (t as any).dpPaymentMethod || null;
+            totalRevenue += grandTotal;
 
-            if (t.paymentMethod === 'BANK_TRANSFER' && t.bankAccount) {
-                const bankName = t.bankAccount.bankName;
-                bankTransfersRevenue[bankName] = (bankTransfersRevenue[bankName] || 0) + Number(t.grandTotal);
+            if (dpMethod && dpAmount > 0) {
+                // Transaksi DP yang sudah lunas: split revenue antara DP method dan pelunasan method
+                const pelunasanAmount = grandTotal - dpAmount;
+                paymentMethodsCount[t.paymentMethod] = (paymentMethodsCount[t.paymentMethod] || 0) + 1;
+                paymentMethodsRevenue[dpMethod] = (paymentMethodsRevenue[dpMethod] || 0) + dpAmount;
+                paymentMethodsRevenue[t.paymentMethod] = (paymentMethodsRevenue[t.paymentMethod] || 0) + pelunasanAmount;
+
+                // Bank transfer breakdown untuk DP
+                if (dpMethod === 'BANK_TRANSFER') {
+                    const dpBankId: number | null = (t as any).dpBankAccountId || null;
+                    const dpBank = dpBankId ? (t as any).dpBankAccount?.bankName : null;
+                    if (dpBank) bankTransfersRevenue[dpBank] = (bankTransfersRevenue[dpBank] || 0) + dpAmount;
+                }
+                // Bank transfer breakdown untuk pelunasan
+                if (t.paymentMethod === 'BANK_TRANSFER' && t.bankAccount) {
+                    const bankName = t.bankAccount.bankName;
+                    bankTransfersRevenue[bankName] = (bankTransfersRevenue[bankName] || 0) + pelunasanAmount;
+                }
+            } else {
+                // Transaksi biasa: hitung penuh ke satu metode
+                paymentMethodsCount[t.paymentMethod] = (paymentMethodsCount[t.paymentMethod] || 0) + 1;
+                paymentMethodsRevenue[t.paymentMethod] = (paymentMethodsRevenue[t.paymentMethod] || 0) + grandTotal;
+                if (t.paymentMethod === 'BANK_TRANSFER' && t.bankAccount) {
+                    const bankName = t.bankAccount.bankName;
+                    bankTransfersRevenue[bankName] = (bankTransfersRevenue[bankName] || 0) + grandTotal;
+                }
             }
 
             for (const item of t.items) {
@@ -947,8 +1021,8 @@ export class TransactionsService {
             }
         });
 
-        if (!['PAID', 'PARTIAL'].includes(transaction.status)) {
-            throw new BadRequestException('Hanya transaksi PAID atau PARTIAL yang dapat diedit');
+        if (!['PAID', 'PARTIAL', 'PENDING'].includes(transaction.status)) {
+            throw new BadRequestException('Hanya transaksi PAID, PARTIAL, atau PENDING yang dapat diedit');
         }
 
         const settings = await tx.storeSettings.findFirst();
@@ -1342,8 +1416,12 @@ export class TransactionsService {
     }
 
     async editTransactionDirect(id: number, roleId: number | null, editData: TransactionEditData) {
-        if (!(await this.isAdminOrOwner(roleId))) {
-            throw new ForbiddenException('Hanya Admin/Owner yang dapat mengedit transaksi langsung');
+        // Transaksi PENDING (draft invoice) boleh diedit siapa saja — belum ada pembayaran
+        const transaction = await this.prisma.transaction.findUnique({ where: { id } });
+        if (!transaction) throw new NotFoundException('Transaksi tidak ditemukan');
+        const isPending = transaction.status === TransactionStatus.PENDING;
+        if (!isPending && !(await this.isAdminOrOwner(roleId))) {
+            throw new ForbiddenException('Hanya Admin/Owner yang dapat mengedit transaksi yang sudah terbayar');
         }
         return this.prisma.$transaction(async (tx) => {
             await this.applyTransactionEdit(tx, id, editData);
@@ -1357,8 +1435,8 @@ export class TransactionsService {
     async createEditRequest(transactionId: number, requestedById: number, reason: string, editData: TransactionEditData) {
         const transaction = await this.prisma.transaction.findUnique({ where: { id: transactionId } });
         if (!transaction) throw new NotFoundException('Transaksi tidak ditemukan');
-        if (!['PAID', 'PARTIAL'].includes(transaction.status)) {
-            throw new BadRequestException('Hanya transaksi PAID atau PARTIAL yang dapat diedit');
+        if (!['PAID', 'PARTIAL', 'PENDING'].includes(transaction.status)) {
+            throw new BadRequestException('Hanya transaksi PAID, PARTIAL, atau PENDING yang dapat diedit');
         }
 
         const existing = await (this.prisma as any).transactionEditRequest.findFirst({

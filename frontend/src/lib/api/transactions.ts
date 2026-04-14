@@ -38,7 +38,7 @@ export const createTransaction = async (data: {
     cashflowDate?: string;     // "YYYY-MM-DD" — tanggal cashflow (kosong = sama dgn transactionDate)
     saveOnly?: boolean;        // true = simpan invoice tanpa pembayaran (PENDING)
 }) => (await api.post('/transactions', data)).data;
-export const payOffTransaction = async (id: number, data: { paymentMethod: string, bankAccountId?: number }) =>
+export const payOffTransaction = async (id: number, data: { paymentMethod: string, bankAccountId?: number, checkoutCashierName?: string, paidAt?: string }) =>
     (await api.post(`/transactions/${id}/pay-off`, data)).data;
 export const updateTransactionPaymentMethod = async (id: number, data: { paymentMethod: string; bankAccountId?: number }) =>
     (await api.patch(`/transactions/${id}/payment-method`, data)).data;

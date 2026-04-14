@@ -67,6 +67,9 @@ export default function SalesReportPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [expandedTxId, setExpandedTxId] = useState<number | null>(null);
+    const [filterKasir, setFilterKasir] = useState('');
+    const [filterMetode, setFilterMetode] = useState('');
+    const [filterWaktu, setFilterWaktu] = useState<'semua' | 'pagi' | 'siang' | 'malam'>('semua');
 
     useEffect(() => {
         const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -102,7 +105,29 @@ export default function SalesReportPage() {
         }
     });
 
-    const recentTransactions = transactions || [];
+    const allTransactions = transactions || [];
+
+    // Derive unique cashier names from loaded transactions
+    const kasirOptions = Array.from(
+        new Set(allTransactions.map((t: any) => t.cashierName).filter(Boolean))
+    ).sort() as string[];
+
+    const recentTransactions = allTransactions.filter((t: any) => {
+        if (filterKasir && t.cashierName !== filterKasir) return false;
+        if (filterMetode) {
+            const method = t.dpPaymentMethod || t.paymentMethod;
+            if (filterMetode === 'BANK_TRANSFER') {
+                if (t.paymentMethod !== 'BANK_TRANSFER' && t.dpPaymentMethod !== 'BANK_TRANSFER') return false;
+            } else if (method !== filterMetode && t.paymentMethod !== filterMetode) return false;
+        }
+        if (filterWaktu !== 'semua') {
+            const hour = dayjs(t.createdAt).hour();
+            if (filterWaktu === 'pagi' && !(hour >= 6 && hour < 12)) return false;
+            if (filterWaktu === 'siang' && !(hour >= 12 && hour < 18)) return false;
+            if (filterWaktu === 'malam' && !(hour >= 18 || hour < 6)) return false;
+        }
+        return true;
+    });
 
     const handleExportExcel = () => {
         if (!transactions?.length) return alert('Tidak ada transaksi untuk di-export');
@@ -143,6 +168,15 @@ export default function SalesReportPage() {
     const periodLabel = SALES_PERIODS.find(p => p.key === period)?.label ?? '';
     const topItems: any[] = summary?.topSellingItems ?? [];
     const maxQty = topItems[0]?.qty || 1;
+
+    const fmtMethod = (method: string, bankAccountId?: number | null, bankAccount?: any) => {
+        if (method === 'BANK_TRANSFER') {
+            return bankAccount?.bankName
+                || bankAccounts?.find((b: any) => b.id === bankAccountId)?.bankName
+                || 'Transfer';
+        }
+        return method;
+    };
     const maxRevenue = topItems[0]?.revenue || 1;
 
     const RANK_COLORS = ['text-yellow-500', 'text-slate-400', 'text-amber-600'];
@@ -442,18 +476,66 @@ export default function SalesReportPage() {
                             <h3 className="text-base font-semibold text-foreground">
                                 Histori Log Penjualan — {periodLabel}
                             </h3>
-                            <span className="text-sm text-muted-foreground">{recentTransactions.length} transaksi</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">{recentTransactions.length} transaksi</span>
+                                {(filterKasir || filterMetode || filterWaktu !== 'semua') && (
+                                    <button
+                                        onClick={() => { setFilterKasir(''); setFilterMetode(''); setFilterWaktu('semua'); }}
+                                        className="text-xs text-red-500 hover:text-red-600 font-medium px-2 py-0.5 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors"
+                                    >
+                                        Reset filter
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                        {/* Search */}
-                        <div className="relative max-w-sm">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="Cari nama pelanggan / no invoice..."
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
+                        {/* Search + Filters */}
+                        <div className="flex flex-wrap gap-2">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <input
+                                    type="text"
+                                    placeholder="Cari nama pelanggan / no invoice..."
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    className="pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 w-64"
+                                />
+                            </div>
+                            {/* Filter Waktu/Shift */}
+                            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+                                {(['semua', 'pagi', 'siang', 'malam'] as const).map(w => (
+                                    <button
+                                        key={w}
+                                        onClick={() => setFilterWaktu(w)}
+                                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors capitalize ${
+                                            filterWaktu === w ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        {w === 'semua' ? 'Semua Waktu' : w === 'pagi' ? 'Pagi (06-12)' : w === 'siang' ? 'Siang (12-18)' : 'Malam (18+)'}
+                                    </button>
+                                ))}
+                            </div>
+                            {/* Filter Kasir */}
+                            <select
+                                value={filterKasir}
+                                onChange={e => setFilterKasir(e.target.value)}
+                                className="py-2 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            >
+                                <option value="">Semua Kasir</option>
+                                {kasirOptions.map(name => (
+                                    <option key={name} value={name}>{name}</option>
+                                ))}
+                            </select>
+                            {/* Filter Metode */}
+                            <select
+                                value={filterMetode}
+                                onChange={e => setFilterMetode(e.target.value)}
+                                className="py-2 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            >
+                                <option value="">Semua Metode</option>
+                                <option value="CASH">Cash</option>
+                                <option value="QRIS">QRIS</option>
+                                <option value="BANK_TRANSFER">Transfer Bank</option>
+                            </select>
                         </div>
                     </div>
                     <div className="overflow-x-auto">
@@ -489,16 +571,37 @@ export default function SalesReportPage() {
                                                                     : <ChevronRight className="w-3.5 h-3.5" />
                                                                 }
                                                             </button>
-                                                            {trx.status === 'PARTIAL' && <span className="bg-orange-500/10 text-orange-600 border border-orange-500/20 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">DP</span>}
-                                                            {trx.invoiceNumber}
+                                                            {trx.status === 'PENDING' && <span className="bg-sky-500/10 text-sky-600 border border-sky-500/20 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">PENDING</span>}
+                                                            {trx.status === 'PARTIAL' && Number(trx.downPayment) > 0 && <span className="bg-orange-500/10 text-orange-600 border border-orange-500/20 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">DP</span>}
+                                                            {trx.status === 'PARTIAL' && Number(trx.downPayment) === 0 && trx.dueDate && <span className="bg-violet-500/10 text-violet-600 border border-violet-500/20 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">KREDIT</span>}
+                                                            <div>
+                                                                <span>{trx.invoiceNumber}</span>
+                                                                {trx.checkoutNumber && <div className="text-[11px] text-muted-foreground font-mono mt-0.5">{trx.checkoutNumber}</div>}
+                                                            </div>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground/80">{dayjs(trx.createdAt).format('DD MMM YYYY HH:mm')}</td>
                                                     <td className="px-6 py-4 text-sm text-foreground/80 max-w-[160px] truncate">{trx.customerName || <span className="text-muted-foreground">—</span>}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
-                                                            {trx.paymentMethod}
-                                                        </span>
+                                                        {(trx.status === 'PENDING' || (trx.status === 'PARTIAL' && Number(trx.downPayment) === 0))
+                                                            ? <span className="text-muted-foreground">—</span>
+                                                            : trx.status === 'PAID' && trx.dpPaymentMethod
+                                                                ? <div className="flex flex-col gap-0.5">
+                                                                    <span className="inline-flex items-center rounded-md bg-orange-500/10 px-2 py-0.5 text-[10px] font-medium text-orange-600">
+                                                                        DP: {fmtMethod(trx.dpPaymentMethod, trx.dpBankAccountId)}
+                                                                    </span>
+                                                                    <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                                                        Lunas: {fmtMethod(trx.paymentMethod, trx.bankAccountId, trx.bankAccount)}
+                                                                    </span>
+                                                                </div>
+                                                            : trx.status === 'PARTIAL' && Number(trx.downPayment) > 0
+                                                                ? <span className="inline-flex items-center rounded-md bg-orange-500/10 px-2 py-1 text-xs font-medium text-orange-600">
+                                                                    DP: {fmtMethod(trx.dpPaymentMethod || trx.paymentMethod, trx.dpBankAccountId ?? trx.bankAccountId, trx.bankAccount)}
+                                                                </span>
+                                                                : <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                                                                    {fmtMethod(trx.paymentMethod, trx.bankAccountId, trx.bankAccount)}
+                                                                </span>
+                                                        }
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-foreground text-right">
                                                         Rp {Number(trx.grandTotal).toLocaleString('id-ID')}
@@ -559,16 +662,28 @@ export default function SalesReportPage() {
                             {/* Header Info */}
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
-                                    <p className="text-muted-foreground text-xs mb-1">No. Invoice</p>
-                                    <p className="font-medium text-foreground">{selectedTransaction.invoiceNumber}</p>
+                                    <p className="text-muted-foreground text-xs mb-1">No. Surat Order</p>
+                                    <p className="font-medium text-foreground font-mono">{selectedTransaction.invoiceNumber}</p>
                                 </div>
                                 <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Tanggal</p>
+                                    <p className="text-muted-foreground text-xs mb-1">No. Surat Checkout</p>
+                                    <p className="font-medium text-foreground font-mono">{selectedTransaction.checkoutNumber || <span className="text-muted-foreground font-sans font-normal">—</span>}</p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Tanggal Order</p>
                                     <p className="font-medium text-foreground">{dayjs(selectedTransaction.createdAt).format('DD MMM YYYY, HH:mm')}</p>
                                 </div>
                                 <div>
-                                    <p className="text-muted-foreground text-xs mb-1">Kasir</p>
+                                    <p className="text-muted-foreground text-xs mb-1">Tanggal Checkout</p>
+                                    <p className="font-medium text-foreground">{selectedTransaction.paidAt ? dayjs(selectedTransaction.paidAt).format('DD MMM YYYY, HH:mm') : <span className="text-muted-foreground">—</span>}</p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Kasir Order</p>
                                     <p className="font-medium text-foreground">{selectedTransaction.cashierName || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-xs mb-1">Kasir Checkout</p>
+                                    <p className="font-medium text-foreground">{selectedTransaction.checkoutCashierName || <span className="text-muted-foreground">—</span>}</p>
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground text-xs mb-1">Pelanggan</p>
@@ -717,13 +832,13 @@ export default function SalesReportPage() {
                                 >
                                     <MessageCircle className="w-4 h-4" /> WA
                                 </button>
-                                {(selectedTransaction.status === 'PAID' || selectedTransaction.status === 'PARTIAL') && (
+                                {(selectedTransaction.status === 'PAID' || selectedTransaction.status === 'PARTIAL' || selectedTransaction.status === 'PENDING') && (
                                     <button
                                         onClick={() => setShowEditModal(true)}
                                         className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-500/20 transition-colors outline-none"
                                     >
                                         <PenSquare className="w-4 h-4" />
-                                        {isManager ? 'Edit' : 'Ajukan Edit'}
+                                        {isManager ? 'Edit' : selectedTransaction.status === 'PENDING' ? 'Edit Invoice' : 'Ajukan Edit'}
                                     </button>
                                 )}
                             </div>

@@ -245,9 +245,14 @@ model Transaction {
   cashierName        String?           @map("cashier_name") @db.VarChar(100)
   employeeName       String?           @map("employee_name") @db.VarChar(100)
   bankAccountId      Int?              @map("bank_account_id")
+  dpPaymentMethod    PaymentMethod?    @map("dp_payment_method")
+  dpBankAccountId    Int?              @map("dp_bank_account_id")
   productionPriority String            @default("NORMAL") @map("production_priority") @db.VarChar(20)
   productionDeadline DateTime?         @map("production_deadline")
   productionNotes    String?           @map("production_notes") @db.Text
+  checkoutNumber      String?           @unique @map("checkout_number") @db.VarChar(100)
+  paidAt              DateTime?         @map("paid_at")
+  checkoutCashierName String?           @map("checkout_cashier_name") @db.VarChar(100)
   createdAt          DateTime?         @default(now()) @map("created_at")
   updatedAt          DateTime?         @default(now()) @updatedAt @map("updated_at")
 
@@ -489,6 +494,13 @@ model StoreSettings {
   notifyGithubCommit     Boolean   @default(true) @map("notify_github_commit")
   discordWebhookUrl      String?   @map("discord_webhook_url") @db.Text
   githubWebhookSecret    String?   @map("github_webhook_secret") @db.VarChar(200)
+  // Rclone Auto-Backup
+  rcloneEnabled          Boolean   @default(false) @map("rclone_enabled")
+  rcloneRemote           String?   @map("rclone_remote") @db.VarChar(300)
+  rcloneSchedule         String?   @default("0 2 * * *") @map("rclone_schedule") @db.VarChar(50)
+  rcloneKeepCount        Int       @default(7) @map("rclone_keep_count")
+  rcloneLastBackupAt     DateTime? @map("rclone_last_backup_at")
+  rcloneLastStatus       String?   @map("rclone_last_status") @db.VarChar(500)
   createdAt             DateTime? @default(now()) @map("created_at")
   updatedAt             DateTime? @default(now()) @updatedAt @map("updated_at")
 

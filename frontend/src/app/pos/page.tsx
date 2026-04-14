@@ -118,6 +118,9 @@ export default function POSPage() {
             clearCart();
             setDiscount('');
             setShippingCost('');
+            setDueDate('');
+            setDownPayment('');
+            setPaymentMethod('CASH');
             // Receipt is shown from snapshot captured before cart was cleared
         }
     });
@@ -272,7 +275,7 @@ export default function POSPage() {
             customerPhone: customerPhone.trim() || undefined,
             customerAddress: customerAddress.trim() || undefined,
             dueDate: dueDate ? new Date(dueDate) : undefined,
-            downPayment: downPayment !== '' ? Number(downPayment) : undefined,
+            downPayment: paymentMethod === 'BAYAR_NANTI' ? 0 : downPayment !== '' ? Number(downPayment) : undefined,
             cashierName: cashierName.trim() || undefined,
             employeeName: employeeName.trim() || undefined,
             logoUrl: settings?.logoImageUrl || undefined,
@@ -920,9 +923,11 @@ export default function POSPage() {
                                         <div className="w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
                                             <span className="text-2xl">⚠️</span>
                                         </div>
-                                        <h3 className="text-lg font-bold">{paymentMethod === 'KREDIT' ? 'Konfirmasi Nota Kredit' : downPayment !== '' && Number(downPayment) < grandTotal ? 'Konfirmasi DP' : 'Konfirmasi Pembayaran'}</h3>
+                                        <h3 className="text-lg font-bold">{paymentMethod === 'BAYAR_NANTI' ? 'Simpan Invoice (Bayar Nanti)' : paymentMethod === 'KREDIT' ? 'Konfirmasi Nota Kredit' : downPayment !== '' && Number(downPayment) < grandTotal ? 'Konfirmasi DP' : 'Konfirmasi Pembayaran'}</h3>
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            {paymentMethod === 'KREDIT'
+                                            {paymentMethod === 'BAYAR_NANTI'
+                                                ? <>Invoice disimpan <strong>tanpa pembayaran</strong>. Pelanggan dapat membayar nanti melalui menu <strong>Piutang</strong>.</>
+                                                : paymentMethod === 'KREDIT'
                                                 ? <>Transaksi disimpan sebagai <strong>piutang</strong>. Jatuh tempo: <strong>{dueDate ? dayjs(dueDate).format('DD/MM/YYYY') : '-'}</strong>. Tidak ada pembayaran diterima sekarang.</>
                                                 : <>Pastikan pembayaran <strong>Rp {(downPayment !== '' && Number(downPayment) < grandTotal ? Number(downPayment) : grandTotal).toLocaleString('id-ID')}</strong> via <strong>{paymentMethod === 'BANK_TRANSFER' ? 'Transfer Bank' : paymentMethod}</strong> sudah diterima sebelum melanjutkan.</>
                                             }
@@ -935,9 +940,9 @@ export default function POSPage() {
                                         </button>
                                         <button onClick={() => { setShowPayConfirm(false); handleCheckout(); }}
                                             disabled={transactionMutation.isPending}
-                                            className="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-                                            <CheckCircle2 className="w-4 h-4" />
-                                            {transactionMutation.isPending ? 'Memproses...' : paymentMethod === 'KREDIT' ? 'Ya, Simpan Nota Kredit ✓' : downPayment !== '' && Number(downPayment) < grandTotal ? 'Ya, Konfirmasi DP ✓' : 'Ya, Sudah Lunas ✓'}
+                                            className={`py-3 rounded-xl text-white font-bold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${paymentMethod === 'BAYAR_NANTI' ? 'bg-sky-500 hover:bg-sky-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
+                                            {paymentMethod === 'BAYAR_NANTI' ? <Clock className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                                            {transactionMutation.isPending ? 'Memproses...' : paymentMethod === 'BAYAR_NANTI' ? 'Ya, Simpan Invoice ✓' : paymentMethod === 'KREDIT' ? 'Ya, Simpan Nota Kredit ✓' : downPayment !== '' && Number(downPayment) < grandTotal ? 'Ya, Konfirmasi DP ✓' : 'Ya, Sudah Lunas ✓'}
                                         </button>
                                     </div>
                                 </div>
@@ -1165,7 +1170,7 @@ export default function POSPage() {
                                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pembayaran</p>
                                 <div className="grid grid-cols-4 gap-2">
                                     {(['CASH', 'QRIS', 'BANK_TRANSFER'] as const).map(m => (
-                                        <button key={m} onClick={() => { setPaymentMethod(m); if (downPayment === '0') setDownPayment(''); }}
+                                        <button key={m} onClick={() => { setPaymentMethod(m); setDueDate(''); if (downPayment === '0') setDownPayment(''); }}
                                             className={`py-2 rounded-xl text-xs font-bold transition-all border-2 ${paymentMethod === m ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/50 text-muted-foreground hover:border-primary/30'}`}>
                                             {m === 'BANK_TRANSFER' ? 'TRANSFER' : m}
                                         </button>
@@ -1381,18 +1386,23 @@ export default function POSPage() {
                                     }`}>
                                     {receipt.paymentMethod === 'BANK_TRANSFER' ? 'TRANSFER BANK' : receipt.paymentMethod}
                                 </span>
-                                <span className={`text-xs font-bold ${receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                    {receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? '✓ DP / BELUM LUNAS' : '✓ LUNAS'}
+                                <span className={`text-xs font-bold ${receipt.paymentMethod === 'BAYAR_NANTI' ? 'text-sky-600' : receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                    {receipt.paymentMethod === 'BAYAR_NANTI' ? '⏳ BELUM DIBAYAR' : receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? '✓ DP / BELUM LUNAS' : '✓ LUNAS'}
                                 </span>
                             </div>
 
-                            {/* Outstanding balance if DP */}
-                            {receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal && (
+                            {/* Outstanding balance if DP or Bayar Nanti */}
+                            {receipt.paymentMethod === 'BAYAR_NANTI' ? (
+                                <div className="mt-4 p-3 bg-sky-500/10 border border-sky-500/20 rounded-lg text-center space-y-1">
+                                    <p className="text-xs text-muted-foreground">Total Tagihan (Belum Dibayar):</p>
+                                    <p className="font-bold text-sky-600 text-lg">Rp {receipt.grandTotal.toLocaleString('id-ID')}</p>
+                                </div>
+                            ) : receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? (
                                 <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-center space-y-1">
                                     <p className="text-xs text-muted-foreground">Sisa Tagihan (Belum Dibayar):</p>
                                     <p className="font-bold text-amber-600 text-lg">Rp {(receipt.grandTotal - receipt.downPayment).toLocaleString('id-ID')}</p>
                                 </div>
-                            )}
+                            ) : null}
                         </div>
 
                         {/* Action buttons */}

@@ -1,0 +1,20 @@
+{
+  "servers": [
+    {
+      "id": "backend",
+      "name": "Backend (NestJS)",
+      "cwd": "backend",
+      "command": "npm run start:dev",
+      "port": 3001,
+      "description": "NestJS API server with hot-reload (Prisma + MySQL)"
+    },
+    {
+      "id": "frontend",
+      "name": "Frontend (Next.js)",
+      "cwd": "frontend",
+      "command": "npm run dev",
+      "port": 3000,
+      "description": "Next.js 14 App Router dev server"
+    }
+  ]
+}

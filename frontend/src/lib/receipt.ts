@@ -28,6 +28,11 @@ export interface ReceiptSnapshot {
   customerAddress?: string;
   dueDate?: Date;
   downPayment?: number;
+  status?: string;
+  orderNumber?: string;
+  checkoutNumber?: string;
+  checkoutCashierName?: string;
+  paidAt?: Date;
   cashierName?: string;
   employeeName?: string;
   logoUrl?: string;
@@ -100,7 +105,7 @@ export const buildInvoiceHTML = (snap: ReceiptSnapshot, status: 'TAGIHAN' | 'LUN
   const dateObj = snap.timestamp;
   const dateFormatted = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
   const timeFormatted = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-  const receiptNo = snap.transactionId ? 'S' + String(snap.transactionId).padStart(9, '0') : 'DRAFT-' + Math.floor(Math.random() * 1000);
+  const receiptNo = snap.orderNumber || (snap.transactionId ? 'S' + String(snap.transactionId).padStart(9, '0') : 'DRAFT-' + Math.floor(Math.random() * 1000));
 
   const terbilang = (angka: number): string => {
     const bilangan = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
@@ -215,12 +220,15 @@ export const buildInvoiceHTML = (snap: ReceiptSnapshot, status: 'TAGIHAN' | 'LUN
     </div>
     <div class="info-right">
       <table style="width:60%; margin:0; border:none;">
-        <tr><td style="padding:2px 0;"><strong>No. Order</strong></td><td style="padding:2px 0;">: ${receiptNo}</td></tr>
-        <tr><td style="padding:2px 0;">Tanggal</td><td style="padding:2px 0;">: ${dateFormatted} &nbsp;&nbsp; ${timeFormatted}</td></tr>
+        <tr><td style="padding:2px 0;"><strong>No. Surat Order</strong></td><td style="padding:2px 0;">: ${receiptNo}</td></tr>
+        ${snap.checkoutNumber ? `<tr><td style="padding:2px 0;"><strong>No. Surat Checkout</strong></td><td style="padding:2px 0;">: ${snap.checkoutNumber}</td></tr>` : ''}
+        <tr><td style="padding:2px 0;">Tanggal Order</td><td style="padding:2px 0;">: ${dateFormatted} &nbsp;&nbsp; ${timeFormatted}</td></tr>
+        ${snap.paidAt ? `<tr><td style="padding:2px 0;">Tanggal Checkout</td><td style="padding:2px 0;">: ${snap.paidAt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })} &nbsp;&nbsp; ${snap.paidAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</td></tr>` : ''}
         <tr><td style="padding:2px 0;">Estimasi Selesai</td><td style="padding:2px 0;">: ${snap.dueDate ? new Date(snap.dueDate).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '-'}</td></tr>
       </table>
       <table style="width:50%; margin:0; border:none;">
-        <tr><td style="padding:2px 0;">Kasir/Karyawan</td><td style="padding:2px 0;">: ${snap.cashierName || snap.employeeName || '-'}</td></tr>
+        <tr><td style="padding:2px 0;">Kasir Order</td><td style="padding:2px 0;">: ${snap.cashierName || snap.employeeName || '-'}</td></tr>
+        ${snap.checkoutCashierName ? `<tr><td style="padding:2px 0;">Kasir Checkout</td><td style="padding:2px 0;">: ${snap.checkoutCashierName}</td></tr>` : ''}
       </table>
     </div>
   </div>
@@ -259,7 +267,7 @@ export const buildInvoiceHTML = (snap: ReceiptSnapshot, status: 'TAGIHAN' | 'LUN
       
       <br>
       <div class="total-row"><div class="total-label"><span>Uang Muka</span><span>:</span></div><span>${snap.downPayment !== undefined ? snap.downPayment.toLocaleString('id-ID') : snap.grandTotal.toLocaleString('id-ID')}</span></div>
-      <div class="total-row"><div class="total-label"><span>Sisa/Kekurangan</span><span>:</span></div><span>${snap.downPayment !== undefined ? (snap.grandTotal - snap.downPayment).toLocaleString('id-ID') : '0'}</span></div>
+      <div class="total-row"><div class="total-label"><span>Sisa/Kekurangan</span><span>:</span></div><span>${snap.status === 'PAID' ? '0' : (snap.downPayment !== undefined ? (snap.grandTotal - snap.downPayment).toLocaleString('id-ID') : '0')}</span></div>
     </div>
   </div>
 
@@ -321,6 +329,11 @@ export const mapTransactionToReceipt = (trx: any, settings: any): ReceiptSnapsho
     customerAddress: trx.customerAddress || undefined,
     dueDate: trx.dueDate ? new Date(trx.dueDate) : undefined,
     downPayment: Number(trx.downPayment),
+    status: trx.status,
+    orderNumber: trx.invoiceNumber || undefined,
+    checkoutNumber: trx.checkoutNumber || undefined,
+    checkoutCashierName: trx.checkoutCashierName || undefined,
+    paidAt: trx.paidAt ? new Date(trx.paidAt) : undefined,
     cashierName: trx.cashierName || undefined,
     logoUrl: settings?.logoImageUrl || undefined,
     storeName: settings?.storeName || 'Toko',

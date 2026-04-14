@@ -2,22 +2,29 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTransactions, payOffTransaction, getSettings, getBankAccounts } from '@/lib/api';
+import { getTransactions, payOffTransaction, getSettings, getBankAccounts, getUsers } from '@/lib/api';
 import { mapTransactionToReceipt, handlePrintSnap, handleShareWA } from '@/lib/receipt';
-import { CreditCard, Banknote, Landmark, Wallet, CheckCircle2, X, Printer, MessageCircle } from "lucide-react";
+import { CreditCard, Banknote, Landmark, Wallet, CheckCircle2, X, Printer, MessageCircle, PenSquare } from "lucide-react";
 import dayjs from "dayjs";
 import Link from 'next/link';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import EditTransactionModal from '@/app/reports/sales/EditTransactionModal';
 
 export default function DPTransactionsPage() {
     const queryClient = useQueryClient();
     const { data: transactions, isLoading } = useQuery({ queryKey: ['transactions'], queryFn: () => getTransactions() });
     const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: getSettings });
     const { data: bankAccounts } = useQuery({ queryKey: ['bank-accounts'], queryFn: getBankAccounts });
+    const { data: users } = useQuery({ queryKey: ['users'], queryFn: getUsers });
+    const { isManager } = useCurrentUser();
 
     const [selectedTrx, setSelectedTrx] = useState<any | null>(null);
     const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'QRIS' | 'BANK_TRANSFER'>('CASH');
     const [payoffBankId, setPayoffBankId] = useState<string>('');
     const [nominalBayar, setNominalBayar] = useState<string>('');
+    const [checkoutCashierName, setCheckoutCashierName] = useState<string>('');
+    const [checkoutPaidAt, setCheckoutPaidAt] = useState<string>('');
+    const [editTrx, setEditTrx] = useState<any | null>(null);
 
     const [activeTab, setActiveTab] = useState<'Semua' | 'DP' | 'Kredit' | 'Bayar Nanti'>('Semua');
 
@@ -32,10 +39,17 @@ export default function DPTransactionsPage() {
         : allUnpaid;
 
     const payOffMutation = useMutation({
-        mutationFn: (id: number) => payOffTransaction(id, { paymentMethod, bankAccountId: payoffBankId ? Number(payoffBankId) : undefined }),
+        mutationFn: (id: number) => payOffTransaction(id, {
+            paymentMethod,
+            bankAccountId: payoffBankId ? Number(payoffBankId) : undefined,
+            checkoutCashierName: checkoutCashierName.trim() || undefined,
+            paidAt: checkoutPaidAt || undefined,
+        }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['transactions'] });
             setSelectedTrx(null);
+            setCheckoutCashierName('');
+            setCheckoutPaidAt('');
         }
     });
 
@@ -172,7 +186,14 @@ export default function DPTransactionsPage() {
                                                     <MessageCircle className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => { setSelectedTrx(trx); setNominalBayar(''); setPaymentMethod('CASH'); setPayoffBankId(''); }}
+                                                    onClick={() => setEditTrx(trx)}
+                                                    title={isManager ? 'Edit Transaksi' : 'Ajukan Perubahan'}
+                                                    className="p-1.5 bg-muted text-muted-foreground hover:bg-amber-500/10 hover:text-amber-600 rounded-lg transition-colors outline-none"
+                                                >
+                                                    <PenSquare className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => { setSelectedTrx(trx); setNominalBayar(''); setPaymentMethod('CASH'); setPayoffBankId(''); setCheckoutCashierName(''); setCheckoutPaidAt(''); }}
                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium transition-colors"
                                                 >
                                                     <Wallet className="w-4 h-4" /> Pelunasan
@@ -200,6 +221,23 @@ export default function DPTransactionsPage() {
                     </table>
                 </div>
             </div>
+
+            {/* Edit Modal */}
+            {editTrx && (
+                <EditTransactionModal
+                    transaction={editTrx}
+                    isManager={isManager}
+                    onClose={() => setEditTrx(null)}
+                    onSuccess={() => {
+                        setEditTrx(null);
+                        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+                    }}
+                    onDeleted={() => {
+                        setEditTrx(null);
+                        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+                    }}
+                />
+            )}
 
             {/* PayOff Modal */}
             {selectedTrx && (
@@ -334,6 +372,33 @@ export default function DPTransactionsPage() {
                                             </div>
                                         </div>
                                     )}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 pt-1 border-t border-border">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Informasi Checkout</p>
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium text-foreground">Kasir Pelunasan</label>
+                                    <select
+                                        value={checkoutCashierName}
+                                        onChange={e => setCheckoutCashierName(e.target.value)}
+                                        className="w-full px-4 py-2.5 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm"
+                                    >
+                                        <option value="">Pilih kasir...</option>
+                                        {users?.map((u: any) => (
+                                            <option key={u.id} value={u.name}>{u.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium text-foreground">Tanggal & Jam Checkout</label>
+                                    <input
+                                        type="datetime-local"
+                                        value={checkoutPaidAt}
+                                        onChange={e => setCheckoutPaidAt(e.target.value)}
+                                        className="w-full px-4 py-2.5 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Kosongkan = waktu sekarang</p>
                                 </div>
                             </div>
 

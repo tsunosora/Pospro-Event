@@ -88,7 +88,7 @@ export class TransactionsController {
     }
 
     @Post(':id/pay-off')
-    payOff(@Param('id', ParseIntPipe) id: number, @Body() body: { paymentMethod: PaymentMethod, bankAccountId?: number }) {
+    payOff(@Param('id', ParseIntPipe) id: number, @Body() body: { paymentMethod: PaymentMethod, bankAccountId?: number, checkoutCashierName?: string, paidAt?: string }) {
         return this.transactionsService.payOff(id, body);
     }
 

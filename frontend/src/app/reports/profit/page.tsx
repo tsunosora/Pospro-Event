@@ -26,8 +26,10 @@ export default function ProfitReportPage() {
         const data = profitData.items.map((item: any) => ({
             'SKU': item.sku,
             'Nama Produk': item.name,
-            'Qty Terjual': item.qty,
-            'Unit': item.unit,
+            'Qty / Luas Terjual': item.isAreaBased
+                ? `${Number(item.totalAreaM2).toFixed(2)} m² (${item.qty} pesanan)`
+                : item.qty,
+            'Unit': item.isAreaBased ? 'm²' : item.unit,
             'Pendapatan': Number(item.revenue),
             'Total HPP': Number(item.totalHpp),
             'Laba Kotor': Number(item.grossProfit),
@@ -41,10 +43,13 @@ export default function ProfitReportPage() {
         const headers = ['SKU', 'Nama Produk', 'Qty', 'Pendapatan', 'Total HPP', 'Laba Kotor', 'Margin'];
         const body = profitData.items.map((item: any) => {
             const margin = item.revenue > 0 ? ((item.grossProfit / item.revenue) * 100).toFixed(1) + '%' : '0%';
+            const qtyDisplay = item.isAreaBased
+                ? `${Number(item.totalAreaM2).toFixed(2)} m² (${item.qty} psx)`
+                : `${item.qty} ${item.unit}`;
             return [
                 item.sku,
                 item.name,
-                `${item.qty} ${item.unit}`,
+                qtyDisplay,
                 `Rp ${Number(item.revenue).toLocaleString('id-ID')}`,
                 `Rp ${Number(item.totalHpp).toLocaleString('id-ID')}`,
                 `Rp ${Number(item.grossProfit).toLocaleString('id-ID')}`,
@@ -160,7 +165,18 @@ export default function ProfitReportPage() {
                                                 <div className="text-xs text-muted-foreground mt-0.5">{item.sku}</div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                                                {item.qty} {item.unit}
+                                                {item.isAreaBased ? (
+                                                    <div>
+                                                        <span className="font-bold text-foreground">
+                                                            {Number(item.totalAreaM2).toLocaleString('id-ID', { maximumFractionDigits: 2 })} m²
+                                                        </span>
+                                                        <div className="text-xs text-muted-foreground mt-0.5">
+                                                            {item.qty} pesanan
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span>{item.qty} {item.unit}</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-foreground">
                                                 Rp {Number(item.revenue).toLocaleString('id-ID')}

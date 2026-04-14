@@ -68,17 +68,16 @@ export class ReportsService {
 
                 let itemHpp = 0;
                 let itemRevenue = 0;
-                let displayQty = qty;
+                let areaM2 = 0;
 
                 if (isArea) {
                     // Area based: priceAtTime & HPP are both per-m², multiply by area
-                    const areaM2 = Number(item.areaCm2) / 10000;
+                    areaM2 = Number(item.areaCm2) / 10000;
                     itemHpp = hpp * areaM2;
                     itemRevenue = Number(item.priceAtTime) * areaM2;
                 } else {
                     // Unit based
                     itemHpp = hpp * qty;
-                    // priceAtTime is unit price for unit based
                     itemRevenue = Number(item.priceAtTime) * qty;
                 }
 
@@ -92,7 +91,9 @@ export class ReportsService {
                         productVariantId: item.productVariantId,
                         sku: pv?.sku || 'Unknown',
                         name: pv?.variantName ? `${p?.name} - ${pv?.variantName}` : (p?.name || 'Unknown Product'),
-                        qty: 0,
+                        qty: 0,           // jumlah unit terjual (UNIT) atau jumlah pesanan (AREA)
+                        totalAreaM2: 0,  // total luas dalam m² (AREA_BASED saja)
+                        isAreaBased: isArea,
                         unit: p?.unit?.name || 'pcs',
                         revenue: 0,
                         totalHpp: 0,
@@ -100,7 +101,12 @@ export class ReportsService {
                     };
                 }
 
-                itemMap[item.productVariantId].qty += displayQty;
+                if (isArea) {
+                    itemMap[item.productVariantId].qty += 1;          // hitung jumlah pesanan
+                    itemMap[item.productVariantId].totalAreaM2 += areaM2; // akumulasi total m²
+                } else {
+                    itemMap[item.productVariantId].qty += qty;
+                }
                 itemMap[item.productVariantId].revenue += itemRevenue;
                 itemMap[item.productVariantId].totalHpp += itemHpp;
             }
@@ -290,6 +296,13 @@ export class ReportsService {
         });
 
         const shiftId: number = shift.id;
+
+        // Tag semua cashflow yang belum di-assign ke shift manapun (shiftReportId = null)
+        // ke shift ini — mencegah data shift ini bocor ke shift berikutnya
+        await this.prisma.cashflow.updateMany({
+            where: { shiftReportId: null },
+            data: { shiftReportId: shiftId },
+        });
 
         // Buat Cashflow INCOME untuk pemasukan tambahan eksternal
         // → di-tag shiftReportId agar tidak masuk shift berikutnya

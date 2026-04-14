@@ -174,13 +174,16 @@ export default function EditTransactionModal({ transaction, isManager, onClose, 
 
     const isSubmitting = directEditMutation.isPending || requestEditMutation.isPending;
     const error = directEditMutation.error || requestEditMutation.error || deleteMutation.error;
+    // Transaksi PENDING = draft invoice, siapa saja boleh edit langsung
+    const isPendingTx = transaction?.status === 'PENDING';
+    const canDirectEdit = isManager || isPendingTx;
 
     const handleSubmit = () => {
-        if (!isManager && !reason.trim()) {
+        if (!canDirectEdit && !reason.trim()) {
             alert('Harap isi alasan permintaan edit');
             return;
         }
-        if (isManager) directEditMutation.mutate();
+        if (canDirectEdit) directEditMutation.mutate();
         else requestEditMutation.mutate();
     };
 
@@ -428,7 +431,7 @@ export default function EditTransactionModal({ transaction, isManager, onClose, 
                     </div>
 
                     {/* ── Reason ──────────────────────────────────────────── */}
-                    {!isManager && (
+                    {!canDirectEdit && (
                         <div>
                             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                 Alasan Permintaan <span className="text-red-500">*</span>
@@ -442,7 +445,7 @@ export default function EditTransactionModal({ transaction, isManager, onClose, 
                         </div>
                     )}
 
-                    {isManager && (
+                    {canDirectEdit && (
                         <div>
                             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                 Catatan Edit (opsional)
@@ -456,11 +459,18 @@ export default function EditTransactionModal({ transaction, isManager, onClose, 
                         </div>
                     )}
 
-                    {/* Alert for cashier */}
-                    {!isManager && (
+                    {/* Alert for cashier editing non-pending */}
+                    {!canDirectEdit && (
                         <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-700">
                             <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                             <span>Perubahan akan dikirim ke Admin/Owner untuk disetujui terlebih dahulu.</span>
+                        </div>
+                    )}
+
+                    {/* Info for cashier editing pending invoice */}
+                    {isPendingTx && !isManager && (
+                        <div className="flex items-start gap-2 p-3 bg-sky-500/10 border border-sky-500/20 rounded-lg text-xs text-sky-700">
+                            <span>Invoice Bayar Nanti dapat diedit langsung. Perubahan tersimpan tanpa persetujuan.</span>
                         </div>
                     )}
 
@@ -511,8 +521,8 @@ export default function EditTransactionModal({ transaction, isManager, onClose, 
                             disabled={isSubmitting}
                             className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
                         >
-                            {isManager ? <Save className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-                            {isSubmitting ? 'Memproses...' : isManager ? 'Simpan Perubahan' : 'Ajukan Perubahan'}
+                            {canDirectEdit ? <Save className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                            {isSubmitting ? 'Memproses...' : canDirectEdit ? 'Simpan Perubahan' : 'Ajukan Perubahan'}
                         </button>
                     </div>
                 </div>

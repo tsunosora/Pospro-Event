@@ -38,7 +38,32 @@
       "Bash(find D:WEBDEVPos-Web-Application -type f -path */src/* -name *controller*)",
       "Bash(find /d/FAISAL/appdev/comprehensive-pos-web-application/frontend/src/app/transactions -type f -name *.tsx -o -name *.ts)",
       "Bash(find D:FAISALappdevcomprehensive-pos-web-applicationbackendsrcauth -type f -name *.ts)",
-      "Bash(find D:FAISALappdevcomprehensive-pos-web-applicationbackendsrc -type f -name *user*)"
+      "Bash(find D:FAISALappdevcomprehensive-pos-web-applicationbackendsrc -type f -name *user*)",
+      "Bash(gh repo:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(cargo --version)",
+      "Bash(powershell -Command ':*)",
+      "Bash(Select-String -NotMatch \"PSReadLine|awokawok @|VOLIKO|SERIGALA|OS |CPU |GPU |RAM |Shell|Uptime|CategoryInfo|FullyQualified|At line|At C:\\\\\\\\Users|virtual terminal|redirected|user_profile\")",
+      "Bash(npm bin:*)",
+      "Bash(lean-ctx --version)",
+      "Bash(/c/Users/awokawok/AppData/Roaming/npm/lean-ctx.exe --version)",
+      "Bash(cp /c/Users/awokawok/AppData/Roaming/npm/lean-ctx.exe /c/Users/awokawok/scoop/persist/nvm/nodejs/v25.8.0/lean-ctx.exe)",
+      "Bash(cat)",
+      "Bash(lean-ctx setup:*)",
+      "Bash(lean-ctx doctor:*)",
+      "Bash(lean-ctx config:*)",
+      "Bash(lean-ctx --help)",
+      "Bash(lean-ctx init:*)",
+      "Bash(LEAN_CTX_DISABLED=1 ls /c/Users/awokawok/.claude/hooks/)",
+      "Bash(LEAN_CTX_DISABLED=1 cat /c/Users/awokawok/.claude/hooks/lean-ctx-rewrite.sh)",
+      "Bash(LEAN_CTX_DISABLED=1 cat /c/Users/awokawok/.claude/settings.json)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); mcp=d.get\\('mcpServers',{}\\); print\\(json.dumps\\({k:v for k,v in mcp.items\\(\\) if 'lean' in k.lower\\(\\)}, indent=2\\)\\)\")",
+      "Bash(LEAN_CTX_DISABLED=1 python3 -c \" import json with open\\('/c/Users/awokawok/.claude.json'\\) as f: d = json.load\\(f\\) mcp = d.get\\('mcpServers', {}\\) lean = {k:v for k,v in mcp.items\\(\\) if 'lean' in k.lower\\(\\) or 'ctx' in k.lower\\(\\)} print\\(json.dumps\\(lean, indent=2\\)\\) \")",
+      "Bash(LEAN_CTX_DISABLED=1 grep -i \"lean\\\\|ctx\" /c/Users/awokawok/.claude.json)",
+      "mcp__lean-ctx__ctx_tree",
+      "mcp__lean-ctx__ctx_read",
+      "mcp__lean-ctx__ctx_edit",
+      "mcp__lean-ctx__ctx_search"
     ]
   }
 }
