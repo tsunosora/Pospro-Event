@@ -363,7 +363,7 @@ export default function Home() {
                   />
                   <RechartsTooltip
                     contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: any, name: string) => name === 'Revenue'
+                    formatter={(value: any, name: string | undefined) => name === 'Revenue'
                       ? [`Rp ${Number(value).toLocaleString('id-ID')}`, 'Pendapatan']
                       : [value, 'Invoice']}
                     labelStyle={{ fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
