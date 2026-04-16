@@ -250,6 +250,11 @@ export default function POSPage() {
     const handleCheckout = async () => {
         if (cart.length === 0) return;
 
+        if (!cashierName.trim()) {
+            alert('Kolom Kasir / Staff wajib diisi sebelum memproses order!');
+            return;
+        }
+
         if (!customerName || !customerPhone) {
             alert('Data pelanggan (Nama dan No. HP) wajib diisi untuk melanjutkan transaksi!');
             return;
@@ -1114,9 +1119,11 @@ export default function POSPage() {
                                             className="w-full px-2 py-1.5 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors" />
                                     </div>
                                     <div className="space-y-0.5">
-                                        <label className="text-[11px] text-muted-foreground">Kasir / Staff</label>
+                                        <label className={`text-[11px] font-medium ${!cashierName ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                            Kasir / Staff{!cashierName && ' *'}
+                                        </label>
                                         <select value={cashierName} onChange={e => setCashierName(e.target.value)}
-                                            className="w-full px-2 py-1.5 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors appearance-none">
+                                            className={`w-full px-2 py-1.5 bg-background border rounded-lg outline-none text-xs transition-colors appearance-none ${!cashierName ? 'border-destructive/60 focus:border-destructive' : 'border-border focus:border-primary'}`}>
                                             <option value="">Pilih...</option>
                                             {users?.map((u: any) => (
                                                 <option key={u.id} value={u.name}>{u.name}</option>
