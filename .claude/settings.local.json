@@ -67,7 +67,8 @@
       "Skill(update-config)",
       "Skill(update-config:*)",
       "Bash(cmd /c dir \"C:\\\\Users\\\\awokawok\\\\.claude\")",
-      "Bash(cmd /c \"dir C:\\\\Users\\\\awokawok\\\\.claude && echo done\")"
+      "Bash(cmd /c \"dir C:\\\\Users\\\\awokawok\\\\.claude && echo done\")",
+      "Bash(dir \"D:\\\\FAISAL\\\\appdev\\\\comprehensive-pos-web-application\\\\frontend\\\\src\\\\lib\\\\api\")"
     ]
   }
 }

@@ -856,8 +856,24 @@ export class TransactionsService {
                 };
             });
 
+        // Pendapatan Kas (cash basis): sum cashflow auto-entry dalam rentang tanggal.
+        // Berbeda dengan totalRevenue (accrual) — DP dan pelunasan dihitung di tanggal masing-masing.
+        const cfWhere: any = { type: CashflowType.INCOME, userId: null };
+        if (startDate && endDate) {
+            cfWhere.createdAt = {
+                gte: new Date(startDate),
+                lte: new Date(endDate + 'T23:59:59.999Z'),
+            };
+        }
+        const cfAgg = await this.prisma.cashflow.aggregate({
+            where: cfWhere,
+            _sum: { amount: true },
+        });
+        const pendapatanKas = Number(cfAgg._sum.amount || 0);
+
         return {
             totalRevenue,
+            pendapatanKas,
             totalTransactions,
             averageTransactionValue: totalTransactions > 0 ? totalRevenue / totalTransactions : 0,
             paymentMethods: paymentMethodsCount,
@@ -868,6 +884,8 @@ export class TransactionsService {
     }
 
     async getChartData(period: string = 'daily') {
+        // Menggunakan cashflow auto-entry (userId: null, type: INCOME) sebagai single source of truth.
+        // Konsisten dengan card dashboard — memisahkan DP vs pelunasan di tanggal masing-masing.
         const now = new Date();
         const data: { label: string; total: number }[] = [];
 
@@ -876,17 +894,17 @@ export class TransactionsService {
             const start = new Date(now);
             start.setDate(start.getDate() - 6);
             start.setHours(0, 0, 0, 0);
-            const txs = await this.prisma.transaction.findMany({
-                where: { createdAt: { gte: start }, status: TransactionStatus.PAID },
-                select: { createdAt: true, grandTotal: true }
+            const cfs = await this.prisma.cashflow.findMany({
+                where: { createdAt: { gte: start }, type: CashflowType.INCOME, userId: null },
+                select: { createdAt: true, amount: true }
             });
             for (let i = 6; i >= 0; i--) {
                 const d = new Date(now);
                 d.setDate(d.getDate() - i);
                 const dateStr = d.toISOString().split('T')[0];
-                const total = txs
-                    .filter(t => t.createdAt?.toISOString().split('T')[0] === dateStr)
-                    .reduce((sum, t) => sum + Number(t.grandTotal), 0);
+                const total = cfs
+                    .filter(c => c.createdAt?.toISOString().split('T')[0] === dateStr)
+                    .reduce((sum, c) => sum + Number(c.amount), 0);
                 data.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, total });
             }
         } else if (period === 'weekly') {
@@ -898,13 +916,13 @@ export class TransactionsService {
                 const weekStart = new Date(weekEnd);
                 weekStart.setDate(weekStart.getDate() - 6);
                 weekStart.setHours(0, 0, 0, 0);
-                const result = await this.prisma.transaction.aggregate({
-                    where: { createdAt: { gte: weekStart, lte: weekEnd }, status: TransactionStatus.PAID },
-                    _sum: { grandTotal: true }
+                const result = await this.prisma.cashflow.aggregate({
+                    where: { createdAt: { gte: weekStart, lte: weekEnd }, type: CashflowType.INCOME, userId: null },
+                    _sum: { amount: true }
                 });
                 const d = weekStart.getDate();
                 const m = weekStart.getMonth() + 1;
-                data.push({ label: `${d}/${m}`, total: Number(result._sum.grandTotal || 0) });
+                data.push({ label: `${d}/${m}`, total: Number(result._sum.amount || 0) });
             }
         } else if (period === 'monthly') {
             // Last 12 months, per month
@@ -913,11 +931,11 @@ export class TransactionsService {
                 const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
                 const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
                 const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
-                const result = await this.prisma.transaction.aggregate({
-                    where: { createdAt: { gte: monthStart, lte: monthEnd }, status: TransactionStatus.PAID },
-                    _sum: { grandTotal: true }
+                const result = await this.prisma.cashflow.aggregate({
+                    where: { createdAt: { gte: monthStart, lte: monthEnd }, type: CashflowType.INCOME, userId: null },
+                    _sum: { amount: true }
                 });
-                data.push({ label: `${monthNames[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`, total: Number(result._sum.grandTotal || 0) });
+                data.push({ label: `${monthNames[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`, total: Number(result._sum.amount || 0) });
             }
         } else if (period === 'yearly') {
             // Last 5 years, per year
@@ -925,11 +943,11 @@ export class TransactionsService {
                 const year = now.getFullYear() - i;
                 const yearStart = new Date(year, 0, 1);
                 const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
-                const result = await this.prisma.transaction.aggregate({
-                    where: { createdAt: { gte: yearStart, lte: yearEnd }, status: TransactionStatus.PAID },
-                    _sum: { grandTotal: true }
+                const result = await this.prisma.cashflow.aggregate({
+                    where: { createdAt: { gte: yearStart, lte: yearEnd }, type: CashflowType.INCOME, userId: null },
+                    _sum: { amount: true }
                 });
-                data.push({ label: String(year), total: Number(result._sum.grandTotal || 0) });
+                data.push({ label: String(year), total: Number(result._sum.amount || 0) });
             }
         }
 

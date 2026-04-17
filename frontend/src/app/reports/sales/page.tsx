@@ -275,12 +275,18 @@ export default function SalesReportPage() {
             {/* Tab: Ringkasan */}
             {activeTab === 'ringkasan' && (
                 <>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {/* Pendapatan Kas — cash basis, identik dengan dashboard */}
+                        <div className="glass p-6 rounded-xl border border-emerald-500/30 bg-emerald-500/5 flex flex-col justify-center">
+                            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-1">Pendapatan Kas</p>
+                            <h2 className="text-3xl font-bold text-foreground">Rp {Number(summary?.pendapatanKas || 0).toLocaleString('id-ID')}</h2>
+                            <p className="text-xs text-muted-foreground mt-1">Uang masuk aktual (cash basis)</p>
+                        </div>
+                        {/* Invoice Lunas — accrual, total grandTotal invoice PAID */}
                         <div className="glass p-6 rounded-xl border border-border flex flex-col justify-center">
-                            <p className="text-sm font-medium text-muted-foreground mb-1">Total Pendapatan</p>
-                            <div className="flex items-baseline gap-2">
-                                <h2 className="text-3xl font-bold text-foreground">Rp {Number(summary?.totalRevenue || 0).toLocaleString('id-ID')}</h2>
-                            </div>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">Invoice Lunas</p>
+                            <h2 className="text-3xl font-bold text-foreground">Rp {Number(summary?.totalRevenue || 0).toLocaleString('id-ID')}</h2>
+                            <p className="text-xs text-muted-foreground mt-1">Total invoice PAID (accrual)</p>
                         </div>
                         <div className="glass p-6 rounded-xl border border-border flex flex-col justify-center">
                             <p className="text-sm font-medium text-muted-foreground mb-1">Volume Transaksi</p>

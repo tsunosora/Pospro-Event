@@ -171,23 +171,6 @@ export default function ShiftHistoryPage() {
     const updatePaymentExchange = (i: number, field: string, value: string) => setAmendState(s => { const arr = [...s.paymentExchanges]; arr[i] = { ...arr[i], [field]: value }; return { ...s, paymentExchanges: arr }; });
 
     // Hitung saldo kas bersih secara live dari state saat ini
-    const computedSaldoKas = (() => {
-        const cash = Number(amendState.actualCash) || 0;
-        const cashExp = (amendState.structuredExpenses['CASH'] || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
-        const setor = amendState.setorKas.reduce((s, k) => s + (Number(k.amount) || 0), 0);
-        const tarik = amendState.tarikTunai.reduce((s, k) => s + (Number(k.amount) || 0), 0);
-        const tukar = Number(amendState.tukarTransferKeCash) || 0;
-        const kasbonToko = amendState.kasbon
-            .filter(k => !k.source || k.source === 'CASH' || k.source === 'Kas Toko')
-            .reduce((s, k) => s + (Number(k.amount) || 0), 0);
-        const exchangeEffect = amendState.paymentExchanges.reduce((sum, ex) => {
-            if (ex.to === 'CASH') return sum + (Number(ex.amount) || 0);
-            if (ex.from === 'CASH') return sum - (Number(ex.amount) || 0);
-            return sum;
-        }, 0);
-        return cash - cashExp - setor + tarik + tukar - kasbonToko + exchangeEffect;
-    })();
-
     const handleCopy = (msg: string, id: number) => {
         navigator.clipboard.writeText(msg).then(() => {
             setCopiedId(id);
@@ -447,19 +430,6 @@ export default function ShiftHistoryPage() {
                                         ))}
                                     </div>
                                 </section>
-
-                                {/* === Live Preview Saldo Kas Bersih === */}
-                                <div className={`rounded-lg border px-4 py-3 flex items-start gap-3 ${computedSaldoKas < 0 ? 'border-destructive/40 bg-destructive/5' : 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20'}`}>
-                                    <div className="flex-1">
-                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Preview Saldo Kas Bersih</p>
-                                        <p className={`text-lg font-bold ${computedSaldoKas < 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                            Rp {computedSaldoKas.toLocaleString('id-ID')}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            = Kas Tunai − Pengeluaran Cash − Setor Kas + Tarik Tunai + Tukar Transfer − Kasbon Toko
-                                        </p>
-                                    </div>
-                                </div>
 
                                 {/* Panduan skenario */}
                                 <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 space-y-2">

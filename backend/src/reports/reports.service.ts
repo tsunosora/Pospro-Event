@@ -773,28 +773,6 @@ export class ReportsService {
             }
         }
 
-        // Hitung Saldo Kas Bersih
-        const totalCashExpenses = structuredExpenses?.['CASH']
-            ? structuredExpenses['CASH'].reduce((s, i) => s + Number(i.amount), 0)
-            : (exp.shiftExpenses || []).filter((e: any) => e.method === 'CASH').reduce((s: number, e: any) => s + e.amount, 0);
-        const totalSetorKas = setorKas.reduce((s, k) => s + Number(k.amount), 0);
-        const totalTarikTunai = tarikTunai.reduce((s, k) => s + Number(k.amount), 0);
-        const totalKasbonToko = kasbon
-            .filter(k => !k.source || k.source === 'Kas Toko')
-            .reduce((s, k) => s + Number(k.amount), 0);
-        const exchangeCashEffect = paymentExchanges.reduce((sum, ex) => {
-            if (ex.to === 'CASH') return sum + ex.amount;
-            if (ex.from === 'CASH') return sum - ex.amount;
-            return sum;
-        }, 0);
-        const saldoKasBersih = Number(shift.actualCash)
-            - totalCashExpenses
-            - totalSetorKas
-            + totalTarikTunai
-            + tukarTransferKeCash
-            - totalKasbonToko
-            + exchangeCashEffect;
-
         const totalQrisExpenses = structuredExpenses?.['QRIS']
             ? structuredExpenses['QRIS'].reduce((s, i) => s + Number(i.amount), 0)
             : 0;
@@ -806,7 +784,6 @@ export class ReportsService {
         const saldoQrisBersih = Number(shift.actualQris) - totalQrisExpenses + exchangeQrisEffect;
 
         msg += `\nCash real : ${formatRp(Number(shift.actualCash))}\n`;
-        msg += `Saldo Kas Bersih : ${formatRp(saldoKasBersih)}\n`;
         if (totalQrisExpenses > 0 || exchangeQrisEffect !== 0) {
             msg += `QRIS real : ${formatRp(Number(shift.actualQris))}\n`;
             msg += `Saldo QRIS Bersih : ${formatRp(saldoQrisBersih)}\n`;
