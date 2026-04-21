@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { UserAuthForm } from "@/components/user-auth-form";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
+import { Footer } from "@/components/layout/Footer";
 
 export const metadata: Metadata = {
     title: "Login",
@@ -67,6 +68,16 @@ export default function AuthenticationPage() {
                         <UserAuthForm mobileGlass />
 
                     </div>
+                </div>
+
+                {/* Footer */}
+                <div className="mt-8 text-center">
+                    <p className="text-sm font-semibold text-white/70 lg:text-foreground/70 tracking-wide">
+                        Voliko Print
+                    </p>
+                    <p className="text-xs text-white/40 lg:text-muted-foreground mt-0.5">
+                        &copy; 2026 Muhammad Faisal Abdul Hakim
+                    </p>
                 </div>
             </div>
 

@@ -7,6 +7,7 @@ type EditItemData = {
     id?: number;           // unset = item baru
     newVariantId?: number; // variant produk baru (id=undefined)
     quantity?: number;
+    pcs?: number;          // jumlah cetak (khusus AREA_BASED)
     widthCm?: number;
     heightCm?: number;
     unitType?: string;
@@ -117,12 +118,13 @@ export class TransactionsService {
             const transactionItemsData: any[] = [];
 
             for (const item of data.items) {
-                const variant = await tx.productVariant.findUnique({
+                const variant = await (tx as any).productVariant.findUnique({
                     where: { id: item.productVariantId },
                     include: {
-                        product: { include: { ingredients: true } },
+                        product: { include: { ingredients: true, clickRate: true } },
                         priceTiers: { orderBy: { minQty: 'asc' } },
-                        variantIngredients: true
+                        variantIngredients: true,
+                        clickRate: true,
                     }
                 });
 
@@ -241,6 +243,9 @@ export class TransactionsService {
                         }
                     }
 
+                    // Click log data for AREA_BASED — variant-level takes priority over product-level
+                    const _areaClickRate = (variant as any).clickRate ?? (variant.product as any).clickRate;
+                    const _areaClicksPerUnit = (variant as any).clicksPerUnit ?? (variant.product as any).clicksPerUnit ?? 1;
                     transactionItemsData.push({
                         productVariantId: variant.id,
                         quantity: 1,
@@ -253,6 +258,9 @@ export class TransactionsService {
                         unitType: item.unitType || 'm',
                         note: item.note || null,
                         _requiresProduction: requiresProduction,
+                        _clickRateId: _areaClickRate?.isActive ? _areaClickRate.id : null,
+                        _clickQuantity: _areaClickRate?.isActive ? Math.max(1, Math.round(pcs * _areaClicksPerUnit)) : 0,
+                        _clickPricePerClick: _areaClickRate ? Number(_areaClickRate.pricePerClick) : 0,
                     });
 
                 } else {
@@ -269,6 +277,9 @@ export class TransactionsService {
                     }
 
                     lineTotal = resolvedPrice * item.quantity;
+                    // Click log data for UNIT — variant-level takes priority over product-level
+                    const _unitClickRate = (variant as any).clickRate ?? (variant.product as any).clickRate;
+                    const _unitClicksPerUnit = (variant as any).clicksPerUnit ?? (variant.product as any).clicksPerUnit ?? 1;
                     transactionItemsData.push({
                         productVariantId: variant.id,
                         quantity: item.quantity,
@@ -276,6 +287,9 @@ export class TransactionsService {
                         hppAtTime: resolvedHpp,
                         note: item.note || null,
                         _requiresProduction: requiresProduction,
+                        _clickRateId: _unitClickRate?.isActive ? _unitClickRate.id : null,
+                        _clickQuantity: _unitClickRate?.isActive ? Math.max(1, Math.round(item.quantity * _unitClicksPerUnit)) : 0,
+                        _clickPricePerClick: _unitClickRate ? Number(_unitClickRate.pricePerClick) : 0,
                     });
 
                     // Deduct product-level BOM (UNIT)
@@ -324,10 +338,15 @@ export class TransactionsService {
             const shippingCost = data.shippingCost || 0;
             const grandTotal = amountAfterDiscount + taxAmount + shippingCost;
             const isPayLater = data.saveOnly === true;
-            const downPayment = isPayLater ? 0 : (data.downPayment !== undefined ? data.downPayment : grandTotal);
-            const status = isPayLater ? TransactionStatus.PENDING
-                : downPayment < grandTotal ? TransactionStatus.PARTIAL
-                : TransactionStatus.PAID;
+            // saveOnly + DP > 0 → status PARTIAL (terima uang muka saat simpan invoice)
+            const downPayment = isPayLater
+                ? (data.downPayment != null && data.downPayment > 0 ? data.downPayment : 0)
+                : (data.downPayment !== undefined ? data.downPayment : grandTotal);
+            const status = isPayLater && downPayment === 0
+                ? TransactionStatus.PENDING
+                : downPayment >= grandTotal
+                    ? TransactionStatus.PAID
+                    : TransactionStatus.PARTIAL;
 
             // ── Backdate support ──────────────────────────────────────────────
             // effectiveDate = tanggal nota (backdate atau hari ini)
@@ -367,7 +386,7 @@ export class TransactionsService {
             }
 
             // Strip internal flags before creating items
-            const itemsForCreate = transactionItemsData.map(({ _requiresProduction, ...rest }: any) => rest);
+            const itemsForCreate = transactionItemsData.map(({ _requiresProduction, _clickRateId, _clickQuantity, _clickPricePerClick, ...rest }: any) => rest);
 
             const transaction = await tx.transaction.create({
                 data: {
@@ -432,9 +451,55 @@ export class TransactionsService {
                 }
             }
 
-            // Log initial payment into Cashflow (skip for pay-later / PENDING transactions)
+            // Auto-create ClickLogs + PrintJobs for items linked to a ClickRate (paper print)
+            // Sequential counter for PRT job numbers within this transaction
+            const todayStr = `${effectiveDate.getFullYear()}${String(effectiveDate.getMonth() + 1).padStart(2, '0')}${String(effectiveDate.getDate()).padStart(2, '0')}`;
+            const prtPrefix = `PRT-${todayStr}-`;
+            const lastPrt = await (tx as any).printJob.findFirst({
+                where: { jobNumber: { startsWith: prtPrefix } },
+                orderBy: { jobNumber: 'desc' },
+                select: { jobNumber: true },
+            });
+            let prtSeq = 1;
+            if (lastPrt?.jobNumber) {
+                const n = parseInt(lastPrt.jobNumber.slice(prtPrefix.length), 10);
+                if (!Number.isNaN(n)) prtSeq = n + 1;
+            }
+
+            for (let i = 0; i < transactionItemsData.length; i++) {
+                const d = transactionItemsData[i] as any;
+                if (d._clickRateId && d._clickQuantity > 0 && d._clickPricePerClick > 0) {
+                    const txItem = (transaction as any).items[i];
+                    await (tx as any).clickLog.create({
+                        data: {
+                            clickRateId: d._clickRateId,
+                            transactionItemId: txItem.id,
+                            quantity: d._clickQuantity,
+                            pricePerClick: d._clickPricePerClick,
+                            totalCost: d._clickPricePerClick * d._clickQuantity,
+                            date: effectiveDate,
+                        },
+                    });
+
+                    // Auto-create PrintJob for paper print tracking
+                    const jobNumber = `${prtPrefix}${String(prtSeq).padStart(4, '0')}`;
+                    prtSeq += 1;
+                    await (tx as any).printJob.create({
+                        data: {
+                            jobNumber,
+                            transactionId: transaction.id,
+                            transactionItemId: txItem.id,
+                            quantity: txItem.quantity,
+                            status: 'ANTRIAN',
+                            notes: d.note || null,
+                        },
+                    });
+                }
+            }
+
+            // Log initial payment into Cashflow — skip only for pure PENDING (bayar nanti tanpa DP)
             const customerInfo = data.customerName ? ` untuk Bpk/Ibu ${data.customerName}` : '';
-            if (!isPayLater && downPayment > 0) {
+            if (downPayment > 0) {
                 await tx.cashflow.create({
                     data: {
                         type: CashflowType.INCOME,
@@ -634,11 +699,82 @@ export class TransactionsService {
             include: {
                 items: {
                     include: { productVariant: { include: { product: true } } }
-                }
-            }
+                },
+                printJobs: true,
+            } as any,
         });
         if (!transaction) throw new NotFoundException('Transaction not found');
         return transaction;
+    }
+
+    async addPartialPayment(id: number, data: { amount: number; paymentMethod: PaymentMethod; bankAccountId?: number }) {
+        return this.prisma.$transaction(async (tx) => {
+            const transaction = await tx.transaction.findUnique({ where: { id } });
+            if (!transaction) throw new NotFoundException('Transaction not found');
+            if (transaction.status === TransactionStatus.PAID) throw new BadRequestException('Transaksi sudah lunas');
+            if (transaction.status !== TransactionStatus.PARTIAL && transaction.status !== TransactionStatus.PENDING)
+                throw new BadRequestException('Transaksi tidak dapat menerima pembayaran');
+
+            const currentDP = Number(transaction.downPayment);
+            const grandTotal = Number(transaction.grandTotal);
+            const remaining = grandTotal - currentDP;
+
+            if (data.amount <= 0) throw new BadRequestException('Nominal harus lebih dari 0');
+            if (data.amount > remaining) throw new BadRequestException('Nominal melebihi sisa tagihan');
+
+            const newDP = currentDP + data.amount;
+            const willBePaid = newDP >= grandTotal;
+            const customerInfo = transaction.customerName ? ` untuk Bpk/Ibu ${transaction.customerName}` : '';
+
+            await tx.cashflow.create({
+                data: {
+                    type: CashflowType.INCOME,
+                    category: willBePaid ? 'Pelunasan DP' : 'Pembayaran DP',
+                    amount: data.amount,
+                    paymentMethod: data.paymentMethod,
+                    bankAccountId: data.bankAccountId || null,
+                    note: `Pembayaran DP Invoice ${transaction.invoiceNumber}${customerInfo} via ${data.paymentMethod}`,
+                }
+            });
+
+            if (willBePaid) {
+                // Promosi ke PAID — generate SC number
+                const now = new Date();
+                const cy = now.getFullYear();
+                const cm = String(now.getMonth() + 1).padStart(2, '0');
+                const cd = String(now.getDate()).padStart(2, '0');
+                const scPrefix = `SC-${cy}${cm}${cd}-`;
+                const lastSC = await tx.transaction.findFirst({
+                    where: { checkoutNumber: { startsWith: scPrefix } },
+                    orderBy: { checkoutNumber: 'desc' },
+                    select: { checkoutNumber: true },
+                });
+                const nextSCSeq = lastSC ? parseInt(lastSC.checkoutNumber!.slice(scPrefix.length), 10) + 1 : 1;
+                const checkoutNumber = `${scPrefix}${nextSCSeq.toString().padStart(4, '0')}`;
+
+                return tx.transaction.update({
+                    where: { id },
+                    data: {
+                        downPayment: newDP,
+                        status: TransactionStatus.PAID,
+                        paymentMethod: data.paymentMethod,
+                        bankAccountId: data.bankAccountId ?? null,
+                        checkoutNumber,
+                        paidAt: now,
+                    }
+                });
+            }
+
+            return tx.transaction.update({
+                where: { id },
+                data: {
+                    downPayment: newDP,
+                    status: TransactionStatus.PARTIAL,
+                    dpPaymentMethod: data.paymentMethod,
+                    dpBankAccountId: data.bankAccountId ?? null,
+                } as any
+            });
+        });
     }
 
     async payOff(id: number, data: { paymentMethod: PaymentMethod, bankAccountId?: number, checkoutCashierName?: string, paidAt?: string }) {
@@ -1105,6 +1241,36 @@ export class TransactionsService {
         return n === 'admin' || n === 'owner' || n === 'pemilik' || n.includes('manager') || n.includes('manajer') || n.includes('supervisor') || n.includes('kepala');
     }
 
+    /** Generate and create a production job for a transaction item that requires production. */
+    private async createProductionJobForItem(
+        tx: any,
+        transactionId: number,
+        transactionItemId: number,
+        priority: string,
+        deadline: Date | null,
+        notes: string | null,
+    ) {
+        const jobDateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+        const jobPrefix = `JOB-${jobDateStr}-`;
+        const lastJob = await tx.productionJob.findFirst({
+            where: { jobNumber: { startsWith: jobPrefix } },
+            orderBy: { jobNumber: 'desc' },
+            select: { jobNumber: true },
+        });
+        const jobSeq = lastJob ? parseInt(lastJob.jobNumber.slice(jobPrefix.length), 10) + 1 : 1;
+        await tx.productionJob.create({
+            data: {
+                jobNumber: `${jobPrefix}${String(jobSeq).padStart(4, '0')}`,
+                transactionId,
+                transactionItemId,
+                status: 'ANTRIAN',
+                priority: priority || 'NORMAL',
+                deadline: deadline || null,
+                notes: notes || null,
+            },
+        });
+    }
+
     private async applyTransactionEdit(tx: any, transactionId: number, editData: TransactionEditData): Promise<void> {
         const transaction = await tx.transaction.findUniqueOrThrow({
             where: { id: transactionId },
@@ -1225,7 +1391,8 @@ export class TransactionsService {
                 else if (unit === 'menit') { priceMultiplier = w; areaM2 = w; }
                 else { priceMultiplier = (w * h) / 10000; areaM2 = (w * h) / 10000; }
                 areaCm2 = areaM2 * 10000;
-                lineTotal = editItem.priceOverride != null ? editItem.priceOverride : priceMultiplier * Number(variant.price);
+                const itemPcs = Math.max(1, editItem.pcs ?? 1);
+                lineTotal = editItem.priceOverride != null ? editItem.priceOverride : priceMultiplier * Number(variant.price) * itemPcs;
 
                 if (trackStock) {
                     const current = await tx.productVariant.findUnique({ where: { id: variant.id } });
@@ -1289,9 +1456,20 @@ export class TransactionsService {
 
             // Store per-m² price for AREA_BASED, per-unit price for UNIT (consistent with original checkout)
             const itemPriceAtTime = pricingMode === 'AREA_BASED' ? Number(variant.price) : unitResolvedPrice;
-            await tx.transactionItem.create({
-                data: { transactionId, productVariantId: variant.id, quantity: qty, priceAtTime: itemPriceAtTime, hppAtTime, widthCm, heightCm, areaCm2 }
+            const newTxItem = await tx.transactionItem.create({
+                data: { transactionId, productVariantId: variant.id, quantity: qty, priceAtTime: itemPriceAtTime, hppAtTime, widthCm, heightCm, areaCm2, pcs: pricingMode === 'AREA_BASED' ? Math.max(1, editItem.pcs ?? 1) : 1 }
             });
+
+            // Create production job if product requires production
+            if (product.requiresProduction) {
+                await this.createProductionJobForItem(
+                    tx, transactionId, newTxItem.id,
+                    transaction.productionPriority || 'NORMAL',
+                    transaction.productionDeadline || null,
+                    transaction.productionNotes || null,
+                );
+            }
+
             newSubtotal += lineTotal;
         }
 
@@ -1399,15 +1577,32 @@ export class TransactionsService {
                     }
                 }
 
-                const newLineTotal = editItem.priceOverride != null ? editItem.priceOverride : newPriceMultiplier * Number(variant.price);
+                const newPcs = Math.max(1, editItem.pcs ?? 1);
+                const newLineTotal = editItem.priceOverride != null ? editItem.priceOverride : newPriceMultiplier * Number(variant.price) * newPcs;
                 // Store per-m² price in priceAtTime (consistent with original checkout format)
-                // The total is derived from priceAtTime × area at display/calculation time
+                // The total is derived from priceAtTime × area × pcs at display/calculation time
                 const storedPriceAtTime = Number(variant.price);
 
                 await tx.transactionItem.update({
                     where: { id: txItem.id },
-                    data: { widthCm: newW, heightCm: newH, areaCm2: newAreaCm2, priceAtTime: storedPriceAtTime }
+                    data: { widthCm: newW, heightCm: newH, areaCm2: newAreaCm2, priceAtTime: storedPriceAtTime, pcs: newPcs }
                 });
+
+                // Recreate production job if product requires production (old job may have been deleted or was missing)
+                if (product.requiresProduction) {
+                    const existingJob = await tx.productionJob.findFirst({ where: { transactionItemId: txItem.id }, select: { id: true, status: true } });
+                    // Only recreate if job is missing or still in ANTRIAN (not started)
+                    if (!existingJob || existingJob.status === 'ANTRIAN') {
+                        await tx.productionJob.deleteMany({ where: { transactionItemId: txItem.id } });
+                        await this.createProductionJobForItem(
+                            tx, transactionId, txItem.id,
+                            transaction.productionPriority || 'NORMAL',
+                            transaction.productionDeadline || null,
+                            transaction.productionNotes || null,
+                        );
+                    }
+                }
+
                 newSubtotal += newLineTotal;
 
             } else {
@@ -1470,6 +1665,21 @@ export class TransactionsService {
                 // Price override untuk UNIT mode
                 const resolvedPrice = editItem.priceOverride != null ? editItem.priceOverride : Number(txItem.priceAtTime);
                 await tx.transactionItem.update({ where: { id: txItem.id }, data: { quantity: newQty, priceAtTime: resolvedPrice } });
+
+                // Recreate production job for UNIT items if requires production
+                if (product.requiresProduction) {
+                    const existingJob = await tx.productionJob.findFirst({ where: { transactionItemId: txItem.id }, select: { id: true, status: true } });
+                    if (!existingJob || existingJob.status === 'ANTRIAN') {
+                        await tx.productionJob.deleteMany({ where: { transactionItemId: txItem.id } });
+                        await this.createProductionJobForItem(
+                            tx, transactionId, txItem.id,
+                            transaction.productionPriority || 'NORMAL',
+                            transaction.productionDeadline || null,
+                            transaction.productionNotes || null,
+                        );
+                    }
+                }
+
                 newSubtotal += resolvedPrice * newQty;
             }
         }
@@ -1481,9 +1691,10 @@ export class TransactionsService {
             if (removedIds.has(existingItem.id) || editedIds.has(existingItem.id)) continue;
             // newItems are already counted in newSubtotal above
             if (existingItem.widthCm !== null) {
-                // AREA_BASED: priceAtTime is per-m² price, total = priceAtTime × area
+                // AREA_BASED: priceAtTime is per-m² price, total = priceAtTime × area × pcs
                 const areaM2 = existingItem.areaCm2 ? Number(existingItem.areaCm2) / 10000 : 0;
-                newSubtotal += areaM2 > 0 ? Number(existingItem.priceAtTime) * areaM2 : Number(existingItem.priceAtTime);
+                const existingPcs = Math.max(1, Number(existingItem.pcs) || 1);
+                newSubtotal += areaM2 > 0 ? Number(existingItem.priceAtTime) * areaM2 * existingPcs : Number(existingItem.priceAtTime);
             } else {
                 newSubtotal += Number(existingItem.priceAtTime) * existingItem.quantity;
             }
@@ -1632,7 +1843,8 @@ export class TransactionsService {
                                     product: { include: { ingredients: true } },
                                     variantIngredients: true,
                                 }
-                            }
+                            },
+                            productionJob: true, // perlu untuk restore stok roll jika sudah dimulai
                         }
                     }
                 }
@@ -1647,15 +1859,29 @@ export class TransactionsService {
                 const trackStock = product.trackStock !== false;
                 const variantIngredients: any[] = (variant as any).variantIngredients || [];
                 const productIngredients: any[] = product.ingredients || [];
-
-                if (!trackStock) continue;
-
                 const requiresProduction = product.requiresProduction === true;
 
                 if (pricingMode === 'AREA_BASED') {
-                    // Stok area-based hanya dipotong saat checkout jika TIDAK butuh produksi
-                    if (requiresProduction) continue;
-                    const areaM2 = txItem.areaCm2 ? Number(txItem.areaCm2) / 10000 : 0;
+                    if (requiresProduction) {
+                        // Stok produk TIDAK dipotong saat create (dipotong operator saat startJob).
+                        // Tapi jika job sudah dimulai (status PROSES/dst), roll/bahan sudah dipotong — kembalikan.
+                        const job: any = (txItem as any).productionJob;
+                        if (job && job.rollVariantId && job.rollLengthUsed) {
+                            const rollArea = Number(job.rollLengthUsed);
+                            if (rollArea > 0) {
+                                await tx.productVariant.update({ where: { id: job.rollVariantId }, data: { stock: { increment: rollArea } } });
+                                await this.logMovement(tx, job.rollVariantId, 'IN', rollArea, `Hapus Transaksi (roll) ${transaction.invoiceNumber}`);
+                            }
+                        }
+                        continue;
+                    }
+
+                    if (!trackStock) continue;
+
+                    // Bug fix: kalikan kembali dengan pcs × quantity (sama persis dengan yang dipotong saat create)
+                    const pcs = Number((txItem as any).pcs ?? 1);
+                    const itemQty = Number(txItem.quantity ?? 1);
+                    const areaM2 = txItem.areaCm2 ? (Number(txItem.areaCm2) / 10000) * pcs * itemQty : 0;
                     if (areaM2 > 0) {
                         await tx.productVariant.update({ where: { id: variant.id }, data: { stock: { increment: areaM2 } } });
                         await this.logMovement(tx, variant.id, 'IN', areaM2, `Hapus Transaksi ${transaction.invoiceNumber}`);
@@ -1675,6 +1901,8 @@ export class TransactionsService {
                         }
                     }
                 } else {
+                    // UNIT products
+                    if (!trackStock) continue;
                     const qty = Number(txItem.quantity);
                     if (qty > 0) {
                         await tx.productVariant.update({ where: { id: variant.id }, data: { stock: { increment: qty } } });
@@ -1702,10 +1930,10 @@ export class TransactionsService {
                 where: { note: { contains: transaction.invoiceNumber } }
             });
 
-            // Hapus ProductionJob untuk semua item (FK: productionJob → transactionItem, tidak ada onDelete Cascade)
+            // Hapus ProductionJob untuk semua item (FK tanpa onDelete Cascade)
             const itemIds = transaction.items.map((i: any) => i.id);
             if (itemIds.length > 0) {
-                await tx.productionJob.deleteMany({ where: { transactionItemId: { in: itemIds } } });
+                await (tx as any).productionJob.deleteMany({ where: { transactionItemId: { in: itemIds } } });
             }
 
             // Hapus transaksi (cascade hapus items)

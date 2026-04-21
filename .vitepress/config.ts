@@ -32,6 +32,7 @@ export default defineConfig({
         text: '🏪 Operasional Harian',
         items: [
           { text: '🖨️ Antrian Produksi', link: '/produksi' },
+          { text: '🖨️ Antrian Cetak Paper', link: '/mesin-cetak' },
           { text: '📄 Invoice & SPH (B2B)', link: '/invoice-sph' },
           { text: '🏭 Data Supplier', link: '/suppliers' },
           { text: '📋 Stok Opname', link: '/stock-opname' },

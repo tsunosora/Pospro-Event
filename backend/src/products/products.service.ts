@@ -6,7 +6,8 @@ const variantInclude = {
     variantIngredients: {
         include: { rawMaterialVariant: { include: { product: true } } },
         orderBy: { id: 'asc' as const }
-    }
+    },
+    clickRate: true,
 };
 
 @Injectable()
@@ -29,7 +30,7 @@ export class ProductsService {
                 ingredients: { create: ingredients || [] }
             },
             include: {
-                category: true,
+                category: { include: { parent: { select: { id: true, name: true } } } } as any,
                 unit: true,
                 variants: { include: variantInclude },
                 ingredients: true
@@ -56,10 +57,11 @@ export class ProductsService {
     }
 
     async findAll() {
-        return this.prisma.product.findMany({
+        return (this.prisma as any).product.findMany({
             include: {
-                category: true,
+                category: { include: { parent: { select: { id: true, name: true } } } } as any,
                 unit: true,
+                clickRate: true,
                 variants: {
                     include: {
                         ...variantInclude,
@@ -82,13 +84,14 @@ export class ProductsService {
     }
 
     async findOne(id: number) {
-        const product = await this.prisma.product.findUnique({
+        const product = await (this.prisma as any).product.findUnique({
             where: { id },
             include: {
-                category: true,
+                category: { include: { parent: { select: { id: true, name: true } } } } as any,
                 unit: true,
                 variants: { include: variantInclude },
-                ingredients: true
+                ingredients: true,
+                clickRate: true,
             }
         });
         if (!product) throw new NotFoundException(`Product #${id} not found`);
@@ -99,7 +102,7 @@ export class ProductsService {
         const product = await this.prisma.product.findUnique({
             where: { id },
             include: {
-                category: true,
+                category: { include: { parent: { select: { id: true, name: true } } } } as any,
                 unit: true,
                 variants: {
                     include: {
@@ -198,11 +201,9 @@ export class ProductsService {
 
         for (const item of payload.products) {
             try {
-                const category = await this.prisma.category.upsert({
-                    where: { name: item.category },
-                    create: { name: item.category },
-                    update: {},
-                });
+                // findFirst karena name tidak lagi @unique (mendukung sub-kategori)
+                let category = await (this.prisma as any).category.findFirst({ where: { name: item.category, parentId: null } });
+                if (!category) category = await (this.prisma as any).category.create({ data: { name: item.category } });
                 const unit = await this.prisma.unit.upsert({
                     where: { name: item.unit },
                     create: { name: item.unit },

@@ -21,6 +21,7 @@ export function JobCard({ job, tab, gangMode, selected, onSelect, onProcess, onC
     const dl = formatDeadline(job.deadline ?? job.transaction?.productionDeadline);
     const isExpress = job.priority === 'EXPRESS';
     const productName = job.transactionItem?.productVariant?.product?.name ?? '—';
+    const variantName = job.transactionItem?.productVariant?.variantName;
     const note = job.transactionItem?.note;
     const prodNotes = job.notes;
     const rollLabel = job.rollVariant
@@ -29,6 +30,7 @@ export function JobCard({ job, tab, gangMode, selected, onSelect, onProcess, onC
     const w = job.transactionItem?.widthCm ? Number(job.transactionItem.widthCm) : null;
     const h = job.transactionItem?.heightCm ? Number(job.transactionItem.heightCm) : null;
     const sambung = getSambungInfo(w, h, maxRollEffectiveWidth);
+    const isUnit = job.transactionItem?.productVariant?.product?.pricingMode === 'UNIT';
 
     return (
         <div
@@ -66,9 +68,16 @@ export function JobCard({ job, tab, gangMode, selected, onSelect, onProcess, onC
 
                 <div className="mt-2 flex flex-wrap gap-2">
                     <span className="text-xs px-2 py-1 bg-muted rounded-lg font-medium">{productName}</span>
-                    {getDimLabel(job) && (
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-lg font-mono font-medium">{getDimLabel(job)}</span>
+                    {variantName && (
+                        <span className="text-xs px-2 py-1 bg-muted/60 rounded-lg text-muted-foreground">{variantName}</span>
                     )}
+                    {isUnit ? (
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-lg font-semibold">
+                            {job.transactionItem?.quantity ?? 1} pcs
+                        </span>
+                    ) : getDimLabel(job) ? (
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-lg font-mono font-medium">{getDimLabel(job)}</span>
+                    ) : null}
                 </div>
 
                 {(note || prodNotes) && (
@@ -96,7 +105,7 @@ export function JobCard({ job, tab, gangMode, selected, onSelect, onProcess, onC
                         {tab === 'ANTRIAN' && (
                             <button onClick={e => { e.stopPropagation(); onProcess(); }}
                                 className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-bold active:scale-95 transition-transform">
-                                Proses
+                                {isUnit ? 'Kerjakan' : 'Proses'}
                             </button>
                         )}
                         {tab === 'PROSES' && !job.batchId && (

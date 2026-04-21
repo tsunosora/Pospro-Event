@@ -13,6 +13,7 @@ import {
     formatDeadline, getDimLabel, getAreaM2, suggestRolls, getLongerDim, getSambungInfo,
 } from './produksi-utils';
 import { JobCard } from './JobCard';
+import { Footer } from '@/components/layout/Footer';
 
 // ── component ─────────────────────────────────────────────────────────────────
 export default function ProduksiPage() {
@@ -129,18 +130,12 @@ export default function ProduksiPage() {
         if (job && maxRollEffectiveWidth > 0) {
             const w = job.transactionItem?.widthCm ? Number(job.transactionItem.widthCm) : null;
             const h = job.transactionItem?.heightCm ? Number(job.transactionItem.heightCm) : null;
+            // Hanya blok jika job ini SENDIRI perlu cetak sambung (lebih lebar dari roll)
+            // Saat gabung cetak, job dicetak berurutan sepanjang roll — panjang roll bisa 70m+
+            // sehingga tidak ada batasan total lebar dari semua job yang digabung
             if (getSambungInfo(w, h, maxRollEffectiveWidth).needsSambung) {
                 alert('Job ini perlu cetak SAMBUNG (melebihi lebar roll). Tidak bisa digabung — proses secara individual.');
                 return;
-            }
-            // Only check width limit when ADDING (not removing)
-            if (!selectedIds.has(id)) {
-                const jobWidth = Math.min(w ?? 0, h ?? 0);
-                const newTotal = batchTotalWidth + jobWidth;
-                if (newTotal > maxRollEffectiveWidth) {
-                    alert(`Tidak bisa ditambahkan.\nTotal lebar akan menjadi ${newTotal.toFixed(2)}m — melebihi lebar roll maksimal (${maxRollEffectiveWidth}m).\n\nKurangi job yang dipilih atau gunakan lebar yang lebih kecil.`);
-                    return;
-                }
             }
         }
         setSelectedIds(prev => {
@@ -155,13 +150,6 @@ export default function ProduksiPage() {
     // Total area (m²) for all selected jobs — used for stock deduction
     const batchTotalAreaM2 = selectedJobs.reduce((sum, j) => sum + getAreaM2(j), 0);
 
-    // Keep width tracking for sambung validation only (not shown in UI)
-    const batchTotalWidth = selectedJobs.reduce((sum, j) => {
-        const w = j.transactionItem?.widthCm ? Number(j.transactionItem.widthCm) : 0;
-        const h = j.transactionItem?.heightCm ? Number(j.transactionItem.heightCm) : 0;
-        return sum + Math.min(w, h);
-    }, 0);
-
     // ── open process modal ─────────────────────────────────────────────────────
     const openProcess = (job: any) => {
         setProcessModal({ open: true, job });
@@ -172,9 +160,13 @@ export default function ProduksiPage() {
     };
 
     // ── actions ────────────────────────────────────────────────────────────────
+    const isUnitJob = (job: any) =>
+        job?.transactionItem?.productVariant?.product?.pricingMode === 'UNIT';
+
     const handleStartJob = async () => {
         if (!processModal.job) return;
-        if (!useWaste && !selectedRollId) {
+        const unitJob = isUnitJob(processModal.job);
+        if (!unitJob && !useWaste && !selectedRollId) {
             alert('Pilih bahan yang akan digunakan.');
             return;
         }
@@ -182,9 +174,9 @@ export default function ProduksiPage() {
         setModalLoading(true);
         try {
             await startProductionJob(processModal.job.id, {
-                rollVariantId: useWaste ? undefined : selectedRollId!,
-                usedWaste: useWaste,
-                rollAreaM2: useWaste ? undefined : jobAreaM2,
+                rollVariantId: unitJob ? undefined : (useWaste ? undefined : selectedRollId!),
+                usedWaste: unitJob ? false : useWaste,
+                rollAreaM2: unitJob ? undefined : (useWaste ? undefined : jobAreaM2),
                 operatorNote: opNote || undefined,
             });
             setProcessModal({ open: false, job: null });
@@ -501,6 +493,9 @@ export default function ProduksiPage() {
                             onDetail={setDetailJob} maxRollEffectiveWidth={maxRollEffectiveWidth} />
                     ))
                 )}
+
+                {/* Footer */}
+                <Footer />
             </main>
 
             {/* ── Process Modal ─────────────────────────────────────────────────────── */}
@@ -511,7 +506,10 @@ export default function ProduksiPage() {
                             <div>
                                 <h2 className="font-bold">Proses Job #{processModal.job.jobNumber}</h2>
                                 <p className="text-xs text-muted-foreground">
-                                    {processModal.job.transactionItem?.productVariant?.product?.name} · {getDimLabel(processModal.job)}
+                                    {processModal.job.transactionItem?.productVariant?.product?.name}
+                                    {isUnitJob(processModal.job)
+                                        ? ` · ${processModal.job.transactionItem?.quantity ?? 1} pcs`
+                                        : getDimLabel(processModal.job) ? ` · ${getDimLabel(processModal.job)}` : ''}
                                 </p>
                             </div>
                             <button onClick={() => setProcessModal({ open: false, job: null })}
@@ -537,20 +535,22 @@ export default function ProduksiPage() {
                                 </div>
                             )}
 
-                            {/* Material choice */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold">Pilih Bahan</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {[false, true].map(isWaste => (
-                                        <button key={String(isWaste)} type="button" onClick={() => setUseWaste(isWaste)}
-                                            className={`py-3 rounded-xl border-2 text-sm font-medium transition-all ${useWaste === isWaste ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
-                                            {isWaste ? 'Sisa / Waste' : 'Bahan Baru (Potong Stok)'}
-                                        </button>
-                                    ))}
+                            {/* Material choice — hanya untuk produk AREA_BASED */}
+                            {!isUnitJob(processModal.job) && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-semibold">Pilih Bahan</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {[false, true].map(isWaste => (
+                                            <button key={String(isWaste)} type="button" onClick={() => setUseWaste(isWaste)}
+                                                className={`py-3 rounded-xl border-2 text-sm font-medium transition-all ${useWaste === isWaste ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                                                {isWaste ? 'Sisa / Waste' : 'Bahan Baru (Potong Stok)'}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
-                            {!useWaste && (
+                            {!isUnitJob(processModal.job) && !useWaste && (
                                 <>
                                     <div className="space-y-2">
                                         <label className="text-sm font-semibold">Pilih Bahan dari Stok</label>
@@ -651,7 +651,7 @@ export default function ProduksiPage() {
                             </button>
                             <button type="button" onClick={handleStartJob} disabled={modalLoading}
                                 className="flex-[2] py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-50 transition-colors">
-                                {modalLoading ? 'Memproses...' : 'Mulai Cetak'}
+                                {modalLoading ? 'Memproses...' : isUnitJob(processModal.job) ? 'Mulai Pengerjaan' : 'Mulai Cetak'}
                             </button>
                         </div>
                     </div>

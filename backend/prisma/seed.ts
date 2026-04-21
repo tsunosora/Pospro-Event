@@ -17,11 +17,10 @@ const prisma = new PrismaClient();
 
 async function main() {
   // 1. Upsert Category: "Cetak"
-  const category = await prisma.category.upsert({
-    where: { name: 'Cetak' },
-    update: {},
-    create: { name: 'Cetak' },
-  });
+  // findFirst karena name sudah tidak @unique (mendukung sub-kategori)
+  let category = await prisma.category.findFirst({ where: { name: 'Cetak' } } as any);
+  if (!category) category = await (prisma as any).category.create({ data: { name: 'Cetak' } });
+  if (!category) throw new Error('Gagal membuat kategori');
 
   // 2. Upsert Unit: "Lembar"
   const unit = await prisma.unit.upsert({

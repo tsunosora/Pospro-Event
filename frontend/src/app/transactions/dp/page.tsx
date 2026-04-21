@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTransactions, payOffTransaction, getSettings, getBankAccounts, getUsers } from '@/lib/api';
+import { getTransactions, payOffTransaction, addDPTransaction, getSettings, getBankAccounts, getUsers } from '@/lib/api';
 import { mapTransactionToReceipt, handlePrintSnap, handleShareWA } from '@/lib/receipt';
-import { CreditCard, Banknote, Landmark, Wallet, CheckCircle2, X, Printer, MessageCircle, PenSquare, Search } from "lucide-react";
+import { CreditCard, Banknote, Landmark, Wallet, CheckCircle2, X, Printer, MessageCircle, PenSquare, Search, PlusCircle } from "lucide-react";
 import dayjs from "dayjs";
 import Link from 'next/link';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -19,6 +19,7 @@ export default function DPTransactionsPage() {
     const { isManager } = useCurrentUser();
 
     const [selectedTrx, setSelectedTrx] = useState<any | null>(null);
+    const [payMode, setPayMode] = useState<'PARTIAL' | 'FULL'>('FULL');  // PARTIAL=tambah DP, FULL=lunas
     const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'QRIS' | 'BANK_TRANSFER'>('CASH');
     const [payoffBankId, setPayoffBankId] = useState<string>('');
     const [nominalBayar, setNominalBayar] = useState<string>('');
@@ -46,6 +47,16 @@ export default function DPTransactionsPage() {
           )
         : byTab;
 
+    const resetModal = () => {
+        setSelectedTrx(null);
+        setPayMode('FULL');
+        setNominalBayar('');
+        setPaymentMethod('CASH');
+        setPayoffBankId('');
+        setCheckoutCashierName('');
+        setCheckoutPaidAt('');
+    };
+
     const payOffMutation = useMutation({
         mutationFn: (id: number) => payOffTransaction(id, {
             paymentMethod,
@@ -55,9 +66,19 @@ export default function DPTransactionsPage() {
         }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['transactions'] });
-            setSelectedTrx(null);
-            setCheckoutCashierName('');
-            setCheckoutPaidAt('');
+            resetModal();
+        }
+    });
+
+    const addDPMutation = useMutation({
+        mutationFn: ({ id, amount }: { id: number; amount: number }) => addDPTransaction(id, {
+            amount,
+            paymentMethod,
+            bankAccountId: payoffBankId ? Number(payoffBankId) : undefined,
+        }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['transactions'] });
+            resetModal();
         }
     });
 
@@ -67,9 +88,28 @@ export default function DPTransactionsPage() {
             alert('Silakan pilih Rekening Bank tujuan transfer!');
             return;
         }
-        if (selectedTrx) {
+        if (!selectedTrx) return;
+        if (payMode === 'PARTIAL') {
+            const amount = Number(nominalBayar);
+            const remaining = selectedTrx.status === 'PENDING'
+                ? Number(selectedTrx.grandTotal)
+                : Number(selectedTrx.grandTotal) - Number(selectedTrx.downPayment);
+            if (!amount || amount <= 0) { alert('Nominal harus lebih dari 0!'); return; }
+            if (amount > remaining) { alert(`Nominal melebihi sisa tagihan (Rp ${remaining.toLocaleString('id-ID')})!`); return; }
+            addDPMutation.mutate({ id: selectedTrx.id, amount });
+        } else {
             payOffMutation.mutate(selectedTrx.id);
         }
+    };
+
+    const openModal = (trx: any) => {
+        setSelectedTrx(trx);
+        setPayMode('FULL');
+        setNominalBayar('');
+        setPaymentMethod('CASH');
+        setPayoffBankId('');
+        setCheckoutCashierName('');
+        setCheckoutPaidAt('');
     };
 
     if (isLoading) {
@@ -218,10 +258,10 @@ export default function DPTransactionsPage() {
                                                     <PenSquare className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => { setSelectedTrx(trx); setNominalBayar(''); setPaymentMethod('CASH'); setPayoffBankId(''); setCheckoutCashierName(''); setCheckoutPaidAt(''); }}
+                                                    onClick={() => openModal(trx)}
                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium transition-colors"
                                                 >
-                                                    <Wallet className="w-4 h-4" /> Pelunasan
+                                                    <Wallet className="w-4 h-4" /> Bayar
                                                 </button>
                                             </div>
                                         </td>
@@ -268,173 +308,241 @@ export default function DPTransactionsPage() {
             {/* PayOff Modal */}
             {selectedTrx && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-card w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
-                        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/30">
-                            <h3 className="font-semibold text-foreground">
-                                {selectedTrx?.status === 'PENDING' ? 'Pembayaran Invoice' : 'Pelunasan Tagihan'}
-                            </h3>
-                            <button onClick={() => setSelectedTrx(null)} className="p-1.5 text-muted-foreground hover:bg-muted rounded-lg transition-colors">
+                    <div className="bg-card w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[92vh]">
+                        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/30 shrink-0">
+                            <div>
+                                <h3 className="font-semibold text-foreground">Pembayaran Tagihan</h3>
+                                <p className="text-xs text-muted-foreground">{selectedTrx.customerName || selectedTrx.invoiceNumber} · {selectedTrx.invoiceNumber}</p>
+                            </div>
+                            <button onClick={resetModal} className="p-1.5 text-muted-foreground hover:bg-muted rounded-lg transition-colors">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <form onSubmit={handlePayOff} className="p-6 space-y-6">
-                            <div className="text-center space-y-1">
-                                <p className="text-sm text-muted-foreground">
-                                    {selectedTrx.status === 'PENDING' ? 'Total tagihan untuk' : 'Sisa tagihan untuk'} {selectedTrx.customerName || selectedTrx.invoiceNumber}
-                                </p>
-                                <p className="text-4xl font-bold text-foreground">
-                                    Rp {(selectedTrx.status === 'PENDING' ? Number(selectedTrx.grandTotal) : Number(selectedTrx.grandTotal) - Number(selectedTrx.downPayment)).toLocaleString('id-ID')}
-                                </p>
+                        <form onSubmit={handlePayOff} className="p-6 space-y-5 overflow-y-auto">
+                            {/* Info sisa tagihan */}
+                            {(() => {
+                                const sisaTagihan = selectedTrx.status === 'PENDING'
+                                    ? Number(selectedTrx.grandTotal)
+                                    : Number(selectedTrx.grandTotal) - Number(selectedTrx.downPayment);
+                                return (
+                                    <div className="text-center space-y-1 pb-2 border-b border-dashed border-border">
+                                        <p className="text-xs text-muted-foreground">Sisa tagihan {selectedTrx.customerName || selectedTrx.invoiceNumber}</p>
+                                        <p className="text-3xl font-bold text-orange-600">Rp {sisaTagihan.toLocaleString('id-ID')}</p>
+                                        {selectedTrx.status === 'PARTIAL' && Number(selectedTrx.downPayment) > 0 && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Total Rp {Number(selectedTrx.grandTotal).toLocaleString('id-ID')} · DP masuk Rp {Number(selectedTrx.downPayment).toLocaleString('id-ID')}
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Toggle mode bayar */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <button type="button" onClick={() => { setPayMode('PARTIAL'); setNominalBayar(''); }}
+                                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${payMode === 'PARTIAL' ? 'border-amber-500 bg-amber-500/10 text-amber-700' : 'border-border bg-muted/30 text-muted-foreground hover:border-amber-400/50'}`}>
+                                    <PlusCircle className="w-4 h-4" />
+                                    Tambah DP
+                                </button>
+                                <button type="button" onClick={() => { setPayMode('FULL'); setNominalBayar(''); }}
+                                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${payMode === 'FULL' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700' : 'border-border bg-muted/30 text-muted-foreground hover:border-emerald-400/50'}`}>
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    Lunas Penuh
+                                </button>
                             </div>
 
-                            <div className="space-y-3">
-                                <label className="text-sm font-medium text-foreground">Nominal Pembayaran (Konfirmasi)</label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">Rp</span>
-                                    <input
-                                        type="number"
-                                        value={nominalBayar}
-                                        onChange={(e) => setNominalBayar(e.target.value)}
-                                        placeholder={(selectedTrx.status === 'PENDING' ? Number(selectedTrx.grandTotal) : Number(selectedTrx.grandTotal) - Number(selectedTrx.downPayment)).toString()}
-                                        className="w-full pl-12 pr-4 py-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none font-bold text-lg"
-                                        required
-                                    />
-                                </div>
-                                {(() => {
-                                    const sisaTagihan = selectedTrx.status === 'PENDING' ? Number(selectedTrx.grandTotal) : Number(selectedTrx.grandTotal) - Number(selectedTrx.downPayment);
-                                    const kembalian = Number(nominalBayar) - sisaTagihan;
-                                    return (<>
+                            {/* Nominal — hanya untuk mode PARTIAL */}
+                            {payMode === 'PARTIAL' && (() => {
+                                const sisaTagihan = selectedTrx.status === 'PENDING'
+                                    ? Number(selectedTrx.grandTotal)
+                                    : Number(selectedTrx.grandTotal) - Number(selectedTrx.downPayment);
+                                const nominalNum = Number(nominalBayar);
+                                const sisaSetelah = sisaTagihan - nominalNum;
+                                return (
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-foreground">Nominal DP yang Dibayar</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">Rp</span>
+                                            <input
+                                                type="number"
+                                                value={nominalBayar}
+                                                onChange={e => setNominalBayar(e.target.value)}
+                                                placeholder="Masukkan nominal DP..."
+                                                min="1"
+                                                max={sisaTagihan}
+                                                className="w-full pl-12 pr-4 py-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-amber-400 outline-none font-bold text-lg"
+                                                required={payMode === 'PARTIAL'}
+                                                autoFocus
+                                            />
+                                        </div>
+                                        {nominalBayar !== '' && nominalNum > 0 && (
+                                            nominalNum >= sisaTagihan ? (
+                                                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs text-emerald-700 font-semibold text-center">
+                                                    Nominal mencukupi — transaksi akan otomatis <strong>LUNAS</strong>
+                                                </div>
+                                            ) : (
+                                                <div className="flex justify-between items-center p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-700 font-semibold">
+                                                    <span>Sisa setelah DP ini:</span>
+                                                    <span>Rp {sisaSetelah.toLocaleString('id-ID')}</span>
+                                                </div>
+                                            )
+                                        )}
+                                        {nominalBayar !== '' && nominalNum > sisaTagihan && (
+                                            <p className="text-xs text-red-500 font-medium">Nominal melebihi sisa tagihan!</p>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Nominal untuk mode FULL — konfirmasi kembalian */}
+                            {payMode === 'FULL' && (() => {
+                                const sisaTagihan = selectedTrx.status === 'PENDING'
+                                    ? Number(selectedTrx.grandTotal)
+                                    : Number(selectedTrx.grandTotal) - Number(selectedTrx.downPayment);
+                                const kembalian = Number(nominalBayar) - sisaTagihan;
+                                return (
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-foreground">Nominal Diterima (Opsional)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">Rp</span>
+                                            <input
+                                                type="number"
+                                                value={nominalBayar}
+                                                onChange={e => setNominalBayar(e.target.value)}
+                                                placeholder={sisaTagihan.toString()}
+                                                className="w-full pl-12 pr-4 py-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none font-bold text-lg"
+                                            />
+                                        </div>
                                         {kembalian > 0 && (
-                                            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex justify-between items-center text-emerald-700">
-                                                <span className="text-sm">Uang Kembalian:</span>
-                                                <span className="font-bold text-lg">Rp {kembalian.toLocaleString('id-ID')}</span>
+                                            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex justify-between items-center text-emerald-700 text-sm">
+                                                <span>Uang Kembalian:</span>
+                                                <span className="font-bold">Rp {kembalian.toLocaleString('id-ID')}</span>
                                             </div>
                                         )}
-                                        {nominalBayar && Number(nominalBayar) < sisaTagihan && (
-                                            <p className="text-sm text-red-500 font-medium">Nominal bayar kurang dari sisa tagihan!</p>
-                                        )}
-                                    </>);
-                                })()}
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="text-sm font-medium text-muted-foreground">Metode Pembayaran Pelunasan</label>
-                                <div className="grid grid-cols-1 gap-3">
-                                    <div
-                                        onClick={() => setPaymentMethod('CASH')}
-                                        className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'CASH' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border hover:border-primary/50'}`}
-                                    >
-                                        <div className={`p-2 rounded-lg mr-4 ${paymentMethod === 'CASH' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                            <Banknote className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="font-semibold text-foreground text-sm">Tunai (Cash)</p>
-                                            <p className="text-xs text-muted-foreground">Terima uang tunai dari pelanggan</p>
-                                        </div>
-                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'CASH' ? 'border-primary' : 'border-muted-foreground'}`}>
-                                            {paymentMethod === 'CASH' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                                        </div>
                                     </div>
+                                );
+                            })()}
 
-                                    <div
-                                        onClick={() => setPaymentMethod('QRIS')}
-                                        className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'QRIS' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border hover:border-primary/50'}`}
-                                    >
-                                        <div className={`p-2 rounded-lg mr-4 ${paymentMethod === 'QRIS' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                            <CreditCard className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="font-semibold text-foreground text-sm">QRIS</p>
-                                            <p className="text-xs text-muted-foreground">Scan barcode & cek mutasi</p>
-                                        </div>
-                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'QRIS' ? 'border-primary' : 'border-muted-foreground'}`}>
-                                            {paymentMethod === 'QRIS' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        onClick={() => setPaymentMethod('BANK_TRANSFER')}
-                                        className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'BANK_TRANSFER' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border hover:border-primary/50'}`}
-                                    >
-                                        <div className={`p-2 rounded-lg mr-4 ${paymentMethod === 'BANK_TRANSFER' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                            <Landmark className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="font-semibold text-foreground text-sm">Transfer Bank</p>
-                                            <p className="text-xs text-muted-foreground">Transfer manual ke rekening toko</p>
-                                        </div>
-                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'BANK_TRANSFER' ? 'border-primary' : 'border-muted-foreground'}`}>
-                                            {paymentMethod === 'BANK_TRANSFER' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                                        </div>
-                                    </div>
-
-                                    {paymentMethod === 'BANK_TRANSFER' && (
-                                        <div className="space-y-2 mt-4">
-                                            <p className="text-sm font-bold text-foreground">Pilih Rekening Tujuan</p>
-                                            <div className="space-y-2 max-h-40 overflow-y-auto">
-                                                {!bankAccounts?.length
-                                                    ? <p className="text-xs text-muted-foreground text-center py-3 bg-muted/20 border border-dashed border-border rounded-lg">Belum ada rekening bank.</p>
-                                                    : bankAccounts.map((bank: any) => (
-                                                        <label key={bank.id} className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${payoffBankId === String(bank.id) ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-background hover:bg-muted/30'}`}>
-                                                            <input
-                                                                type="radio"
-                                                                name="bankSelectionDP"
-                                                                value={bank.id}
-                                                                checked={payoffBankId === String(bank.id)}
-                                                                onChange={(e) => setPayoffBankId(e.target.value)}
-                                                                className="text-primary focus:ring-primary h-4 w-4"
-                                                            />
-                                                            <div className="flex-1">
-                                                                <p className="font-bold text-sm uppercase text-foreground">{bank.bankName}</p>
-                                                                <div className="flex items-center justify-between mt-0.5">
-                                                                    <span className="font-mono text-primary font-bold">{bank.accountNumber}</span>
-                                                                    <span className="text-xs text-muted-foreground">a.n {bank.accountOwner}</span>
-                                                                </div>
-                                                            </div>
-                                                        </label>
-                                                    ))
-                                                }
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-4 pt-1 border-t border-border">
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Informasi Checkout</p>
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-foreground">Kasir Pelunasan</label>
-                                    <select
-                                        value={checkoutCashierName}
-                                        onChange={e => setCheckoutCashierName(e.target.value)}
-                                        className="w-full px-4 py-2.5 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm"
-                                    >
-                                        <option value="">Pilih kasir...</option>
-                                        {users?.map((u: any) => (
-                                            <option key={u.id} value={u.name}>{u.name}</option>
+                            {/* Metode Pembayaran — compact grid untuk DP, full card untuk FULL */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-muted-foreground">
+                                    {payMode === 'PARTIAL' ? 'Metode Pembayaran DP' : 'Metode Pembayaran Pelunasan'}
+                                </label>
+                                {payMode === 'PARTIAL' ? (
+                                    /* Mode DP — tampilan compact */
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {([
+                                            { id: 'CASH', label: 'Tunai', icon: <Banknote className="w-4 h-4" /> },
+                                            { id: 'QRIS', label: 'QRIS', icon: <CreditCard className="w-4 h-4" /> },
+                                            { id: 'BANK_TRANSFER', label: 'Transfer', icon: <Landmark className="w-4 h-4" /> },
+                                        ] as const).map(m => (
+                                            <button key={m.id} type="button" onClick={() => { setPaymentMethod(m.id); if (m.id !== 'BANK_TRANSFER') setPayoffBankId(''); }}
+                                                className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 text-xs font-bold transition-all ${paymentMethod === m.id ? 'border-amber-500 bg-amber-500/10 text-amber-700' : 'border-border bg-muted/30 text-muted-foreground hover:border-amber-400/40'}`}>
+                                                {m.icon}{m.label}
+                                            </button>
                                         ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-foreground">Tanggal & Jam Checkout</label>
-                                    <input
-                                        type="datetime-local"
-                                        value={checkoutPaidAt}
-                                        onChange={e => setCheckoutPaidAt(e.target.value)}
-                                        className="w-full px-4 py-2.5 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm"
-                                    />
-                                    <p className="text-xs text-muted-foreground">Kosongkan = waktu sekarang</p>
-                                </div>
+                                    </div>
+                                ) : (
+                                    /* Mode FULL — tampilan card detail */
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {([
+                                            { id: 'CASH', label: 'Tunai (Cash)', desc: 'Terima uang tunai dari pelanggan', icon: <Banknote className="w-5 h-5" /> },
+                                            { id: 'QRIS', label: 'QRIS', desc: 'Scan barcode & cek mutasi', icon: <CreditCard className="w-5 h-5" /> },
+                                            { id: 'BANK_TRANSFER', label: 'Transfer Bank', desc: 'Transfer manual ke rekening toko', icon: <Landmark className="w-5 h-5" /> },
+                                        ] as const).map(m => (
+                                            <div key={m.id} onClick={() => { setPaymentMethod(m.id); if (m.id !== 'BANK_TRANSFER') setPayoffBankId(''); }}
+                                                className={`flex items-center p-3 border rounded-xl cursor-pointer transition-all ${paymentMethod === m.id ? 'border-primary bg-primary/5 shadow-sm' : 'border-border hover:border-primary/50'}`}>
+                                                <div className={`p-2 rounded-lg mr-3 ${paymentMethod === m.id ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                                    {m.icon}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="font-semibold text-foreground text-sm">{m.label}</p>
+                                                    <p className="text-xs text-muted-foreground">{m.desc}</p>
+                                                </div>
+                                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === m.id ? 'border-primary' : 'border-muted-foreground'}`}>
+                                                    {paymentMethod === m.id && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Pilih rekening bank */}
+                                {paymentMethod === 'BANK_TRANSFER' && (
+                                    <div className="space-y-1.5 pt-1">
+                                        <p className="text-xs font-semibold text-foreground">Pilih Rekening Tujuan</p>
+                                        <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                                            {!bankAccounts?.length
+                                                ? <p className="text-xs text-muted-foreground text-center py-3 bg-muted/20 border border-dashed border-border rounded-lg">Belum ada rekening bank.</p>
+                                                : bankAccounts.map((bank: any) => (
+                                                    <label key={bank.id} className={`flex items-center gap-3 p-2.5 border rounded-xl cursor-pointer transition-all ${payoffBankId === String(bank.id) ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-background hover:bg-muted/30'}`}>
+                                                        <input type="radio" name="bankSelectionDP" value={bank.id}
+                                                            checked={payoffBankId === String(bank.id)}
+                                                            onChange={e => setPayoffBankId(e.target.value)}
+                                                            className="text-primary focus:ring-primary h-4 w-4" />
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-bold text-xs uppercase text-foreground">{bank.bankName}</p>
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="font-mono text-primary text-xs font-bold">{bank.accountNumber}</span>
+                                                                <span className="text-[10px] text-muted-foreground">a.n {bank.accountOwner}</span>
+                                                            </div>
+                                                        </div>
+                                                    </label>
+                                                ))
+                                            }
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
-                            <button
-                                type="submit"
-                                disabled={payOffMutation.isPending || !nominalBayar || Number(nominalBayar) < (selectedTrx.status === 'PENDING' ? Number(selectedTrx.grandTotal) : Number(selectedTrx.grandTotal) - Number(selectedTrx.downPayment))}
-                                className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors shadow-md shadow-primary/20 disabled:opacity-50 flex justify-center items-center"
-                            >
-                                {payOffMutation.isPending ? 'Memproses...' : selectedTrx.status === 'PENDING' ? 'Proses Pembayaran' : 'Proses Pelunasan'}
-                            </button>
+                            {/* Info checkout — hanya untuk mode LUNAS PENUH */}
+                            {payMode === 'FULL' && (
+                                <div className="space-y-3 pt-2 border-t border-border">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Informasi Checkout</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-medium text-foreground">Kasir Pelunasan</label>
+                                            <select value={checkoutCashierName} onChange={e => setCheckoutCashierName(e.target.value)}
+                                                className="w-full px-3 py-2 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm">
+                                                <option value="">Pilih kasir...</option>
+                                                {users?.map((u: any) => (
+                                                    <option key={u.id} value={u.name}>{u.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-medium text-foreground">Tgl & Jam Checkout</label>
+                                            <input type="datetime-local" value={checkoutPaidAt} onChange={e => setCheckoutPaidAt(e.target.value)}
+                                                className="w-full px-3 py-2 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm" />
+                                        </div>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground">Kosongkan tanggal = waktu sekarang</p>
+                                </div>
+                            )}
+
+                            {/* Submit button */}
+                            {(() => {
+                                const sisaTagihan = selectedTrx.status === 'PENDING'
+                                    ? Number(selectedTrx.grandTotal)
+                                    : Number(selectedTrx.grandTotal) - Number(selectedTrx.downPayment);
+                                const nominalNum = Number(nominalBayar);
+                                const isPending = payOffMutation.isPending || addDPMutation.isPending;
+                                const isPartialDisabled = payMode === 'PARTIAL' && (!nominalBayar || nominalNum <= 0 || nominalNum > sisaTagihan);
+                                return (
+                                    <button type="submit" disabled={isPending || isPartialDisabled}
+                                        className={`w-full py-3 rounded-xl font-bold transition-colors shadow-md disabled:opacity-50 flex justify-center items-center gap-2 text-sm ${
+                                            payMode === 'PARTIAL'
+                                                ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
+                                                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
+                                        }`}>
+                                        {isPending ? 'Memproses...' : payMode === 'PARTIAL'
+                                            ? (nominalBayar && nominalNum >= sisaTagihan ? <><CheckCircle2 className="w-4 h-4" /> Bayar DP (akan LUNAS)</> : <><PlusCircle className="w-4 h-4" /> Tambah DP</>)
+                                            : <><CheckCircle2 className="w-4 h-4" /> Proses Pelunasan</>
+                                        }
+                                    </button>
+                                );
+                            })()}
                         </form>
                     </div>
                 </div>

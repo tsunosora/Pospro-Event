@@ -208,6 +208,18 @@
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
+/* ─── Print: struk thermal 80mm ─── */
+@media print {
+  body {
+    background: white !important;
+  }
+
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+}
+
 @keyframes wiggle {
   0%, 100% { transform: rotate(-8deg); }
   25% { transform: rotate(8deg); }

@@ -9,7 +9,7 @@ import {
     Calculator, ArrowRight, Loader2, Save, X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getHppWorksheets, createHppWorksheet, updateHppWorksheet, deleteHppWorksheet, getHppWorksheetByProduct, getProducts, createProduct, updateProduct, getCategories, getUnits, uploadProductImage, uploadProductImages, addProductVariant, updateProductVariant, applyHppToVariant, applyHppToVariants, applyHppVariantsCustom, uploadVariantImage, replaceVariantPriceTiers } from "@/lib/api";
+import { getHppWorksheets, createHppWorksheet, updateHppWorksheet, deleteHppWorksheet, getHppWorksheetByProduct, getProducts, createProduct, updateProduct, getCategories, getUnits, uploadProductImage, uploadProductImages, addProductVariant, updateProductVariant, applyHppToVariant, applyHppToVariants, applyHppVariantsCustom, uploadVariantImage, replaceVariantPriceTiers, getClickRates } from "@/lib/api";
 import { VariableCost, FixedCost } from "./types";
 import { CustomNameInput, VariantCombobox } from "./HppInputs";
 
@@ -26,6 +26,9 @@ function HppCalculatorContent() {
     const [isLoading, setIsLoading] = useState(true);
     const [worksheets, setWorksheets] = useState<any[]>([]);
     const [dbProducts, setDbProducts] = useState<any[]>([]); // For getting stock/inventory items
+    const [dbClickRates, setDbClickRates] = useState<any[]>([]);
+    const [hppClickRateId, setHppClickRateId] = useState<number | null>(null);
+    const [hppClicksPerUnit, setHppClicksPerUnit] = useState<number>(1);
 
     const [dbCategories, setDbCategories] = useState<any[]>([]);
     const [dbUnits, setDbUnits] = useState<any[]>([]);
@@ -95,6 +98,8 @@ function HppCalculatorContent() {
         additionalCost?: number | null;
         priceTiers?: { tierName: string; minQty: string; maxQty: string; price: string }[];
         showTierEditor?: boolean;
+        clickRateId?: number | null;
+        clicksPerUnit?: number;
     }
     const [variantCalcRows, setVariantCalcRows] = useState<VariantCalcRow[]>([]);
     const [variantCalcMode, setVariantCalcMode] = useState<'area' | 'unit'>('area');
@@ -140,6 +145,11 @@ function HppCalculatorContent() {
         setProductName(product.name);
         setProductCategory(String(product.categoryId || ''));
         setSellingPricingMode(product.pricingMode || 'UNIT');
+        // Pre-fill click rate from product config
+        if (product.clickRateId) {
+            setHppClickRateId(product.clickRateId);
+            setHppClicksPerUnit(product.clicksPerUnit || 1);
+        }
 
         // Load variants → variantCalcRows
         if (product.variants?.length > 0) {
@@ -161,6 +171,8 @@ function HppCalculatorContent() {
                     price: String(t.price),
                 })),
                 showTierEditor: (v.priceTiers?.length || 0) > 0,
+                clickRateId: v.clickRateId ?? null,
+                clicksPerUnit: v.clicksPerUnit ?? 1,
             }));
             setVariantCalcRows(rows);
             setShowVariantCalc(rows.length > 1 || rows.some((r: any) => r.name || r.priceTiers?.length));
@@ -205,16 +217,18 @@ function HppCalculatorContent() {
     const loadInitialData = async () => {
         setIsLoading(true);
         try {
-            const [wsData, pData, catData, unitData] = await Promise.all([
+            const [wsData, pData, catData, unitData, crData] = await Promise.all([
                 getHppWorksheets(),
                 getProducts(),
                 getCategories(),
-                getUnits()
+                getUnits(),
+                getClickRates(),
             ]);
             setWorksheets(wsData);
             setDbProducts(pData);
             setDbCategories(catData);
             setDbUnits(unitData);
+            setDbClickRates(crData);
         } catch (error) {
             console.error(error);
         } finally {
@@ -410,12 +424,21 @@ function HppCalculatorContent() {
                 price: parseInt(t.price),
             }));
 
+    // Hitung biaya klik per baris varian
+    const calcRowClickCost = (row: VariantCalcRow): number => {
+        if (!row.clickRateId) return 0;
+        const rate = dbClickRates.find((r: any) => r.id === row.clickRateId);
+        if (!rate) return 0;
+        return Number(rate.pricePerClick) * (row.clicksPerUnit ?? 1);
+    };
+
     const calcHppFinal = (row: VariantCalcRow) => {
         const scaleFactor = variantCalcMode === 'area'
             ? (parseFloat(row.widthM) || 0) * (parseFloat(row.heightM) || 0)
             : (parseFloat(row.multiplier) || 1);
         const hppBase = scaleFactor > 0 && hppPerPcs > 0 ? Math.round(hppPerPcs * scaleFactor) : 0;
-        return { scaleFactor, hppBase, hppFinal: hppBase + (row.additionalCost || 0) };
+        const rowClickCost = Math.round(calcRowClickCost(row));
+        return { scaleFactor, hppBase, rowClickCost, hppFinal: hppBase + rowClickCost + (row.additionalCost || 0) };
     };
 
     const handleSaveVariantCalc = async () => {
@@ -453,6 +476,8 @@ function HppCalculatorContent() {
                         hpp: hppFinal,
                         stock: 0,
                         priceTiers: buildTiersPayload(row),
+                        clickRateId: row.clickRateId ?? null,
+                        clicksPerUnit: row.clickRateId ? (row.clicksPerUnit ?? 1) : null,
                     }]
                 });
                 const createdVariantId = newProduct?.variants?.[0]?.id;
@@ -485,6 +510,19 @@ function HppCalculatorContent() {
             // Step 4: Replace price tiers for existing variants that have tiers defined
             const tierUpdateRows = variantCalcRows.filter(r => r.linkedVariantId && r.priceTiers && r.priceTiers.length > 0);
             await Promise.all(tierUpdateRows.map(r => replaceVariantPriceTiers(r.linkedVariantId!, buildTiersPayload(r))));
+
+            // Step 5: Persist per-variant click rate config
+            const clickUpdateRows = variantCalcRows.filter(r => {
+                const vid = r.linkedVariantId ?? createdVariantIds[r.id];
+                return !!vid;
+            });
+            await Promise.all(clickUpdateRows.map(r => {
+                const vid = r.linkedVariantId ?? createdVariantIds[r.id];
+                return updateProductVariant(vid!, {
+                    clickRateId: r.clickRateId ?? null,
+                    clicksPerUnit: r.clickRateId ? (r.clicksPerUnit ?? 1) : null,
+                } as any);
+            }));
 
             await refreshProductData();
             setVariantCalcRows(rows => rows.map(r => {
@@ -521,7 +559,14 @@ function HppCalculatorContent() {
         return totalFixedMonthly / targetVolume;
     }, [totalFixedMonthly, targetVolume]);
 
-    const hppPerPcs = totalVariablePerPcs + allocatedFixedPerPcs;
+    const clickCostPerPcs = useMemo(() => {
+        if (!hppClickRateId) return 0;
+        const rate = dbClickRates.find((r: any) => r.id === hppClickRateId);
+        if (!rate) return 0;
+        return Number(rate.pricePerClick) * hppClicksPerUnit;
+    }, [hppClickRateId, hppClicksPerUnit, dbClickRates]);
+
+    const hppPerPcs = totalVariablePerPcs + allocatedFixedPerPcs + clickCostPerPcs;
     const baseSuggestedPrice = hppPerPcs * (1 + (targetMargin / 100)); // Default margin before tiers applied
 
     const handleSaveAsProduct = async () => {
@@ -601,6 +646,8 @@ function HppCalculatorContent() {
                     hpp: hppFinal || Math.round(hppPerPcs),
                     stock: 0,
                     priceTiers: buildTiersPayload(row),
+                    clickRateId: row.clickRateId ?? null,
+                    clicksPerUnit: row.clickRateId ? (row.clicksPerUnit ?? 1) : null,
                 };
             });
         } else {
@@ -703,6 +750,8 @@ function HppCalculatorContent() {
                         price: rowPrice,
                         hpp: hppFinal > 0 ? hppFinal : Math.round(hppPerPcs),
                         priceTiers: buildTiersPayload(row),
+                        clickRateId: row.clickRateId ?? null,
+                        clicksPerUnit: row.clickRateId ? (row.clicksPerUnit ?? 1) : null,
                     };
                 });
             } else {
@@ -1320,15 +1369,23 @@ function HppCalculatorContent() {
                                         </div>
                                     )}
 
+                                    {/* Warning: double-count risk when both global and per-row click rates active */}
+                                    {hppClickRateId !== null && variantCalcRows.some(r => r.clickRateId) && (
+                                        <div className="flex items-start gap-2 px-3 py-2.5 bg-orange-50 dark:bg-orange-950/30 border border-orange-300 dark:border-orange-700 rounded-[8px] text-[12px] text-orange-800 dark:text-orange-300">
+                                            <Zap className="w-3.5 h-3.5 mt-0.5 shrink-0 text-orange-500" />
+                                            <span>
+                                                <span className="font-bold">Perhatian double-count:</span> HPP Base sudah termasuk biaya klik global (Rp {clickCostPerPcs > 0 ? Math.round(clickCostPerPcs).toLocaleString('id-ID') : '?'}/unit). Biaya klik per-varian akan ditambahkan di atasnya — pertimbangkan kosongkan "Jenis Klik" di bagian Komponen Biaya Klik agar tidak double-count.
+                                            </span>
+                                        </div>
+                                    )}
+
                                     {/* Card List */}
                                     {variantCalcRows.length > 0 && (
                                         <div className="space-y-3">
                                             {variantCalcRows.map((row, idx) => {
-                                                const scaleFactor = variantCalcMode === 'area'
-                                                    ? (parseFloat(row.widthM) || 0) * (parseFloat(row.heightM) || 0)
-                                                    : (parseFloat(row.multiplier) || 0);
-                                                const hppBase = scaleFactor > 0 && hppPerPcs > 0 ? Math.round(hppPerPcs * scaleFactor) : null;
-                                                const hppFinal = hppBase !== null ? hppBase + (row.additionalCost || 0) : null;
+                                                const { scaleFactor, hppBase: _hppBaseRaw, rowClickCost, hppFinal: _hppFinalRaw } = calcHppFinal(row);
+                                                const hppBase = _hppBaseRaw > 0 ? _hppBaseRaw : null;
+                                                const hppFinal = _hppFinalRaw > 0 ? _hppFinalRaw : null;
                                                 const suggestedPrice = hppFinal ? Math.round(hppFinal * (1 + targetMargin / 100)) : null;
                                                 const tierCount = (row.priceTiers || []).filter(t => t.minQty && t.price).length;
                                                 return (
@@ -1397,6 +1454,50 @@ function HppCalculatorContent() {
                                                             )}
                                                         </div>
 
+                                                        {/* Baris 2.5: Klik Mesin per-Varian */}
+                                                        <div className="px-3 pb-2 border-t border-indigo-100 dark:border-indigo-900/40 pt-2 bg-indigo-50/30 dark:bg-indigo-950/10">
+                                                            <div className="flex items-center gap-1.5 mb-1.5">
+                                                                <Zap className="w-3 h-3 text-indigo-500" />
+                                                                <label className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase">Klik Mesin Varian Ini</label>
+                                                                {row.clickRateId && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, clickRateId: null, clicksPerUnit: 1 } : r))}
+                                                                        className="ml-auto text-[10px] text-muted-foreground hover:text-red-500 underline"
+                                                                    >hapus</button>
+                                                                )}
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <select
+                                                                    value={row.clickRateId ?? ''}
+                                                                    onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, clickRateId: e.target.value ? +e.target.value : null } : r))}
+                                                                    className="w-full border border-indigo-200 dark:border-indigo-800 rounded-[8px] px-2 py-2 text-[12px] bg-white dark:bg-background outline-none focus:border-indigo-400"
+                                                                >
+                                                                    <option value="">-- Tidak ada klik --</option>
+                                                                    {dbClickRates.filter((r: any) => r.isActive).map((r: any) => (
+                                                                        <option key={r.id} value={r.id}>
+                                                                            {r.name} (Rp {Number(r.pricePerClick).toLocaleString('id-ID')})
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                                <input
+                                                                    type="number"
+                                                                    min={0.5}
+                                                                    step={0.5}
+                                                                    value={row.clicksPerUnit ?? 1}
+                                                                    disabled={!row.clickRateId}
+                                                                    onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, clicksPerUnit: +e.target.value || 1 } : r))}
+                                                                    placeholder="Klik/unit"
+                                                                    className="w-full border border-indigo-200 dark:border-indigo-800 rounded-[8px] px-2 py-2 text-[12px] disabled:opacity-40 outline-none focus:border-indigo-400"
+                                                                />
+                                                            </div>
+                                                            {row.clickRateId && rowClickCost > 0 && (
+                                                                <p className="text-[11px] text-indigo-600 font-semibold mt-1">
+                                                                    +Rp {rowClickCost.toLocaleString('id-ID')}/unit biaya klik mesin
+                                                                </p>
+                                                            )}
+                                                        </div>
+
                                                         {/* Baris 3: HPP Base + Biaya Tambah (grid 2 col) */}
                                                         <div className="px-3 pb-2 grid grid-cols-2 gap-2">
                                                             <div>
@@ -1426,6 +1527,9 @@ function HppCalculatorContent() {
                                                                 <div className={cn("px-3 py-2.5 rounded-[8px] text-[14px] font-bold border", hppFinal ? "bg-primary/10 border-primary/30 text-primary" : "bg-muted/40 border-border text-muted-foreground")}>
                                                                     {hppFinal ? `Rp ${hppFinal.toLocaleString('id-ID')}` : '—'}
                                                                 </div>
+                                                                {rowClickCost > 0 && (
+                                                                    <p className="text-[10px] text-indigo-500 mt-0.5 font-medium">(termasuk klik: Rp {rowClickCost.toLocaleString('id-ID')})</p>
+                                                                )}
                                                             </div>
                                                             <div>
                                                                 <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
@@ -1616,6 +1720,8 @@ function HppCalculatorContent() {
                                                 heightM: '',
                                                 multiplier: '1',
                                                 linkedVariantId: null,
+                                                clickRateId: hppClickRateId,
+                                                clicksPerUnit: hppClicksPerUnit,
                                             }])}
                                             className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
                                         >
@@ -1823,6 +1929,49 @@ function HppCalculatorContent() {
                             </div>
                         </div>
 
+                        {/* Click Rate Component */}
+                        <div className="border border-indigo-200 bg-indigo-50/50 rounded-[12px] p-4 space-y-3 dark:bg-indigo-950/20 dark:border-indigo-900">
+                            <div className="flex items-center gap-2">
+                                <Zap className="w-4 h-4 text-indigo-500" />
+                                <p className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">Komponen Biaya Klik Mesin</p>
+                                <span className="text-xs text-indigo-500">(opsional)</span>
+                            </div>
+                            <p className="text-xs text-indigo-600/80 dark:text-indigo-400">Jika produk ini menggunakan mesin cetak berbasis klik, tambahkan di sini agar HPP sudah termasuk biaya klik.</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-medium text-indigo-700 mb-1">Jenis Klik</label>
+                                    <select
+                                        value={hppClickRateId ?? ''}
+                                        onChange={e => setHppClickRateId(e.target.value ? +e.target.value : null)}
+                                        className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm bg-white dark:bg-background"
+                                    >
+                                        <option value="">-- Tidak ada --</option>
+                                        {dbClickRates.filter((r: any) => r.isActive).map((r: any) => (
+                                            <option key={r.id} value={r.id}>{r.name} — Rp {Number(r.pricePerClick).toLocaleString('id-ID')}/klik</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {hppClickRateId && (
+                                    <div>
+                                        <label className="block text-xs font-medium text-indigo-700 mb-1">Klik per Unit</label>
+                                        <input
+                                            type="number"
+                                            min={0.5}
+                                            step={0.5}
+                                            value={hppClicksPerUnit}
+                                            onChange={e => setHppClicksPerUnit(+e.target.value || 1)}
+                                            className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm"
+                                        />
+                                        {clickCostPerPcs > 0 && (
+                                            <p className="text-xs text-indigo-700 font-semibold mt-1">
+                                                +Rp {Math.round(clickCostPerPcs).toLocaleString('id-ID')}/unit masuk HPP
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         <div className="pt-2 pb-6">
                             <button onClick={() => setHasCalculated(true)} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[15px] py-4 rounded-[12px] shadow-md transition-all flex items-center justify-center gap-2">
                                 <Calculator className="w-5 h-5" /> REFRESH KALKULASI HASIL
@@ -1848,6 +1997,9 @@ function HppCalculatorContent() {
                                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Struktur Modal / Pcs</p>
                                         <div className="flex justify-between text-sm"><span className="text-muted-foreground">Bahan Baku:</span><b>Rp {Math.round(totalVariablePerPcs).toLocaleString('id-ID')}</b></div>
                                         <div className="flex justify-between text-sm"><span className="text-muted-foreground">Biaya Tetap/Pcs:</span><b>Rp {Math.round(allocatedFixedPerPcs).toLocaleString('id-ID')}</b></div>
+                                        {clickCostPerPcs > 0 && (
+                                            <div className="flex justify-between text-sm"><span className="text-muted-foreground text-indigo-600">Biaya Klik Mesin:</span><b className="text-indigo-700">Rp {Math.round(clickCostPerPcs).toLocaleString('id-ID')}</b></div>
+                                        )}
                                         <div className="flex justify-between items-center p-2.5 bg-primary/5 rounded-lg border border-primary/20">
                                             <span className="font-bold text-sm text-foreground/80">TOTAL MODAL POKOK</span>
                                             <span className="text-base font-black text-primary">Rp {Math.round(hppPerPcs).toLocaleString('id-ID')}</span>

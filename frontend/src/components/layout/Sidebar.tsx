@@ -22,6 +22,7 @@ import {
     Truck,
     ClipboardEdit,
     TrendingDown,
+    MousePointerClick,
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { useQuery } from "@tanstack/react-query";
@@ -41,6 +42,8 @@ const navigation = [
     { name: "Data Supplier", href: "/inventory/suppliers", icon: Truck },
     { name: "Stok Opname", href: "/inventory/opname", icon: ClipboardList },
     { name: "Antrian Produksi", href: "/produksi", icon: Printer },
+    { name: "Antrian Cetak Paper", href: "/print-queue", icon: Printer },
+    { name: "Klik Mesin Cetak", href: "/click-counting", icon: MousePointerClick },
     { name: "Cashflow Bisnis", href: "/cashflow", icon: Banknote },
     { name: "Data Pelanggan", href: "/customers", icon: Users },
     { name: "Invoice & Penawaran", href: "/invoices", icon: FileText },

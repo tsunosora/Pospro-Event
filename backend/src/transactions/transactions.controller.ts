@@ -95,6 +95,11 @@ export class TransactionsController {
         return this.transactionsService.findOne(id);
     }
 
+    @Post(':id/add-dp')
+    addPartialPayment(@Param('id', ParseIntPipe) id: number, @Body() body: { amount: number; paymentMethod: PaymentMethod; bankAccountId?: number }) {
+        return this.transactionsService.addPartialPayment(id, body);
+    }
+
     @Post(':id/pay-off')
     payOff(@Param('id', ParseIntPipe) id: number, @Body() body: { paymentMethod: PaymentMethod, bankAccountId?: number, checkoutCashierName?: string, paidAt?: string }) {
         return this.transactionsService.payOff(id, body);
@@ -114,6 +119,7 @@ export class TransactionsController {
                 id?: number;
                 newVariantId?: number;
                 quantity?: number;
+                pcs?: number;
                 widthCm?: number;
                 heightCm?: number;
                 unitType?: string;
@@ -139,6 +145,7 @@ export class TransactionsController {
                 id?: number;
                 newVariantId?: number;
                 quantity?: number;
+                pcs?: number;
                 widthCm?: number;
                 heightCm?: number;
                 unitType?: string;

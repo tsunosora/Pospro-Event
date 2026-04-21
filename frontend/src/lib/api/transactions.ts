@@ -38,6 +38,8 @@ export const createTransaction = async (data: {
     cashflowDate?: string;     // "YYYY-MM-DD" — tanggal cashflow (kosong = sama dgn transactionDate)
     saveOnly?: boolean;        // true = simpan invoice tanpa pembayaran (PENDING)
 }) => (await api.post('/transactions', data)).data;
+export const addDPTransaction = async (id: number, data: { amount: number; paymentMethod: string; bankAccountId?: number }) =>
+    (await api.post(`/transactions/${id}/add-dp`, data)).data;
 export const payOffTransaction = async (id: number, data: { paymentMethod: string, bankAccountId?: number, checkoutCashierName?: string, paidAt?: string }) =>
     (await api.post(`/transactions/${id}/pay-off`, data)).data;
 export const updateTransactionPaymentMethod = async (id: number, data: { paymentMethod: string; bankAccountId?: number }) =>
@@ -48,6 +50,7 @@ export type EditItemPayload = {
     id?: number;           // unset = item baru
     newVariantId?: number; // variant produk baru
     quantity?: number;
+    pcs?: number;          // jumlah cetak (khusus AREA_BASED)
     widthCm?: number;
     heightCm?: number;
     unitType?: string;

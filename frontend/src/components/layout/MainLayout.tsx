@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { Footer } from "./Footer";
 import { ShiftReminderBanner } from "./ShiftReminderBanner";
 import { useNotificationStream } from "@/hooks/useNotificationStream";
 import { useShiftReminder } from "@/hooks/useShiftReminder";
@@ -30,21 +31,25 @@ export function MainLayout({ children }: MainLayoutProps) {
     const isLoginPage = pathname === "/login";
     const isOpnamePage = pathname.startsWith("/opname/");
     const isProduksiPage = pathname.startsWith("/produksi");
+    const isCetakPage = pathname.startsWith("/cetak");
     const isPublicProductPage = pathname.startsWith("/p/");
 
-    if (isLoginPage || isOpnamePage || isProduksiPage || isPublicProductPage) {
+    if (isLoginPage || isOpnamePage || isProduksiPage || isCetakPage || isPublicProductPage) {
         return <>{children}</>;
     }
 
     return (
-        <div className="flex h-screen overflow-hidden bg-background">
+        <div className="flex h-screen overflow-hidden bg-background print:block print:h-auto print:overflow-visible">
             <AppInitializer />
-            <ShiftReminderBanner />
-            <Sidebar />
-            <div className="flex flex-1 flex-col overflow-hidden">
-                <Header />
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-                    {children}
+            <div className="print:hidden"><ShiftReminderBanner /></div>
+            <div className="print:hidden"><Sidebar /></div>
+            <div className="flex flex-1 flex-col overflow-hidden print:block">
+                <div className="print:hidden"><Header /></div>
+                <main className="flex-1 overflow-y-auto print:overflow-visible">
+                    <div className="p-4 sm:p-6 lg:p-8 print:p-0">
+                        {children}
+                    </div>
+                    <Footer />
                 </main>
             </div>
         </div>

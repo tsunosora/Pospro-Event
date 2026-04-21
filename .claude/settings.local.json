@@ -68,7 +68,12 @@
       "Skill(update-config:*)",
       "Bash(cmd /c dir \"C:\\\\Users\\\\awokawok\\\\.claude\")",
       "Bash(cmd /c \"dir C:\\\\Users\\\\awokawok\\\\.claude && echo done\")",
-      "Bash(dir \"D:\\\\FAISAL\\\\appdev\\\\comprehensive-pos-web-application\\\\frontend\\\\src\\\\lib\\\\api\")"
+      "Bash(dir \"D:\\\\FAISAL\\\\appdev\\\\comprehensive-pos-web-application\\\\frontend\\\\src\\\\lib\\\\api\")",
+      "Bash(dir \"D:\\\\FAISAL\\\\appdev\\\\comprehensive-pos-web-application\\\\frontend\\\\src\\\\lib\" /b)",
+      "Bash(dir \"D:\\\\FAISAL\\\\appdev\\\\comprehensive-pos-web-application\\\\backend\\\\src\\\\click-counting\" /b)",
+      "Bash(dir \"D:\\\\FAISAL\\\\appdev\\\\comprehensive-pos-web-application\\\\frontend\\\\src\\\\app\\\\click-counting\" /b)",
+      "Bash(dangerouslyDisableSandbox)",
+      "Bash(node_modules/.bin/tsc --noEmit)"
     ]
   }
 }

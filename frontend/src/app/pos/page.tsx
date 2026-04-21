@@ -79,6 +79,11 @@ export default function POSPage() {
     const [productionDeadline, setProductionDeadline] = useState('');
     const [productionNotes, setProductionNotes] = useState('');
 
+    // State DP saat Bayar Nanti
+    const [dpBayarNanti, setDpBayarNanti] = useState('');
+    const [dpMethodBayarNanti, setDpMethodBayarNanti] = useState<'CASH' | 'QRIS' | 'BANK_TRANSFER'>('CASH');
+    const [dpBankBayarNanti, setDpBankBayarNanti] = useState('');
+
     // Backdate state (khusus manager)
     const todayStr = new Date().toISOString().split('T')[0];
     const [transactionDate, setTransactionDate] = useState('');       // kosong = hari ini
@@ -265,6 +270,11 @@ export default function POSPage() {
             return;
         }
 
+        if (paymentMethod === 'BAYAR_NANTI' && dpBayarNanti !== '' && Number(dpBayarNanti) > 0 && dpMethodBayarNanti === 'BANK_TRANSFER' && !dpBankBayarNanti) {
+            alert('Silakan pilih Rekening Bank tujuan pembayaran DP!');
+            return;
+        }
+
         const isPayLater = paymentMethod === 'BAYAR_NANTI';
 
         // Snapshot cart BEFORE clearing (needed for receipt display)
@@ -280,7 +290,9 @@ export default function POSPage() {
             customerPhone: customerPhone.trim() || undefined,
             customerAddress: customerAddress.trim() || undefined,
             dueDate: dueDate ? new Date(dueDate) : undefined,
-            downPayment: paymentMethod === 'BAYAR_NANTI' ? 0 : downPayment !== '' ? Number(downPayment) : undefined,
+            downPayment: paymentMethod === 'BAYAR_NANTI'
+                ? (dpBayarNanti !== '' && Number(dpBayarNanti) > 0 ? Number(dpBayarNanti) : 0)
+                : downPayment !== '' ? Number(downPayment) : undefined,
             cashierName: cashierName.trim() || undefined,
             employeeName: employeeName.trim() || undefined,
             logoUrl: settings?.logoImageUrl || undefined,
@@ -302,7 +314,10 @@ export default function POSPage() {
                 note: item.note,
                 customPrice: item.customPrice != null ? item.customPrice : undefined,
             })),
-            paymentMethod: (paymentMethod === 'KREDIT' || paymentMethod === 'BAYAR_NANTI') ? 'CASH' : paymentMethod,
+            paymentMethod: paymentMethod === 'KREDIT' ? 'CASH'
+                : paymentMethod === 'BAYAR_NANTI'
+                    ? (dpBayarNanti !== '' && Number(dpBayarNanti) > 0 ? dpMethodBayarNanti : 'CASH')
+                    : paymentMethod,
             saveOnly: isPayLater ? true : undefined,
             discount: discountNum > 0 ? discountNum : 0,
             shippingCost: shippingCostNum > 0 ? shippingCostNum : undefined,
@@ -310,10 +325,14 @@ export default function POSPage() {
             customerPhone: customerPhone.trim() || undefined,
             customerAddress: customerAddress.trim() || undefined,
             dueDate: dueDate || undefined,
-            downPayment: downPayment !== '' ? Number(downPayment) : undefined,
+            downPayment: paymentMethod === 'BAYAR_NANTI'
+                ? (dpBayarNanti !== '' ? Number(dpBayarNanti) : 0)
+                : (downPayment !== '' ? Number(downPayment) : undefined),
             cashierName: cashierName.trim() || undefined,
             employeeName: employeeName.trim() || undefined,
-            bankAccountId: selectedBankId ? Number(selectedBankId) : undefined,
+            bankAccountId: paymentMethod === 'BAYAR_NANTI' && dpMethodBayarNanti === 'BANK_TRANSFER'
+                ? (dpBankBayarNanti ? Number(dpBankBayarNanti) : undefined)
+                : (selectedBankId ? Number(selectedBankId) : undefined),
             productionPriority,
             productionDeadline: productionDeadline || undefined,
             productionNotes: productionNotes.trim() || undefined,
@@ -345,6 +364,7 @@ export default function POSPage() {
                     setProductionPriority('NORMAL'); setProductionDeadline(''); setProductionNotes('');
                     setPaymentMethod('CASH'); setSelectedBankId('');
                     setDueDate(''); setDownPayment('');
+                    setDpBayarNanti(''); setDpMethodBayarNanti('CASH'); setDpBankBayarNanti('');
                     setTransactionDate(''); setCashflowToday(false);
                     setReceipt(snap);
 
@@ -929,10 +949,17 @@ export default function POSPage() {
                                         <div className="w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
                                             <span className="text-2xl">⚠️</span>
                                         </div>
-                                        <h3 className="text-lg font-bold">{paymentMethod === 'BAYAR_NANTI' ? 'Simpan Invoice (Bayar Nanti)' : paymentMethod === 'KREDIT' ? 'Konfirmasi Nota Kredit' : downPayment !== '' && Number(downPayment) < grandTotal ? 'Konfirmasi DP' : 'Konfirmasi Pembayaran'}</h3>
+                                        <h3 className="text-lg font-bold">
+                                            {paymentMethod === 'BAYAR_NANTI'
+                                                ? (dpBayarNanti !== '' && Number(dpBayarNanti) > 0 ? 'Simpan Invoice + Terima DP' : 'Simpan Invoice (Bayar Nanti)')
+                                                : paymentMethod === 'KREDIT' ? 'Konfirmasi Nota Kredit'
+                                                : downPayment !== '' && Number(downPayment) < grandTotal ? 'Konfirmasi DP' : 'Konfirmasi Pembayaran'}
+                                        </h3>
                                         <p className="text-sm text-muted-foreground mt-1">
                                             {paymentMethod === 'BAYAR_NANTI'
-                                                ? <>Invoice disimpan <strong>tanpa pembayaran</strong>. Pelanggan dapat membayar nanti melalui menu <strong>Piutang</strong>.</>
+                                                ? dpBayarNanti !== '' && Number(dpBayarNanti) > 0
+                                                    ? <>Invoice disimpan dengan <strong>DP Rp {Number(dpBayarNanti).toLocaleString('id-ID')}</strong> via <strong>{dpMethodBayarNanti === 'BANK_TRANSFER' ? 'Transfer Bank' : dpMethodBayarNanti}</strong>. Sisa tagihan: <strong>Rp {(grandTotal - Number(dpBayarNanti)).toLocaleString('id-ID')}</strong>. Pastikan DP sudah diterima.</>
+                                                    : <>Invoice disimpan <strong>tanpa pembayaran</strong>. Pelanggan dapat membayar nanti melalui menu <strong>Piutang</strong>.</>
                                                 : paymentMethod === 'KREDIT'
                                                 ? <>Transaksi disimpan sebagai <strong>piutang</strong>. Jatuh tempo: <strong>{dueDate ? dayjs(dueDate).format('DD/MM/YYYY') : '-'}</strong>. Tidak ada pembayaran diterima sekarang.</>
                                                 : <>Pastikan pembayaran <strong>Rp {(downPayment !== '' && Number(downPayment) < grandTotal ? Number(downPayment) : grandTotal).toLocaleString('id-ID')}</strong> via <strong>{paymentMethod === 'BANK_TRANSFER' ? 'Transfer Bank' : paymentMethod}</strong> sudah diterima sebelum melanjutkan.</>
@@ -948,7 +975,11 @@ export default function POSPage() {
                                             disabled={transactionMutation.isPending}
                                             className={`py-3 rounded-xl text-white font-bold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${paymentMethod === 'BAYAR_NANTI' ? 'bg-sky-500 hover:bg-sky-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
                                             {paymentMethod === 'BAYAR_NANTI' ? <Clock className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                                            {transactionMutation.isPending ? 'Memproses...' : paymentMethod === 'BAYAR_NANTI' ? 'Ya, Simpan Invoice ✓' : paymentMethod === 'KREDIT' ? 'Ya, Simpan Nota Kredit ✓' : downPayment !== '' && Number(downPayment) < grandTotal ? 'Ya, Konfirmasi DP ✓' : 'Ya, Sudah Lunas ✓'}
+                                            {transactionMutation.isPending ? 'Memproses...'
+                                                : paymentMethod === 'BAYAR_NANTI'
+                                                    ? (dpBayarNanti !== '' && Number(dpBayarNanti) > 0 ? 'Ya, Simpan + Terima DP ✓' : 'Ya, Simpan Invoice ✓')
+                                                    : paymentMethod === 'KREDIT' ? 'Ya, Simpan Nota Kredit ✓'
+                                                    : downPayment !== '' && Number(downPayment) < grandTotal ? 'Ya, Konfirmasi DP ✓' : 'Ya, Sudah Lunas ✓'}
                                         </button>
                                     </div>
                                 </div>
@@ -1131,11 +1162,13 @@ export default function POSPage() {
                                             ))}
                                         </select>
                                     </div>
+                                    {paymentMethod !== 'BAYAR_NANTI' && (
                                     <div className="space-y-0.5">
                                         <label className="text-[11px] text-muted-foreground">Uang Muka (DP)</label>
                                         <input type="number" placeholder="0" value={downPayment} onChange={e => setDownPayment(e.target.value)} min="0" max={grandTotal}
                                             className="w-full px-2 py-1.5 bg-background border border-border rounded-lg outline-none text-xs focus:border-primary transition-colors" />
                                     </div>
+                                )}
                                 </div>
                                 {downPayment !== '' && Number(downPayment) < grandTotal && paymentMethod !== 'KREDIT' && (
                                     <div className="mt-2 px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[11px] text-amber-600 font-semibold">
@@ -1188,10 +1221,60 @@ export default function POSPage() {
                                         <CalendarRange className="w-3 h-3 shrink-0" /> KREDIT
                                     </button>
                                 </div>
-                                <button onClick={() => { setPaymentMethod('BAYAR_NANTI'); setDownPayment(''); }}
+                                <button onClick={() => { setPaymentMethod('BAYAR_NANTI'); setDownPayment(''); setDpBayarNanti(''); setDpMethodBayarNanti('CASH'); setDpBankBayarNanti(''); }}
                                     className={`w-full py-2 rounded-xl text-xs font-bold transition-all border-2 flex items-center justify-center gap-1.5 ${paymentMethod === 'BAYAR_NANTI' ? 'border-sky-500 bg-sky-500/10 text-sky-600' : 'border-border bg-muted/50 text-muted-foreground hover:border-sky-400/50'}`}>
                                     <Clock className="w-3 h-3 shrink-0" /> BAYAR NANTI (Simpan Invoice)
                                 </button>
+
+                                {/* Panel DP saat Bayar Nanti */}
+                                {paymentMethod === 'BAYAR_NANTI' && (
+                                    <div className="bg-sky-500/5 border border-sky-500/20 rounded-xl p-3 space-y-2.5">
+                                        <p className="text-[11px] font-semibold text-sky-700 uppercase tracking-wider">Uang Muka / DP (Opsional)</p>
+                                        <input
+                                            type="number"
+                                            placeholder="Nominal DP — kosongkan jika belum ada pembayaran"
+                                            value={dpBayarNanti}
+                                            onChange={e => setDpBayarNanti(e.target.value)}
+                                            min="0"
+                                            className="w-full px-3 py-2 bg-background border border-sky-300/60 rounded-lg outline-none text-sm focus:border-sky-500 transition-colors"
+                                        />
+                                        {dpBayarNanti !== '' && Number(dpBayarNanti) > 0 && (
+                                            <>
+                                                <div className="grid grid-cols-3 gap-1.5">
+                                                    {(['CASH', 'QRIS', 'BANK_TRANSFER'] as const).map(m => (
+                                                        <button key={m} type="button"
+                                                            onClick={() => { setDpMethodBayarNanti(m); if (m !== 'BANK_TRANSFER') setDpBankBayarNanti(''); }}
+                                                            className={`py-1.5 rounded-lg text-[11px] font-bold border-2 transition-all ${dpMethodBayarNanti === m ? 'border-sky-500 bg-sky-500/15 text-sky-700' : 'border-border bg-background text-muted-foreground hover:border-sky-400/50'}`}>
+                                                            {m === 'BANK_TRANSFER' ? 'TRANSFER' : m}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                {dpMethodBayarNanti === 'BANK_TRANSFER' && (
+                                                    <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
+                                                        {!bankAccounts?.length
+                                                            ? <p className="text-xs text-muted-foreground text-center py-2 bg-muted/20 border border-dashed border-border rounded-lg">Belum ada rekening bank.</p>
+                                                            : bankAccounts.map((bank: any) => (
+                                                                <label key={bank.id} className={`flex items-center gap-2 px-3 py-1.5 border rounded-xl cursor-pointer transition-all ${dpBankBayarNanti === String(bank.id) ? 'border-sky-500 bg-sky-500/5 ring-1 ring-sky-500/20' : 'border-border bg-background hover:bg-muted/30'}`}>
+                                                                    <input type="radio" name="dpBankBayarNanti" value={bank.id} checked={dpBankBayarNanti === String(bank.id)} onChange={e => setDpBankBayarNanti(e.target.value)} className="text-sky-500 h-3.5 w-3.5" />
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="font-bold text-[11px] uppercase">{bank.bankName}</p>
+                                                                        <span className="font-mono text-sky-600 text-xs font-bold">{bank.accountNumber}</span>
+                                                                    </div>
+                                                                </label>
+                                                            ))
+                                                        }
+                                                    </div>
+                                                )}
+                                                <div className="px-2.5 py-1.5 bg-sky-500/10 border border-sky-500/20 rounded-lg text-[11px] text-sky-700 font-semibold">
+                                                    DP Rp {Number(dpBayarNanti).toLocaleString('id-ID')} — sisa tagihan: Rp {(grandTotal - Number(dpBayarNanti)).toLocaleString('id-ID')}
+                                                </div>
+                                            </>
+                                        )}
+                                        {(dpBayarNanti === '' || Number(dpBayarNanti) === 0) && (
+                                            <p className="text-[11px] text-sky-600/70">Invoice tersimpan dengan status <strong>Belum Bayar</strong>. Bisa dilunasi via menu Piutang.</p>
+                                        )}
+                                    </div>
+                                )}
 
                                 {paymentMethod === 'QRIS' && (
                                     <div className="bg-muted/30 border border-border rounded-xl p-3 text-center">
@@ -1338,17 +1421,23 @@ export default function POSPage() {
                 <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
                     <div className="glass bg-card w-full max-w-md rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
                         {/* Success header */}
-                        <div className={`p-6 border-b text-center space-y-2 ${receipt.paymentMethod === 'BAYAR_NANTI' ? 'bg-sky-500/10 border-sky-500/20' : receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
-                            <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto ${receipt.paymentMethod === 'BAYAR_NANTI' ? 'bg-sky-500' : receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? 'bg-amber-500' : 'bg-emerald-500'}`}>
-                                {receipt.paymentMethod === 'BAYAR_NANTI' ? <Clock className="w-8 h-8 text-white" /> : <CheckCircle2 className="w-8 h-8 text-white" />}
+                        {(() => {
+                            const isNantiNoDP = receipt.paymentMethod === 'BAYAR_NANTI' && (!receipt.downPayment || receipt.downPayment === 0);
+                            const isDP = receipt.downPayment !== undefined && receipt.downPayment > 0 && receipt.downPayment < receipt.grandTotal;
+                            return (
+                        <div className={`p-6 border-b text-center space-y-2 ${isNantiNoDP ? 'bg-sky-500/10 border-sky-500/20' : isDP ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+                            <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto ${isNantiNoDP ? 'bg-sky-500' : isDP ? 'bg-amber-500' : 'bg-emerald-500'}`}>
+                                {isNantiNoDP ? <Clock className="w-8 h-8 text-white" /> : <CheckCircle2 className="w-8 h-8 text-white" />}
                             </div>
-                            <h2 className={`text-xl font-bold ${receipt.paymentMethod === 'BAYAR_NANTI' ? 'text-sky-600' : receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                {receipt.paymentMethod === 'BAYAR_NANTI' ? 'Invoice Disimpan!' : receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? 'Pembayaran DP Berhasil!' : 'Pembayaran Berhasil!'}
+                            <h2 className={`text-xl font-bold ${isNantiNoDP ? 'text-sky-600' : isDP ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                {isNantiNoDP ? 'Invoice Disimpan!' : isDP ? (receipt.paymentMethod === 'BAYAR_NANTI' ? 'Invoice + DP Tersimpan!' : 'Pembayaran DP Berhasil!') : 'Pembayaran Berhasil!'}
                             </h2>
                             <p className="text-sm text-muted-foreground">
                                 {receipt.timestamp.toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}
                             </p>
                         </div>
+                            );
+                        })()}
 
                         {/* Receipt preview */}
                         <div className="flex-1 overflow-y-auto p-5 space-y-3">
@@ -1394,13 +1483,30 @@ export default function POSPage() {
                                     }`}>
                                     {receipt.paymentMethod === 'BANK_TRANSFER' ? 'TRANSFER BANK' : receipt.paymentMethod}
                                 </span>
-                                <span className={`text-xs font-bold ${receipt.paymentMethod === 'BAYAR_NANTI' ? 'text-sky-600' : receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                    {receipt.paymentMethod === 'BAYAR_NANTI' ? '⏳ BELUM DIBAYAR' : receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? '✓ DP / BELUM LUNAS' : '✓ LUNAS'}
+                                <span className={`text-xs font-bold ${receipt.paymentMethod === 'BAYAR_NANTI' && (!receipt.downPayment || receipt.downPayment === 0) ? 'text-sky-600' : receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                    {receipt.paymentMethod === 'BAYAR_NANTI' && (!receipt.downPayment || receipt.downPayment === 0)
+                                        ? '⏳ BELUM DIBAYAR'
+                                        : receipt.downPayment !== undefined && receipt.downPayment < receipt.grandTotal
+                                            ? '✓ DP / BELUM LUNAS'
+                                            : '✓ LUNAS'}
                                 </span>
                             </div>
 
                             {/* Outstanding balance if DP or Bayar Nanti */}
-                            {receipt.paymentMethod === 'BAYAR_NANTI' ? (
+                            {receipt.paymentMethod === 'BAYAR_NANTI' && receipt.downPayment && receipt.downPayment > 0 ? (
+                                // BAYAR_NANTI + ada DP awal
+                                <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg space-y-2">
+                                    <div className="flex justify-between text-xs">
+                                        <span className="text-muted-foreground">DP Diterima:</span>
+                                        <span className="font-bold text-emerald-600">Rp {receipt.downPayment.toLocaleString('id-ID')}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                        <span className="text-muted-foreground">Sisa Tagihan:</span>
+                                        <span className="font-bold text-amber-600">Rp {(receipt.grandTotal - receipt.downPayment).toLocaleString('id-ID')}</span>
+                                    </div>
+                                </div>
+                            ) : receipt.paymentMethod === 'BAYAR_NANTI' ? (
+                                // BAYAR_NANTI tanpa DP
                                 <div className="mt-4 p-3 bg-sky-500/10 border border-sky-500/20 rounded-lg text-center space-y-1">
                                     <p className="text-xs text-muted-foreground">Total Tagihan (Belum Dibayar):</p>
                                     <p className="font-bold text-sky-600 text-lg">Rp {receipt.grandTotal.toLocaleString('id-ID')}</p>

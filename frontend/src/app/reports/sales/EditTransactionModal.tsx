@@ -18,6 +18,7 @@ type EditItem = {
     productName: string;
     variantName: string | null;
     quantity: number;
+    pcs: number;                // jumlah cetak (khusus AREA_BASED)
     priceAtTime: number;        // original / base price (per unit or total for area)
     priceOverride: number | null; // custom override (null = tidak dioverride)
     widthCm: number | null;
@@ -45,12 +46,13 @@ function calcLineTotal(item: EditItem): number {
     if (item.pricingMode === 'AREA_BASED') {
         const w = item.widthCm ?? 0;
         const h = item.heightCm ?? 1;
+        const pcs = Math.max(1, item.pcs || 1);
         let mult = 0;
         if (item.unitType === 'm') mult = w * h;
         else if (item.unitType === 'cm') mult = w * h;
         else if (item.unitType === 'menit') mult = w;
         else mult = (w * h) / 10000;
-        return mult * item.priceAtTime;
+        return mult * item.priceAtTime * pcs;
     }
     return item.priceAtTime * item.quantity;
 }
@@ -67,6 +69,7 @@ export default function EditTransactionModal({ transaction, isManager, onClose, 
             productName: item.productVariant?.product?.name || '',
             variantName: item.productVariant?.variantName || null,
             quantity: item.quantity,
+            pcs: Math.max(1, Number(item.pcs) || 1),
             priceAtTime: Number(item.priceAtTime),
             priceOverride: null,
             widthCm: item.widthCm !== null ? Number(item.widthCm) : null,
@@ -127,7 +130,7 @@ export default function EditTransactionModal({ transaction, isManager, onClose, 
                     const base: EditItemPayload = {
                         newVariantId: item.newVariantId,
                         ...(item.pricingMode === 'AREA_BASED'
-                            ? { widthCm: item.widthCm ?? 1, heightCm: item.heightCm ?? 1, unitType: item.unitType }
+                            ? { widthCm: item.widthCm ?? 1, heightCm: item.heightCm ?? 1, unitType: item.unitType, pcs: Math.max(1, item.pcs || 1) }
                             : { quantity: item.quantity }),
                     };
                     if (item.priceOverride !== null && item.priceOverride > 0) base.priceOverride = item.priceOverride;
@@ -137,7 +140,7 @@ export default function EditTransactionModal({ transaction, isManager, onClose, 
                 const base: EditItemPayload = {
                     id: item.id,
                     ...(item.pricingMode === 'AREA_BASED'
-                        ? { widthCm: item.widthCm ?? 0, heightCm: item.heightCm ?? 1, unitType: item.unitType }
+                        ? { widthCm: item.widthCm ?? 0, heightCm: item.heightCm ?? 1, unitType: item.unitType, pcs: Math.max(1, item.pcs || 1) }
                         : { quantity: item.quantity }),
                 };
                 if (item.priceOverride !== null && item.priceOverride > 0) base.priceOverride = item.priceOverride;
@@ -208,6 +211,7 @@ export default function EditTransactionModal({ transaction, isManager, onClose, 
             productName: product.name,
             variantName: variant.variantName || null,
             quantity: 1,
+            pcs: 1,
             priceAtTime: Number(variant.price),
             priceOverride: null,
             widthCm: isAreaBased ? 1 : null,
@@ -296,33 +300,49 @@ export default function EditTransactionModal({ transaction, isManager, onClose, 
                                         <div className="space-y-2">
                                             {/* Qty / dimensions */}
                                             {item.pricingMode === 'AREA_BASED' ? (
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    <div>
-                                                        <label className="text-[10px] text-muted-foreground font-medium uppercase">Lebar</label>
-                                                        <input type="number" min="0.01" step="0.01"
-                                                            value={item.widthCm ?? ''}
-                                                            onChange={(e) => updateItem(idx, 'widthCm', parseFloat(e.target.value) || 0)}
-                                                            className="mt-1 w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                                        />
+                                                <div className="space-y-2">
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <div>
+                                                            <label className="text-[10px] text-muted-foreground font-medium uppercase">Lebar</label>
+                                                            <input type="number" min="0.01" step="0.01"
+                                                                value={item.widthCm ?? ''}
+                                                                onChange={(e) => updateItem(idx, 'widthCm', parseFloat(e.target.value) || 0)}
+                                                                className="mt-1 w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] text-muted-foreground font-medium uppercase">Tinggi</label>
+                                                            <input type="number" min="0.01" step="0.01"
+                                                                value={item.heightCm ?? ''}
+                                                                onChange={(e) => updateItem(idx, 'heightCm', parseFloat(e.target.value) || 0)}
+                                                                className="mt-1 w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] text-muted-foreground font-medium uppercase">Satuan</label>
+                                                            <select value={item.unitType}
+                                                                onChange={(e) => updateItem(idx, 'unitType', e.target.value)}
+                                                                className="mt-1 w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                                            >
+                                                                <option value="m">m</option>
+                                                                <option value="cm">cm</option>
+                                                                <option value="menit">menit</option>
+                                                            </select>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <label className="text-[10px] text-muted-foreground font-medium uppercase">Tinggi</label>
-                                                        <input type="number" min="0.01" step="0.01"
-                                                            value={item.heightCm ?? ''}
-                                                            onChange={(e) => updateItem(idx, 'heightCm', parseFloat(e.target.value) || 0)}
-                                                            className="mt-1 w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                                    {/* Jumlah / Pcs */}
+                                                    <div className="flex items-center gap-3">
+                                                        <label className="text-[10px] text-muted-foreground font-medium uppercase shrink-0">Jumlah (Pcs):</label>
+                                                        <input type="number" min="1" step="1"
+                                                            value={item.pcs}
+                                                            onChange={(e) => updateItem(idx, 'pcs', Math.max(1, parseInt(e.target.value) || 1))}
+                                                            className="w-20 px-2 py-1.5 bg-background border border-border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
                                                         />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-[10px] text-muted-foreground font-medium uppercase">Satuan</label>
-                                                        <select value={item.unitType}
-                                                            onChange={(e) => updateItem(idx, 'unitType', e.target.value)}
-                                                            className="mt-1 w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                                        >
-                                                            <option value="m">m</option>
-                                                            <option value="cm">cm</option>
-                                                            <option value="menit">menit</option>
-                                                        </select>
+                                                        {item.pcs > 1 && (
+                                                            <span className="text-[11px] text-muted-foreground">
+                                                                × {item.pcs} pcs
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ) : (

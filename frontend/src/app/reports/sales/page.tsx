@@ -807,46 +807,71 @@ export default function SalesReportPage() {
 
                             {/* Summary Totals */}
                             <div className="border-t border-border pt-4 space-y-2 text-sm">
-                                <div className="flex justify-between text-muted-foreground">
-                                    <span>Subtotal</span>
-                                    <span>Rp {Number(selectedTransaction.totalAmount).toLocaleString('id-ID')}</span>
-                                </div>
-                                {Number(selectedTransaction.discount) > 0 && (
-                                    <div className="flex justify-between text-emerald-600">
-                                        <span>Diskon</span>
-                                        <span>- Rp {Number(selectedTransaction.discount).toLocaleString('id-ID')}</span>
-                                    </div>
-                                )}
-                                {Number(selectedTransaction.tax) > 0 && (
-                                    <div className="flex justify-between text-muted-foreground">
-                                        <span>Pajak</span>
-                                        <span>Rp {Number(selectedTransaction.tax).toLocaleString('id-ID')}</span>
-                                    </div>
-                                )}
-                                {Number(selectedTransaction.shippingCost) > 0 && (
-                                    <div className="flex justify-between text-muted-foreground">
-                                        <span>Ongkos Kirim</span>
-                                        <span>Rp {Number(selectedTransaction.shippingCost).toLocaleString('id-ID')}</span>
-                                    </div>
-                                )}
-                                <div className="flex justify-between font-bold text-foreground pt-2 border-t border-border/50">
-                                    <span>Total Bayar</span>
-                                    <span>Rp {Number(selectedTransaction.grandTotal).toLocaleString('id-ID')}</span>
-                                </div>
-
-                                {/* DP Details if partial */}
-                                {selectedTransaction.status === 'PARTIAL' && (
-                                    <div className="mt-3 p-3 bg-orange-500/5 rounded-lg border border-orange-500/20 space-y-1">
-                                        <div className="flex justify-between font-medium text-orange-700 text-xs">
-                                            <span>Uang Muka (DP)</span>
-                                            <span>Rp {Number(selectedTransaction.downPayment).toLocaleString('id-ID')}</span>
-                                        </div>
-                                        <div className="flex justify-between font-bold text-red-600 text-sm pt-1 border-t border-orange-500/20">
-                                            <span>Sisa Tagihan</span>
-                                            <span>Rp {(Number(selectedTransaction.grandTotal) - Number(selectedTransaction.downPayment)).toLocaleString('id-ID')}</span>
-                                        </div>
-                                    </div>
-                                )}
+                                {(() => {
+                                    const computedSubtotal = (selectedTransaction.items || []).reduce((sum: number, item: any) => {
+                                        const isAreaBased = item.widthCm !== null && item.widthCm !== undefined;
+                                        const pcs = Math.max(1, Number(item.pcs) || 1);
+                                        const unitType = item.unitType || 'm';
+                                        if (isAreaBased) {
+                                            if (unitType === 'menit') {
+                                                return sum + Number(item.priceAtTime) * Number(item.widthCm) * pcs;
+                                            } else {
+                                                const areaM2 = item.areaCm2 != null ? Number(item.areaCm2) / 10000 : (Number(item.areaM2) || 0);
+                                                return sum + Number(item.priceAtTime) * areaM2 * pcs;
+                                            }
+                                        } else {
+                                            return sum + item.quantity * Number(item.priceAtTime);
+                                        }
+                                    }, 0);
+                                    const discount = Number(selectedTransaction.discount) || 0;
+                                    const tax = Number(selectedTransaction.tax) || 0;
+                                    const shippingCost = Number(selectedTransaction.shippingCost) || 0;
+                                    const computedGrandTotal = Math.round(computedSubtotal) - discount + tax + shippingCost;
+                                    const downPayment = Number(selectedTransaction.downPayment) || 0;
+                                    return (
+                                        <>
+                                            <div className="flex justify-between text-muted-foreground">
+                                                <span>Subtotal</span>
+                                                <span>Rp {Math.round(computedSubtotal).toLocaleString('id-ID')}</span>
+                                            </div>
+                                            {discount > 0 && (
+                                                <div className="flex justify-between text-emerald-600">
+                                                    <span>Diskon</span>
+                                                    <span>- Rp {discount.toLocaleString('id-ID')}</span>
+                                                </div>
+                                            )}
+                                            {tax > 0 && (
+                                                <div className="flex justify-between text-muted-foreground">
+                                                    <span>Pajak</span>
+                                                    <span>Rp {tax.toLocaleString('id-ID')}</span>
+                                                </div>
+                                            )}
+                                            {shippingCost > 0 && (
+                                                <div className="flex justify-between text-muted-foreground">
+                                                    <span>Ongkos Kirim</span>
+                                                    <span>Rp {shippingCost.toLocaleString('id-ID')}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between font-bold text-foreground pt-2 border-t border-border/50">
+                                                <span>Total Bayar</span>
+                                                <span>Rp {computedGrandTotal.toLocaleString('id-ID')}</span>
+                                            </div>
+                                            {/* DP Details if partial */}
+                                            {selectedTransaction.status === 'PARTIAL' && (
+                                                <div className="mt-3 p-3 bg-orange-500/5 rounded-lg border border-orange-500/20 space-y-1">
+                                                    <div className="flex justify-between font-medium text-orange-700 text-xs">
+                                                        <span>Uang Muka (DP)</span>
+                                                        <span>Rp {downPayment.toLocaleString('id-ID')}</span>
+                                                    </div>
+                                                    <div className="flex justify-between font-bold text-red-600 text-sm pt-1 border-t border-orange-500/20">
+                                                        <span>Sisa Tagihan</span>
+                                                        <span>Rp {(computedGrandTotal - downPayment).toLocaleString('id-ID')}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
 

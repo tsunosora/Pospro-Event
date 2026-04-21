@@ -242,24 +242,38 @@ export default function InventoryPage() {
     }, [products]);
 
     // Kategori yang tersedia sesuai tipe yang dipilih (untuk sub-tabs)
+    // Helper: label kategori tampil "Parent › Sub" jika ada parent
+    const getCategoryLabel = (cat: any): string => {
+        if (!cat) return '';
+        return cat.parent ? `${cat.parent.name} › ${cat.name}` : cat.name;
+    };
+
+    // Filter tabs: tampilkan nama parent unik (agar klik "Cetak" = semua sub-cetak)
     const filteredCategoryOptions = useMemo(() => {
         if (!products) return [] as string[];
         const cats = (products as any[])
             .filter((p: any) => !filterType || (p.productType || 'SELLABLE') === filterType)
-            .map((p: any) => p.category?.name)
+            .map((p: any) => {
+                const cat = p.category;
+                if (!cat) return null;
+                // Tampilkan parent name jika ada, atau name langsung
+                return cat.parent ? cat.parent.name : cat.name;
+            })
             .filter(Boolean);
         return [...new Set(cats)] as string[];
     }, [products, filterType]);
 
-    // Jumlah produk per kategori (dalam tipe yang dipilih, untuk badge sub-tabs)
+    // Jumlah produk per kategori-filter (parent name)
     const categoryCounts = useMemo(() => {
         if (!products) return {} as Record<string, number>;
         const counts: Record<string, number> = {};
         (products as any[])
             .filter((p: any) => !filterType || (p.productType || 'SELLABLE') === filterType)
             .forEach((p: any) => {
-                const cat = p.category?.name || '';
-                if (cat) counts[cat] = (counts[cat] || 0) + 1;
+                const cat = p.category;
+                if (!cat) return;
+                const key = cat.parent ? cat.parent.name : cat.name;
+                counts[key] = (counts[key] || 0) + 1;
             });
         return counts;
     }, [products, filterType]);
@@ -280,7 +294,11 @@ export default function InventoryPage() {
                     }
                     if (filterSkuVariant && !v.sku.toLowerCase().includes(filterSkuVariant.toLowerCase())
                         && !(v.variantName || '').toLowerCase().includes(filterSkuVariant.toLowerCase())) return false;
-                    if (filterCategory && product.category?.name !== filterCategory) return false;
+                    if (filterCategory) {
+                        const cat = product.category;
+                        const catKey = cat?.parent ? cat.parent.name : cat?.name;
+                        if (catKey !== filterCategory) return false;
+                    }
                     if (filterType && (product.productType || 'SELLABLE') !== filterType) return false;
                     const price = Number(v.price);
                     if (filterMinPrice && price < Number(filterMinPrice)) return false;
@@ -653,7 +671,7 @@ export default function InventoryPage() {
                                                         <span className="text-sm font-bold text-primary">Rp {getEffectivePrice(variant).toLocaleString('id-ID')}</span>
                                                         {(variant.priceTiers?.length > 0) && <span className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded font-medium">{variant.priceTiers.length} tier</span>}
                                                         {Number(variant.hpp) > 0 && <span className="text-xs text-muted-foreground">Modal: Rp {Number(variant.hpp).toLocaleString('id-ID')}</span>}
-                                                        {isFirst && product.category?.name && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{product.category.name}</span>}
+                                                        {isFirst && product.category?.name && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{getCategoryLabel(product.category)}</span>}
                                                         {isFirst && typeCfg && <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${typeCfg.className}`}>{typeCfg.label}</span>}
                                                     </div>
                                                     <div className="flex items-center gap-1.5 mt-2.5">
@@ -812,7 +830,7 @@ export default function InventoryPage() {
                                                     )}
                                                 </td>
                                                 <td className="px-5 py-4 whitespace-nowrap">
-                                                    {isFirst && <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{product.category?.name}</span>}
+                                                    {isFirst && <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{getCategoryLabel(product.category)}</span>}
                                                 </td>
                                                 <td className="px-5 py-4 whitespace-nowrap text-sm text-foreground/80 text-right font-medium">
                                                     Rp {getEffectivePrice(variant).toLocaleString('id-ID')}
