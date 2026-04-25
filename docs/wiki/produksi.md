@@ -1,260 +1,110 @@
-# 🖨️ Antrian Produksi
+# 🖨️ Antrian Produksi Booth — Pospro Event
 
-> Modul **Antrian Produksi** dirancang khusus untuk toko percetakan digital. Setiap order cetak yang masuk dari kasir otomatis tercatat sebagai *job* yang bisa dikelola oleh operator mesin secara real-time — tanpa perlu login ke akun utama.
+Modul **Antrian Produksi** mengatur job queue produksi booth & material event. Setiap RAB yang sudah APPROVED bisa diturunkan jadi Job Produksi, lalu dikerjakan operator workshop secara terurut & ter-track.
 
----
+## Akses
 
-## Konsep Dasar
+Menu: **Operasional → Produksi** (`/produksi`).
 
-### Produk Cetak Biasa
-
-```
-[Kasir checkout item cetak]
-         ↓
-[ProductionJob ANTRIAN dibuat otomatis]
-         ↓
-[Operator buka /produksi (PIN)]
-         ↓
-[Pilih job → Mulai → pilih bahan roll → potong stok]
-         ↓
-  ANTRIAN → PROSES → SELESAI → DIAMBIL
-```
-
-### Produk Rakitan (contoh: Standing Banner, Neon Box)
+## Konsep
 
 ```
-[Kasir checkout item cetak + rakitan]
-         ↓
-[ProductionJob ANTRIAN dibuat otomatis]
-         ↓
-[Operator Mulai Cetak → potong stok bahan roll]
-         ↓
-  PROSES → MENUNGGU PASANG
-         ↓
-[Operator Mulai Pasang → potong stok BOM (rangka, frame, dll)]
-         ↓
-  DIPASANG → SELESAI → DIAMBIL
+RAB APPROVED ──► Buat Produksi Job ──► Tahap-tahap ──► Operator klaim ──► Selesai
+                  (link RabPlan)         (cutting,     (PIN login,
+                                          finishing,    update status
+                                          packing,      real-time)
+                                          kirim)
 ```
 
-Poin penting:
-- **Produk dengan flag "Perlu Produksi"**: stok bahan roll **tidak dipotong** saat kasir checkout — pemotongan terjadi saat operator klik **Mulai Cetak**
-- **Produk Rakitan**: stok bahan rakitan (BOM) dipotong saat operator klik **Mulai Pasang** — bukan saat checkout
-- **Produk tanpa flag** (AREA_BASED biasa): stok langsung terpotong saat transaksi, tidak membuat job produksi
-- Halaman `/produksi` bersifat **publik** — tidak perlu login JWT, cukup PIN operator
+Setiap **ProduksiJob** punya:
+- `name` — nama project (auto dari RAB.name, bisa override)
+- `eventDate` — deadline event
+- `rabPlanId` — link RAB sumber
+- `status` — QUEUED / IN_PROGRESS / COMPLETED / CANCELLED
+- `tahap[]` — list tahap produksi
 
----
+## Tahap Default
 
-## Setup Awal
+Pre-set tahap untuk produksi booth:
 
-### 1. Atur PIN Operator
+1. **Cutting** — potong material sesuai ukuran (pakai BOM dari Product)
+2. **Finishing** — cat duco, laminasi, finishing wood
+3. **Assembly** — rakit booth (jika modular)
+4. **Packing** — bungkus + label
+5. **Loading & Kirim** — naik kendaraan, kirim ke lokasi event
 
-Sebelum operator bisa mengakses halaman produksi, admin perlu mengatur PIN:
+Bisa custom per project — tambah tahap "QC", "Setup di Lokasi", dll.
 
-1. Buka **Pengaturan → Umum (General)**
-2. Isi kolom **PIN Operator**
-3. Klik **Simpan**
+## Halaman
 
-PIN ini digunakan di halaman `/produksi` sebagai ganti login. Session PIN bertahan **24 jam** di perangkat yang sama.
-
----
-
-### 2. Tandai Produk Sebagai "Perlu Produksi"
-
-Saat menambah atau mengedit produk:
-
-1. Pastikan **Mode Harga** = **Area Based (per m²)**
-2. Centang opsi **"Perlu Proses Produksi"**
-3. Simpan produk
-
-Produk yang dicentang akan membuat **antrian job** setiap kali terjadi penjualan di kasir.
-
----
-
-### 3. Setup Produk Rakitan (Opsional)
-
-Untuk produk yang memerlukan tahap pemasangan setelah cetak (contoh: Standing Banner Segitiga, Neon Box):
-
-1. Centang **"Perlu Proses Produksi"** terlebih dahulu
-2. Centang **"Produk Rakitan — Ada Tahap Pemasangan"** (opsi ini muncul setelah flag produksi aktif)
-3. Di bagian **Ingredient / Bahan Baku**, tambahkan komponen rakitan (contoh: rangka aluminium, frame) beserta jumlahnya
-4. Simpan produk
-
-> Stok komponen rakitan akan dipotong otomatis saat operator memulai tahap pemasangan — bukan saat cetak selesai.
-
----
-
-### 4. Daftarkan Bahan Roll (Opsional)
-
-Bahan roll adalah stok kain/vinyl/laminasi yang dipakai saat mencetak. Daftarkan sebagai produk varian biasa:
-
-1. Buat produk baru (contoh: "Vinyl Glossy"), tipe **RAW_MATERIAL**, mode harga **UNIT** (stok dalam m²)
-2. Di varian: aktifkan **"Bahan Roll"**, isi lebar fisik dan lebar efektif cetak
-3. Stok bahan ini akan terpotong otomatis saat operator memulai job
-
----
-
-## Cara Menggunakan — Operator
-
-### Buka Halaman Produksi
-
-1. Buka browser, akses `[URL_APLIKASI]/produksi`
-2. Masukkan **PIN Operator**
-3. Klik **Masuk** — session aktif selama 24 jam
-
-### Tampilan Utama
-
-Di bagian atas terdapat **stats ringkasan**:
-
-| Badge | Artinya |
+| URL | Fungsi |
 |---|---|
-| 🟡 Antrian | Job yang belum dikerjakan |
-| 🔵 Proses | Job sedang dikerjakan |
-| 🟠 Menunggu Pasang | Cetak selesai, menunggu tahap pemasangan |
-| 🟤 Dipasang | Sedang dalam proses pemasangan |
-| 🟢 Selesai | Job selesai, menunggu diambil pelanggan |
+| `/produksi` | Dashboard — list job aktif by status |
+| `/produksi/queue` | Queue view — operator pilih job berikutnya |
+| `/produksi/[id]` | Detail job + timeline tahap |
+| `/produksi/operator` | Login operator (PIN) — view khusus |
 
-Di bawahnya terdapat **tab filter**: ANTRIAN · PROSES · MENUNGGU PASANG · DIPASANG · SELESAI · DIAMBIL
+## Login Operator (PIN)
 
-### Mencari Job
+Operator workshop **tidak perlu akun email/password**. Cukup PIN 4-digit di tablet workshop:
 
-Gunakan **search bar** di bawah tab untuk mencari job secara cepat. Bisa cari berdasarkan:
-- Nama pelanggan
-- Nomor invoice (contoh: `TRX-20260309-001`)
-- Nomor job (contoh: `JOB-20260309-0042`)
+```
+┌──────────────────┐
+│  Pospro Event    │
+│  Workshop View   │
+│                  │
+│  PIN: ●●●●       │
+│       [ Masuk ]  │
+└──────────────────┘
+```
 
----
+Setelah login → tampil daftar tahap yang siap dikerjakan, sort by deadline event.
 
-### Mode 1: Cetak Satuan (per Job)
+## Flow Operator
 
-Untuk mengerjakan satu job cetak secara terpisah.
+1. Buka `/produksi/operator` di tablet workshop → input PIN.
+2. Lihat daftar tahap **Available** (belum di-claim).
+3. Klik **Claim** → tahap berubah status `IN_PROGRESS` + log `workerId` + `startedAt`.
+4. Mulai kerja. Tablet tampilkan timer.
+5. Selesai → klik **Done** → status `COMPLETED` + `finishedAt`.
+6. (Opsional) Upload foto bukti kerja.
+7. BOM auto-potong stok material saat tahap `IN_PROGRESS`.
 
-**Mulai Job:**
-1. Klik tombol **▶ Mulai** pada job yang ingin dikerjakan
-2. Dialog muncul, isi:
-   - **Bahan Roll**: pilih bahan yang dipakai (opsional jika pakai waste)
-   - **Pakai Waste/Sisa**: centang jika memakai sisa bahan (stok tidak dipotong)
-   - **Luas Bahan (m²)**: otomatis terhitung dari ukuran job, bisa diubah manual
-   - **Catatan Operator**: keterangan finishing, warna, dll
-3. Klik **Mulai Cetak** → status berubah ke **PROSES** + stok roll terpotong
+## BOM Auto-Reduce Stok
 
-**Selesaikan Job:**
-1. Di tab PROSES, klik **✓ Selesai**
-2. Jika produk biasa → status langsung **SELESAI**
-3. Jika produk rakitan → status berubah ke **MENUNGGU PASANG**
+Setiap **Product** (material booth) punya BOM (Bill of Materials):
 
-**Tahap Pemasangan (Produk Rakitan):**
-1. Di tab MENUNGGU PASANG, klik **Mulai Pasang**
-2. Dialog menampilkan daftar komponen BOM yang akan dipotong stoknya
-3. Tambahkan catatan pemasangan jika perlu
-4. Klik **Konfirmasi Mulai Pasang** → status berubah ke **DIPASANG** + stok komponen terpotong
-5. Setelah selesai pasang, klik **Selesai Pasang** → status **SELESAI**
+```
+Booth 3x3 Custom (1 unit)
+├── Plywood 18mm     × 8 lembar
+├── MDF 12mm         × 4 lembar
+├── Cat Duco Putih   × 2 kaleng
+├── Lighting Strip   × 6 m
+└── Engsel           × 12 pcs
+```
 
-**Tandai Diambil:**
-1. Di tab SELESAI, klik **📦 Diambil** saat pelanggan mengambil pesanan
-2. Status berubah ke **DIAMBIL**
+Saat tahap **Cutting** dimulai (1 unit Booth 3x3), sistem otomatis:
+```
+StockMovement: -8 lembar Plywood 18mm  (referensi: ProduksiJob#42)
+StockMovement: -4 lembar MDF 12mm
+... dst
+```
 
----
+Stok di-track real-time, masuk laporan `/laporan-stok`.
 
-### Mode 2: Gabung Cetak (Batch)
+## Batch Cetak (Paper)
 
-Untuk mencetak beberapa job sekaligus dalam satu lembaran bahan (lebih hemat bahan).
+Untuk material paper (banner, poster, X-banner) yang sering dicetak per batch — pakai modul terpisah [Mesin Cetak Paper](./mesin-cetak.md).
 
-1. Klik tombol **Gabung Cetak** di pojok kanan atas
-2. Centang job-job yang ingin digabung (hanya job berstatus ANTRIAN)
-3. Total luas gabungan (m²) tampil otomatis
-4. Pilih bahan roll atau centang **Pakai Waste**
-5. Klik **Buat Batch** → semua job yang dipilih masuk ke **PROSES** bersamaan dengan nomor batch (contoh: `BATCH-0001`)
-6. Setelah selesai, klik **✓ Selesai Batch** → semua job dalam batch berubah ke **SELESAI**
+## Best Practice
 
----
+- 🗓️ **Buat Job segera setelah RAB APPROVED** — jangan tunggu sampai mendekati deadline.
+- 👷 **PIN unik per operator** — supaya jejak siapa kerjakan apa terlihat.
+- 📸 **Wajibkan foto bukti** untuk tahap penting (Finishing, Loading) — meminimalkan dispute kualitas.
+- ⏱️ **Review timer rata-rata** per tahap → input ke kalkulasi RAB project berikut (jasa/man-hour cost).
 
-## Informasi pada Kartu Job
+## Lihat Juga
 
-Setiap kartu job di antrian menampilkan:
-
-| Informasi | Keterangan |
-|---|---|
-| **Nomor Job** | Format `JOB-YYYYMMDD-XXXX` |
-| **Nomor Invoice** | Referensi ke transaksi kasir |
-| **Nama Pelanggan** | Dari data transaksi |
-| **Produk & Ukuran** | Nama produk + dimensi cetak (lebar × tinggi cm) |
-| **Prioritas** | Badge **EXPRESS** (merah) atau Normal |
-| **Deadline** | Waktu tersisa — merah jika < 2 jam, **"TERLAMBAT"** jika sudah lewat |
-| **Catatan Kasir** | Instruksi finishing dari kasir/pelanggan |
-
-### Tombol Detail Invoice
-
-Setiap kartu job memiliki tombol **ikon dokumen** (📄) di pojok kanan bawah. Klik untuk melihat detail lengkap transaksi dari kasir, meliputi:
-
-- Nama pelanggan & tanggal transaksi
-- Detail produk: nama, ukuran cetak, catatan
-- Metode pembayaran & total invoice
-- Info Express/Deadline (jika ada)
-
-Tombol ini bisa diakses dari semua tab tanpa perlu login ke sistem kasir.
-
----
-
-## Memilih Bahan dari Stok
-
-Saat dialog proses muncul, daftar bahan roll tersedia menampilkan:
-
-- **Nama produk & varian**
-- **Badge tipe**: `Bahan Baku` (oranye) atau `Produk Jual` (biru) — untuk memudahkan operator membedakan jenis stok
-- **Badge kategori**: nama kategori produk (abu-abu), contoh: "Vinyl", "Kain", "Laminasi"
-- **Status stok**: sisa stok setelah dipotong — badge **Cukup** (hijau) atau **Kurang** (merah)
-
----
-
-## Prioritas Job
-
-Saat kasir membuat transaksi dengan item cetak, kasir bisa memilih:
-
-- **Normal**: masuk antrian biasa (urut waktu masuk)
-- **EXPRESS**: muncul di urutan paling atas antrian, ditandai badge merah
-
-Order EXPRESS juga bisa diatur dengan **Deadline** (tanggal & jam selesai). Job yang sudah melewati deadline tampil badge **"TERLAMBAT"** berwarna merah.
-
----
-
-## Pemotongan Stok Bahan
-
-| Kondisi | Stok yang dipotong | Waktu |
-|---|---|---|
-| Pakai bahan roll baru | Stok varian roll berkurang sebesar `luas m²` (dibulatkan ke atas) | Saat klik **Mulai Cetak** |
-| Pakai sisa/waste | Tidak ada pemotongan stok | — |
-| Batch dengan bahan roll | Stok dipotong total luas gabungan semua job dalam batch | Saat klik **Buat Batch** |
-| Produk rakitan (BOM) | Stok komponen rakitan (rangka, frame, dll) dipotong | Saat klik **Mulai Pasang** |
-
-Setiap pemotongan tercatat di **Riwayat Stok** (`StockMovement`) dengan keterangan nomor job/batch.
-
----
-
-## FAQ Produksi
-
-**Q: Mengapa job tidak muncul di antrian padahal sudah ada transaksi?**
-> Pastikan produk sudah dicentang "Perlu Proses Produksi" di halaman edit produk. Produk tanpa flag ini tidak membuat job.
-
-**Q: Apakah operator bisa mengakses dari HP?**
-> Ya. Halaman `/produksi` didesain responsif untuk layar HP dan tablet.
-
-**Q: Bagaimana jika PIN lupa?**
-> Admin perlu mengubah PIN di Pengaturan → Umum, lalu beritahu operator PIN baru.
-
-**Q: Apakah bisa ada beberapa operator yang buka halaman produksi bersamaan?**
-> Ya — halaman ini real-time dan bisa dibuka di banyak perangkat sekaligus.
-
-**Q: Stok komponen rakitan tidak terpotong saat cetak — apakah itu normal?**
-> Ya, itu disengaja. Stok bahan cetak (roll) dipotong saat Mulai Cetak. Stok komponen rakitan (rangka, dll) baru dipotong saat Mulai Pasang. Ini memastikan stok hanya berkurang ketika bahan benar-benar dipakai di tahapannya masing-masing.
-
-**Q: Bisa cari job berdasarkan nama pelanggan?**
-> Ya. Gunakan search bar di bawah tab untuk cari berdasarkan nama pelanggan, nomor invoice, atau nomor job.
-
-**Q: Bagaimana cara lihat detail order dari kasir tanpa harus masuk ke sistem?**
-> Klik ikon dokumen (📄) di pojok kanan bawah kartu job. Modal detail invoice akan muncul dengan semua info transaksi lengkap.
-
----
-
-*Wiki PosPro — Terakhir diperbarui: April 2026*
-
-**© 2026 Muhammad Faisal. All rights reserved.**
+- [RAB Event](./rab-event.md) — sumber Job Produksi
+- [Mesin Cetak Paper](./mesin-cetak.md) — sub-queue untuk material paper
+- [Laporan Stok](./laporan-stok.md) — efek BOM ke inventori

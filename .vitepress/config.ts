@@ -51,6 +51,7 @@ export default defineConfig({
           { text: '🖨️ Antrian Produksi', link: '/produksi' },
           { text: '🖨️ Antrian Cetak Paper', link: '/mesin-cetak' },
           { text: '📋 Stok Opname', link: '/stock-opname' },
+          { text: '📤 Peminjaman Stok (Foto)', link: '/peminjaman-stok' },
         ]
       },
       {

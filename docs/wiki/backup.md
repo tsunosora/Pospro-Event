@@ -1,175 +1,121 @@
-# 💾 Backup & Restore Data
+# 💾 Backup & Restore Pospro Event
 
-> Panduan lengkap untuk mengekspor data ke file ZIP dan memulihkan data dari backup.
+Panduan lengkap export data ke file ZIP & restore. Mencakup **semua tabel** termasuk modul CRM, Penawaran, RAB, Produksi, dan Master.
 
----
+## Akses
 
-## Apa itu Fitur Backup?
+Menu: **Pengaturan → Backup & Restore** (`/backup`).
 
-Fitur **Backup & Restore** memungkinkan Anda mengekspor seluruh (atau sebagian) data database PosPro ke dalam satu file ZIP. File tersebut bisa disimpan sebagai cadangan dan digunakan untuk memulihkan data jika terjadi masalah.
+## Group Tabel
 
-Manfaat:
-- **Cadangan berkala** sebelum update sistem
-- **Migrasi data** ke server baru
-- **Pemulihan data** setelah kerusakan atau kesalahan input massal
+Backup di-organisir per group fungsional. Saat export, pilih group yang mau di-include:
 
----
-
-## Halaman Backup
-
-Buka **Pengaturan → Backup & Restore** (`/settings/backup`).
-
----
-
-## Export (Membuat Backup)
-
-### Langkah-langkah Export
-
-1. Buka halaman **Pengaturan → Backup & Restore**
-2. Di panel **Export**, pilih **grup data** yang ingin dicadangkan:
-   - Centang grup yang diperlukan (contoh: Produk, Transaksi, Pelanggan)
-   - Atau klik **Pilih Semua** untuk mencadangkan seluruh database
-3. Atur opsi **Sertakan Gambar**:
-   - **Aktif** (default): gambar produk, logo, dan foto bukti ikut dimasukkan ke dalam ZIP
-   - **Nonaktif**: hanya data teks/angka dari database, ukuran file lebih kecil
-4. Klik **Export** — file ZIP langsung diunduh ke komputer Anda
-
-> **Catatan Teknis**: File ZIP di-*stream* langsung ke browser tanpa dibuffer di memori server. Ini berarti export data besar tetap efisien dan tidak membebani server.
-
-### Grup Data yang Tersedia
-
-Endpoint `GET /backup/groups` mengembalikan daftar grup yang bisa dipilih. Biasanya mencakup:
-
-| Grup | Isi |
+| Group | Tabel |
 |---|---|
-| Produk & Inventori | Produk, varian, bahan baku, stok |
-| Transaksi | Riwayat transaksi dan item terjual |
-| Pelanggan | Database pelanggan |
-| Cashflow | Catatan arus kas |
-| Shift Reports | Laporan tutup shift |
-| Pengaturan | Konfigurasi toko, rekening bank |
-| Supplier | Data supplier dan harga beli |
+| **CRM / Pipeline Lead** | `leadStage`, `leadLabel`, `lead`, `leadLabelOnLead`, `leadActivity` |
+| **Master Customer** | `customer`, `customerContact` |
+| **Master Worker** | `worker`, `workerSession` |
+| **Master Supplier** | `supplier` |
+| **Master Produk & Stok** | `product`, `productVariant`, `productCategory`, `bomItem`, `stockMovement` |
+| **Penawaran & Invoice** | `invoice`, `invoiceItem`, `quotation`, `quotationItem` |
+| **RAB Event** | `rabPlan`, `rabItem`, `rabLooseItem`, `rabRealisasi` |
+| **Produksi** | `produksiJob`, `produksiTahap`, `produksiBatch` |
+| **Cashflow & Keuangan** | `cashflowEntry`, `cashflowCategory`, `bankAccount` |
+| **System** | `user`, `role`, `setting`, `notification` |
 
----
+## Export Backup
 
-## Preview Sebelum Restore
+1. Buka `/backup` → tab **Export**.
+2. Centang group yang mau di-backup (default: semua).
+3. Klik **Download Backup ZIP**.
+4. File `pospro-event-backup-YYYYMMDD-HHMMSS.zip` ter-download.
 
-Sebelum melakukan restore, Anda bisa **preview** isi file backup:
+Isi ZIP:
 
-1. Klik tombol **Preview Backup**
-2. Upload file ZIP backup
-3. Sistem menampilkan ringkasan: berapa record per tabel yang ada di dalam file
-4. Tinjau informasi ini sebelum memutuskan apakah akan melanjutkan restore
+```
+pospro-event-backup-20260425-143022.zip
+├── meta.json              (versi 2.3, daftar tabel, timestamp)
+├── crm/
+│   ├── leadStage.json
+│   ├── leadLabel.json
+│   ├── lead.json
+│   ├── leadLabelOnLead.json
+│   └── leadActivity.json
+├── master/...
+├── rab/...
+└── ...
+```
 
----
+> Versi schema backup saat ini: **2.3** (sudah include tabel CRM + RAB Loose Items).
 
-## Restore (Memulihkan dari Backup)
+## Restore Backup
 
-> ⚠️ **Peringatan**: Restore adalah operasi yang **tidak bisa dibatalkan**. Selalu buat backup terbaru sebelum melakukan restore.
-
-### Langkah-langkah Restore
-
-1. Di panel **Restore**, klik **Pilih File** dan unggah file ZIP backup
-2. Pilih **Mode Restore**:
-   - **Skip** — data yang sudah ada di database dibiarkan, hanya data baru yang ditambahkan
-   - **Overwrite** — data yang sudah ada akan **ditimpa** dengan data dari backup
-3. Klik **Mulai Restore**
-4. Tunggu proses selesai — sistem menampilkan ringkasan berapa record berhasil diimpor
-
-### Perbedaan Mode Skip vs Overwrite
-
-| Skenario | Skip | Overwrite |
-|---|---|---|
-| Record dengan ID yang sama sudah ada | Dilewati | Ditimpa dengan data backup |
-| Record baru (ID belum ada di DB) | Dimasukkan | Dimasukkan |
-| Cocok untuk | Menambah data ke DB yang sudah berisi | Mengembalikan DB ke kondisi snapshot backup |
-
----
-
-## Endpoint API (Untuk Developer)
-
-| Method | Endpoint | Fungsi |
-|---|---|---|
-| `GET` | `/backup/groups` | Ambil daftar grup data yang bisa di-export |
-| `POST` | `/backup/export` | Export data ke ZIP (returns binary stream) |
-| `POST` | `/backup/preview` | Preview isi file backup tanpa merestore |
-| `POST` | `/backup/restore` | Restore data dari file ZIP |
-| `GET` | `/backup/rclone/status` | Status rclone (installed, enabled, last backup, local files) |
-| `POST` | `/backup/rclone/settings` | Simpan pengaturan rclone (remote, jadwal, keep count) |
-| `POST` | `/backup/rclone/trigger` | Jalankan backup rclone manual |
-
-> **Catatan**: `POST /backup/export` mengembalikan **binary stream** (bukan JSON). Jika memanggil endpoint ini dari kode, pastikan response type diset ke `blob` atau `arraybuffer`, bukan JSON.
-
----
-
-## ☁️ Backup Otomatis via Rclone ⭐
-
-Selain backup manual, PosPro mendukung **backup otomatis terjadwal** menggunakan [rclone](https://rclone.org) — tools open-source untuk sync file ke cloud storage.
-
-### Prasyarat
-
-1. **Rclone terinstal** di server backend — install dengan:
-   ```bash
-   curl https://rclone.org/install.sh | sudo bash
+1. Buka `/backup` → tab **Restore**.
+2. Upload file ZIP (drag-drop atau click).
+3. Pilih mode:
+   - **Skip Duplicate** — baris dengan PK yang sudah ada akan di-skip (aman, default).
+   - **Overwrite** — upsert; data lama ditimpa data backup.
+4. Klik **Restore** → konfirmasi.
+5. Backend menjalankan dalam 1 transaksi:
+   ```sql
+   SET FOREIGN_KEY_CHECKS = 0;
+   -- INSERT/UPSERT semua data sesuai RESTORE_ORDER
+   SET FOREIGN_KEY_CHECKS = 1;
    ```
-2. **Remote dikonfigurasi** — jalankan `rclone config` di server untuk setup koneksi ke Google Drive, S3, Dropbox, dll.
+6. Ringkasan: `{ table: { success, skipped }, errors[] }`.
 
-### Cara Mengaktifkan
+## Restore Order (FK Safety)
 
-Buka **Pengaturan → Backup & Restore** → scroll ke bagian **Backup Otomatis via Rclone**.
+Urutan restore dipilih supaya FK terjaga:
 
-**Step 1 — Remote Destination**
-- Isi path tujuan rclone, contoh: `gdrive:Backups/PosPro` atau `s3:mybucket/pospro`
-- Format: `nama-remote:path/tujuan`
-- Kosongkan jika hanya ingin backup lokal tanpa upload ke cloud
+```
+1. role, user, setting           (system)
+2. worker, workerSession         (master indep.)
+3. supplier
+4. customer, customerContact
+5. leadStage, leadLabel          (CRM stages/labels independent)
+6. productCategory
+7. product, productVariant
+8. bomItem, stockMovement
+9. rabLooseItem                  (master loose items)
+10. invoice, invoiceItem, quotation, quotationItem
+11. rabPlan, rabItem, rabRealisasi
+12. produksiJob, produksiTahap, produksiBatch
+13. cashflowCategory, bankAccount, cashflowEntry
+14. lead                         (depends customer + worker + leadStage)
+15. leadLabelOnLead              (depends lead + leadLabel) — composite PK
+16. leadActivity                 (depends lead)
+17. notification
+```
 
-**Step 2 — Jadwal Otomatis**
-- Pilih dari preset yang tersedia:
+## Composite PK Handling
 
-| Preset | Cron |
+Tabel `LeadLabelOnLead` punya `@@id([leadId, labelId])` (no `id` field). Restore otomatis pakai `createMany({ skipDuplicates: true })` — bukan `upsert by id`.
+
+## Auto-Backup (Rclone)
+
+Untuk auto-backup ke cloud (Google Drive, Dropbox, S3):
+
+1. Install [Rclone](https://rclone.org) di server.
+2. Setup remote: `rclone config`.
+3. Cron job harian (Linux):
+   ```bash
+   0 2 * * * cd /path/to/app && curl -X POST http://localhost:3001/backup/auto-export -o /tmp/backup.zip && rclone copy /tmp/backup.zip remote:pospro-event-backups/
+   ```
+4. Windows Task Scheduler: panggil PowerShell yang sama.
+
+## Best Practice
+
+- 📅 **Mingguan**: Manual download ZIP → simpan di drive eksternal / cloud pribadi.
+- 📅 **Harian**: Auto-backup via Rclone ke cloud.
+- 🔄 **Sebelum upgrade**: Selalu backup dulu sebelum `prisma db push` atau update schema.
+- 🧪 **Test restore**: Sekali sebulan, restore backup ke DB sandbox untuk verify integritas.
+
+## Troubleshooting
+
+| Error | Solusi |
 |---|---|
-| Setiap hari jam 02:00 | `0 2 * * *` |
-| Setiap hari jam 23:00 | `0 23 * * *` |
-| Setiap 12 jam | `0 */12 * * *` |
-| Setiap Senin jam 02:00 | `0 2 * * 1` |
-| Setiap minggu (Minggu jam 01:00) | `0 1 * * 0` |
-
-**Step 3 — Jumlah File Lokal**
-- Tentukan berapa file backup disimpan di server (3, 5, 7, 14, atau 30)
-- File lama dihapus otomatis saat melebihi batas
-- Disimpan di `backend/backups/`
-
-**Step 4 — Aktifkan & Simpan**
-- Toggle switch **Auto-backup aktif/nonaktif**
-- Klik **Simpan Pengaturan**
-
-### Backup Manual (Trigger)
-
-Klik tombol **Backup Sekarang** untuk menjalankan backup secara manual. Status backup terakhir (berhasil/gagal) dan daftar file lokal ditampilkan di bagian bawah panel.
-
-### Informasi Status
-
-| Field | Keterangan |
-|---|---|
-| Versi rclone | Versi yang terinstal di server |
-| Status terakhir | Berhasil / Gagal dengan keterangan |
-| Tanggal backup terakhir | Timestamp backup terakhir |
-| File backup lokal | Daftar file backup di server beserta ukurannya |
-
----
-
-## Catatan Penting
-
-- **Backup rutin dianjurkan** — minimal seminggu sekali, atau sebelum setiap update sistem
-- **Aktifkan Rclone** untuk backup otomatis ke cloud — lebih aman dari kerusakan hardware
-- **Simpan file backup di lokasi terpisah** dari server (hard drive eksternal, cloud storage)
-- **Ukuran file** tergantung jumlah data dan apakah gambar disertakan:
-  - Tanpa gambar: biasanya beberapa MB
-  - Dengan gambar: bisa puluhan hingga ratusan MB tergantung banyaknya foto produk
-- **Mode Overwrite** cocok untuk disaster recovery; **Mode Skip** cocok untuk merge data dari dua instalasi berbeda
-
----
-
-*Wiki PosPro — Backup & Restore | April 2026*
-
-**© 2026 Muhammad Faisal. All rights reserved.**
+| `FK constraint fails` saat restore | Pakai mode Overwrite, atau cek RESTORE_ORDER apakah parent table sudah ter-restore |
+| `Duplicate entry for PK` | Pakai mode Skip Duplicate |
+| ZIP corrupt | Coba download ulang; pastikan archiver versi backend cocok dengan adm-zip versi restore |
+| Tabel CRM tidak ke-backup | Cek meta.json — versi harus ≥ 2.3 |

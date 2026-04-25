@@ -1,42 +1,54 @@
-# Mesin Cetak & Antrian Paper
+# 🖨️ Antrian Cetak Paper — Pospro Event
 
-Modul ini digunakan untuk melacak jumlah klik meteran pada mesin cetak (Paper) serta antrian produksi khusus bahan lembaran (A3+/A4).
+Sub-queue khusus untuk material **paper-based**: banner vinyl, X-banner, poster, brochure, sticker. Terpisah dari [Antrian Produksi](./produksi.md) booth karena alur kerjanya beda — pakai mesin cetak digital.
 
----
+## Akses
 
-## 1. Konsep Click Counting (Meteran Mesin)
+Menu: **Operasional → Mesin Cetak** (`/mesin-cetak`).
 
-Berbeda dengan produk banner (meteran) yang melacak area (m²), cetakan paper (seperti Art Paper, HVS) dihitung berdasarkan jumlah **klik / lintasan**. 
+## Konsep
 
-PosPro memungkinkan Anda untuk merekonsiliasi (mencocokkan) antara data yang masuk ke mesin kasir dengan meteran fisik pada mesin cetak untuk meminimalisir kebocoran produksi.
+```
+Order Paper ──► Antrian Cetak ──► Operator mesin ──► Cetak ──► QC ──► Selesai
+                                  (klaim batch)
+```
 
-### Cara Kerja Click Rates
-Admin dapat mengatur tarif klik (HPP) berdasarkan:
-- **Ukuran Kertas:** A3+ atau A4
-- **Mode Warna:** Color atau Grayscale (BW)
-- **Sisi Cetak:** Simplex (1 Sisi) atau Duplex (2 Sisi)
+## Tracking Mesin
 
-Harga HPP klik ini akan ditambahkan sebagai modal dari produk, secara bersamaan dengan pemotongan stok bahan baku (kertas).
+Per mesin cetak, sistem track:
 
----
+- **Klik meter** — counter total klik (sinkron dgn meteran fisik mesin)
+- **Tinta level** — kosong/penuh per warna (manual update)
+- **Maintenance log** — service terakhir, ganti drum, dll
+- **Operator aktif** — siapa yang lagi pakai mesin
 
-## 2. Antrian Cetak Paper
+## Field Job Cetak
 
-Saat transaksi kasir menagihkan produk yang membutuhkan cetakan paper (mempunyai Click Rate aktif), sistem otomatis membuat job baru di **Antrian Cetak Paper**.
+| Field | Catatan |
+|---|---|
+| `customerId` / `rabPlanId` | Link ke project / event |
+| `material` | Vinyl frontlite, photopaper, X-banner stand, dll |
+| `width × height` | Auto-hitung m² |
+| `qty` | Jumlah cetak |
+| `priority` | NORMAL / RUSH (event H-1) |
+| `dueDate` | Deadline kirim |
+| `status` | QUEUED → PRINTING → QC → DONE |
 
-### Fitur Antrian Paper
-1. **Terpisah dari Produksi Banner:** Memisahkan workflow antara ruang mesin outdoor/indoor (Banner) dengan ruang mesin plotter/laser (Paper).
-2. **Keamanan PIN Operator:** Sama seperti produksi banner, operator mesin cetak paper harus login menggunakan PIN 4 digit untuk mencatat siapa yang memproses dan menyelesaikan cetakan.
-3. **Status Job:** `ANTRIAN` → `PROSES` → `SELESAI` → `DIAMBIL`.
+## Halaman
 
----
+| URL | Fungsi |
+|---|---|
+| `/mesin-cetak` | Dashboard antrian + status semua mesin |
+| `/mesin-cetak/queue` | Queue view operator |
+| `/mesin-cetak/machines` | Master mesin (klik meter, tinta, maintenance) |
 
-## 3. Rekonsiliasi Klik (Click Logs)
+## Best Practice
 
-Di menu **Klik Mesin Cetak**, manajer dapat:
-1. Memantau total klik yang tercatat lewat transaksi (Invoice).
-2. Mencatat penggunaan material untuk **Tes Print**, **Kalibrasi**, atau **Reject** sehingga tercatat dalam kerugian (HPP tambahan).
-3. Melakukan **Reconciliation**: Memasukkan foto meteran akhir fisik mesin, dan sistem akan mencocokkan apakah ada *gap* (selisih) antara jumlah klik yang dibayar customer + pemakaian internal, dengan fisik klik di mesin.
+- 🚦 Mark job **RUSH** untuk H-1 event — auto-prioritas di queue.
+- 🖋️ Update klik meter mesin **tiap pagi** — kontrol biaya tinta per klik.
+- 🔧 Schedule maintenance setiap 10.000 klik — jangan tunggu sampai rusak.
 
-> [!TIP]
-> Lakukan rekonsiliasi meteran setidaknya sekali setiap hari atau setiap pergantian shift untuk memastikan tidak ada cetakan ilegal atau order yang tidak tercatat di kasir.
+## Lihat Juga
+
+- [Antrian Produksi Booth](./produksi.md)
+- [Stok Opname](./stock-opname.md) — material paper masuk inventory
