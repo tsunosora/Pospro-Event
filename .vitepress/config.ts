@@ -4,10 +4,10 @@ export default defineConfig({
   title: 'Pospro Event',
   description: 'Dokumentasi lengkap Pospro Event — Aplikasi Manajemen CRM Lead, Penawaran, RAB, Booth & Event',
   srcDir: 'docs/wiki',
-  base: '/pospro-event/',
+  base: '/Pospro-Event/',
 
   head: [
-    ['link', { rel: 'icon', href: '/pospro-event/favicon.ico' }],
+    ['link', { rel: 'icon', href: '/Pospro-Event/favicon.ico' }],
   ],
 
   themeConfig: {
