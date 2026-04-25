@@ -44,6 +44,11 @@ export class EventsController {
         private whatsapp: WhatsappService,
     ) { }
 
+    @Get('dashboard')
+    dashboard() {
+        return this.svc.dashboardSnapshot();
+    }
+
     @Get()
     list(
         @Query('status') status?: string,

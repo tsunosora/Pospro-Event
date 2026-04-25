@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getCategories, getUnits, getProduct, updateProduct, uploadProductImages, uploadVariantImage, getSettings, getProducts, getHppWorksheets, createHppWorksheet, updateHppWorksheet, applyHppToVariant, getClickRates } from '@/lib/api';
+import { getCategories, getUnits, getProduct, updateProduct, uploadProductImages, uploadVariantImage, getSettings, getProducts, getHppWorksheets, createHppWorksheet, updateHppWorksheet, applyHppToVariant } from '@/lib/api';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2, RefreshCw, Calculator, Pencil, MousePointerClick } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2, RefreshCw, Calculator, Pencil } from 'lucide-react';
 import Link from 'next/link';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -87,7 +87,6 @@ export default function EditProductPage() {
     const { data: units } = useQuery({ queryKey: ['units'], queryFn: getUnits });
     const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: getSettings });
     const { data: products } = useQuery({ queryKey: ['products'], queryFn: getProducts });
-    const { data: clickRates = [] } = useQuery({ queryKey: ['click-rates'], queryFn: getClickRates });
     const { data: product, isLoading } = useQuery({
         queryKey: ['product', productId],
         queryFn: () => getProduct(productId),
@@ -224,8 +223,6 @@ export default function EditProductPage() {
     const [requiresProduction, setRequiresProduction] = useState(false);
     const [hasAssemblyStage, setHasAssemblyStage] = useState(false);
     const [trackStock, setTrackStock] = useState(true);
-    const [clickRateId, setClickRateId] = useState<number | null>(null);
-    const [clicksPerUnit, setClicksPerUnit] = useState<number>(1);
     const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null, null]);
     const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null, null]);
     const [existingImageUrls, setExistingImageUrls] = useState<(string | null)[]>([null, null, null, null]);
@@ -257,8 +254,6 @@ export default function EditProductPage() {
             setRequiresProduction(product.requiresProduction || false);
             setHasAssemblyStage(product.hasAssemblyStage || false);
             setTrackStock(product.trackStock !== false); // default true if not set
-            setClickRateId((product as any).clickRateId || null);
-            setClicksPerUnit((product as any).clicksPerUnit || 1);
 
             // Parse existing images
             let existingUrls: (string | null)[] = [null, null, null, null];
@@ -327,8 +322,6 @@ export default function EditProductPage() {
                 requiresProduction,
                 hasAssemblyStage,
                 trackStock,
-                clickRateId: clickRateId || null,
-                clicksPerUnit: clickRateId ? clicksPerUnit : null,
                 pricePerUnit: pricingMode === 'AREA_BASED' ? Number(pricePerUnit) : null,
                 deletedVariantIds: deletedVariantIds.length > 0 ? deletedVariantIds : undefined,
                 variants: variants.map(v => ({
@@ -686,54 +679,6 @@ export default function EditProductPage() {
                             Produk ini akan tampil dengan ikon ∞ di POS & inventori. Stok tidak akan dipotong saat checkout.
                         </p>
                     )}
-                </div>
-
-                {/* Click Rate Config */}
-                <div className="glass p-4 rounded-xl border border-border shadow-sm space-y-3">
-                    <div className="flex items-center gap-2">
-                        <MousePointerClick className="w-4 h-4 text-indigo-500" />
-                        <p className="text-sm font-semibold">Biaya Klik Mesin Cetak</p>
-                        <span className="text-xs text-muted-foreground ml-1">(opsional)</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                        Isi jika produk ini dicetak di mesin yang ditagih per klik. Log klik akan otomatis dibuat saat transaksi.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">Jenis Klik</label>
-                            <select
-                                value={clickRateId ?? ''}
-                                onChange={e => setClickRateId(e.target.value ? +e.target.value : null)}
-                                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
-                            >
-                                <option value="">-- Tidak ada --</option>
-                                {(clickRates as any[]).filter((r: any) => r.isActive).map((r: any) => (
-                                    <option key={r.id} value={r.id}>{r.name} — Rp {Number(r.pricePerClick).toLocaleString('id-ID')}/klik</option>
-                                ))}
-                            </select>
-                        </div>
-                        {clickRateId && (
-                            <div>
-                                <label className="block text-xs font-medium text-muted-foreground mb-1">Klik per Unit Terjual</label>
-                                <input
-                                    type="number"
-                                    min={0.5}
-                                    step={0.5}
-                                    value={clicksPerUnit}
-                                    onChange={e => setClicksPerUnit(+e.target.value || 1)}
-                                    className="w-full border border-border rounded-lg px-3 py-2 text-sm"
-                                />
-                                {(() => {
-                                    const rate = (clickRates as any[]).find((r: any) => r.id === clickRateId);
-                                    return rate ? (
-                                        <p className="text-xs text-indigo-600 mt-1">
-                                            = Rp {(Number(rate.pricePerClick) * clicksPerUnit).toLocaleString('id-ID')}/unit untuk HPP
-                                        </p>
-                                    ) : null;
-                                })()}
-                            </div>
-                        )}
-                    </div>
                 </div>
 
                 {/* Variants */}

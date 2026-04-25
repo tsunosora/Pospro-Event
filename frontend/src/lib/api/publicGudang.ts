@@ -125,6 +125,11 @@ export const getPublicActiveBorrows = async (workerId?: number) => {
     return (await publicApi.get<PublicActiveBorrow[]>(`/public/gudang/active-borrows${suffix}`)).data;
 };
 
+export const registerPublicWorker = async (form: FormData) =>
+    (await publicApi.post<PublicWorker>('/public/gudang/register-worker', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+
 export const returnPublicWithdrawal = async (id: number, form: FormData) =>
     (await publicApi.post(`/public/gudang/return/${id}`, form, {
         headers: { 'Content-Type': 'multipart/form-data' },

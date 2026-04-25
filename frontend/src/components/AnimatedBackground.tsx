@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getPublicSettings } from '@/lib/api';
+import { ExindoAnimatedLogo } from './ExindoAnimatedLogo';
 
 /* ---------- All keyframes prefixed vl- to avoid global conflicts ---------- */
 const VL_STYLES = `
@@ -211,78 +212,9 @@ export function AnimatedBackground() {
                 </span>
             </div>
 
-            {/* ── Voliko animated logo ── */}
+            {/* ── Exindo Pratama animated logo ── */}
             <div className="relative z-20 flex flex-1 items-center justify-center">
-                <div className="vl-scene relative flex flex-col items-center">
-
-                    {/* Sparkles */}
-                    <div className="absolute pointer-events-none" style={{ inset: '-60px', zIndex: 0 }}>
-                        {SPARKLES.map((sp, i) => (
-                            <div
-                                key={i}
-                                className="absolute rounded-full opacity-0"
-                                style={{ width: sp.w, height: sp.h, background: sp.bg, ...sp.pos, animation: sp.anim }}
-                            />
-                        ))}
-                    </div>
-
-                    {/* Icon with pulsing rings */}
-                    <div className="relative flex items-center justify-center" style={{ width: 180, height: 180, marginBottom: 10 }}>
-                        <div className="absolute inset-0 rounded-full border-2 opacity-0"
-                            style={{ borderColor: 'rgba(230,27,77,.55)', animation: 'vl-ringOut 2.6s ease-out 1.3s infinite' }} />
-                        <div className="absolute inset-0 rounded-full border-2 opacity-0"
-                            style={{ borderColor: 'rgba(48,160,218,.4)', animation: 'vl-ringOut 2.6s ease-out 1.9s infinite' }} />
-                        <div className="absolute inset-0 rounded-full border-2 opacity-0"
-                            style={{ borderColor: 'rgba(230,176,34,.3)', animation: 'vl-ringOut 2.6s ease-out 2.5s infinite' }} />
-                        <svg viewBox="669 0 1823 1824" xmlns="http://www.w3.org/2000/svg" className="relative z-10"
-                            style={{
-                                width: 180, height: 180, transformOrigin: 'center', overflow: 'visible',
-                                animation: 'vl-iconPop .85s cubic-bezier(.34,1.56,.64,1) .1s both, vl-iconBob 4s ease-in-out 1.8s infinite',
-                                filter: 'drop-shadow(0 10px 32px rgba(230,27,77,.35)) drop-shadow(0 2px 10px rgba(0,0,0,.5))',
-                            }}>
-                            <path fill="#fff"    style={{ animation: 'vl-arcPop .4s ease-out .25s both', transformOrigin: '50% 50%' }} d="M2492.46,911.57c0,503.45-408.12,911.57-911.57,911.57s-911.57-408.12-911.57-911.57S1077.44,0,1580.89,0s911.57,408.12,911.57,911.57" />
-                            <path fill="#e6b022" style={{ animation: 'vl-arcPop .5s cubic-bezier(.34,1.56,.64,1) .44s both', transformOrigin: '50% 50%' }} d="M2416.67,911.57c0,202.03-72.06,387.57-191.84,532.22c-98.4-173.76-196.58-347.65-294.81-521.53c100.63-178.07,201.19-356.2,301.92-534.2c115.52,143.36,184.73,325.5,184.73,523.51" />
-                            <path fill="#e61b4d" style={{ animation: 'vl-arcPop .5s cubic-bezier(.34,1.56,.64,1) .60s both', transformOrigin: '50% 50%' }} d="M1986.44,1642.18c-120.17,66.99-258.5,105.17-405.56,105.17c-460.85,0-835.78-374.94-835.78-835.78c0-18.19.58-36.24,1.73-54.13c38.18-25.15,82.18-40.73,128.81-40.53c97.4-7.97,194.59,49.06,239.71,134.93c24.59,43.96,50.57,87.25,74.1,131.93c3.94,7.73,11.91,23.31,15.82,31.03l3.34-.91c100.19,182.01,201.86,363.33,306.9,542.46c61.97-111.27,125.69-221.61,187.55-332.99c17.09-30.15,34.19-60.31,51.24-90.46c77.16,136.55,154.56,272.98,232.13,409.29" />
-                            <path fill="#30a0da" style={{ animation: 'vl-arcPop .5s cubic-bezier(.34,1.56,.64,1) .76s both', transformOrigin: '50% 50%' }} d="M1995.51,186.09c-160.74,282.61-320.8,565.66-479.41,849.42c-63.37-95.22-107.69-201.62-171.52-296.51l-19.89-20.25-.02.28c-26.12-27.02-56.28-49.39-88.11-69.25c-139.32-73.17-318.68-43.4-435.93,58.4c-2.76,2.76-8.3,8.42-11.09,11.2c-10.06,9.8-19.69,20.14-28.81,30.94c75.35-383.97,414.46-674.54,820.16-674.54c150.77,0,292.37,40.14,414.62,110.3" />
-                        </svg>
-                    </div>
-
-                    {/* VOLIKO wordmark + Print */}
-                    <div className="relative flex flex-col items-center">
-                        <svg viewBox="-20 2103 3202 651" xmlns="http://www.w3.org/2000/svg" overflow="visible"
-                            style={{ display: 'block', width: 240, filter: 'drop-shadow(0 2px 12px rgba(255,255,255,.07))', position: 'relative', zIndex: 1 }}>
-                            {LT_LETTERS.map((lt, i) => (
-                                <g key={i} style={{ transformOrigin: 'center', animation: `vl-ltPop .42s cubic-bezier(.34,1.56,.64,1) ${lt.delay} both` }}>
-                                    {lt.children()}
-                                </g>
-                            ))}
-                        </svg>
-
-                        {/* Print calligraphic stroke-draw */}
-                        <div style={{ position: 'relative', marginTop: '-18px', zIndex: 2 }}>
-                            <svg viewBox="440 2680 2350 690" xmlns="http://www.w3.org/2000/svg" overflow="visible"
-                                style={{ display: 'block', width: 185, filter: 'drop-shadow(0 2px 8px rgba(229,30,78,.3))' }}>
-                                {PRINT_STROKES.map((d, i) => (
-                                    <g key={i}>
-                                        <path
-                                            ref={el => { strokeRefs.current[i] = el; }}
-                                            fill="none" stroke="#e51e4e" strokeWidth="14"
-                                            strokeLinecap="round" strokeLinejoin="round"
-                                            opacity="0"
-                                            style={{ animation: STROKE_ANIMS[i].stroke }}
-                                            d={d}
-                                        />
-                                        <path
-                                            fill="#e51e4e" opacity="0"
-                                            style={{ animation: STROKE_ANIMS[i].fill }}
-                                            d={d}
-                                        />
-                                    </g>
-                                ))}
-                            </svg>
-                        </div>
-                    </div>
-                </div>
+                <ExindoAnimatedLogo size={420} />
             </div>
 
             {/* ── Taglines ── */}

@@ -1,22 +1,22 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
-  title: 'PosPro',
-  description: 'Dokumentasi lengkap PosPro — Aplikasi Kasir & Manajemen Toko Berbasis Web',
+  title: 'Pospro Event',
+  description: 'Dokumentasi lengkap Pospro Event — Aplikasi Manajemen CRM Lead, Penawaran, RAB, Booth & Event',
   srcDir: 'docs/wiki',
-  base: '/Pos-Web-Application/',
+  base: '/pospro-event/',
 
   head: [
-    ['link', { rel: 'icon', href: '/Pos-Web-Application/favicon.ico' }],
+    ['link', { rel: 'icon', href: '/pospro-event/favicon.ico' }],
   ],
 
   themeConfig: {
-    siteTitle: 'PosPro Docs',
+    siteTitle: 'Pospro Event Docs',
 
     nav: [
       { text: 'Mulai di Sini', link: '/alur-bisnis' },
       { text: 'Wiki Lengkap', link: '/' },
-      { text: 'v3.0', items: [{ text: 'Lihat Daftar Isi', link: '/#daftar-isi-wiki' }] },
+      { text: 'v1.0', items: [{ text: 'Lihat Daftar Isi', link: '/#daftar-isi-wiki' }] },
     ],
 
     sidebar: [
@@ -25,16 +25,31 @@ export default defineConfig({
         items: [
           { text: 'Beranda', link: '/' },
           { text: 'Wiki Lengkap (Daftar Isi)', link: '/README' },
-          { text: '🔄 Alur Bisnis', link: '/alur-bisnis' },
+          { text: '🔄 Alur Bisnis Event', link: '/alur-bisnis' },
         ]
       },
       {
-        text: '🏪 Operasional Harian',
+        text: '🎯 CRM & Lead Pipeline',
+        items: [
+          { text: '📊 CRM Overview', link: '/crm' },
+          { text: '🗂️ Pipeline Kanban', link: '/crm-kanban' },
+          { text: '📥 Import Lead XLSX', link: '/crm-import' },
+          { text: '🔁 Convert Lead → Customer', link: '/crm-convert' },
+        ]
+      },
+      {
+        text: '📑 Penawaran & RAB Event',
+        items: [
+          { text: '📄 Penawaran Booth/Event', link: '/penawaran-event' },
+          { text: '🧮 RAB Event', link: '/rab-event' },
+          { text: '🏭 Data Supplier', link: '/suppliers' },
+        ]
+      },
+      {
+        text: '🏪 Operasional Event',
         items: [
           { text: '🖨️ Antrian Produksi', link: '/produksi' },
           { text: '🖨️ Antrian Cetak Paper', link: '/mesin-cetak' },
-          { text: '📄 Invoice & SPH (B2B)', link: '/invoice-sph' },
-          { text: '🏭 Data Supplier', link: '/suppliers' },
           { text: '📋 Stok Opname', link: '/stock-opname' },
         ]
       },
@@ -81,18 +96,9 @@ export default defineConfig({
       }
     },
 
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/tsunosora/Pos-Web-Application' }
-    ],
-
     footer: {
-      message: 'PosPro — Aplikasi Kasir & Manajemen Toko Berbasis Web',
-      copyright: 'VOLIKO IMOGIRI © 2026'
-    },
-
-    editLink: {
-      pattern: 'https://github.com/tsunosora/Pos-Web-Application/edit/main/docs/wiki/:path',
-      text: 'Edit halaman ini di GitHub'
+      message: 'Pospro Event — Aplikasi Manajemen CRM, Penawaran, RAB, Booth & Event',
+      copyright: '© 2026 Muhammad Faishal Abdul Hakim'
     },
 
     lastUpdated: {

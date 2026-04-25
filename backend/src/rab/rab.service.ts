@@ -6,6 +6,7 @@ import {
 import { Prisma, InvoiceType, InvoiceStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentNumberService } from '../document-numbers/document-number.service';
+import { RabLooseItemsService } from '../rab-loose-items/rab-loose-items.service';
 import type { CreateRabDto, UpdateRabDto } from './dto/create-rab.dto';
 import type { RabItemInput } from './dto/rab-item.dto';
 
@@ -19,7 +20,31 @@ export class RabService {
     constructor(
         private prisma: PrismaService,
         private docNumberService: DocumentNumberService,
+        private looseItemsService: RabLooseItemsService,
     ) { }
+
+    private async persistLooseItems(items: RabItemInput[] | undefined) {
+        if (!items?.length) return;
+        const looseInputs = items
+            .filter(
+                (it) =>
+                    it.saveAsLoose === true &&
+                    (it.productVariantId === null || it.productVariantId === undefined) &&
+                    !!(it.description ?? '').trim(),
+            )
+            .map((it) => ({
+                description: it.description,
+                unit: it.unit ?? undefined,
+                priceRab: it.priceRab,
+                priceCost: it.priceCost,
+            }));
+        if (looseInputs.length === 0) return;
+        try {
+            await this.looseItemsService.bulkUpsert(looseInputs);
+        } catch {
+            // jangan gagalkan save RAB hanya karena loose-item bermasalah
+        }
+    }
 
     private async nextCode(year: number): Promise<string> {
         const seq = await this.docNumberService.nextSequence('RAB', 'RAB', year);
@@ -31,7 +56,7 @@ export class RabService {
         const year = dto.periodStart ? new Date(dto.periodStart).getFullYear() : new Date().getFullYear();
         const code = await this.nextCode(year);
 
-        return this.prisma.rabPlan.create({
+        const created = await this.prisma.rabPlan.create({
             data: {
                 code,
                 title: dto.title,
@@ -61,6 +86,8 @@ export class RabService {
             },
             include: { items: { include: { category: true } }, customer: true },
         });
+        await this.persistLooseItems(dto.items);
+        return created;
     }
 
     findAll() {
@@ -92,7 +119,7 @@ export class RabService {
 
     async update(id: number, dto: UpdateRabDto) {
         await this.findOne(id);
-        return this.prisma.$transaction(async (tx) => {
+        const result = await this.prisma.$transaction(async (tx) => {
             if (dto.items !== undefined) {
                 await tx.rabItem.deleteMany({ where: { rabPlanId: id } });
             }
@@ -144,6 +171,8 @@ export class RabService {
                 },
             });
         });
+        await this.persistLooseItems(dto.items);
+        return result;
     }
 
     async summary(id: number) {

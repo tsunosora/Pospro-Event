@@ -397,4 +397,138 @@ export class EventsService {
             items,
         };
     }
+
+    async dashboardSnapshot() {
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+        // Events bulan ini (eventStart atau setupStart atau departureStart jatuh di bulan ini)
+        const monthEvents = await this.prisma.event.findMany({
+            where: {
+                status: { notIn: ['DRAFT', 'CANCELLED'] },
+                OR: [
+                    { eventStart: { gte: monthStart, lt: monthEnd } },
+                    { setupStart: { gte: monthStart, lt: monthEnd } },
+                    { departureStart: { gte: monthStart, lt: monthEnd } },
+                ],
+            },
+            orderBy: [{ eventStart: 'asc' }, { setupStart: 'asc' }],
+            include: {
+                customer: { select: { id: true, name: true, companyName: true } },
+                picWorker: { select: { id: true, name: true, position: true } },
+            },
+        });
+
+        // Event sedang berjalan
+        const inProgress = await this.prisma.event.findMany({
+            where: { status: 'IN_PROGRESS' },
+            orderBy: [{ setupStart: 'asc' }],
+            include: {
+                customer: { select: { id: true, name: true, companyName: true } },
+                picWorker: { select: { id: true, name: true, position: true } },
+            },
+        });
+
+        // PIC aktif: worker yang jadi PIC di event IN_PROGRESS atau yang setup/eventnya overlap "sekarang"
+        const activeEventsForPic = await this.prisma.event.findMany({
+            where: {
+                status: { in: ['IN_PROGRESS', 'SCHEDULED'] },
+                picWorkerId: { not: null },
+                OR: [
+                    { status: 'IN_PROGRESS' },
+                    {
+                        AND: [
+                            { setupStart: { lte: now } },
+                            { OR: [{ eventEnd: { gte: now } }, { eventEnd: null }] },
+                        ],
+                    },
+                ],
+            },
+            orderBy: [{ eventStart: 'asc' }],
+            include: {
+                picWorker: { select: { id: true, name: true, position: true, phone: true } },
+            },
+        });
+
+        const picMap = new Map<number, {
+            workerId: number;
+            name: string;
+            position: string | null;
+            phone: string | null;
+            events: Array<{
+                id: number;
+                code: string;
+                name: string;
+                venue: string | null;
+                status: EventStatus;
+                setupStart: Date | null;
+                eventStart: Date | null;
+                eventEnd: Date | null;
+            }>;
+        }>();
+        for (const ev of activeEventsForPic) {
+            if (!ev.picWorker) continue;
+            const w = ev.picWorker;
+            const prev = picMap.get(w.id) ?? {
+                workerId: w.id,
+                name: w.name,
+                position: w.position ?? null,
+                phone: w.phone ?? null,
+                events: [],
+            };
+            prev.events.push({
+                id: ev.id,
+                code: ev.code,
+                name: ev.name,
+                venue: ev.venue,
+                status: ev.status,
+                setupStart: ev.setupStart,
+                eventStart: ev.eventStart,
+                eventEnd: ev.eventEnd,
+            });
+            picMap.set(w.id, prev);
+        }
+        const activePics = Array.from(picMap.values());
+
+        // Barang keluar (Withdrawal status CHECKED_OUT) — termasuk yang terkait event
+        const recentWithdrawals = await this.prisma.withdrawal.findMany({
+            where: { status: 'CHECKED_OUT' },
+            orderBy: [{ createdAt: 'desc' }],
+            take: 15,
+            include: {
+                worker: { select: { id: true, name: true } },
+                event: { select: { id: true, code: true, name: true, venue: true } },
+                items: {
+                    include: {
+                        productVariant: {
+                            select: {
+                                id: true, sku: true, variantName: true,
+                                product: { select: { id: true, name: true } },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        const itemsOut = recentWithdrawals.reduce(
+            (s, w) => s + w.items.reduce((ss, it) => ss + (Number(it.quantity) - Number(it.returnedQty)), 0),
+            0,
+        );
+
+        return {
+            stats: {
+                monthEvents: monthEvents.length,
+                inProgress: inProgress.length,
+                activePics: activePics.length,
+                itemsOut,
+            },
+            monthEvents,
+            inProgress,
+            activePics,
+            recentWithdrawals,
+            generatedAt: now.toISOString(),
+        };
+    }
 }

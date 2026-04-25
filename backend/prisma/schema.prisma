@@ -108,8 +108,6 @@ model Product {
   requiresProduction Boolean     @default(false) @map("requires_production")
   hasAssemblyStage   Boolean     @default(false) @map("has_assembly_stage")
   trackStock         Boolean     @default(true) @map("track_stock")
-  clickRateId        Int?        @map("click_rate_id")   // ClickRate yang berlaku untuk produk ini
-  clicksPerUnit      Float?      @map("clicks_per_unit") // Jumlah klik per unit terjual
   createdAt          DateTime?   @default(now()) @map("created_at")
   updatedAt          DateTime?   @default(now()) @updatedAt @map("updated_at")
 
@@ -118,7 +116,6 @@ model Product {
   variants      ProductVariant[]
   ingredients   Ingredient[]
   hppWorksheets HppWorksheet[]
-  clickRate     ClickRate?       @relation(fields: [clickRateId], references: [id], onDelete: SetNull)
 
   @@map("products")
 }
@@ -137,7 +134,6 @@ model ProductVariant {
   isRollMaterial          Boolean   @default(false) @map("is_roll_material")
   rollPhysicalWidth       Decimal?  @map("roll_physical_width") @db.Decimal(10, 2)
   rollEffectivePrintWidth Decimal?  @map("roll_effective_print_width") @db.Decimal(10, 2)
-  clickRateId             Int?      @map("click_rate_id")   // override klik per-varian
   clicksPerUnit           Float?    @map("clicks_per_unit") // klik per unit terjual
   boothProductType        BoothProductType? @map("booth_product_type")       // SEWA atau PENGADAAN untuk pospenawaran
   defaultRentalUnit       String?   @db.VarChar(30) @map("default_rental_unit") // "hari", "m²", "unit", "set"
@@ -146,7 +142,6 @@ model ProductVariant {
   updatedAt               DateTime? @default(now()) @updatedAt @map("updated_at")
 
   product                 Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
-  clickRate               ClickRate?          @relation("VariantClickRate", fields: [clickRateId], references: [id], onDelete: SetNull)
   batches                 Batch[]
   movements               StockMovement[]
   transactionItems        TransactionItem[]
@@ -167,8 +162,31 @@ model ProductVariant {
   sourceRabPlan           RabPlan?            @relation("RabPlanGeneratedVariants", fields: [sourceRabPlanId], references: [id], onDelete: SetNull)
   withdrawalItems         WithdrawalItem[]
   packingItems            EventPackingItem[]
+  promotedFromLooseItem   RabLooseItem?       @relation("LooseItemPromotedVariant")
 
   @@map("product_variants")
+}
+
+model RabLooseItem {
+  id                Int       @id @default(autoincrement())
+  description       String    @db.VarChar(255)
+  normalizedKey     String    @unique @db.VarChar(255) @map("normalized_key")
+  unit              String?   @db.VarChar(50)
+  lastPriceRab      Decimal   @default(0) @db.Decimal(15, 2) @map("last_price_rab")
+  lastPriceCost     Decimal   @default(0) @db.Decimal(15, 2) @map("last_price_cost")
+  defaultCategory   String?   @db.VarChar(50) @map("default_category")
+  notes             String?   @db.Text
+  usageCount        Int       @default(0) @map("usage_count")
+  lastUsedAt        DateTime? @map("last_used_at")
+  promotedVariantId Int?      @unique @map("promoted_variant_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  promotedVariant   ProductVariant? @relation("LooseItemPromotedVariant", fields: [promotedVariantId], references: [id], onDelete: SetNull)
+
+  @@index([usageCount])
+  @@index([normalizedKey])
+  @@map("rab_loose_items")
 }
 
 model Ingredient {
@@ -311,7 +329,6 @@ model TransactionItem {
   productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
   productionJob  ProductionJob?
   printJob       PrintJob?
-  clickLogs      ClickLog[]
 
   @@map("transaction_items")
 }
@@ -683,6 +700,7 @@ model Customer {
   invoices    Invoice[]
   rabPlans    RabPlan[]
   events      Event[]
+  lead        Lead?
 
   @@map("customers")
 }
@@ -957,113 +975,6 @@ model PrintJob {
   @@map("print_jobs")
 }
 
-// ===========================
-// CLICK COUNTING SYSTEM
-// ===========================
-
-enum ClickPaperSize {
-  A3_PLUS
-  A4
-}
-
-enum ClickColorMode {
-  COLOR
-  BW
-}
-
-enum ClickSideMode {
-  SIMPLEX
-  DUPLEX
-}
-
-enum RejectType {
-  MACHINE_ERROR
-  TEST_PRINT
-  CALIBRATION
-  HUMAN_ERROR
-}
-
-enum RejectCause {
-  MACHINE   // vendor bebaskan (tidak ditagih)
-  HUMAN     // tetap ditagih vendor
-}
-
-enum CounterType {
-  FULL_COLOR
-  BLACK
-  SINGLE_COLOR
-}
-
-// Konfigurasi harga klik per jenis cetak
-model ClickRate {
-  id            Int            @id @default(autoincrement())
-  name          String         @db.VarChar(50)
-  paperSize     ClickPaperSize @map("paper_size")
-  colorMode     ClickColorMode @map("color_mode")
-  sideMode      ClickSideMode  @default(SIMPLEX) @map("side_mode")
-  pricePerClick Decimal        @map("price_per_click") @db.Decimal(15, 2)
-  isActive      Boolean        @default(true) @map("is_active")
-  createdAt     DateTime?      @default(now()) @map("created_at")
-  updatedAt     DateTime?      @default(now()) @updatedAt @map("updated_at")
-
-  clickLogs ClickLog[]
-  products  Product[]
-  variants  ProductVariant[] @relation("VariantClickRate")
-
-  @@unique([paperSize, colorMode, sideMode])
-  @@map("click_rates")
-}
-
-// Log klik per transaksi (dari POS atau manual)
-model ClickLog {
-  id                Int      @id @default(autoincrement())
-  clickRateId       Int      @map("click_rate_id")
-  transactionItemId Int?     @map("transaction_item_id")
-  quantity          Int
-  pricePerClick     Decimal  @map("price_per_click") @db.Decimal(15, 2)
-  totalCost         Decimal  @map("total_cost") @db.Decimal(15, 2)
-  date              DateTime @default(now())
-  createdAt         DateTime? @default(now()) @map("created_at")
-
-  clickRate       ClickRate        @relation(fields: [clickRateId], references: [id])
-  transactionItem TransactionItem? @relation(fields: [transactionItemId], references: [id])
-
-  @@map("click_logs")
-}
-
-// Log reject mesin (error, test print, kalibrasi)
-model MachineReject {
-  id            Int          @id @default(autoincrement())
-  rejectType    RejectType   @map("reject_type")
-  cause         RejectCause  @default(MACHINE) @map("cause")
-  counterType   CounterType  @default(FULL_COLOR) @map("counter_type")
-  quantity      Int
-  pricePerClick Decimal      @map("price_per_click") @db.Decimal(15, 2)
-  totalCost     Decimal      @map("total_cost") @db.Decimal(15, 2)
-  photoUrl      String?      @map("photo_url") @db.Text
-  notes         String?      @db.Text
-  date          DateTime     @default(now())
-  createdAt     DateTime?    @default(now()) @map("created_at")
-
-  @@map("machine_rejects")
-}
-
-// Pembacaan counter mesin harian — tiap hari ada 1 record
-model MeterReading {
-  id               Int       @id @default(autoincrement())
-  readingDate      DateTime  @unique @map("reading_date") @db.Date
-  totalCount       Int       @map("total_count")
-  fullColorCount   Int       @map("full_color_count")
-  blackCount       Int       @map("black_count")
-  singleColorCount Int       @default(0) @map("single_color_count")
-  photoUrl         String?   @map("photo_url") @db.Text
-  notes            String?   @db.Text
-  createdAt        DateTime? @default(now()) @map("created_at")
-  updatedAt        DateTime? @default(now()) @updatedAt @map("updated_at")
-
-  @@map("meter_readings")
-}
-
 // ----- Sales Order (Surat Order) ----- //
 
 enum SalesOrderStatus {
@@ -1208,6 +1119,8 @@ model Worker {
   withdrawals        Withdrawal[]
   eventsAsPic        Event[]            @relation("EventPic")
   packingChecked     EventPackingItem[] @relation("PackingCheckedBy")
+  assignedLeads      Lead[]
+  leadActivities     LeadActivity[]
 
   @@map("workers")
 }
@@ -1343,4 +1256,124 @@ model EventPackingItem {
   @@index([eventId, isChecked])
   @@index([productVariantId])
   @@map("event_packing_items")
+}
+
+// ----- CRM / Lead Pipeline ----- //
+
+enum LeadLevel {
+  HOT
+  WARM
+  COLD
+  UNQUALIFIED
+}
+
+enum LeadSource {
+  META_ADS
+  WHATSAPP
+  WEBSITE
+  REFERRAL
+  WALK_IN
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  RESPONDED
+  NO_RESPONSE
+  WAITING
+  IN_PROGRESS
+  CLOSED_DEAL
+  CLOSED_LOST
+}
+
+model LeadStage {
+  id         Int     @id @default(autoincrement())
+  name       String  @db.VarChar(80)
+  color      String  @default("#94a3b8") @db.VarChar(20)
+  orderIndex Int     @default(0) @map("order_index")
+  isTerminal Boolean @default(false) @map("is_terminal")
+  isWinStage Boolean @default(false) @map("is_win_stage")
+
+  leads Lead[]
+
+  @@map("lead_stages")
+}
+
+model LeadLabel {
+  id    Int    @id @default(autoincrement())
+  name  String @unique @db.VarChar(60)
+  color String @default("#ef4444") @db.VarChar(20)
+
+  leads LeadLabelOnLead[]
+
+  @@map("lead_labels")
+}
+
+model Lead {
+  id                  Int        @id @default(autoincrement())
+  name                String?    @db.VarChar(150)
+  phone               String     @db.VarChar(50)
+  phoneNormalized     String     @map("phone_normalized") @db.VarChar(30)
+  organization        String?    @db.VarChar(200)
+  productCategory     String?    @map("product_category") @db.VarChar(100)
+  level               LeadLevel?
+  source              LeadSource @default(OTHER)
+  sourceDetail        String?    @map("source_detail") @db.VarChar(150)
+  greetingTemplate    String?    @map("greeting_template") @db.Text
+  status              LeadStatus @default(NEW)
+  stageId             Int        @map("stage_id")
+  stageOrderIndex     Int        @default(0) @map("stage_order_index")
+  assignedWorkerId    Int?       @map("assigned_worker_id")
+  followUpDate        DateTime?  @map("follow_up_date")
+  orderDescription    String?    @map("order_description") @db.Text
+  projectValueEst     Decimal?   @map("project_value_est") @db.Decimal(15, 2)
+  eventDate           DateTime?  @map("event_date")
+  eventLocation       String?    @map("event_location") @db.VarChar(200)
+  notes               String?    @db.Text
+  leadCameAt          DateTime   @default(now()) @map("lead_came_at")
+  lastContactedAt     DateTime?  @map("last_contacted_at")
+  convertedCustomerId Int?       @unique @map("converted_customer_id")
+  convertedAt         DateTime?  @map("converted_at")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  stage             LeadStage         @relation(fields: [stageId], references: [id])
+  assignedWorker    Worker?           @relation(fields: [assignedWorkerId], references: [id])
+  convertedCustomer Customer?         @relation(fields: [convertedCustomerId], references: [id])
+  labels            LeadLabelOnLead[]
+  activities        LeadActivity[]
+
+  @@index([stageId, stageOrderIndex])
+  @@index([phoneNormalized])
+  @@index([assignedWorkerId, status])
+  @@index([leadCameAt])
+  @@map("leads")
+}
+
+model LeadLabelOnLead {
+  leadId  Int @map("lead_id")
+  labelId Int @map("label_id")
+
+  lead  Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  label LeadLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([leadId, labelId])
+  @@map("lead_label_on_lead")
+}
+
+model LeadActivity {
+  id        Int      @id @default(autoincrement())
+  leadId    Int      @map("lead_id")
+  kind      String   @db.VarChar(40)
+  text      String?  @db.Text
+  meta      Json?
+  workerId  Int?     @map("worker_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lead   Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  worker Worker? @relation(fields: [workerId], references: [id])
+
+  @@index([leadId, createdAt])
+  @@map("lead_activities")
 }

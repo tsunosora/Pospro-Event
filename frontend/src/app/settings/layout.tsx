@@ -1,4 +1,4 @@
-import { Store, CreditCard, Users, Settings, MessageCircle, Building2, Paintbrush, HardDrive, Bell, Palette, Tags, Warehouse, HardHat, KeyRound, MapPin } from 'lucide-react';
+import { Store, CreditCard, Users, Settings, MessageCircle, Building2, Paintbrush, HardDrive, Bell, Palette, Tags, Warehouse, HardHat, KeyRound, MapPin, Boxes } from 'lucide-react';
 import Link from 'next/link';
 
 const NAV_LINKS = [
@@ -12,6 +12,7 @@ const NAV_LINKS = [
     { href: '/settings/notifications',  icon: Bell,           label: 'Notifikasi' },
     { href: '/settings/designers',      icon: Palette,        label: 'Kelola Desainer' },
     { href: '/settings/rab-categories', icon: Tags,           label: 'Kategori RAB' },
+    { href: '/settings/rab-loose-items', icon: Boxes,         label: 'Item Lepas RAB' },
     { href: '/settings/warehouses',     icon: Warehouse,      label: 'Gudang' },
     { href: '/settings/storage-locations', icon: MapPin,      label: 'Lokasi Barang' },
     { href: '/settings/workers',        icon: HardHat,        label: 'Pekerja/Tukang' },

@@ -30,7 +30,6 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { WebhookModule } from './webhook/webhook.module';
 import { CashflowRequestsModule } from './cashflow-requests/cashflow-requests.module';
 import { StockPurchasesModule } from './stock-purchases/stock-purchases.module';
-import { ClickCountingModule } from './click-counting/click-counting.module';
 import { PrintQueueModule } from './print-queue/print-queue.module';
 import { SalesOrdersModule } from './sales-orders/sales-orders.module';
 import { DesignersModule } from './designers/designers.module';
@@ -46,13 +45,15 @@ import { PublicGudangModule } from './public-gudang/public-gudang.module';
 import { EventsModule } from './events/events.module';
 import { StorageLocationsModule } from './storage-locations/storage-locations.module';
 import { PackingModule } from './packing/packing.module';
+import { RabLooseItemsModule } from './rab-loose-items/rab-loose-items.module';
+import { CrmModule } from './crm/crm.module';
 
 @Module({
   imports: [
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', 'public'), // Serve local uploads
     }),
-    PrismaModule, UsersModule, AuthModule, CategoriesModule, UnitsModule, ProductsModule, BatchesModule, StockMovementsModule, TransactionsModule, CashflowModule, InvoiceModule, BranchesModule, SettingsModule, BankAccountsModule, CustomersModule, HppModule, ReportsModule, WhatsappModule, CompetitorsModule, StockOpnameModule, ProductionModule, SuppliersModule, BackupModule, NotificationsModule, WebhookModule, CashflowRequestsModule, StockPurchasesModule, ClickCountingModule, PrintQueueModule, SalesOrdersModule, DesignersModule, DocumentNumbersModule, QuotationsModule, RabModule, RabCategoriesModule, WarehousesModule, WorkersModule, WithdrawalsModule, WarehousePinModule, PublicGudangModule, EventsModule, StorageLocationsModule, PackingModule],
+    PrismaModule, UsersModule, AuthModule, CategoriesModule, UnitsModule, ProductsModule, BatchesModule, StockMovementsModule, TransactionsModule, CashflowModule, InvoiceModule, BranchesModule, SettingsModule, BankAccountsModule, CustomersModule, HppModule, ReportsModule, WhatsappModule, CompetitorsModule, StockOpnameModule, ProductionModule, SuppliersModule, BackupModule, NotificationsModule, WebhookModule, CashflowRequestsModule, StockPurchasesModule, PrintQueueModule, SalesOrdersModule, DesignersModule, DocumentNumbersModule, QuotationsModule, RabModule, RabCategoriesModule, WarehousesModule, WorkersModule, WithdrawalsModule, WarehousePinModule, PublicGudangModule, EventsModule, StorageLocationsModule, PackingModule, RabLooseItemsModule, CrmModule],
   controllers: [AppController],
   providers: [AppService],
 })

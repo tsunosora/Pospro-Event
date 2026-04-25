@@ -56,6 +56,34 @@ export const BACKUP_GROUPS = {
         label: 'Laporan Shift',
         tables: ['shiftReport', 'competitor'],
     },
+    workers: {
+        label: 'Petugas / Worker',
+        tables: ['worker'],
+    },
+    warehouse: {
+        label: 'Gudang & Lokasi',
+        tables: ['warehouse', 'storageLocation'],
+    },
+    events: {
+        label: 'Event & Packing',
+        tables: ['event', 'eventPackingItem', 'withdrawal', 'withdrawalItem'],
+    },
+    rab: {
+        label: 'RAB & Penomoran',
+        tables: ['rabCategory', 'rabPlan', 'rabItem', 'rabLooseItem', 'documentNumberCounter'],
+    },
+    crm: {
+        label: 'CRM / Pipeline Lead',
+        tables: ['leadStage', 'leadLabel', 'lead', 'leadLabelOnLead', 'leadActivity'],
+    },
+    printing: {
+        label: 'Printing & Antrian',
+        tables: ['printJob'],
+    },
+    salesOrders: {
+        label: 'Sales Order & Designer',
+        tables: ['designer', 'salesOrder', 'salesOrderItem', 'salesOrderProof'],
+    },
 } as const;
 
 export type BackupGroupKey = keyof typeof BACKUP_GROUPS;
@@ -64,18 +92,32 @@ export type BackupGroupKey = keyof typeof BACKUP_GROUPS;
 const RESTORE_ORDER = [
     'role', 'storeSettings', 'bankAccount', 'category', 'unit', 'branch', 'competitor',
     'user', 'customer', 'supplier',
+    'worker', 'designer',                       // entitas orang yang dipakai di banyak tempat
+    'warehouse', 'storageLocation',             // gudang sebelum lokasi penyimpanan
+    'rabCategory', 'documentNumberCounter',     // master RAB & counter penomoran
+    'leadStage', 'leadLabel',                   // master CRM (independent, sebelum lead)
     'product', 'productVariant',
+    'rabLooseItem',                             // → setelah productVariant (FK promotedVariantId)
     'ingredient', 'variantIngredient', 'variantPriceTier',
     'batch', 'stockMovement', 'supplierItem',
     'stockPurchase', 'stockPurchaseItem',       // pembelian stok → setelah supplier & variant
     'hppWorksheet', 'hppVariableCost', 'hppFixedCost',
     'transaction', 'transactionItem',
+    'printJob',                                 // → setelah transaction
     'shiftReport',                              // sebelum cashflow karena cashflow punya FK ke shiftReport
     'cashflow', 'cashflowChangeRequest',        // cashflowChangeRequest → setelah cashflow & user
     'transactionEditRequest',                   // → setelah transaction & user
+    'rabPlan',                                  // → setelah customer
     'invoice', 'invoiceItem',
+    'event',                                    // → setelah customer & rabPlan
+    'eventPackingItem',                         // → setelah event, productVariant, storageLocation, worker
+    'withdrawal', 'withdrawalItem',             // → setelah event, worker, warehouse, productVariant
+    'rabItem',                                  // → setelah rabPlan, rabCategory, productVariant, eventPackingItem
+    'salesOrder', 'salesOrderItem', 'salesOrderProof',
     'productionBatch', 'productionJob',
     'stockOpnameSession', 'stockOpnameItem',
+    'lead',                                     // → setelah leadStage, customer, worker
+    'leadLabelOnLead', 'leadActivity',          // → setelah lead, leadLabel, worker
 ];
 
 // Path folder uploads gambar (3x up = backend root ketika dikompilasi ke dist/backup/)
@@ -126,7 +168,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.1',
+                version: '2.3',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,
@@ -303,17 +345,32 @@ export class BackupService {
                 } else {
                     let success = 0;
                     let skipped = 0;
-                    for (const row of rows) {
+                    // Composite-PK tables (no single `id` field) — pakai createMany skipDuplicates
+                    const cleanedRows = rows.map(r => this.cleanRow(r));
+                    const hasIdPk = cleanedRows.length > 0 && 'id' in cleanedRows[0];
+                    if (!hasIdPk) {
                         try {
-                            const cleaned = this.cleanRow(row);
-                            await (this.prisma as any)[table].upsert({
-                                where: { id: cleaned.id },
-                                create: cleaned,
-                                update: {},
+                            const res = await (this.prisma as any)[table].createMany({
+                                data: cleanedRows,
+                                skipDuplicates: true,
                             });
-                            success++;
-                        } catch {
-                            skipped++;
+                            success = res.count ?? 0;
+                            skipped = cleanedRows.length - success;
+                        } catch (e: any) {
+                            result[table].error = e.message?.substring(0, 200) ?? 'Unknown error';
+                        }
+                    } else {
+                        for (const cleaned of cleanedRows) {
+                            try {
+                                await (this.prisma as any)[table].upsert({
+                                    where: { id: cleaned.id },
+                                    create: cleaned,
+                                    update: {},
+                                });
+                                success++;
+                            } catch {
+                                skipped++;
+                            }
                         }
                     }
                     result[table].success = success;

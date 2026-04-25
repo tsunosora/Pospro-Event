@@ -7,7 +7,6 @@ const variantInclude = {
         include: { rawMaterialVariant: { include: { product: true } } },
         orderBy: { id: 'asc' as const }
     },
-    clickRate: true,
 };
 
 @Injectable()
@@ -61,7 +60,6 @@ export class ProductsService {
             include: {
                 category: { include: { parent: { select: { id: true, name: true } } } } as any,
                 unit: true,
-                clickRate: true,
                 variants: {
                     include: {
                         ...variantInclude,
@@ -91,7 +89,6 @@ export class ProductsService {
                 unit: true,
                 variants: { include: variantInclude },
                 ingredients: true,
-                clickRate: true,
             }
         });
         if (!product) throw new NotFoundException(`Product #${id} not found`);

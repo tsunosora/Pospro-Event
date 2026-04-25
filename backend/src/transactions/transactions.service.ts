@@ -123,10 +123,9 @@ export class TransactionsService {
                 const variant = await (tx as any).productVariant.findUnique({
                     where: { id: item.productVariantId },
                     include: {
-                        product: { include: { ingredients: true, clickRate: true } },
+                        product: { include: { ingredients: true } },
                         priceTiers: { orderBy: { minQty: 'asc' } },
                         variantIngredients: true,
-                        clickRate: true,
                     }
                 });
 
@@ -245,9 +244,6 @@ export class TransactionsService {
                         }
                     }
 
-                    // Click log data for AREA_BASED — variant-level takes priority over product-level
-                    const _areaClickRate = (variant as any).clickRate ?? (variant.product as any).clickRate;
-                    const _areaClicksPerUnit = (variant as any).clicksPerUnit ?? (variant.product as any).clicksPerUnit ?? 1;
                     transactionItemsData.push({
                         productVariantId: variant.id,
                         quantity: 1,
@@ -260,9 +256,6 @@ export class TransactionsService {
                         unitType: item.unitType || 'm',
                         note: item.note || null,
                         _requiresProduction: requiresProduction,
-                        _clickRateId: _areaClickRate?.isActive ? _areaClickRate.id : null,
-                        _clickQuantity: _areaClickRate?.isActive ? Math.max(1, Math.round(pcs * _areaClicksPerUnit)) : 0,
-                        _clickPricePerClick: _areaClickRate ? Number(_areaClickRate.pricePerClick) : 0,
                     });
 
                 } else {
@@ -279,9 +272,6 @@ export class TransactionsService {
                     }
 
                     lineTotal = resolvedPrice * item.quantity;
-                    // Click log data for UNIT — variant-level takes priority over product-level
-                    const _unitClickRate = (variant as any).clickRate ?? (variant.product as any).clickRate;
-                    const _unitClicksPerUnit = (variant as any).clicksPerUnit ?? (variant.product as any).clicksPerUnit ?? 1;
                     transactionItemsData.push({
                         productVariantId: variant.id,
                         quantity: item.quantity,
@@ -289,9 +279,6 @@ export class TransactionsService {
                         hppAtTime: resolvedHpp,
                         note: item.note || null,
                         _requiresProduction: requiresProduction,
-                        _clickRateId: _unitClickRate?.isActive ? _unitClickRate.id : null,
-                        _clickQuantity: _unitClickRate?.isActive ? Math.max(1, Math.round(item.quantity * _unitClicksPerUnit)) : 0,
-                        _clickPricePerClick: _unitClickRate ? Number(_unitClickRate.pricePerClick) : 0,
                     });
 
                     // Deduct product-level BOM (UNIT)
@@ -388,7 +375,7 @@ export class TransactionsService {
             }
 
             // Strip internal flags before creating items
-            const itemsForCreate = transactionItemsData.map(({ _requiresProduction, _clickRateId, _clickQuantity, _clickPricePerClick, ...rest }: any) => rest);
+            const itemsForCreate = transactionItemsData.map(({ _requiresProduction, ...rest }: any) => rest);
 
             const transaction = await tx.transaction.create({
                 data: {
@@ -448,52 +435,6 @@ export class TransactionsService {
                             priority: data.productionPriority || 'NORMAL',
                             deadline: data.productionDeadline ? new Date(data.productionDeadline) : null,
                             notes: data.productionNotes || null,
-                        },
-                    });
-                }
-            }
-
-            // Auto-create ClickLogs + PrintJobs for items linked to a ClickRate (paper print)
-            // Sequential counter for PRT job numbers within this transaction
-            const todayStr = `${effectiveDate.getFullYear()}${String(effectiveDate.getMonth() + 1).padStart(2, '0')}${String(effectiveDate.getDate()).padStart(2, '0')}`;
-            const prtPrefix = `PRT-${todayStr}-`;
-            const lastPrt = await (tx as any).printJob.findFirst({
-                where: { jobNumber: { startsWith: prtPrefix } },
-                orderBy: { jobNumber: 'desc' },
-                select: { jobNumber: true },
-            });
-            let prtSeq = 1;
-            if (lastPrt?.jobNumber) {
-                const n = parseInt(lastPrt.jobNumber.slice(prtPrefix.length), 10);
-                if (!Number.isNaN(n)) prtSeq = n + 1;
-            }
-
-            for (let i = 0; i < transactionItemsData.length; i++) {
-                const d = transactionItemsData[i] as any;
-                if (d._clickRateId && d._clickQuantity > 0 && d._clickPricePerClick > 0) {
-                    const txItem = (transaction as any).items[i];
-                    await (tx as any).clickLog.create({
-                        data: {
-                            clickRateId: d._clickRateId,
-                            transactionItemId: txItem.id,
-                            quantity: d._clickQuantity,
-                            pricePerClick: d._clickPricePerClick,
-                            totalCost: d._clickPricePerClick * d._clickQuantity,
-                            date: effectiveDate,
-                        },
-                    });
-
-                    // Auto-create PrintJob for paper print tracking
-                    const jobNumber = `${prtPrefix}${String(prtSeq).padStart(4, '0')}`;
-                    prtSeq += 1;
-                    await (tx as any).printJob.create({
-                        data: {
-                            jobNumber,
-                            transactionId: transaction.id,
-                            transactionItemId: txItem.id,
-                            quantity: txItem.quantity,
-                            status: 'ANTRIAN',
-                            notes: d.note || null,
                         },
                     });
                 }

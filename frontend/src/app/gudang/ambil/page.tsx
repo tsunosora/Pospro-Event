@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import {
     bootstrapPublicGudang, checkoutPublicGudang, savePin, clearPin, readPin,
-    getPublicActiveBorrows, returnPublicWithdrawal,
+    getPublicActiveBorrows, returnPublicWithdrawal, registerPublicWorker,
     type Bootstrap, type PublicActiveBorrow,
 } from "@/lib/api/publicGudang";
 import { verifyWarehousePin, getWarehousePinStatus } from "@/lib/api/warehousePin";
@@ -123,6 +123,324 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
     );
 }
 
+function ModePickModal({
+    onPick,
+    onLock,
+}: {
+    onPick: (mode: "ambil" | "kembali") => void;
+    onLock: () => void;
+}) {
+    const [showRegister, setShowRegister] = useState(false);
+
+    if (showRegister) {
+        return <WorkerRegisterCard onDone={() => setShowRegister(false)} />;
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gradient-to-br from-primary/15 via-background to-background overflow-y-auto">
+            <div className="bg-card border rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5 my-auto">
+                <div className="text-center">
+                    <div className="inline-flex rounded-full bg-primary/10 p-3 mb-3">
+                        <WarehouseIcon className="h-7 w-7 text-primary" />
+                    </div>
+                    <h1 className="text-xl font-bold">Mau melakukan apa?</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Pilih salah satu untuk mulai.
+                    </p>
+                </div>
+
+                {/* Banner: anda sudah terdaftar? */}
+                <div className="rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 p-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                        <div className="rounded-full bg-primary/15 p-2 shrink-0">
+                            <User className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-base font-bold">Sudah terdaftar di aplikasi?</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                Kalau belum, daftar dulu yuk sebelum melakukan peminjaman atau
+                                pengambilan barang.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setShowRegister(true)}
+                        className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-lg bg-primary text-primary-foreground text-base font-bold shadow-sm hover:opacity-90 active:scale-[0.98] transition"
+                    >
+                        <Plus className="h-5 w-5" />
+                        Daftar Dulu Yuk
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                        onClick={() => onPick("ambil")}
+                        className="group flex flex-col items-center gap-2 rounded-xl border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary transition p-5 text-center"
+                    >
+                        <div className="rounded-full bg-primary/15 group-hover:bg-primary/25 p-3 transition">
+                            <ShoppingBag className="h-7 w-7 text-primary" />
+                        </div>
+                        <span className="font-bold text-base">Ambil Barang</span>
+                        <span className="text-[11px] text-muted-foreground leading-tight">
+                            Keluarkan barang dari gudang untuk pinjam atau pakai
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => onPick("kembali")}
+                        className="group flex flex-col items-center gap-2 rounded-xl border-2 border-chart-3/30 bg-chart-3/5 hover:bg-chart-3/10 hover:border-chart-3 transition p-5 text-center"
+                    >
+                        <div className="rounded-full bg-chart-3/15 group-hover:bg-chart-3/25 p-3 transition">
+                            <RotateCcw className="h-7 w-7 text-chart-3" />
+                        </div>
+                        <span className="font-bold text-base">Kembalikan</span>
+                        <span className="text-[11px] text-muted-foreground leading-tight">
+                            Pulangkan barang pinjaman yang sudah dipakai
+                        </span>
+                    </button>
+                </div>
+
+                <div className="flex items-center justify-center gap-3 pt-1 border-t">
+                    <button
+                        onClick={onLock}
+                        className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 pt-3"
+                    >
+                        <LogOut className="h-3 w-3" /> Kunci kiosk
+                    </button>
+                    <a
+                        href="/"
+                        onClick={() => clearPin()}
+                        className="text-xs text-red-600 hover:text-red-700 inline-flex items-center gap-1 pt-3"
+                    >
+                        <LogOut className="h-3 w-3" /> Keluar
+                    </a>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function WorkerRegisterCard({ onDone }: { onDone: () => void }) {
+    const qc = useQueryClient();
+    const [name, setName] = useState("");
+    const [position, setPosition] = useState("");
+    const [phone, setPhone] = useState("");
+    const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const [cameraOpen, setCameraOpen] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
+
+    const mutation = useMutation({
+        mutationFn: async () => {
+            const fd = new FormData();
+            fd.append("name", name.trim());
+            if (position.trim()) fd.append("position", position.trim());
+            if (phone.trim()) fd.append("phone", phone.trim());
+            if (photoBlob) fd.append("photo", photoBlob, "worker-selfie.jpg");
+            return registerPublicWorker(fd);
+        },
+        onSuccess: async () => {
+            await qc.invalidateQueries({ queryKey: ["public-gudang-bootstrap"] });
+            setSuccess(true);
+        },
+        onError: (e: any) => {
+            setError(e?.response?.data?.message || "Gagal mendaftar");
+        },
+    });
+
+    function handlePhotoCapture(blob: Blob) {
+        if (blob.size > 8 * 1024 * 1024) {
+            setError("Ukuran foto maksimal 8 MB");
+            return;
+        }
+        if (photoPreview) URL.revokeObjectURL(photoPreview);
+        setPhotoBlob(blob);
+        setPhotoPreview(URL.createObjectURL(blob));
+        setCameraOpen(false);
+    }
+
+    function clearPhoto() {
+        if (photoPreview) URL.revokeObjectURL(photoPreview);
+        setPhotoBlob(null);
+        setPhotoPreview(null);
+    }
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        setError(null);
+        if (!name.trim()) {
+            setError("Nama wajib diisi");
+            return;
+        }
+        mutation.mutate();
+    }
+
+    if (success) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gradient-to-br from-primary/15 via-background to-background">
+                <div className="bg-card border rounded-2xl shadow-xl w-full max-w-md p-6 text-center space-y-4">
+                    <div className="inline-flex rounded-full bg-chart-3/15 p-3">
+                        <CheckCircle2 className="h-8 w-8 text-chart-3" />
+                    </div>
+                    <h2 className="text-lg font-bold">Pendaftaran Berhasil!</h2>
+                    <p className="text-sm text-muted-foreground">
+                        Selamat datang, <span className="font-semibold">{name}</span>. Sekarang
+                        kamu bisa pilih nama-mu di daftar petugas saat ambil/kembalikan barang.
+                    </p>
+                    <button
+                        onClick={onDone}
+                        className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-semibold hover:opacity-90"
+                    >
+                        Lanjutkan
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gradient-to-br from-primary/15 via-background to-background overflow-y-auto">
+            <form
+                onSubmit={handleSubmit}
+                className="bg-card border rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4 my-auto"
+            >
+                <div className="text-center">
+                    <div className="inline-flex rounded-full bg-primary/10 p-3 mb-3">
+                        <User className="h-7 w-7 text-primary" />
+                    </div>
+                    <h1 className="text-xl font-bold">Daftar Petugas</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Isi data diri agar bisa melakukan peminjaman / pengambilan barang.
+                    </p>
+                </div>
+
+                {error && (
+                    <div className="rounded-lg bg-destructive/10 text-destructive text-xs p-2 flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <span>{error}</span>
+                    </div>
+                )}
+
+                {/* Photo selfie via kamera */}
+                <div className="flex flex-col items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setCameraOpen(true)}
+                        className="relative rounded-full bg-muted hover:bg-muted/70 w-24 h-24 flex items-center justify-center overflow-hidden border-2 border-dashed border-primary/40 transition active:scale-95"
+                    >
+                        {photoPreview ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={photoPreview} alt="Preview" className="object-cover w-full h-full" />
+                        ) : (
+                            <div className="flex flex-col items-center gap-1 text-primary">
+                                <Camera className="h-7 w-7" />
+                                <span className="text-[10px] font-semibold">Foto</span>
+                            </div>
+                        )}
+                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setCameraOpen(true)}
+                            className="text-xs font-semibold text-primary hover:underline"
+                        >
+                            {photoPreview ? "Ambil Ulang" : "Ambil Foto Selfie"}
+                        </button>
+                        {photoPreview && (
+                            <>
+                                <span className="text-muted-foreground/50">·</span>
+                                <button
+                                    type="button"
+                                    onClick={clearPhoto}
+                                    className="text-xs text-destructive hover:underline"
+                                >
+                                    Hapus
+                                </button>
+                            </>
+                        )}
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                        Foto opsional, langsung dari kamera
+                    </span>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="block">
+                        <span className="text-xs font-semibold text-foreground">
+                            Nama Lengkap <span className="text-destructive">*</span>
+                        </span>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="cth: Budi Santoso"
+                            maxLength={100}
+                            className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-background"
+                            autoFocus
+                        />
+                    </label>
+
+                    <label className="block">
+                        <span className="text-xs font-semibold text-foreground">Posisi / Jabatan</span>
+                        <input
+                            type="text"
+                            value={position}
+                            onChange={(e) => setPosition(e.target.value)}
+                            placeholder="cth: Tim Pasang, Driver, Helper"
+                            maxLength={100}
+                            className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-background"
+                        />
+                    </label>
+
+                    <label className="block">
+                        <span className="text-xs font-semibold text-foreground">No. HP / WhatsApp</span>
+                        <input
+                            type="tel"
+                            inputMode="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="cth: 0812xxxx"
+                            maxLength={50}
+                            className="mt-1 w-full px-3 py-2 border rounded-lg text-sm bg-background"
+                        />
+                    </label>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                    <button
+                        type="button"
+                        onClick={onDone}
+                        className="flex-1 py-2.5 rounded-lg border text-sm font-semibold hover:bg-muted"
+                        disabled={mutation.isPending}
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={mutation.isPending}
+                        className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                    >
+                        {mutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                        )}
+                        Daftar
+                    </button>
+                </div>
+            </form>
+
+            {cameraOpen && (
+                <CameraCaptureModal
+                    title="Foto Selfie Pendaftaran"
+                    onCancel={() => setCameraOpen(false)}
+                    onConfirm={(blob) => handlePhotoCapture(blob)}
+                />
+            )}
+        </div>
+    );
+}
+
 export default function GudangAmbilPage() {
     const qc = useQueryClient();
     const [unlocked, setUnlocked] = useState(false);
@@ -141,6 +459,7 @@ export default function GudangAmbilPage() {
 
 function KioskContent({ onLock }: { onLock: () => void }) {
     const [mode, setMode] = useState<"ambil" | "kembali">("ambil");
+    const [modeChosen, setModeChosen] = useState(false);
 
     const { data, isLoading, error: bootErr } = useQuery<Bootstrap>({
         queryKey: ["public-gudang-bootstrap"],
@@ -161,6 +480,18 @@ function KioskContent({ onLock }: { onLock: () => void }) {
         );
     }
 
+    if (!modeChosen) {
+        return (
+            <ModePickModal
+                onPick={(m) => {
+                    setMode(m);
+                    setModeChosen(true);
+                }}
+                onLock={onLock}
+            />
+        );
+    }
+
     return (
         <div className="h-screen flex flex-col bg-background">
             <div className="border-b bg-card flex items-center px-2 py-1.5 gap-2">
@@ -175,6 +506,13 @@ function KioskContent({ onLock }: { onLock: () => void }) {
                 >
                     <LogOut className="h-3.5 w-3.5" /> Keluar
                 </a>
+                <button
+                    onClick={() => setModeChosen(false)}
+                    className="flex items-center gap-1 border rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted"
+                    title="Kembali ke pilih mode"
+                >
+                    <Package className="h-3.5 w-3.5" /> Pilih Mode
+                </button>
                 <div className="flex-1 flex justify-center">
                     <div className="inline-flex border rounded-lg overflow-hidden">
                         <button

@@ -1,506 +1,612 @@
 "use client";
 
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { getDashboardMetrics, getSalesChart, getCashierStats } from '@/lib/api';
+import { useQuery } from "@tanstack/react-query";
 import {
-  Wallet,
-  ArrowUpRight,
-  ArrowDownRight,
-  TrendingUp,
-  AlertTriangle,
-  Package,
-  Receipt,
-  Map,
-  Loader2,
   CalendarDays,
-  BarChart,
+  Loader2,
+  MapPin,
+  Package,
+  PackageOpen,
+  PlayCircle,
+  Plus,
+  UserCog,
   Users,
-  Calendar
 } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, BarChart as RechartsBarChart, Bar, Cell, LabelList } from 'recharts';
 import dayjs from "dayjs";
 import "dayjs/locale/id";
+import { cn } from "@/lib/utils";
+import {
+  getEventDashboard,
+  type EventDashboardSnapshot,
+  type EventRecord,
+  type EventStatus,
+} from "@/lib/api/events";
+
 dayjs.locale("id");
 
-type ChartPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
+const STATUS_LABEL: Record<EventStatus, string> = {
+  DRAFT: "Draft",
+  SCHEDULED: "Terjadwal",
+  IN_PROGRESS: "Berjalan",
+  COMPLETED: "Selesai",
+  CANCELLED: "Batal",
+};
 
-const PERIOD_OPTIONS: { key: ChartPeriod; label: string }[] = [
-  { key: 'daily', label: 'Harian' },
-  { key: 'weekly', label: 'Mingguan' },
-  { key: 'monthly', label: 'Bulanan' },
-  { key: 'yearly', label: 'Tahunan' },
-];
+const STATUS_STYLE: Record<EventStatus, string> = {
+  DRAFT: "bg-muted text-muted-foreground",
+  SCHEDULED: "bg-chart-2/15 text-chart-2",
+  IN_PROGRESS: "bg-primary/15 text-primary",
+  COMPLETED: "bg-chart-3/15 text-chart-3",
+  CANCELLED: "bg-destructive/10 text-destructive",
+};
 
-type CashierPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
-
-const CASHIER_PERIOD_OPTIONS: { key: CashierPeriod; label: string }[] = [
-  { key: 'daily', label: 'Harian' },
-  { key: 'weekly', label: 'Mingguan' },
-  { key: 'monthly', label: 'Bulanan' },
-  { key: 'yearly', label: 'Tahunan' },
-  { key: 'custom', label: 'Custom' },
-];
-
-function getCashierDateRange(period: CashierPeriod, customStart: string, customEnd: string) {
-  const now = dayjs();
-  switch (period) {
-    case 'daily':   return { start: now.format('YYYY-MM-DD'), end: now.format('YYYY-MM-DD') };
-    case 'weekly':  return { start: now.startOf('week').format('YYYY-MM-DD'), end: now.format('YYYY-MM-DD') };
-    case 'monthly': return { start: now.startOf('month').format('YYYY-MM-DD'), end: now.format('YYYY-MM-DD') };
-    case 'yearly':  return { start: now.startOf('year').format('YYYY-MM-DD'), end: now.format('YYYY-MM-DD') };
-    case 'custom':  return { start: customStart, end: customEnd };
-  }
+function fmtDate(v?: string | null) {
+  if (!v) return "—";
+  return dayjs(v).format("DD MMM YYYY");
 }
 
-export default function Home() {
-  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('daily');
-  const [cashierPeriod, setCashierPeriod] = useState<CashierPeriod>('daily');
-  const [cashierCustomStart, setCashierCustomStart] = useState(dayjs().format('YYYY-MM-DD'));
-  const [cashierCustomEnd, setCashierCustomEnd] = useState(dayjs().format('YYYY-MM-DD'));
+function fmtDateTime(v?: string | null) {
+  if (!v) return "—";
+  return dayjs(v).format("DD MMM, HH:mm");
+}
 
-  const { data: metrics, isLoading } = useQuery({
-    queryKey: ['dashboard-metrics'],
-    queryFn: getDashboardMetrics
-  });
+function fmtRange(start?: string | null, end?: string | null) {
+  if (!start && !end) return "—";
+  if (start && end) {
+    const s = dayjs(start);
+    const e = dayjs(end);
+    if (s.isSame(e, "day")) return s.format("DD MMM YYYY");
+    if (s.isSame(e, "month")) return `${s.format("DD")}–${e.format("DD MMM YYYY")}`;
+    return `${s.format("DD MMM")} – ${e.format("DD MMM YYYY")}`;
+  }
+  return fmtDate(start ?? end);
+}
 
-  const { data: chartRaw, isLoading: chartLoading } = useQuery({
-    queryKey: ['sales-chart', chartPeriod],
-    queryFn: () => getSalesChart(chartPeriod),
-  });
-
-  const cashierRange = getCashierDateRange(cashierPeriod, cashierCustomStart, cashierCustomEnd);
-  const { data: cashierStats, isLoading: cashierLoading } = useQuery({
-    queryKey: ['cashier-stats', cashierRange.start, cashierRange.end],
-    queryFn: () => getCashierStats(cashierRange.start, cashierRange.end),
-    refetchInterval: cashierPeriod === 'daily' ? 60_000 : false,
-    enabled: cashierPeriod !== 'custom' || (!!cashierCustomStart && !!cashierCustomEnd),
+export default function DashboardPage() {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["events-dashboard"],
+    queryFn: getEventDashboard,
+    refetchInterval: 60_000,
   });
 
   if (isLoading) {
-    return <div className="flex h-[calc(100vh-8rem)] items-center justify-center text-muted-foreground"><Loader2 className="animate-spin w-8 h-8" /></div>;
+    return (
+      <div className="flex h-[calc(100vh-8rem)] items-center justify-center text-muted-foreground">
+        <Loader2 className="animate-spin w-8 h-8" />
+      </div>
+    );
   }
 
-  const defaultMetrics = metrics || {
-    sales: { value: 0, trend: '0%', trendUp: true },
-    transactions: { value: 0, trend: '0%', trendUp: true },
-    cashflow: { value: 0, trend: '0%', trendUp: true },
-    alerts: { count: 0, items: [] },
-  };
+  if (isError || !data) {
+    return (
+      <div className="glass rounded-xl p-8 text-center">
+        <p className="text-sm text-muted-foreground">
+          Gagal memuat data dashboard.{" "}
+          <button onClick={() => refetch()} className="text-primary hover:underline">
+            Coba lagi
+          </button>
+        </p>
+      </div>
+    );
+  }
 
-  const chartData = (chartRaw as any[])?.map((item: any) => ({
-    name: item.label,
-    Total: item.total,
-  })) || [];
+  const monthLabel = dayjs().format("MMMM YYYY");
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Ringkasan aktivitas hari ini di Cabang Utama.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Dashboard Event</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ringkasan event berjalan, PIC lapangan, dan barang yang sedang keluar.
+          </p>
+        </div>
+        <Link
+          href="/events/new"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          Event Baru
+        </Link>
       </div>
 
-      {/* Top Value Metric Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Penjualan Hari Ini"
-          value={`Rp ${defaultMetrics.sales.value.toLocaleString('id-ID')}`}
-          trend={defaultMetrics.sales.trend}
-          trendUp={defaultMetrics.sales.trendUp}
-          icon={Receipt}
-          color="blue"
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label={`Event ${monthLabel}`}
+          value={data.stats.monthEvents}
+          icon={CalendarDays}
         />
-        <MetricCard
-          title="Total Transaksi"
-          value={defaultMetrics.transactions.value.toString()}
-          trend={defaultMetrics.transactions.trend}
-          trendUp={defaultMetrics.transactions.trendUp}
-          icon={TrendingUp}
-          color="indigo"
+        <StatCard
+          label="Sedang Berjalan"
+          value={data.stats.inProgress}
+          icon={PlayCircle}
+          accent
         />
-        <MetricCard
-          title="Kasir Masuk (Cashflow)"
-          value={`Rp ${defaultMetrics.cashflow.value.toLocaleString('id-ID')}`}
-          trend={defaultMetrics.cashflow.trend}
-          trendUp={defaultMetrics.cashflow.trendUp}
-          icon={Wallet}
-          color="emerald"
-        />
-        <MetricCard
-          title="Peringatan Stok"
-          value={`${defaultMetrics.alerts.count} Item`}
-          trend={`${defaultMetrics.alerts.count > 0 ? '+' : ''}${defaultMetrics.alerts.count}`}
-          trendUp={defaultMetrics.alerts.count === 0}
-          icon={AlertTriangle}
-          color="rose"
+        <StatCard label="PIC Aktif" value={data.stats.activePics} icon={UserCog} />
+        <StatCard
+          label="Barang Keluar (pcs)"
+          value={data.stats.itemsOut}
+          icon={PackageOpen}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Charts and Activity */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="glass rounded-xl p-6 min-h-[400px] flex flex-col">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                  Tren Penjualan
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">Total pendapatan kotor berdasarkan transaksi lunas.</p>
-              </div>
-              <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border shrink-0">
-                <CalendarDays className="w-4 h-4 text-muted-foreground ml-1.5 mr-0.5" />
-                {PERIOD_OPTIONS.map(opt => (
-                  <button
-                    key={opt.key}
-                    onClick={() => setChartPeriod(opt.key)}
-                    className={cn(
-                      'px-3 py-1 rounded-md text-xs font-medium transition-colors',
-                      chartPeriod === opt.key
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="w-full mt-4">
-              {chartLoading ? (
-                <div className="w-full h-[300px] flex items-center justify-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" opacity={0.5} />
-                    <XAxis
-                      dataKey="name"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 11, fill: '#6b7280' }}
-                      dy={10}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 11, fill: '#6b7280' }}
-                      tickFormatter={(val) => val >= 1000000 ? `${(val / 1000000).toFixed(1)}jt` : `${(val / 1000).toFixed(0)}k`}
-                      dx={-10}
-                    />
-                    <RechartsTooltip
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      formatter={(value: any) => [`Rp ${Number(value).toLocaleString('id-ID')}`, 'Pendapatan']}
-                      labelStyle={{ fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="Total"
-                      stroke="#3b82f6"
-                      strokeWidth={3}
-                      fillOpacity={1}
-                      fill="url(#colorTotal)"
-                      animationDuration={800}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center border border-dashed border-border rounded-lg bg-muted/20">
-                  <BarChart className="w-8 h-8 text-muted-foreground/30 mb-2" />
-                  <p className="text-sm text-muted-foreground">Belum ada data penjualan untuk periode ini.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <QuickActionCard
-              title="Buka Kasir"
-              desc="Mulai memproses transaksi pelanggan."
-              href="/pos"
-              icon={ShoppingCartIcon}
-              color="indigo"
-            />
-            <QuickActionCard
-              title="Tambah Produk"
-              desc="Masukkan item baru ke dalam inventori."
-              href="/inventory"
-              icon={Package}
-              color="emerald"
-            />
-          </div>
+          <InProgressList events={data.inProgress} />
+          <MonthEventsList events={data.monthEvents} monthLabel={monthLabel} />
         </div>
-
-        {/* Right Column: Alerts and Recent Activity */}
         <div className="space-y-6">
-          <div className="glass rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center">
-              <AlertTriangle className="mr-2 h-5 w-5 text-chart-5" />
-              Stok Menipis
-            </h2>
-            <div className="space-y-4">
-              {defaultMetrics.alerts.items.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">Status stok aman.</p>
-              ) : (
-                defaultMetrics.alerts.items.map((item: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between border-b border-border/50 last:border-0 pb-3 last:pb-0">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">Batas minimum: {item.limit}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="inline-flex items-center rounded-md bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive ring-1 ring-inset ring-destructive/20">
-                        Sisa {item.stock}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            <Link href="/inventory" className="block text-center mt-5 text-sm font-medium text-primary hover:text-primary/80">
-              Kelola Stok Barang
-            </Link>
-          </div>
-
+          <ActivePicsCard pics={data.activePics} />
         </div>
       </div>
 
-      {/* Performa Kasir — Full Width */}
-      <div className="glass rounded-xl p-6">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              Performa Kasir
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1">Total invoice lunas per kasir</p>
+      <WithdrawalsCard withdrawals={data.recentWithdrawals} />
+    </div>
+  );
+}
+
+// ─── Stat Card ─────────────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  accent,
+}: {
+  label: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string }>;
+  accent?: boolean;
+}) {
+  return (
+    <div className="glass rounded-xl p-4 sm:p-5">
+      <div
+        className={cn(
+          "inline-flex p-2 rounded-lg border",
+          accent
+            ? "bg-primary/15 text-primary border-primary/30"
+            : "bg-muted text-muted-foreground border-border",
+        )}
+      >
+        <Icon className="w-5 h-5" />
+      </div>
+      <p className="mt-3 text-xs sm:text-sm text-muted-foreground">{label}</p>
+      <p className="text-2xl sm:text-3xl font-bold text-foreground mt-1 tabular-nums">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+// ─── Event Sedang Berjalan ─────────────────────────────────────────────────
+
+function InProgressList({ events }: { events: EventRecord[] }) {
+  return (
+    <div className="glass rounded-xl p-5 sm:p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <PlayCircle className="w-5 h-5 text-primary" />
+          Event Sedang Berjalan
+        </h2>
+        <span className="text-xs text-muted-foreground">{events.length} event</span>
+      </div>
+      {events.length === 0 ? (
+        <EmptyHint
+          icon={PlayCircle}
+          text="Belum ada event yang berstatus berjalan."
+        />
+      ) : (
+        <div className="space-y-3">
+          {events.map((ev) => (
+            <EventRow key={ev.id} ev={ev} highlight />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Event Bulan Ini ───────────────────────────────────────────────────────
+
+function MonthEventsList({
+  events,
+  monthLabel,
+}: {
+  events: EventRecord[];
+  monthLabel: string;
+}) {
+  return (
+    <div className="glass rounded-xl p-5 sm:p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <CalendarDays className="w-5 h-5 text-primary" />
+          Event {monthLabel}
+        </h2>
+        <Link
+          href="/events"
+          className="text-xs text-primary hover:underline"
+        >
+          Lihat semua →
+        </Link>
+      </div>
+      {events.length === 0 ? (
+        <EmptyHint icon={CalendarDays} text="Tidak ada event terjadwal bulan ini." />
+      ) : (
+        <div className="space-y-2">
+          {events.slice(0, 8).map((ev) => (
+            <EventRow key={ev.id} ev={ev} />
+          ))}
+          {events.length > 8 && (
+            <p className="text-xs text-muted-foreground text-center pt-2">
+              +{events.length - 8} event lainnya
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EventRow({ ev, highlight }: { ev: EventRecord; highlight?: boolean }) {
+  return (
+    <Link
+      href={`/events/${ev.id}`}
+      className={cn(
+        "block rounded-lg border p-3 transition hover:border-primary/40 hover:bg-primary/5",
+        highlight ? "border-primary/30 bg-primary/5" : "border-border",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {ev.code}
+            </span>
+            <span
+              className={cn(
+                "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium",
+                STATUS_STYLE[ev.status],
+              )}
+            >
+              {STATUS_LABEL[ev.status]}
+            </span>
           </div>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-            <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
-              <Calendar className="w-4 h-4 text-muted-foreground ml-1.5 mr-0.5" />
-              {CASHIER_PERIOD_OPTIONS.map(opt => (
-                <button
-                  key={opt.key}
-                  onClick={() => setCashierPeriod(opt.key)}
-                  className={cn(
-                    'px-3 py-1 rounded-md text-xs font-medium transition-colors',
-                    cashierPeriod === opt.key
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            {cashierPeriod === 'custom' && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={cashierCustomStart}
-                  onChange={e => setCashierCustomStart(e.target.value)}
-                  className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
-                />
-                <span className="text-xs text-muted-foreground">s/d</span>
-                <input
-                  type="date"
-                  value={cashierCustomEnd}
-                  onChange={e => setCashierCustomEnd(e.target.value)}
-                  className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
-                />
-              </div>
+          <p className="mt-1 font-medium text-foreground truncate">{ev.name}</p>
+          <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+            {ev.venue && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {ev.venue}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1">
+              <CalendarDays className="w-3 h-3" />
+              {fmtRange(ev.eventStart, ev.eventEnd)}
+            </span>
+            {(ev.picWorker?.name || ev.picName) && (
+              <span className="inline-flex items-center gap-1">
+                <UserCog className="w-3 h-3" />
+                PIC: {ev.picWorker?.name ?? ev.picName}
+              </span>
             )}
           </div>
         </div>
+      </div>
+    </Link>
+  );
+}
 
-        {cashierLoading ? (
-          <div className="h-[280px] flex items-center justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : !cashierStats || (cashierStats as any[]).length === 0 ? (
-          <div className="h-[280px] flex flex-col items-center justify-center border border-dashed border-border rounded-lg bg-muted/20">
-            <Users className="w-8 h-8 text-muted-foreground/30 mb-2" />
-            <p className="text-sm text-muted-foreground">Belum ada transaksi untuk periode ini.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Bar Chart */}
-            <div>
-              <ResponsiveContainer width="100%" height={260}>
-                <RechartsBarChart
-                  data={(cashierStats as any[]).map(k => ({ name: k.name, Revenue: k.revenue, Count: k.count }))}
-                  margin={{ top: 10, right: 20, left: 0, bottom: 5 }}
-                  layout="vertical"
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" opacity={0.5} />
-                  <XAxis
-                    type="number"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                    tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}jt` : `${(v / 1000).toFixed(0)}k`}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: '#374151' }}
-                    width={100}
-                  />
-                  <RechartsTooltip
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: any, name: string | undefined) => name === 'Revenue'
-                      ? [`Rp ${Number(value).toLocaleString('id-ID')}`, 'Pendapatan']
-                      : [value, 'Invoice']}
-                    labelStyle={{ fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
-                  />
-                  <Bar dataKey="Revenue" radius={[0, 6, 6, 0]} maxBarSize={36}>
-                    {(cashierStats as any[]).map((_: any, i: number) => {
-                      const barColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
-                      return <Cell key={i} fill={barColors[i % barColors.length]} />;
-                    })}
-                    <LabelList
-                      dataKey="Count"
-                      position="right"
-                      formatter={(v: any) => `${v} inv`}
-                      style={{ fontSize: 11, fill: '#6b7280' }}
-                    />
-                  </Bar>
-                </RechartsBarChart>
-              </ResponsiveContainer>
-            </div>
+// ─── PIC Aktif ─────────────────────────────────────────────────────────────
 
-            {/* List / Table */}
-            <div className="space-y-3">
-              {(cashierStats as any[]).map((kasir, i) => {
-                const maxRevenue = (cashierStats as any[])[0]?.revenue || 1;
-                const pct = Math.round((kasir.revenue / maxRevenue) * 100);
-                const colors = ['bg-primary', 'bg-emerald-500', 'bg-amber-500', 'bg-violet-500', 'bg-rose-500'];
-                const bar = colors[i % colors.length];
-                return (
-                  <div key={kasir.name} className="space-y-1">
+function ActivePicsCard({
+  pics,
+}: {
+  pics: EventDashboardSnapshot["activePics"];
+}) {
+  return (
+    <div className="glass rounded-xl p-5 sm:p-6">
+      <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+        <Users className="w-5 h-5 text-primary" />
+        PIC di Lapangan
+      </h2>
+      {pics.length === 0 ? (
+        <EmptyHint icon={Users} text="Tidak ada PIC yang sedang bertugas." />
+      ) : (
+        <div className="space-y-4">
+          {pics.map((pic) => (
+            <div
+              key={pic.workerId}
+              className="border border-border/60 rounded-lg p-3"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                  {pic.name
+                    .split(" ")
+                    .map((s) => s[0])
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm text-foreground truncate">
+                    {pic.name}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {pic.position ?? "Petugas"}
+                    {pic.phone ? ` · ${pic.phone}` : ""}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {pic.events.map((ev) => (
+                  <Link
+                    key={ev.id}
+                    href={`/events/${ev.id}`}
+                    className="block text-xs rounded bg-muted/40 hover:bg-muted px-2 py-1.5 transition"
+                  >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${bar}`} />
-                        <span className="text-sm font-medium text-foreground truncate">{kasir.name}</span>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-semibold text-foreground">
-                          Rp {kasir.revenue.toLocaleString('id-ID')}
+                      <span className="font-medium text-foreground truncate">
+                        {ev.name}
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-medium",
+                          STATUS_STYLE[ev.status],
+                        )}
+                      >
+                        {STATUS_LABEL[ev.status]}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+                      {ev.venue && (
+                        <span className="inline-flex items-center gap-0.5 truncate">
+                          <MapPin className="w-2.5 h-2.5" />
+                          {ev.venue}
                         </span>
-                        <span className="text-xs text-muted-foreground ml-1.5">· {kasir.count} inv</span>
-                      </div>
+                      )}
+                      <span>{fmtRange(ev.eventStart, ev.eventEnd)}</span>
                     </div>
-                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-500 ${bar}`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-// Subcomponents
+// ─── Barang Keluar ─────────────────────────────────────────────────────────
 
-function MetricCard({ title, value, trend, trendUp, icon: Icon, color }: any) {
-  const colorStyles: Record<string, string> = {
-    blue: "bg-chart-2/10 text-chart-2 border-chart-2/20",
-    indigo: "bg-primary/20 text-primary border-primary/30",
-    emerald: "bg-chart-3/10 text-chart-3 border-chart-3/20",
-    rose: "bg-destructive/10 text-destructive border-destructive/20",
-  };
+function WithdrawalsCard({
+  withdrawals,
+}: {
+  withdrawals: EventDashboardSnapshot["recentWithdrawals"];
+}) {
+  const borrows = withdrawals.filter((w) => w.type === "BORROW");
+  const uses = withdrawals.filter((w) => w.type === "USE");
 
   return (
-    <div className="glass rounded-xl p-4 sm:p-6 transition-all duration-200 hover:shadow-md">
-      <div className="flex items-center justify-between">
-        <div className={cn("p-2 rounded-lg border", colorStyles[color])}>
-          <Icon className="h-5 w-5" />
+    <div className="glass rounded-xl p-5 sm:p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Package className="w-5 h-5 text-primary" />
+            Barang Keluar & Tracking Kembali
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Pinjam = wajib balik (TV, sofa, meja, dll). Pakai = habis pakai / operasional.
+          </p>
         </div>
-        <div
-          className={cn(
-            "flex items-center text-xs sm:text-sm font-medium px-2 py-1 rounded-full",
-            trendUp
-              ? "bg-chart-3/10 text-chart-3"
-              : "bg-destructive/10 text-destructive"
-          )}
+        <Link
+          href="/gudang/peminjaman"
+          className="text-xs text-primary hover:underline shrink-0"
         >
-          {trendUp ? (
-            <ArrowUpRight className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
-          ) : (
-            <ArrowDownRight className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
-          )}
-          {trend}
-        </div>
+          Semua →
+        </Link>
       </div>
-      <div className="mt-4">
-        <h3 className="text-xs sm:text-sm font-medium text-muted-foreground">{title}</h3>
-        <p className="mt-1 text-xl sm:text-2xl font-bold text-foreground tracking-tight break-words">
-          {value}
-        </p>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <WithdrawalSection
+          title="Barang Pinjam (Wajib Kembali)"
+          icon={PackageOpen}
+          accent
+          withdrawals={borrows}
+          emptyText="Tidak ada barang pinjaman aktif."
+          showReturnTracking
+        />
+        <WithdrawalSection
+          title="Barang Pakai (Operasional)"
+          icon={Package}
+          withdrawals={uses}
+          emptyText="Belum ada pengeluaran operasional."
+        />
       </div>
     </div>
   );
 }
 
-function QuickActionCard({ title, desc, href, icon: Icon, color }: any) {
-  const colorMap: Record<string, string> = {
-    indigo: "hover:border-primary/50 hover:shadow-primary/10 text-primary bg-primary/10",
-    emerald: "hover:border-chart-3/50 hover:shadow-chart-3/10 text-chart-3 bg-chart-3/10",
-  };
-
+function WithdrawalSection({
+  title,
+  icon: Icon,
+  accent,
+  withdrawals,
+  emptyText,
+  showReturnTracking,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  accent?: boolean;
+  withdrawals: EventDashboardSnapshot["recentWithdrawals"];
+  emptyText: string;
+  showReturnTracking?: boolean;
+}) {
   return (
-    <Link
-      href={href}
+    <div
       className={cn(
-        "group block glass rounded-xl p-5 border border-border transition-all duration-200 hover:-translate-y-1 hover:shadow-lg",
-        colorMap[color].split(' ')[0], colorMap[color].split(' ')[1]
+        "rounded-lg border p-3",
+        accent ? "border-primary/30 bg-primary/5" : "border-border bg-muted/20",
       )}
     >
-      <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center mb-4 transition-colors", colorMap[color].split(' ')[2], colorMap[color].split(' ')[3])}>
-        <Icon className="h-5 w-5" />
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className={cn("w-4 h-4", accent ? "text-primary" : "text-muted-foreground")} />
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {withdrawals.length} keluar
+        </span>
       </div>
-      <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">{title}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
-    </Link>
-  )
+
+      {withdrawals.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-6">{emptyText}</p>
+      ) : (
+        <div className="space-y-3">
+          {withdrawals.slice(0, 6).map((w) => (
+            <WithdrawalEntry
+              key={w.id}
+              w={w}
+              showReturnTracking={showReturnTracking}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function ShoppingCartIcon(props: any) {
+function WithdrawalEntry({
+  w,
+  showReturnTracking,
+}: {
+  w: EventDashboardSnapshot["recentWithdrawals"][number];
+  showReturnTracking?: boolean;
+}) {
+  const totalOut = w.items.reduce(
+    (s, it) => s + (Number(it.quantity) - Number(it.returnedQty)),
+    0,
+  );
+  const overdue =
+    showReturnTracking &&
+    w.scheduledReturnAt &&
+    dayjs(w.scheduledReturnAt).isBefore(dayjs(), "day") &&
+    totalOut > 0;
+
   return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="8" cy="21" r="1" />
-      <circle cx="19" cy="21" r="1" />
-      <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
-    </svg>
+    <div className="rounded-md border border-border/60 bg-card/60 p-2.5 text-xs space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] text-muted-foreground">{w.code}</span>
+        <span className="text-[10px] text-muted-foreground">
+          {fmtDateTime(w.createdAt)}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2 text-[11px] flex-wrap">
+        <span className="inline-flex items-center gap-1 text-muted-foreground">
+          <UserCog className="w-3 h-3" />
+          {w.worker.name}
+        </span>
+        {w.event ? (
+          <Link
+            href={`/events/${w.event.id}`}
+            className="inline-flex items-center gap-1 text-primary hover:underline truncate"
+          >
+            <CalendarDays className="w-3 h-3 shrink-0" />
+            {w.event.name}
+            {w.event.venue && (
+              <span className="text-muted-foreground/80">· {w.event.venue}</span>
+            )}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground italic truncate">
+            Keperluan: {w.purpose}
+          </span>
+        )}
+      </div>
+
+      <div className="border-t border-border/50 pt-1.5 space-y-1">
+        {w.items.map((it) => {
+          const qty = Number(it.quantity);
+          const ret = Number(it.returnedQty);
+          const out = qty - ret;
+          const fullyReturned = showReturnTracking && out === 0;
+          return (
+            <div
+              key={it.id}
+              className="flex items-center justify-between gap-2"
+            >
+              <span
+                className={cn(
+                  "truncate",
+                  fullyReturned && "text-muted-foreground line-through",
+                )}
+              >
+                {it.productVariant.product.name}
+                {it.productVariant.variantName
+                  ? ` ${it.productVariant.variantName}`
+                  : ""}
+              </span>
+              {showReturnTracking ? (
+                <span className="shrink-0 tabular-nums text-[10px] flex items-center gap-1">
+                  <span className="text-muted-foreground">{ret}/{qty}</span>
+                  {out > 0 ? (
+                    <span className="px-1.5 py-0.5 rounded bg-primary/15 text-primary font-semibold">
+                      {out} belum balik
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded bg-chart-3/15 text-chart-3 font-semibold">
+                      kembali
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  ×{qty}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {showReturnTracking && (
+        <div className="flex items-center justify-between gap-2 pt-1 text-[10px]">
+          {w.scheduledReturnAt ? (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1",
+                overdue ? "text-destructive font-semibold" : "text-muted-foreground",
+              )}
+            >
+              <CalendarDays className="w-3 h-3" />
+              Jadwal balik: {fmtDate(w.scheduledReturnAt)}
+              {overdue && " · TELAT"}
+            </span>
+          ) : (
+            <span className="text-muted-foreground italic">
+              Tanpa jadwal kembali
+            </span>
+          )}
+          <span className="font-semibold text-primary">
+            {totalOut} pcs outstanding
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmptyHint({
+  icon: Icon,
+  text,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  text: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 border border-dashed border-border rounded-lg text-muted-foreground">
+      <Icon className="w-7 h-7 mb-2 opacity-40" />
+      <p className="text-xs text-center">{text}</p>
+    </div>
   );
 }

@@ -144,6 +144,63 @@ export const sendEventWhatsapp = async (
 ) =>
     (await api.post<{ ok: true; target: string }>(`/events/${id}/whatsapp`, body)).data;
 
+export interface EventDashboardWithdrawal {
+    id: number;
+    code: string;
+    type: 'BORROW' | 'USE';
+    status: string;
+    purpose: string;
+    createdAt: string;
+    scheduledReturnAt: string | null;
+    worker: { id: number; name: string };
+    event: { id: number; code: string; name: string; venue: string | null } | null;
+    items: Array<{
+        id: number;
+        quantity: string | number;
+        returnedQty: string | number;
+        productVariant: {
+            id: number;
+            sku: string;
+            variantName: string | null;
+            product: { id: number; name: string };
+        };
+    }>;
+}
+
+export interface EventDashboardPic {
+    workerId: number;
+    name: string;
+    position: string | null;
+    phone: string | null;
+    events: Array<{
+        id: number;
+        code: string;
+        name: string;
+        venue: string | null;
+        status: EventStatus;
+        setupStart: string | null;
+        eventStart: string | null;
+        eventEnd: string | null;
+    }>;
+}
+
+export interface EventDashboardSnapshot {
+    stats: {
+        monthEvents: number;
+        inProgress: number;
+        activePics: number;
+        itemsOut: number;
+    };
+    monthEvents: EventRecord[];
+    inProgress: EventRecord[];
+    activePics: EventDashboardPic[];
+    recentWithdrawals: EventDashboardWithdrawal[];
+    generatedAt: string;
+}
+
+export const getEventDashboard = async () =>
+    (await api.get<EventDashboardSnapshot>('/events/dashboard')).data;
+
 export const exportEventPdfUrl = (id: number) => {
     const base = process.env.NEXT_PUBLIC_API_URL ?? '';
     return `${base}/events/${id}/export/pdf`;

@@ -28,6 +28,15 @@ const photoStorage = diskStorage({
     },
 });
 
+const workerPhotoStorage = diskStorage({
+    destination: './public/uploads',
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const ext = extname(file.originalname) || '.jpg';
+        cb(null, `worker-${uniqueSuffix}${ext}`);
+    },
+});
+
 const photoFilter = (req: any, file: any, cb: any) => {
     if (!file.originalname.toLowerCase().match(/\.(jpg|jpeg|jfif|png|gif|webp)$/)) {
         return cb(new BadRequestException('Hanya file gambar yang diijinkan'), false);
@@ -139,6 +148,46 @@ export class PublicGudangController {
             returnPhotoUrl: file ? `/uploads/${file.filename}` : undefined,
         };
         return this.withdrawals.returnItems(id, input);
+    }
+
+    @Post('register-worker')
+    @UseInterceptors(FileInterceptor('photo', {
+        storage: workerPhotoStorage,
+        fileFilter: photoFilter,
+        limits: { fileSize: 8 * 1024 * 1024 },
+    }))
+    async registerWorker(
+        @Body() body: any,
+        @UploadedFile() file?: Express.Multer.File,
+    ) {
+        const name = String(body.name ?? '').trim();
+        if (!name) throw new BadRequestException('Nama wajib diisi');
+        if (name.length > 100) throw new BadRequestException('Nama maksimal 100 karakter');
+
+        const position = body.position ? String(body.position).trim().slice(0, 100) : null;
+        const phone = body.phone ? String(body.phone).trim().slice(0, 50) : null;
+
+        // Cek duplikasi nama (case-insensitive) supaya tidak bikin worker ganda
+        const existing = await this.prisma.worker.findFirst({
+            where: { name: { equals: name } },
+        });
+        if (existing) {
+            throw new BadRequestException(
+                `Nama "${name}" sudah terdaftar. Silakan pilih nama Anda dari daftar.`,
+            );
+        }
+
+        const worker = await this.prisma.worker.create({
+            data: {
+                name,
+                position,
+                phone,
+                photoUrl: file ? `/uploads/${file.filename}` : null,
+                isActive: true,
+            },
+            select: { id: true, name: true, position: true, photoUrl: true },
+        });
+        return worker;
     }
 
     @Post('checkout')

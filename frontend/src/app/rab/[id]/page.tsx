@@ -15,6 +15,7 @@ import {
     type BoothVariant,
 } from "@/lib/api/rab";
 import { getRabCategories, type RabCategory } from "@/lib/api/rab-categories";
+import { getRabLooseItemSuggestions, type RabLooseItem } from "@/lib/api/rab-loose-items";
 import { getCustomers } from "@/lib/api/customers";
 import { getCategories, getUnits } from "@/lib/api/products";
 import {
@@ -33,6 +34,8 @@ import {
     Search,
     Users,
     ImagePlus,
+    Bookmark,
+    BookmarkCheck,
 } from "lucide-react";
 
 const toast = {
@@ -294,6 +297,10 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                     orderIndex: idx,
                     productVariantId: it.productVariantId ?? null,
                     notes: it.notes ?? null,
+                    saveAsLoose:
+                        !it.productVariantId &&
+                        !!it.description?.trim() &&
+                        (it.saveAsLoose ?? true),
                 })),
             }),
         onSuccess: () => {
@@ -591,7 +598,54 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                                         productVariantId: v.id,
                                                                     });
                                                                 }}
+                                                                onPickLoose={(li) => {
+                                                                    updateItem(it._key, {
+                                                                        description: li.description,
+                                                                        unit: li.unit ?? it.unit,
+                                                                        priceRab: parseFloat(li.lastPriceRab) || Number(it.priceRab) || 0,
+                                                                        priceCost: parseFloat(li.lastPriceCost) || Number(it.priceCost) || 0,
+                                                                        productVariantId: null,
+                                                                        saveAsLoose: true,
+                                                                    });
+                                                                }}
                                                             />
+                                                            {!it.productVariantId && (() => {
+                                                                const hasDesc = !!it.description?.trim();
+                                                                const willSave = hasDesc && (it.saveAsLoose ?? true);
+                                                                return (
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={!hasDesc}
+                                                                        onClick={() =>
+                                                                            updateItem(it._key, { saveAsLoose: !willSave })
+                                                                        }
+                                                                        title={
+                                                                            !hasDesc
+                                                                                ? "Isi uraian dulu untuk bisa disimpan"
+                                                                                : willSave
+                                                                                    ? "Klik untuk batal simpan"
+                                                                                    : "Klik untuk simpan ke Item Lepas"
+                                                                        }
+                                                                        className={
+                                                                            "mt-1.5 inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium border transition " +
+                                                                            (!hasDesc
+                                                                                ? "border-dashed border-border text-muted-foreground/50 cursor-not-allowed"
+                                                                                : willSave
+                                                                                    ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                                                                                    : "border-border bg-muted/40 text-muted-foreground hover:bg-muted/70")
+                                                                        }
+                                                                    >
+                                                                        {willSave ? (
+                                                                            <BookmarkCheck className="h-3.5 w-3.5" />
+                                                                        ) : (
+                                                                            <Bookmark className="h-3.5 w-3.5" />
+                                                                        )}
+                                                                        {willSave
+                                                                            ? "Akan disimpan ke Item Lepas"
+                                                                            : "Tidak disimpan"}
+                                                                    </button>
+                                                                );
+                                                            })()}
                                                         </td>
                                                         <td className="p-1">
                                                             <input
@@ -938,14 +992,17 @@ function UraianAutocomplete({
     value,
     onChange,
     onPick,
+    onPickLoose,
 }: {
     value: string;
     onChange: (v: string) => void;
     onPick: (v: BoothVariant) => void;
+    onPickLoose?: (li: RabLooseItem) => void;
 }) {
     const [open, setOpen] = useState(false);
     const [highlight, setHighlight] = useState(0);
     const [rect, setRect] = useState<{ left: number; top: number; width: number } | null>(null);
+    const [debounced, setDebounced] = useState(value);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const { data: variants } = useQuery({
@@ -953,8 +1010,20 @@ function UraianAutocomplete({
         queryFn: () => getBoothVariants(undefined),
     });
 
+    useEffect(() => {
+        const t = setTimeout(() => setDebounced(value), 250);
+        return () => clearTimeout(t);
+    }, [value]);
+
+    const { data: looseSuggestions = [] } = useQuery<RabLooseItem[]>({
+        queryKey: ["rab-loose-item-suggestions", debounced],
+        queryFn: () => getRabLooseItemSuggestions(debounced.trim()),
+        enabled: open,
+        staleTime: 30_000,
+    });
+
     const q = value.trim().toLowerCase();
-    const matches = useMemo(() => {
+    const variantMatches = useMemo(() => {
         const list = variants ?? [];
         if (!q) return list.slice(0, 8);
         return list
@@ -964,6 +1033,17 @@ function UraianAutocomplete({
             })
             .slice(0, 8);
     }, [variants, q]);
+
+    const looseMatches = useMemo(() => looseSuggestions.slice(0, 8), [looseSuggestions]);
+
+    type Combined =
+        | { kind: "variant"; data: BoothVariant }
+        | { kind: "loose"; data: RabLooseItem };
+    const matches: Combined[] = useMemo(() => {
+        const v: Combined[] = variantMatches.map((d) => ({ kind: "variant", data: d }));
+        const l: Combined[] = looseMatches.map((d) => ({ kind: "loose", data: d }));
+        return [...l, ...v].slice(0, 12);
+    }, [variantMatches, looseMatches]);
 
     const recalcRect = () => {
         const el = inputRef.current;
@@ -1004,6 +1084,16 @@ function UraianAutocomplete({
         onPick(v);
         setOpen(false);
     };
+    const pickLoose = (li: RabLooseItem) => {
+        onPickLoose?.(li);
+        setOpen(false);
+    };
+    const pickAt = (i: number) => {
+        const m = matches[i];
+        if (!m) return;
+        if (m.kind === "variant") pick(m.data);
+        else pickLoose(m.data);
+    };
 
     const showDropdown = open && matches.length > 0 && rect !== null;
 
@@ -1028,7 +1118,7 @@ function UraianAutocomplete({
                         setHighlight((h) => Math.max(h - 1, 0));
                     } else if (e.key === "Enter") {
                         e.preventDefault();
-                        pick(matches[highlight]);
+                        pickAt(highlight);
                     } else if (e.key === "Escape") {
                         setOpen(false);
                     }
@@ -1049,35 +1139,62 @@ function UraianAutocomplete({
                     }}
                     className="bg-background border rounded-md shadow-lg max-h-64 overflow-y-auto"
                 >
-                    {matches.map((v, i) => (
-                        <button
-                            key={v.id}
-                            type="button"
-                            onMouseDown={(e) => {
-                                e.preventDefault();
-                                pick(v);
-                            }}
-                            onMouseEnter={() => setHighlight(i)}
-                            className={`w-full text-left px-2 py-1.5 flex items-center justify-between gap-2 text-xs ${
-                                i === highlight ? "bg-muted" : "hover:bg-muted/50"
-                            }`}
-                        >
-                            <div className="min-w-0 flex-1">
-                                <div className="font-medium truncate">
-                                    {v.product.name}
-                                    {v.variantName ? ` — ${v.variantName}` : ""}
+                    {matches.map((m, i) => {
+                        if (m.kind === "variant") {
+                            const v = m.data;
+                            return (
+                                <button
+                                    key={`v-${v.id}`}
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); pick(v); }}
+                                    onMouseEnter={() => setHighlight(i)}
+                                    className={`w-full text-left px-2 py-1.5 flex items-center justify-between gap-2 text-xs ${
+                                        i === highlight ? "bg-muted" : "hover:bg-muted/50"
+                                    }`}
+                                >
+                                    <div className="min-w-0 flex-1">
+                                        <div className="font-medium truncate">
+                                            {v.product.name}
+                                            {v.variantName ? ` — ${v.variantName}` : ""}
+                                        </div>
+                                        <div className="text-[10px] text-muted-foreground flex gap-2">
+                                            <span className="px-1 rounded bg-blue-100 text-blue-700">katalog</span>
+                                            {v.sku && <span className="font-mono">{v.sku}</span>}
+                                            {v.size && <span>· {v.size}</span>}
+                                            {v.boothProductType && <span>· {v.boothProductType}</span>}
+                                        </div>
+                                    </div>
+                                    <div className="font-mono shrink-0">
+                                        Rp {Number(v.price).toLocaleString("id-ID")}
+                                    </div>
+                                </button>
+                            );
+                        }
+                        const li = m.data;
+                        return (
+                            <button
+                                key={`l-${li.id}`}
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); pickLoose(li); }}
+                                onMouseEnter={() => setHighlight(i)}
+                                className={`w-full text-left px-2 py-1.5 flex items-center justify-between gap-2 text-xs ${
+                                    i === highlight ? "bg-muted" : "hover:bg-muted/50"
+                                }`}
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <div className="font-medium truncate">{li.description}</div>
+                                    <div className="text-[10px] text-muted-foreground flex gap-2">
+                                        <span className="px-1 rounded bg-amber-100 text-amber-700">item lepas</span>
+                                        {li.unit && <span>{li.unit}</span>}
+                                        <span>· {li.usageCount}× pakai</span>
+                                    </div>
                                 </div>
-                                <div className="text-[10px] text-muted-foreground flex gap-2">
-                                    {v.sku && <span className="font-mono">{v.sku}</span>}
-                                    {v.size && <span>· {v.size}</span>}
-                                    {v.boothProductType && <span>· {v.boothProductType}</span>}
+                                <div className="font-mono shrink-0">
+                                    Rp {Math.round(parseFloat(li.lastPriceRab) || 0).toLocaleString("id-ID")}
                                 </div>
-                            </div>
-                            <div className="font-mono shrink-0">
-                                Rp {Number(v.price).toLocaleString("id-ID")}
-                            </div>
-                        </button>
-                    ))}
+                            </button>
+                        );
+                    })}
                 </div>
             )}
         </>

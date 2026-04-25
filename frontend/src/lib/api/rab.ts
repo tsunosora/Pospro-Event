@@ -21,6 +21,7 @@ export interface RabItem {
     orderIndex?: number;
     productVariantId?: number | null;
     notes?: string | null;
+    saveAsLoose?: boolean;
 }
 
 export interface RabPlan {

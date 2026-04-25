@@ -9,4 +9,5 @@ export interface RabItemInput {
     orderIndex?: number;
     productVariantId?: number | null;
     notes?: string;
+    saveAsLoose?: boolean;
 }
