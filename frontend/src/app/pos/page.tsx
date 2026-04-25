@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getProducts, getSettings, getBankAccounts, getCustomers, createCustomer, getUsers, createTransaction } from '@/lib/api';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle2, Ruler, X, RefreshCw, StickyNote, Printer, MessageCircle, Pencil, Check, CalendarClock, CalendarRange, Clock } from "lucide-react";
+import { Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle2, Ruler, X, RefreshCw, StickyNote, Printer, MessageCircle, Pencil, Check, CalendarClock, CalendarRange, Clock, FileSpreadsheet } from "lucide-react";
 import dayjs from 'dayjs';
 import { cn } from "@/lib/utils";
 import { useCartStore, CartItem } from '@/store/cart-store';
@@ -590,7 +590,22 @@ function POSPageContent() {
                                                 }
                                             </div>
                                             <p className="font-semibold text-sm text-foreground line-clamp-2">{p.name}{v.variantName ? ` — ${v.variantName}` : (v.size ? ` (${v.size})` : '')}</p>
-                                            <p className="text-xs text-muted-foreground truncate mb-1">{v.sku}</p>
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <p className="text-xs text-muted-foreground truncate flex-1">{v.sku}</p>
+                                                {v.sourceRabPlanId && (
+                                                    <a
+                                                        href={`/rab/${v.sourceRabPlanId}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium shrink-0"
+                                                        title="Lihat rincian RAB (HPP kalkulator)"
+                                                    >
+                                                        <FileSpreadsheet className="h-2.5 w-2.5" />
+                                                        RAB
+                                                    </a>
+                                                )}
+                                            </div>
                                             <div className="flex items-center justify-between">
                                                 <p className="font-bold text-primary text-sm">
                                                     Rp {getEffectivePrice(v).toLocaleString('id-ID')}

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>Rundown — {{ev.name}}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 11px; color: #1f2937; margin: 0; }
+  .header { border-bottom: 2px solid #111827; padding-bottom: 10px; margin-bottom: 14px; }
+  .title { font-size: 20px; font-weight: 700; margin: 0; }
+  .sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; margin-right: 6px; }
+  .badge-brand { background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
+  .badge-status { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .card { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; }
+  .card h3 { margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #6b7280; letter-spacing: 0.05em; }
+  .row { margin-bottom: 4px; font-size: 12px; }
+  .row b { color: #111827; }
+  .phases { margin-bottom: 14px; }
+  .phase { border-left: 4px solid #e5e7eb; padding: 8px 10px; margin-bottom: 6px; border-radius: 4px; }
+  .phase .ph-label { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
+  .phase .ph-time { font-size: 11px; color: #374151; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; }
+  th { background: #f3f4f6; font-size: 10px; text-transform: uppercase; color: #374151; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tfoot td { font-weight: 700; border-top: 2px solid #111827; }
+  .notes { border: 1px dashed #d1d5db; border-radius: 6px; padding: 8px 10px; background: #fafafa; margin-bottom: 14px; }
+  .foot { margin-top: 18px; padding-top: 10px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #6b7280; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">{{ev.name}}</div>
+    <div class="sub">
+      <span class="badge badge-brand">{{brandLabel}}</span>
+      <span class="badge badge-status">{{statusLabel}}</span>
+      <span style="font-family: monospace;">{{ev.code}}</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Info Event</h3>
+      {{#if ev.venue}}<div class="row"><b>Lokasi:</b> {{ev.venue}}</div>{{/if}}
+      <div class="row"><b>Klien:</b> {{klien}}{{#if klienCompany}} ({{klienCompany}}){{/if}}</div>
+      <div class="row"><b>PIC:</b> {{pic}}{{#if picPosition}} — {{picPosition}}{{/if}}</div>
+    </div>
+    <div class="card">
+      <h3>Jadwal Fase</h3>
+      <div class="phases">
+        {{#each phases}}
+          <div class="phase" style="border-left-color: {{this.color}}; background: {{this.color}}33;">
+            <div class="ph-label">{{this.label}}</div>
+            <div class="ph-time">{{this.start}}<br/>→ {{this.end}}</div>
+          </div>
+        {{/each}}
+      </div>
+    </div>
+  </div>
+
+  {{#if ev.notes}}
+  <div class="notes">
+    <b>Catatan:</b><br/>
+    {{ev.notes}}
+  </div>
+  {{/if}}
+
+  {{#if items.length}}
+  <h3 style="margin-bottom:6px; font-size:12px; text-transform:uppercase; color:#374151;">Ringkasan Barang Terkait</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Produk / SKU</th>
+        <th class="num" style="width:80px;">Qty</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each items}}
+        <tr>
+          <td>
+            <div>{{this.productName}}</div>
+            <div style="font-size:9px; color:#6b7280; font-family:monospace;">{{this.sku}}{{#if this.variantName}} • {{this.variantName}}{{/if}}</div>
+          </td>
+          <td class="num">{{this.qty}}</td>
+        </tr>
+      {{/each}}
+    </tbody>
+    <tfoot>
+      <tr><td>Total</td><td class="num">{{totalQty}}</td></tr>
+    </tfoot>
+  </table>
+  {{/if}}
+
+  <div class="foot">
+    <div>Dicetak: {{generatedAt}}</div>
+    <div>Rundown Event — {{ev.code}}</div>
+  </div>
+</body>
+</html>

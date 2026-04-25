@@ -34,8 +34,10 @@ export function MainLayout({ children }: MainLayoutProps) {
     const isCetakPage = pathname.startsWith("/cetak");
     const isPublicProductPage = pathname.startsWith("/p/");
     const isDesignerPortal = pathname.startsWith("/so-designer");
+    const isKioskPage = pathname.startsWith("/gudang/ambil");
+    const isSharePage = pathname.startsWith("/share/");
 
-    if (isLoginPage || isOpnamePage || isProduksiPage || isCetakPage || isPublicProductPage || isDesignerPortal) {
+    if (isLoginPage || isOpnamePage || isProduksiPage || isCetakPage || isPublicProductPage || isDesignerPortal || isKioskPage || isSharePage) {
         return <>{children}</>;
     }
 

@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProducts, logStockMovement, deleteProduct, bulkDeleteProducts, bulkImportProducts } from '@/lib/api';
 import { downloadBulkTemplate, parseBulkExcel, BulkProductInput } from '@/lib/bulk-import';
-import { Search, Plus, Package, RefreshCw, X, Image as ImageIcon, Pencil, Trash2, ChevronDown, Filter, Download, Upload, Calculator, Share2, History, MoreVertical, ShoppingCart } from 'lucide-react';
+import { Search, Plus, Package, RefreshCw, X, Image as ImageIcon, Pencil, Trash2, ChevronDown, Filter, Download, Upload, Calculator, Share2, History, MoreVertical, ShoppingCart, FileSpreadsheet } from 'lucide-react';
 import StockHistoryModal from './StockHistoryModal';
 import PurchaseModal from './PurchaseModal';
 import Link from 'next/link';
@@ -797,9 +797,20 @@ export default function InventoryPage() {
                                                 <td className="px-5 py-4 whitespace-nowrap">
                                                     <div className="text-sm font-medium text-foreground">{variant.sku}</div>
                                                     {variant.variantName && <div className="text-xs text-muted-foreground mt-0.5">{variant.variantName}</div>}
-                                                    <div className="flex gap-1 mt-0.5">
+                                                    <div className="flex gap-1 mt-0.5 items-center flex-wrap">
                                                         {variant.size && <span className="text-xs text-muted-foreground border border-border rounded px-1">{variant.size}</span>}
                                                         {variant.color && <span className="text-xs text-muted-foreground border border-border rounded px-1">{variant.color}</span>}
+                                                        {variant.boothProductType && <span className="text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">{variant.boothProductType}</span>}
+                                                        {variant.sourceRabPlanId && (
+                                                            <a
+                                                                href={`/rab/${variant.sourceRabPlanId}`}
+                                                                className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium border border-blue-200"
+                                                                title="Lihat rincian RAB asal"
+                                                            >
+                                                                <FileSpreadsheet className="h-2.5 w-2.5" />
+                                                                RAB
+                                                            </a>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-5 py-4 whitespace-nowrap text-sm text-foreground/80">

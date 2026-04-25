@@ -51,6 +51,12 @@ export class ProductsController {
         return this.productsService.findAll();
     }
 
+    // Picker utk RAB/Penawaran: list variant (sudah flat) dgn filter boothProductType
+    @Get('variants/booth')
+    listBoothVariants(@Query('type') type?: string) {
+        return this.productsService.listBoothVariants(type);
+    }
+
     @Get(':id')
     findOne(@Param('id', ParseIntPipe) id: number) {
         return this.productsService.findOne(id);

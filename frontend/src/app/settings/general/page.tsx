@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getSettings, updateSettings, uploadLogoImage } from '@/lib/api';
-import { Store, Phone, MapPin, Save, Loader2, Ruler, ToggleLeft, ToggleRight, UploadCloud, Percent, KeyRound } from 'lucide-react';
+import { Store, Phone, MapPin, Save, Loader2, Ruler, ToggleLeft, ToggleRight, UploadCloud, Percent, KeyRound, Hash, Mail, User } from 'lucide-react';
 
 export default function GeneralSettings() {
     const [isLoading, setIsLoading] = useState(true);
@@ -15,6 +15,9 @@ export default function GeneralSettings() {
         enableTax: true,
         taxRate: 10,
         operatorPin: '',
+        companyCode: '',
+        companyEmail: '',
+        directorName: '',
     });
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -29,6 +32,9 @@ export default function GeneralSettings() {
                 enableTax: data.enableTax ?? true,
                 taxRate: data.taxRate ? Number(data.taxRate) : 10,
                 operatorPin: data.operatorPin || '',
+                companyCode: (data as any).companyCode || '',
+                companyEmail: (data as any).companyEmail || '',
+                directorName: (data as any).directorName || '',
             });
             setLogoUrl(data.logoImageUrl || null);
             setIsLoading(false);
@@ -232,6 +238,60 @@ export default function GeneralSettings() {
                             placeholder="Contoh: 1234"
                         />
                         <p className="text-xs text-muted-foreground">Operator bisa akses <strong>/produksi</strong> dan masukkan PIN ini untuk melihat antrian cetak.</p>
+                    </div>
+                </div>
+
+                {/* Identitas Dokumen Penawaran / RAB */}
+                <div className="glass p-5 rounded-xl border border-border space-y-5">
+                    <div>
+                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Identitas Dokumen Penawaran &amp; RAB</h2>
+                        <p className="text-xs text-muted-foreground mt-1">Dipakai saat <b>Assign Nomor</b> penawaran dan header dokumen PDF/DOCX/XLSX.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                            <Hash className="h-4 w-4 text-muted-foreground" />
+                            Kode Perusahaan <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={form.companyCode}
+                            maxLength={10}
+                            onChange={e => setForm({ ...form, companyCode: e.target.value })}
+                            className="w-40 px-4 py-2 border border-border bg-background rounded-lg focus:ring-primary focus:border-primary outline-none text-sm font-mono uppercase"
+                            placeholder="Ep / Xp"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Singkatan yang muncul di nomor dokumen. Contoh <code className="bg-muted px-1 rounded">Ep</code> → <code className="bg-muted px-1 rounded">1/Ep/Pnwr/IV/26</code>. Wajib diisi sebelum bisa Assign Nomor.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            Nama Direktur / Penanggung Jawab
+                        </label>
+                        <input
+                            type="text"
+                            value={form.directorName}
+                            onChange={e => setForm({ ...form, directorName: e.target.value })}
+                            className="w-full max-w-md px-4 py-2 border border-border bg-background rounded-lg focus:ring-primary focus:border-primary outline-none text-sm"
+                            placeholder="Nama yang akan muncul di blok tanda tangan"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            Email Perusahaan
+                        </label>
+                        <input
+                            type="email"
+                            value={form.companyEmail}
+                            onChange={e => setForm({ ...form, companyEmail: e.target.value })}
+                            className="w-full max-w-md px-4 py-2 border border-border bg-background rounded-lg focus:ring-primary focus:border-primary outline-none text-sm"
+                            placeholder="info@perusahaan.com"
+                        />
                     </div>
                 </div>
 

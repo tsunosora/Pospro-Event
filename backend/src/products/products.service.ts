@@ -98,6 +98,28 @@ export class ProductsService {
         return product;
     }
 
+    async listBoothVariants(type?: string) {
+        const whereBooth: any =
+            type === 'SEWA' || type === 'PENGADAAN' ? { boothProductType: type } : {};
+        return this.prisma.productVariant.findMany({
+            where: whereBooth,
+            orderBy: [{ productId: 'asc' }, { id: 'asc' }],
+            select: {
+                id: true,
+                variantName: true,
+                sku: true,
+                size: true,
+                price: true,
+                hpp: true,
+                boothProductType: true,
+                defaultRentalUnit: true,
+                product: {
+                    select: { id: true, name: true, description: true, unit: { select: { name: true } } },
+                },
+            },
+        });
+    }
+
     async findOnePublic(id: number) {
         const product = await this.prisma.product.findUnique({
             where: { id },

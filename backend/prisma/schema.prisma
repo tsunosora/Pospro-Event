@@ -64,6 +64,7 @@ model User {
   cashflowReviews     CashflowChangeRequest[]    @relation("CashflowReviews")
   editRequests        TransactionEditRequest[]   @relation("EditRequests")
   editReviews         TransactionEditRequest[]   @relation("EditReviews")
+  withdrawalsCreated  Withdrawal[]               @relation("WithdrawalCreatedBy")
 
   @@map("users")
 }
@@ -138,6 +139,9 @@ model ProductVariant {
   rollEffectivePrintWidth Decimal?  @map("roll_effective_print_width") @db.Decimal(10, 2)
   clickRateId             Int?      @map("click_rate_id")   // override klik per-varian
   clicksPerUnit           Float?    @map("clicks_per_unit") // klik per unit terjual
+  boothProductType        BoothProductType? @map("booth_product_type")       // SEWA atau PENGADAAN untuk pospenawaran
+  defaultRentalUnit       String?   @db.VarChar(30) @map("default_rental_unit") // "hari", "m²", "unit", "set"
+  sourceRabPlanId         Int?      @map("source_rab_plan_id")                 // RAB asal (bila varian dibuat dari RAB)
   createdAt               DateTime? @default(now()) @map("created_at")
   updatedAt               DateTime? @default(now()) @updatedAt @map("updated_at")
 
@@ -158,6 +162,11 @@ model ProductVariant {
   hppWorksheets           HppWorksheet[]
   purchaseItems           StockPurchaseItem[]
   salesOrderItems         SalesOrderItem[]
+  invoiceItems            InvoiceItem[]
+  rabItems                RabItem[]
+  sourceRabPlan           RabPlan?            @relation("RabPlanGeneratedVariants", fields: [sourceRabPlanId], references: [id], onDelete: SetNull)
+  withdrawalItems         WithdrawalItem[]
+  packingItems            EventPackingItem[]
 
   @@map("product_variants")
 }
@@ -190,6 +199,11 @@ model Batch {
   productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
 
   @@map("batches")
+}
+
+enum BoothProductType {
+  SEWA
+  PENGADAAN
 }
 
 enum MovementType {
@@ -403,6 +417,11 @@ enum InvoiceType {
   QUOTATION
 }
 
+enum QuotationVariant {
+  SEWA            // Sewa perlengkapan event
+  PENGADAAN_BOOTH // Pengadaan booth special design
+}
+
 model Invoice {
   id            Int           @id @default(autoincrement())
   invoiceNumber String        @unique @map("invoice_number") @db.VarChar(100)
@@ -412,6 +431,7 @@ model Invoice {
   clientAddress String?       @map("client_address") @db.Text // Alamat Lengkap
   clientPhone   String?       @map("client_phone") @db.VarChar(50) // No. HP/Telp
   clientEmail   String?       @map("client_email") @db.VarChar(150) // Email Perusahaan
+  customerId    Int?          @map("customer_id")
   date          DateTime      @default(now())
   dueDate       DateTime?     @map("due_date")
   validUntil    DateTime?     @map("valid_until") // Quotation: masa berlaku penawaran
@@ -422,25 +442,127 @@ model Invoice {
   discount      Decimal       @default(0) @db.Decimal(15, 2) // Diskon (Rp)
   total         Decimal       @default(0) @db.Decimal(15, 2) // Grand Total (Subtotal + PPN - Diskon)
   notes         String?       @db.Text // Syarat & Ketentuan, Garansi, dll
+  // ----- Penawaran booth/event extensions ----- //
+  quotationVariant  QuotationVariant? @map("quotation_variant")
+  parentQuotationId Int?              @map("parent_quotation_id") // revisi merujuk ke penawaran induk
+  revisionNumber    Int               @default(0) @map("revision_number") // 0 = original, 1,2,... = revisi ke-n
+  projectName       String?           @map("project_name") @db.VarChar(200) // Nama event/proyek
+  eventLocation     String?           @map("event_location") @db.VarChar(200)
+  eventDateStart    DateTime?         @map("event_date_start")
+  eventDateEnd      DateTime?         @map("event_date_end")
+  bankAccountIds    String?           @map("bank_account_ids") @db.VarChar(200) // CSV id bank yang dicantumkan di penawaran
+  dpPercent         Decimal           @default(50) @map("dp_percent") @db.Decimal(5, 2)
+  rabPlanId         Int?              @map("rab_plan_id")
   createdAt     DateTime?     @default(now()) @map("created_at")
   updatedAt     DateTime?     @default(now()) @updatedAt @map("updated_at")
 
-  items InvoiceItem[]
+  items    InvoiceItem[]
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  parent   Invoice?  @relation("QuotationRevisions", fields: [parentQuotationId], references: [id], onDelete: SetNull)
+  children Invoice[] @relation("QuotationRevisions")
+  rabPlan  RabPlan?  @relation("QuotationRabPlan", fields: [rabPlanId], references: [id], onDelete: SetNull)
 
+  @@index([type, quotationVariant])
+  @@index([parentQuotationId])
   @@map("invoices")
 }
 
 model InvoiceItem {
-  id          Int     @id @default(autoincrement())
-  invoiceId   Int     @map("invoice_id")
-  description String  @db.VarChar(255)
-  unit        String? @db.VarChar(50) // Satuan: pcs, m², lembar, set, dll
-  quantity    Int
-  price       Decimal @db.Decimal(15, 2)
+  id               Int     @id @default(autoincrement())
+  invoiceId        Int     @map("invoice_id")
+  description      String  @db.VarChar(255)
+  unit             String? @db.VarChar(50) // Satuan: pcs, m², lembar, set, unit/hari, m²/hari
+  quantity         Decimal @db.Decimal(15, 4) // desimal utk area m² / durasi
+  price            Decimal @db.Decimal(15, 2)
+  orderIndex       Int     @default(0) @map("order_index")
+  productVariantId Int?    @map("product_variant_id")
 
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice        Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
 
+  @@index([invoiceId, orderIndex])
   @@map("invoice_items")
+}
+
+// ----- RAB (Rencana Anggaran Biaya) two-tier costing ----- //
+model RabCategory {
+  id         Int       @id @default(autoincrement())
+  name       String    @unique @db.VarChar(100)
+  orderIndex Int       @default(0) @map("order_index")
+  isActive   Boolean   @default(true) @map("is_active")
+  // optional stable identifier (used for built-in/seeded categories)
+  key        String?   @unique @db.VarChar(50)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  items RabItem[]
+
+  @@index([orderIndex])
+  @@map("rab_categories")
+}
+
+model RabPlan {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique @db.VarChar(50)              // "RAB-2026-0037"
+  title       String    @db.VarChar(255)
+  projectName String?   @map("project_name") @db.VarChar(200)
+  location    String?   @db.VarChar(200)
+  periodStart DateTime? @map("period_start")
+  periodEnd   DateTime? @map("period_end")
+  customerId  Int?      @map("customer_id")
+  // Pendapatan
+  dpAmount    Decimal   @default(0) @map("dp_amount") @db.Decimal(15, 2)
+  pelunasan   Decimal   @default(0) @db.Decimal(15, 2)
+  incomeOther Decimal   @default(0) @map("income_other") @db.Decimal(15, 2)
+  notes       String?   @db.Text
+  createdAt   DateTime? @default(now()) @map("created_at")
+  updatedAt   DateTime? @default(now()) @updatedAt @map("updated_at")
+
+  customer          Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items             RabItem[]
+  quotations        Invoice[]         @relation("QuotationRabPlan")
+  generatedVariants ProductVariant[]  @relation("RabPlanGeneratedVariants")
+  events            Event[]           @relation("EventRabPlan")
+
+  @@map("rab_plans")
+}
+
+model RabItem {
+  id               Int      @id @default(autoincrement())
+  rabPlanId        Int      @map("rab_plan_id")
+  categoryId       Int      @map("category_id")
+  orderIndex       Int      @default(0) @map("order_index")
+  description      String   @db.VarChar(255)
+  unit             String?  @db.VarChar(50)
+  quantity         Decimal  @default(1) @db.Decimal(15, 4) // qty sisi RAB (client-facing)
+  quantityCost     Decimal  @default(1) @map("quantity_cost") @db.Decimal(15, 4) // qty sisi COST (aktual/internal)
+  priceRab         Decimal  @default(0) @map("price_rab") @db.Decimal(15, 2) // harga penawaran ke klien
+  priceCost        Decimal  @default(0) @map("price_cost") @db.Decimal(15, 2) // harga aktual/internal (COST)
+  productVariantId      Int?     @map("product_variant_id")
+  sourcePackingItemId   Int?     @map("source_packing_item_id")
+  notes                 String?  @db.Text
+
+  rabPlan            RabPlan           @relation(fields: [rabPlanId], references: [id], onDelete: Cascade)
+  category           RabCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  productVariant     ProductVariant?   @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  sourcePackingItem  EventPackingItem? @relation("PackingSourcedRabItems", fields: [sourcePackingItemId], references: [id], onDelete: SetNull)
+
+  @@index([rabPlanId, categoryId, orderIndex])
+  @@index([sourcePackingItemId])
+  @@map("rab_items")
+}
+
+// ----- Counter nomor dokumen (penawaran, dll) ----- //
+model DocumentNumberCounter {
+  id        Int      @id @default(autoincrement())
+  docType   String   @db.VarChar(20) @map("doc_type")  // "Pnwr"
+  kode      String   @db.VarChar(20)                    // kode perusahaan: "Xp", "Ep"
+  year      Int
+  lastSeq   Int      @default(0) @map("last_seq")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([docType, kode, year])
+  @@map("document_number_counters")
 }
 
 // ----- HPP Calculator & Recipe Templates ----- //
@@ -495,6 +617,9 @@ model StoreSettings {
   storeName             String    @map("store_name") @db.VarChar(200)
   storeAddress          String?   @map("store_address") @db.Text
   storePhone            String?   @map("store_phone") @db.VarChar(50)
+  companyCode           String?   @map("company_code") @db.VarChar(20) // kode penawaran: "Xp", "Ep" → `${seq}/{kode}/Pnwr/{mm}/{yy}`
+  companyEmail          String?   @map("company_email") @db.VarChar(150)
+  directorName          String?   @map("director_name") @db.VarChar(150) // Tanda tangan penawaran
   qrisImageUrl          String?   @map("qris_image_url") @db.Text
   logoImageUrl          String?   @map("logo_image_url") @db.Text
   enableAdvancedPricing Boolean   @default(false) @map("enable_advanced_pricing")
@@ -503,6 +628,7 @@ model StoreSettings {
   loginBgImages         String?   @map("login_bg_images") @db.Text
   loginTaglines         String?   @map("login_taglines") @db.Text
   operatorPin           String?   @map("operator_pin") @db.VarChar(10)
+  warehousePinHash      String?   @map("warehouse_pin_hash") @db.VarChar(255)
   notifyNewTransaction  Boolean   @default(true) @map("notify_new_transaction")
   notifyLowStock        Boolean   @default(true) @map("notify_low_stock")
   notifyOfflineSync     Boolean   @default(true) @map("notify_offline_sync")
@@ -543,14 +669,20 @@ model BankAccount {
 }
 
 model Customer {
-  id        Int       @id @default(autoincrement())
-  name      String    @db.VarChar(100)
-  phone     String?   @db.VarChar(50)
-  address   String?   @db.Text
-  createdAt DateTime? @default(now()) @map("created_at")
-  updatedAt DateTime? @default(now()) @updatedAt @map("updated_at")
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  phone       String?   @db.VarChar(50)
+  email       String?   @db.VarChar(150)
+  address     String?   @db.Text
+  companyName String?   @db.VarChar(200) @map("company_name") // Nama perusahaan/instansi klien
+  companyPIC  String?   @db.VarChar(150) @map("company_pic")  // Nama PIC/kontak person di klien
+  createdAt   DateTime? @default(now()) @map("created_at")
+  updatedAt   DateTime? @default(now()) @updatedAt @map("updated_at")
 
   salesOrders SalesOrder[]
+  invoices    Invoice[]
+  rabPlans    RabPlan[]
+  events      Event[]
 
   @@map("customers")
 }
@@ -1012,4 +1144,203 @@ model Designer {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("designers")
+}
+
+// ----- Warehouse & Withdrawal (pengambilan barang dari gudang) ----- //
+
+enum WithdrawalType {
+  BORROW
+  USE
+}
+
+enum WithdrawalStatus {
+  CHECKED_OUT
+  RETURNED
+  PARTIAL_RETURNED
+  OVERDUE
+  CANCELLED
+}
+
+model Warehouse {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(100)
+  address   String?  @db.VarChar(255)
+  notes     String?  @db.Text
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  withdrawals Withdrawal[]
+  storageLocations StorageLocation[]
+
+  @@map("warehouses")
+}
+
+model StorageLocation {
+  id          Int       @id @default(autoincrement())
+  warehouseId Int       @map("warehouse_id")
+  code        String    @db.VarChar(50)
+  name        String    @db.VarChar(150)
+  notes       String?   @db.Text
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  warehouse    Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  packingItems EventPackingItem[]
+
+  @@unique([warehouseId, code])
+  @@index([warehouseId])
+  @@map("storage_locations")
+}
+
+model Worker {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  position  String?  @db.VarChar(100)
+  phone     String?  @db.VarChar(50)
+  photoUrl  String?  @map("photo_url") @db.Text
+  isActive  Boolean  @default(true) @map("is_active")
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  withdrawals        Withdrawal[]
+  eventsAsPic        Event[]            @relation("EventPic")
+  packingChecked     EventPackingItem[] @relation("PackingCheckedBy")
+
+  @@map("workers")
+}
+
+model Withdrawal {
+  id                 Int              @id @default(autoincrement())
+  code               String           @unique @db.VarChar(50)
+  workerId           Int              @map("worker_id")
+  warehouseId        Int              @map("warehouse_id")
+  eventId            Int?             @map("event_id")
+  type               WithdrawalType
+  status             WithdrawalStatus @default(CHECKED_OUT)
+  purpose            String           @db.VarChar(255)
+  scheduledReturnAt  DateTime?        @map("scheduled_return_at")
+  actualReturnAt     DateTime?        @map("actual_return_at")
+  checkoutPhotoUrl   String?          @map("checkout_photo_url") @db.Text
+  returnPhotoUrl     String?          @map("return_photo_url") @db.Text
+  notes              String?          @db.Text
+  createdById        Int?             @map("created_by_id")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at")
+
+  worker    Worker    @relation(fields: [workerId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  event     Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  createdBy User?     @relation("WithdrawalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  items     WithdrawalItem[]
+
+  @@index([status])
+  @@index([type, status])
+  @@index([scheduledReturnAt])
+  @@index([eventId])
+  @@map("withdrawals")
+}
+
+model WithdrawalItem {
+  id               Int     @id @default(autoincrement())
+  withdrawalId     Int     @map("withdrawal_id")
+  productVariantId Int     @map("product_variant_id")
+  quantity         Decimal @db.Decimal(15, 4)
+  returnedQty      Decimal @default(0) @db.Decimal(15, 4) @map("returned_qty")
+  notes            String? @db.Text
+
+  withdrawal     Withdrawal     @relation(fields: [withdrawalId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
+
+  @@index([withdrawalId])
+  @@map("withdrawal_items")
+}
+
+// ----- Event Scheduling ----- //
+
+enum EventStatus {
+  DRAFT
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum EventBrand {
+  EXINDO
+  XPOSER
+  OTHER
+}
+
+model Event {
+  id             Int         @id @default(autoincrement())
+  code           String      @unique @db.VarChar(50)
+  name           String      @db.VarChar(255)
+  brand          EventBrand  @default(EXINDO)
+  status         EventStatus @default(SCHEDULED)
+  venue          String?     @db.VarChar(255)
+  customerId     Int?        @map("customer_id")
+  customerName   String?     @db.VarChar(200) @map("customer_name")
+  picWorkerId    Int?        @map("pic_worker_id")
+  picName        String?     @db.VarChar(150) @map("pic_name")
+  departureStart DateTime?   @map("departure_start")
+  departureEnd   DateTime?   @map("departure_end")
+  setupStart     DateTime?   @map("setup_start")
+  setupEnd       DateTime?   @map("setup_end")
+  loadingStart   DateTime?   @map("loading_start")
+  loadingEnd     DateTime?   @map("loading_end")
+  eventStart     DateTime?   @map("event_start")
+  eventEnd       DateTime?   @map("event_end")
+  notes          String?     @db.Text
+  shareToken     String?     @unique @db.VarChar(64) @map("share_token")
+  rabPlanId      Int?        @map("rab_plan_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  customer     Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  picWorker    Worker?            @relation("EventPic", fields: [picWorkerId], references: [id], onDelete: SetNull)
+  rabPlan      RabPlan?           @relation("EventRabPlan", fields: [rabPlanId], references: [id], onDelete: SetNull)
+  withdrawals  Withdrawal[]
+  packingItems EventPackingItem[]
+
+  @@index([status])
+  @@index([eventStart])
+  @@index([brand])
+  @@map("events")
+}
+
+enum PackingDisposition {
+  PINJAM
+  OPERASIONAL
+}
+
+model EventPackingItem {
+  id                Int                 @id @default(autoincrement())
+  eventId           Int                 @map("event_id")
+  productVariantId  Int                 @map("product_variant_id")
+  quantity          Decimal             @default(1) @db.Decimal(15, 4)
+  storageLocationId Int?                @map("storage_location_id")
+  locationNote      String?             @db.VarChar(255) @map("location_note")
+  isChecked         Boolean             @default(false) @map("is_checked")
+  disposition       PackingDisposition?
+  orderIndex        Int                 @default(0) @map("order_index")
+  notes             String?             @db.Text
+
+  checkedById Int?      @map("checked_by_id")
+  checkedAt   DateTime? @map("checked_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  event           Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  productVariant  ProductVariant   @relation(fields: [productVariantId], references: [id])
+  storageLocation StorageLocation? @relation(fields: [storageLocationId], references: [id], onDelete: SetNull)
+  checkedBy       Worker?          @relation("PackingCheckedBy", fields: [checkedById], references: [id], onDelete: SetNull)
+  rabItems        RabItem[]        @relation("PackingSourcedRabItems")
+
+  @@index([eventId, isChecked])
+  @@index([productVariantId])
+  @@map("event_packing_items")
 }

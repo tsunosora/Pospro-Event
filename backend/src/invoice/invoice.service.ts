@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { InvoiceStatus, InvoiceType } from '@prisma/client';
+import { DocumentNumberService } from '../document-numbers/document-number.service';
 
 @Injectable()
 export class InvoiceService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private docNumberService: DocumentNumberService,
+    ) { }
 
     async create(data: any) {
         const { items, ...invoiceData } = data;
@@ -70,9 +74,10 @@ export class InvoiceService {
         });
         if (!quotation) throw new NotFoundException('Quotation not found');
 
-        const seq = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const newNumber = `INV-${dateStr}-${seq}`;
+        const now = new Date();
+        const seq = await this.docNumberService.nextSequence('INV', 'INV', now.getFullYear());
+        const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+        const newNumber = `INV-${dateStr}-${seq.toString().padStart(4, '0')}`;
 
         return this.prisma.invoice.create({
             data: {

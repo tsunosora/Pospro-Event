@@ -24,6 +24,11 @@ import {
     TrendingDown,
     MousePointerClick,
     FileSignature,
+    FilePlus,
+    Calculator as CalcIcon,
+    Warehouse as WarehouseIcon,
+    PackageOpen,
+    CalendarDays,
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { useQuery } from "@tanstack/react-query";
@@ -31,6 +36,7 @@ import { getSettings } from "@/lib/api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getTransactionEditRequests } from "@/lib/api/transactions";
 import { getPendingInvoiceCount } from "@/lib/api/sales-orders";
+import { getOverdueCount } from "@/lib/api/withdrawals";
 
 const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -43,12 +49,16 @@ const navigation = [
     { name: "Laporan Stok", href: "/reports/stock", icon: TrendingDown },
     { name: "Data Supplier", href: "/inventory/suppliers", icon: Truck },
     { name: "Stok Opname", href: "/inventory/opname", icon: ClipboardList },
+    { name: "Ambil dari Gudang", href: "/gudang/ambil", icon: PackageOpen },
+    { name: "Jadwal Event", href: "/events", icon: CalendarDays },
     { name: "Antrian Produksi", href: "/produksi", icon: Printer },
     { name: "Antrian Cetak Paper", href: "/print-queue", icon: Printer },
     { name: "Klik Mesin Cetak", href: "/click-counting", icon: MousePointerClick },
     { name: "Cashflow Bisnis", href: "/cashflow", icon: Banknote },
     { name: "Data Pelanggan", href: "/customers", icon: Users },
     { name: "Invoice & Penawaran", href: "/invoices", icon: FileText },
+    { name: "Penawaran Booth/Event", href: "/penawaran", icon: FilePlus },
+    { name: "RAB (Anggaran Proyek)", href: "/rab", icon: CalcIcon },
     { name: "Peta Cuan Lokasi", href: "/maps", icon: MapPin },
     { name: "Kalkulator HPP", href: "/reports/hpp", icon: Calculator },
 ];
@@ -81,6 +91,14 @@ export function Sidebar() {
         refetchInterval: 30_000,
     });
     const pendingInvoiceCount = pendingInvoiceData?.count ?? 0;
+
+    const { data: overdueData } = useQuery({
+        queryKey: ['overdue-count'],
+        queryFn: getOverdueCount,
+        staleTime: 60_000,
+        refetchInterval: 120_000,
+    });
+    const overdueCount = overdueData?.count ?? 0;
 
     const storeName = settings?.storeName || 'PosPro';
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -160,6 +178,33 @@ export function Sidebar() {
                                 </Link>
                             );
                         })}
+
+                        {/* Peminjaman Gudang — badge overdue */}
+                        <Link
+                            href="/gudang/peminjaman"
+                            onClick={() => { if (window.innerWidth < 1024) closeSidebar(); }}
+                            className={cn(
+                                pathname === '/gudang/peminjaman' || pathname.startsWith('/gudang/peminjaman/')
+                                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+                                    : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                                "group flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-all"
+                            )}
+                        >
+                            <WarehouseIcon
+                                className={cn(
+                                    pathname === '/gudang/peminjaman' || pathname.startsWith('/gudang/peminjaman/')
+                                        ? "text-sidebar-accent-foreground"
+                                        : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
+                                    "mr-3 h-5 w-5 flex-shrink-0 transition-colors"
+                                )}
+                            />
+                            Peminjaman Gudang
+                            {overdueCount > 0 && (
+                                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                                    {overdueCount > 9 ? '9+' : overdueCount}
+                                </span>
+                            )}
+                        </Link>
 
                         {/* Sales Order — badge pending-invoice */}
                         <Link
