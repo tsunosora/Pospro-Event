@@ -89,6 +89,19 @@ export const createRab = async (data: CreateRabInput) =>
 export const updateRab = async (id: number, data: Partial<CreateRabInput>) =>
     (await api.patch<RabPlan>(`/rab/${id}`, data)).data;
 
+export const generateCashflowFromRab = async (
+    id: number,
+    body: { mode?: 'detail' | 'category'; eventId?: number | null; skipExisting?: boolean } = {},
+) =>
+    (await api.post<{
+        ok: true;
+        mode: 'detail' | 'category';
+        rabCode: string;
+        eventId: number | null;
+        created: number;
+        totalAmount: number;
+    }>(`/rab/${id}/generate-cashflow`, body)).data;
+
 export const duplicateRab = async (
     id: number,
     overrides: { title?: string; location?: string; periodStart?: string; periodEnd?: string } = {},

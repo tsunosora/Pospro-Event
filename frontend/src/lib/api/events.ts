@@ -27,7 +27,11 @@ export interface EventRecord {
     updatedAt: string;
     customer?: { id: number; name: string; companyName: string | null } | null;
     picWorker?: { id: number; name: string; position: string | null } | null;
-    _count?: { withdrawals: number };
+    _count?: { withdrawals: number; crewAssignments?: number };
+    crewAssignments?: Array<{
+        teamId: number | null;
+        team: { id: number; name: string; color: string } | null;
+    }>;
 }
 
 export interface EventDetail extends EventRecord {
@@ -204,4 +208,69 @@ export const getEventDashboard = async () =>
 export const exportEventPdfUrl = (id: number) => {
     const base = process.env.NEXT_PUBLIC_API_URL ?? '';
     return `${base}/events/${id}/export/pdf`;
+};
+
+export const exportProjectReportPdfUrl = (id: number) => {
+    const base = process.env.NEXT_PUBLIC_API_URL ?? '';
+    return `${base}/events/${id}/project-report.pdf`;
+};
+
+export const downloadProjectReportPdf = async (id: number, fallbackName = `project-report-${id}.pdf`) => {
+    const res = await api.get(`/events/${id}/project-report.pdf`, { responseType: 'blob' });
+    const blob = new Blob([res.data], { type: 'application/pdf' });
+    // Try to extract filename from Content-Disposition
+    const cd = (res.headers as Record<string, string>)['content-disposition'] ?? '';
+    const match = /filename="([^"]+)"/.exec(cd);
+    const filename = match ? match[1] : fallbackName;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+export const downloadEventCashflowCsv = async (eventId: number) => {
+    const res = await api.get(`/events/${eventId}/cashflow.csv`, { responseType: 'blob' });
+    const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' });
+    const cd = (res.headers as Record<string, string>)['content-disposition'] ?? '';
+    const match = /filename="([^"]+)"/.exec(cd);
+    const filename = match ? match[1] : `cashflow-event-${eventId}.csv`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+export const downloadProjectReportsZip = async (eventIds: number[]): Promise<{ count: number; failed: number[] }> => {
+    const res = await api.post(
+        '/events/project-reports/bulk-download',
+        { eventIds },
+        { responseType: 'blob' },
+    );
+    const blob = new Blob([res.data], { type: 'application/zip' });
+    const cd = (res.headers as Record<string, string>)['content-disposition'] ?? '';
+    const match = /filename="([^"]+)"/.exec(cd);
+    const filename = match ? match[1] : `project-reports-${Date.now()}.zip`;
+    const count = parseInt((res.headers as Record<string, string>)['x-pdf-count'] ?? '0', 10);
+    const failedRaw = (res.headers as Record<string, string>)['x-pdf-failed'] ?? '';
+    const failed = failedRaw ? failedRaw.split(',').map((s) => parseInt(s, 10)).filter((n) => !isNaN(n)) : [];
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    return { count, failed };
 };

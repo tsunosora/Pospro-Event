@@ -22,6 +22,8 @@ import type {
     UpdateEventInput,
 } from './events.service';
 import { EventPdfExportService } from '../exporters/event-pdf-export.service';
+import { ProjectReportPdfService } from '../exporters/project-report-pdf.service';
+import { CashflowService } from '../cashflow/cashflow.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 function normalizeWaTarget(raw: string): string {
@@ -41,6 +43,8 @@ export class EventsController {
     constructor(
         private svc: EventsService,
         private pdf: EventPdfExportService,
+        private projectReportPdf: ProjectReportPdfService,
+        private cashflowService: CashflowService,
         private whatsapp: WhatsappService,
     ) { }
 
@@ -111,6 +115,45 @@ export class EventsController {
         const { buffer, filename } = await this.pdf.render(id);
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        res.send(buffer);
+    }
+
+    @Get(':id/project-report.pdf')
+    async exportProjectReport(
+        @Param('id', ParseIntPipe) id: number,
+        @Res() res: Response,
+    ) {
+        const { buffer, filename } = await this.projectReportPdf.render(id);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        res.send(buffer);
+    }
+
+    @Get(':id/cashflow.csv')
+    async exportEventCashflowCsv(
+        @Param('id', ParseIntPipe) id: number,
+        @Res() res: Response,
+    ) {
+        const { csv, filename } = await this.cashflowService.exportEventCsv(id);
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csv);
+    }
+
+    @Post('project-reports/bulk-download')
+    async exportProjectReportBulk(
+        @Body() body: { eventIds: number[] },
+        @Res() res: Response,
+    ) {
+        const ids = body.eventIds ?? [];
+        if (!ids.length) {
+            return res.status(400).json({ message: 'eventIds wajib (minimal 1 event)' });
+        }
+        const { buffer, filename, count, failed } = await this.projectReportPdf.renderBulkZip(ids);
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('X-PDF-Count', String(count));
+        res.setHeader('X-PDF-Failed', failed.join(','));
         res.send(buffer);
     }
 

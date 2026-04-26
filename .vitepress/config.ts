@@ -35,6 +35,7 @@ export default defineConfig({
           { text: '🗂️ Pipeline Kanban', link: '/crm-kanban' },
           { text: '📥 Import Lead XLSX', link: '/crm-import' },
           { text: '🔁 Convert Lead → Customer', link: '/crm-convert' },
+          { text: '👥 Data Pelanggan', link: '/customers' },
         ]
       },
       {
@@ -42,12 +43,16 @@ export default defineConfig({
         items: [
           { text: '📄 Penawaran Booth/Event', link: '/penawaran-event' },
           { text: '🧮 RAB Event', link: '/rab-event' },
+          { text: '📦 Save RAB as Product', link: '/rab-to-product' },
           { text: '🏭 Data Supplier', link: '/suppliers' },
         ]
       },
       {
         text: '🏪 Operasional Event',
         items: [
+          { text: '📅 Event Timeline (Gantt)', link: '/event-timeline' },
+          { text: '👷 Setup Time Tracking Crew', link: '/crew-tracking' },
+          { text: '📝 Surat Order Designer', link: '/sales-order' },
           { text: '🖨️ Antrian Produksi', link: '/produksi' },
           { text: '🖨️ Antrian Cetak Paper', link: '/mesin-cetak' },
           { text: '📋 Stok Opname', link: '/stock-opname' },

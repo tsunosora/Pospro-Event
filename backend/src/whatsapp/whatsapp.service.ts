@@ -310,6 +310,36 @@ export class WhatsappService implements OnModuleInit {
         }
     }
 
+    /**
+     * Normalize Indonesian phone to wa.me chat target.
+     * "08123..." → "628123...@c.us"
+     * "+62812..." → "62812...@c.us"
+     * already-normalized "@c.us" or "@g.us" left as-is.
+     */
+    private normalizePhone(raw: string): string {
+        const v = raw.trim();
+        if (!v) return v;
+        if (v.includes('@')) return v;
+        let digits = v.replace(/\D+/g, '');
+        if (digits.startsWith('0')) digits = '62' + digits.slice(1);
+        if (digits.startsWith('8')) digits = '62' + digits;
+        return `${digits}@c.us`;
+    }
+
+    /** Kirim pesan langsung ke nomor (DM). Gracefully fail kalau bot tidak ready. */
+    async sendDirect(phone: string | null | undefined, message: string): Promise<boolean> {
+        if (!phone || !this.isReady) return false;
+        const target = this.normalizePhone(phone);
+        try {
+            await this.client.sendMessage(target, message);
+            this.logger.log(`Direct message sent to ${target}`);
+            return true;
+        } catch (error: any) {
+            this.logger.error(`Failed to send DM to ${target}: ${error.message}`);
+            return false;
+        }
+    }
+
     async sendToGroup(groupId: string, message: string, images: string[] = []): Promise<boolean> {
         if (!this.isReady) {
             this.logger.warn('Cannot send message: WhatsApp bot is not ready.');

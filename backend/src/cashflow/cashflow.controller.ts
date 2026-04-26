@@ -17,8 +17,31 @@ export class CashflowController {
     }
 
     @Get()
-    findAll(@Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
-        return this.cashflowService.findAll(startDate, endDate);
+    findAll(
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+        @Query('eventId') eventId?: string,
+        @Query('rabPlanId') rabPlanId?: string,
+    ) {
+        return this.cashflowService.findAll(
+            startDate,
+            endDate,
+            eventId ? Number(eventId) : undefined,
+            rabPlanId ? Number(rabPlanId) : undefined,
+        );
+    }
+
+    @Get('event-profit/:eventId')
+    getEventProfit(@Param('eventId') eventId: string) {
+        return this.cashflowService.getEventProfit(Number(eventId));
+    }
+
+    @Get('all-events-profit')
+    getAllEventsProfit(
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+    ) {
+        return this.cashflowService.getAllEventsProfit({ startDate, endDate });
     }
 
     @Get('monthly-trend')
@@ -44,8 +67,15 @@ export class CashflowController {
         platformSource?: string | null;
         paymentMethod?: string | null;
         bankAccountId?: number | null;
+        eventId?: number | null;
+        rabPlanId?: number | null;
     }) {
         return this.cashflowService.update(+id, data);
+    }
+
+    @Delete('bulk')
+    removeBulk(@Body() body: { ids: number[] }) {
+        return this.cashflowService.removeBulk(body.ids ?? []);
     }
 
     @Delete(':id')

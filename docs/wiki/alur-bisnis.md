@@ -2,6 +2,19 @@
 
 Halaman ini menjelaskan bagaimana semua modul **Pospro Event** bekerja bersama — dari Lead pertama yang masuk via META Ads / WhatsApp, sampai event selesai dan laba dihitung.
 
+## Profil Usaha
+
+Pospro Event dirancang untuk usaha hybrid:
+
+```
+   95%   📍 Booth & Event Vendor + Persewaan (lini utama)
+            └─ B2B project: pameran, exhibition, custom booth
+   5%    🖨️ Digital Printing (sesekali / bundling dgn booth)
+            └─ Walk-in counter / WA / sub-item RAB event
+```
+
+Dua lini ini saling **terintegrasi** — bukan dipisah modul. Customer event yang minta cetak banner tetap satu profil. Item RAB event yang sering reuse (mis. Booth 3×3 Wood Standard) bisa di-[Save as Product](./rab-to-product.md) dan dijual via Kasir POS untuk klien walk-in.
+
 ## Diagram Alur
 
 ```

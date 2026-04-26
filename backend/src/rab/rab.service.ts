@@ -418,4 +418,141 @@ export class RabService {
             return { product, variant };
         });
     }
+
+    /**
+     * Generate cashflow EXPENSE entries dari item-item RAB.
+     *
+     * @param rabPlanId  RAB ID
+     * @param opts.mode  'detail' = 1 entry per item · 'category' = 1 entry per RabCategory (sum)
+     * @param opts.eventId  Opsional: link semua entry ke event tertentu
+     * @param opts.userId   User yang melakukan generate (untuk audit)
+     * @param opts.skipExisting  Skip kalau RAB ini sudah pernah di-generate (default: true)
+     */
+    async generateCashflowFromRab(
+        rabPlanId: number,
+        opts: {
+            mode?: 'detail' | 'category';
+            eventId?: number | null;
+            userId?: number | null;
+            skipExisting?: boolean;
+        } = {},
+    ) {
+        const mode = opts.mode ?? 'detail';
+        const skipExisting = opts.skipExisting ?? true;
+
+        const rab = await this.prisma.rabPlan.findUnique({
+            where: { id: rabPlanId },
+            include: {
+                items: {
+                    include: { category: true },
+                    orderBy: [{ categoryId: 'asc' }, { orderIndex: 'asc' }],
+                },
+                events: { select: { id: true } },
+            },
+        });
+        if (!rab) throw new NotFoundException('RAB tidak ditemukan');
+        if (rab.items.length === 0) {
+            throw new BadRequestException('RAB ini belum punya item');
+        }
+
+        // Cek apakah sudah pernah di-generate
+        if (skipExisting) {
+            const existing = await this.prisma.cashflow.count({
+                where: { rabPlanId, type: 'EXPENSE' },
+            });
+            if (existing > 0) {
+                throw new BadRequestException(
+                    `RAB ini sudah pernah di-generate (${existing} entry expense ada). Hapus dulu di Cashflow kalau mau regenerate.`,
+                );
+            }
+        }
+
+        // Auto-resolve eventId: kalau tidak di-supply, ambil dari Event yang link ke RAB ini (kalau ada satu)
+        const resolvedEventId =
+            opts.eventId ??
+            (rab.events.length === 1 ? rab.events[0].id : null);
+
+        // Map RAB category name → cashflow category string
+        // (langsung pakai nama RAB category — user bisa pilih dari list yg sudah ada di frontend)
+        const categoryMap: Record<string, string> = {
+            material: 'Material Booth (Kayu/MDF)',
+            jasa: 'Jasa Crew Lapangan',
+            transport: 'Transport Event',
+            akomodasi: 'Akomodasi Crew',
+            sewa: 'Sewa Alat Event',
+            operasional: 'Operasional Kantor',
+        };
+        const mapCategory = (rabCatName: string) => {
+            const lower = rabCatName.toLowerCase();
+            for (const key in categoryMap) {
+                if (lower.includes(key)) return categoryMap[key];
+            }
+            return rabCatName; // fallback: pakai nama RAB category as-is
+        };
+
+        const created: Array<{ id: number; amount: number; category: string }> = [];
+        const noteSuffix = ` (auto dari RAB ${rab.code})`;
+
+        await this.prisma.$transaction(async (tx) => {
+            if (mode === 'category') {
+                // Group by RAB category, sum
+                const byCat = new Map<string, { name: string; total: number; count: number }>();
+                for (const it of rab.items) {
+                    const subtotal = parseFloat(it.priceCost.toString()) * parseFloat(it.quantityCost.toString());
+                    if (subtotal <= 0) continue;
+                    const cur = byCat.get(it.category.name) ?? { name: it.category.name, total: 0, count: 0 };
+                    cur.total += subtotal;
+                    cur.count += 1;
+                    byCat.set(it.category.name, cur);
+                }
+                for (const [, v] of byCat) {
+                    const entry = await tx.cashflow.create({
+                        data: {
+                            type: 'EXPENSE',
+                            category: mapCategory(v.name),
+                            amount: new Prisma.Decimal(v.total),
+                            note: `${v.name} — ${v.count} item${noteSuffix}`,
+                            rabPlanId,
+                            eventId: resolvedEventId ?? undefined,
+                            userId: opts.userId ?? undefined,
+                            excludeFromShift: true, // RAB-generated entries jangan masuk laporan shift kasir
+                        },
+                    });
+                    created.push({ id: entry.id, amount: v.total, category: v.name });
+                }
+            } else {
+                // detail mode: 1 entry per item
+                for (const it of rab.items) {
+                    const subtotal = parseFloat(it.priceCost.toString()) * parseFloat(it.quantityCost.toString());
+                    if (subtotal <= 0) continue;
+                    const noteParts = [it.description];
+                    if (it.unit) noteParts.push(`${it.quantityCost} ${it.unit}`);
+                    if (it.notes) noteParts.push(it.notes);
+                    const entry = await tx.cashflow.create({
+                        data: {
+                            type: 'EXPENSE',
+                            category: mapCategory(it.category.name),
+                            amount: new Prisma.Decimal(subtotal),
+                            note: `${noteParts.join(' · ')}${noteSuffix}`,
+                            rabPlanId,
+                            eventId: resolvedEventId ?? undefined,
+                            userId: opts.userId ?? undefined,
+                            excludeFromShift: true,
+                        },
+                    });
+                    created.push({ id: entry.id, amount: subtotal, category: it.category.name });
+                }
+            }
+        });
+
+        const total = created.reduce((s, c) => s + c.amount, 0);
+        return {
+            ok: true,
+            mode,
+            rabCode: rab.code,
+            eventId: resolvedEventId,
+            created: created.length,
+            totalAmount: total,
+        };
+    }
 }

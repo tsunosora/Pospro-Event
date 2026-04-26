@@ -11,6 +11,7 @@ import {
     downloadRabXlsx,
     getBoothVariants,
     saveRabAsProduct,
+    generateCashflowFromRab,
     type RabItem,
     type BoothVariant,
 } from "@/lib/api/rab";
@@ -102,6 +103,8 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
     const [showCustomerPicker, setShowCustomerPicker] = useState(false);
     const [showGenModal, setShowGenModal] = useState(false);
     const [showSaveProductModal, setShowSaveProductModal] = useState(false);
+    const [showGenCashflowModal, setShowGenCashflowModal] = useState(false);
+    const [genCashflowMode, setGenCashflowMode] = useState<'detail' | 'category'>('detail');
     const [genForm, setGenForm] = useState({
         quotationVariant: "SEWA" as "SEWA" | "PENGADAAN_BOOTH",
         clientName: "",
@@ -322,6 +325,18 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
         onError: (err: any) => toast.error(err?.response?.data?.message || "Gagal generate"),
     });
 
+    const genCashflowMut = useMutation({
+        mutationFn: () => generateCashflowFromRab(id, { mode: genCashflowMode }),
+        onSuccess: (res) => {
+            const total = res.totalAmount.toLocaleString("id-ID");
+            toast.success(
+                `${res.created} entry expense dibuat. Total Rp ${total}.${res.eventId ? " Auto-tagged ke event." : ""}`,
+            );
+            setShowGenCashflowModal(false);
+        },
+        onError: (err: any) => toast.error(err?.response?.data?.message || "Gagal generate cashflow"),
+    });
+
     const handleDownloadXlsx = async () => {
         if (!rab) return;
         try {
@@ -403,6 +418,13 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                     >
                         <PackagePlus className="h-4 w-4" />
                         Simpan sebagai Produk
+                    </button>
+                    <button
+                        onClick={() => setShowGenCashflowModal(true)}
+                        className="flex items-center gap-2 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 px-3 py-2 rounded-md"
+                        title="Buat entry expense di Cashflow dari item-item RAB"
+                    >
+                        💸 Generate Cashflow
                     </button>
                 </div>
             </div>
@@ -950,6 +972,80 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                         setShowPicker(null);
                     }}
                 />
+            )}
+
+            {showGenCashflowModal && rab && summary && (
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowGenCashflowModal(false)}>
+                    <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-5 border border-border" onClick={(e) => e.stopPropagation()}>
+                        <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                            💸 Generate Cashflow dari RAB
+                        </h2>
+                        <p className="text-xs text-muted-foreground mb-4">
+                            Bikin entry expense di Cashflow secara otomatis dari item-item RAB <strong>{rab.code}</strong>.
+                        </p>
+
+                        <div className="bg-muted/30 rounded p-3 text-sm mb-4 space-y-1">
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Cost RAB:</span>
+                                <strong className="text-red-600">Rp {summary.totals.totalCost.toLocaleString("id-ID")}</strong>
+                            </div>
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                                <span>Jumlah Item:</span>
+                                <span>{rab.items.length} item</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2 mb-4">
+                            <label className="text-sm font-medium">Mode Generate</label>
+                            <label className="flex items-start gap-2 px-3 py-2 border rounded-md cursor-pointer hover:bg-muted/50">
+                                <input
+                                    type="radio"
+                                    name="genmode"
+                                    checked={genCashflowMode === 'detail'}
+                                    onChange={() => setGenCashflowMode('detail')}
+                                    className="mt-0.5"
+                                />
+                                <div>
+                                    <div className="text-sm font-medium">Detail (1 entry per item RAB)</div>
+                                    <div className="text-xs text-muted-foreground">Cashflow detail per item — bisa banyak entry. Cocok kalau mau audit per material.</div>
+                                </div>
+                            </label>
+                            <label className="flex items-start gap-2 px-3 py-2 border rounded-md cursor-pointer hover:bg-muted/50">
+                                <input
+                                    type="radio"
+                                    name="genmode"
+                                    checked={genCashflowMode === 'category'}
+                                    onChange={() => setGenCashflowMode('category')}
+                                    className="mt-0.5"
+                                />
+                                <div>
+                                    <div className="text-sm font-medium">Kategori (1 entry per RabCategory)</div>
+                                    <div className="text-xs text-muted-foreground">Total per kategori (Material / Jasa / Transport / dll). Cashflow lebih ringkas.</div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800 mb-4">
+                            ⚠️ Entry akan otomatis ter-tag ke RAB ini + event terkait (kalau ada). Mereka di-flag <code>excludeFromShift</code> supaya tidak masuk laporan kasir POS.
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-3 border-t">
+                            <button
+                                onClick={() => setShowGenCashflowModal(false)}
+                                className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={() => genCashflowMut.mutate()}
+                                disabled={genCashflowMut.isPending}
+                                className="px-3 py-1.5 text-sm rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
+                            >
+                                {genCashflowMut.isPending ? "Generating..." : "Generate"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {showSaveProductModal && rab && summary && (

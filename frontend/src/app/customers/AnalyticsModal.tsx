@@ -2,7 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getCustomerAnalytics } from "@/lib/api";
-import { X, Users, TrendingUp, Wallet, Phone, MapPin, BarChart2, MessageCircle, ShoppingBag, Calendar, Loader2, Package } from "lucide-react";
+import { X, Users, TrendingUp, Wallet, Phone, MapPin, BarChart2, MessageCircle, ShoppingBag, Calendar, Loader2, Package, FileText, Calculator, MapPinned } from "lucide-react";
+import Link from "next/link";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from "recharts";
@@ -169,7 +170,8 @@ export function AnalyticsModal({ customerId, onClose }: { customerId: number; on
                         {data.recentTransactions.length > 0 && (
                             <div className="rounded-xl border border-border overflow-hidden">
                                 <div className="px-4 py-3 border-b border-border bg-muted/30">
-                                    <h3 className="text-sm font-semibold">Riwayat Transaksi Terbaru</h3>
+                                    <h3 className="text-sm font-semibold">Riwayat Transaksi POS Terbaru</h3>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Lini Printing — kasir POS</p>
                                 </div>
                                 <div className="divide-y divide-border">
                                     {data.recentTransactions.map((t: any) => (
@@ -196,9 +198,206 @@ export function AnalyticsModal({ customerId, onClose }: { customerId: number; on
                                 </div>
                             </div>
                         )}
+
+                        {/* ── EVENT/PROJECT ANALYTICS (Booth/Event B2B) ── */}
+                        {data.eventAnalytics && (
+                            <EventAnalyticsSection ea={data.eventAnalytics} />
+                        )}
                     </div>
                 ) : null}
             </div>
+        </div>
+    );
+}
+
+function fmtShort(n: number) {
+    if (Math.abs(n) >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(1)}jt`;
+    if (Math.abs(n) >= 1_000) return `Rp ${(n / 1_000).toFixed(0)}k`;
+    return `Rp ${n}`;
+}
+
+function marginColor(pct: number) {
+    if (pct >= 30) return "text-emerald-600";
+    if (pct >= 15) return "text-amber-600";
+    if (pct < 0) return "text-red-600";
+    return "text-red-500";
+}
+
+const EVENT_STATUS_LABEL: Record<string, { label: string; cls: string }> = {
+    DRAFT: { label: "Draft", cls: "bg-gray-100 text-gray-700" },
+    SCHEDULED: { label: "Terjadwal", cls: "bg-blue-100 text-blue-700" },
+    IN_PROGRESS: { label: "Berlangsung", cls: "bg-amber-100 text-amber-800" },
+    COMPLETED: { label: "Selesai", cls: "bg-green-100 text-green-700" },
+    CANCELLED: { label: "Batal", cls: "bg-red-100 text-red-700" },
+};
+
+const INV_STATUS_CLS: Record<string, string> = {
+    DRAFT: "bg-gray-100 text-gray-700",
+    SENT: "bg-blue-100 text-blue-700",
+    ACCEPTED: "bg-emerald-100 text-emerald-700",
+    REJECTED: "bg-red-100 text-red-700",
+    EXPIRED: "bg-yellow-100 text-yellow-800",
+    PAID: "bg-emerald-100 text-emerald-700",
+    CANCELLED: "bg-red-100 text-red-700",
+};
+
+function EventAnalyticsSection({ ea }: { ea: any }) {
+    const hasAny = ea.invoiceCount > 0 || ea.quotationCount > 0 || ea.rabCount > 0 || ea.eventCount > 0;
+    if (!hasAny) {
+        return (
+            <div className="rounded-xl border border-border bg-muted/10 p-4 text-center">
+                <Calendar className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-sm font-semibold">Belum ada Project / Event</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                    Customer ini belum punya Penawaran / RAB / Event ter-link. Lini bisnis B2B booth/event belum tercatat untuk klien ini.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-indigo-600" />
+                    Project & Event Analytics
+                </h3>
+                <span className="text-[10px] text-muted-foreground">Lini Booth/Event B2B</span>
+            </div>
+
+            {/* 4 stat cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="border rounded-lg p-3 bg-background">
+                    <div className="text-[10px] text-muted-foreground uppercase">Penawaran ACC</div>
+                    <div className="text-lg font-bold">{ea.quotationCount}</div>
+                    <div className="text-[10px] text-muted-foreground">Total {fmtShort(ea.totalQuotationValue)}</div>
+                </div>
+                <div className="border rounded-lg p-3 bg-background">
+                    <div className="text-[10px] text-muted-foreground uppercase">Invoice PAID</div>
+                    <div className="text-lg font-bold text-emerald-600">{ea.invoiceCount}</div>
+                    <div className="text-[10px] text-muted-foreground">Total {fmtShort(ea.totalInvoicePaid)}</div>
+                </div>
+                <div className="border rounded-lg p-3 bg-background">
+                    <div className="text-[10px] text-muted-foreground uppercase">RAB Plan</div>
+                    <div className="text-lg font-bold">{ea.rabCount}</div>
+                    <div className={`text-[10px] ${marginColor(ea.rabMarginPct)}`}>Margin {ea.rabMarginPct.toFixed(1)}%</div>
+                </div>
+                <div className="border rounded-lg p-3 bg-background">
+                    <div className="text-[10px] text-muted-foreground uppercase">Event</div>
+                    <div className="text-lg font-bold">{ea.eventCount}</div>
+                    <div className={`text-[10px] ${marginColor(ea.eventMarginPct)}`}>
+                        {fmtShort(ea.eventGrossProfit)} ({ea.eventMarginPct.toFixed(1)}%)
+                    </div>
+                </div>
+            </div>
+
+            {/* Event income/expense breakdown */}
+            {ea.eventCount > 0 && (
+                <div className="border rounded-lg p-3 bg-background grid grid-cols-3 gap-2 text-center">
+                    <div>
+                        <div className="text-[10px] text-muted-foreground">Income (cashflow tagged)</div>
+                        <div className="text-sm font-bold text-emerald-600">{fmtShort(ea.totalEventIncome)}</div>
+                    </div>
+                    <div>
+                        <div className="text-[10px] text-muted-foreground">Expense (cashflow tagged)</div>
+                        <div className="text-sm font-bold text-red-600">{fmtShort(ea.totalEventExpense)}</div>
+                    </div>
+                    <div>
+                        <div className="text-[10px] text-muted-foreground">Profit (Income − Expense)</div>
+                        <div className={`text-sm font-bold ${marginColor(ea.eventMarginPct)}`}>{fmtShort(ea.eventGrossProfit)}</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Recent Invoices */}
+            {ea.recentInvoices && ea.recentInvoices.length > 0 && (
+                <div className="rounded-lg border overflow-hidden bg-background">
+                    <div className="px-3 py-2 border-b bg-muted/30 flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold">Penawaran & Invoice ({ea.recentInvoices.length})</span>
+                    </div>
+                    <div className="divide-y max-h-48 overflow-y-auto">
+                        {ea.recentInvoices.map((inv: any) => (
+                            <Link
+                                key={inv.id}
+                                href={inv.type === 'QUOTATION' ? `/penawaran/${inv.id}` : `/invoices/${inv.id}`}
+                                className="block px-3 py-2 hover:bg-muted/30 flex items-center justify-between gap-2"
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded ${inv.type === 'QUOTATION' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'} font-medium`}>
+                                            {inv.type === 'QUOTATION' ? 'SPH' : 'INV'}
+                                        </span>
+                                        <span className="text-xs font-medium truncate">{inv.invoiceNumber}</span>
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded ${INV_STATUS_CLS[inv.status] ?? ''} font-medium`}>{inv.status}</span>
+                                    </div>
+                                    {inv.projectName && (
+                                        <div className="text-[10px] text-muted-foreground truncate">{inv.projectName}</div>
+                                    )}
+                                </div>
+                                <div className="text-right shrink-0">
+                                    <div className="text-xs font-bold">{fmtShort(Number(inv.total))}</div>
+                                    <div className="text-[9px] text-muted-foreground">{dayjs(inv.date).format("DD MMM YY")}</div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Recent RAB */}
+            {ea.recentRabPlans && ea.recentRabPlans.length > 0 && (
+                <div className="rounded-lg border overflow-hidden bg-background">
+                    <div className="px-3 py-2 border-b bg-muted/30 flex items-center gap-1.5">
+                        <Calculator className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold">RAB Plans ({ea.recentRabPlans.length})</span>
+                    </div>
+                    <div className="divide-y max-h-40 overflow-y-auto">
+                        {ea.recentRabPlans.map((r: any) => (
+                            <Link key={r.id} href={`/rab/${r.id}`} className="block px-3 py-2 hover:bg-muted/30 flex items-center justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                    <div className="text-xs font-medium truncate">{r.code} — {r.title}</div>
+                                    {r.projectName && <div className="text-[10px] text-muted-foreground truncate">{r.projectName}</div>}
+                                </div>
+                                <span className="text-[10px] text-muted-foreground shrink-0">{r.itemCount} item</span>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Recent Events */}
+            {ea.recentEvents && ea.recentEvents.length > 0 && (
+                <div className="rounded-lg border overflow-hidden bg-background">
+                    <div className="px-3 py-2 border-b bg-muted/30 flex items-center gap-1.5">
+                        <MapPinned className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold">Events ({ea.recentEvents.length})</span>
+                    </div>
+                    <div className="divide-y max-h-40 overflow-y-auto">
+                        {ea.recentEvents.map((ev: any) => {
+                            const status = EVENT_STATUS_LABEL[ev.status] ?? EVENT_STATUS_LABEL.SCHEDULED;
+                            return (
+                                <Link key={ev.id} href={`/events/${ev.id}`} className="block px-3 py-2 hover:bg-muted/30 flex items-center justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-medium truncate">{ev.name}</span>
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded ${status.cls} font-medium`}>{status.label}</span>
+                                        </div>
+                                        <div className="text-[10px] text-muted-foreground truncate">
+                                            {ev.code}{ev.venue ? ` · ${ev.venue}` : ''}
+                                        </div>
+                                    </div>
+                                    {ev.eventStart && (
+                                        <span className="text-[10px] text-muted-foreground shrink-0">
+                                            {dayjs(ev.eventStart).format("DD MMM YY")}
+                                        </span>
+                                    )}
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

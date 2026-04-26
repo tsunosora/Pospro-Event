@@ -42,33 +42,71 @@ import { getTransactionEditRequests } from "@/lib/api/transactions";
 import { getPendingInvoiceCount } from "@/lib/api/sales-orders";
 import { getOverdueCount } from "@/lib/api/withdrawals";
 
-const navigation = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
-    { name: "Kasir POS", href: "/pos", icon: ShoppingCart },
-    { name: "Rekap Penjualan", href: "/reports/sales", icon: BarChart3 },
-    { name: "Laporan Laba Kotor", href: "/reports/profit", icon: BarChart3 },
-    { name: "Riwayat Tutup Shift", href: "/reports/shift-history", icon: ClipboardList },
-    { name: "Daftar DP / Piutang", href: "/transactions/dp", icon: Wallet },
-    { name: "Manajemen Stok", href: "/inventory", icon: Package },
-    { name: "Laporan Stok", href: "/reports/stock", icon: TrendingDown },
-    { name: "Data Supplier", href: "/inventory/suppliers", icon: Truck },
-    { name: "Stok Opname", href: "/inventory/opname", icon: ClipboardList },
-    { name: "Ambil dari Gudang", href: "/gudang/ambil", icon: PackageOpen },
-    { name: "Jadwal Event", href: "/events", icon: CalendarDays },
-    { name: "Antrian Produksi", href: "/produksi", icon: Printer },
-    { name: "Antrian Cetak Paper", href: "/print-queue", icon: Printer },
-    { name: "Cashflow Bisnis", href: "/cashflow", icon: Banknote },
-    { name: "CRM — Dashboard", href: "/crm", icon: MessageCircle },
-    { name: "CRM — Pipeline", href: "/crm/board", icon: KanbanSquare },
-    { name: "CRM — Daftar Lead", href: "/crm/leads", icon: ListChecks },
-    { name: "CRM — Stages", href: "/crm/stages", icon: Settings2 },
-    { name: "CRM — Labels", href: "/crm/labels", icon: Tags },
-    { name: "Data Pelanggan", href: "/customers", icon: Users },
-    { name: "Invoice & Penawaran", href: "/invoices", icon: FileText },
-    { name: "Penawaran Booth/Event", href: "/penawaran", icon: FilePlus },
-    { name: "RAB (Anggaran Proyek)", href: "/rab", icon: CalcIcon },
-    { name: "Peta Cuan Lokasi", href: "/maps", icon: MapPin },
-    { name: "Kalkulator HPP", href: "/reports/hpp", icon: Calculator },
+type BadgeKey = "overdue" | "pendingInvoice" | "pendingEdit";
+
+type NavEntry =
+    | { kind: "section"; label: string }
+    | {
+          kind: "link";
+          name: string;
+          href: string;
+          icon: typeof LayoutDashboard;
+          badgeKey?: BadgeKey;
+          managerOnly?: boolean;
+      };
+
+const navigation: NavEntry[] = [
+    { kind: "link", name: "Dashboard", href: "/", icon: LayoutDashboard },
+
+    // ── 🎯 Sales & Pipeline (lini utama 95%) ──
+    { kind: "section", label: "Sales & Pipeline" },
+    { kind: "link", name: "CRM — Pipeline", href: "/crm/board", icon: KanbanSquare },
+    { kind: "link", name: "CRM — Dashboard", href: "/crm", icon: MessageCircle },
+    { kind: "link", name: "CRM — Daftar Lead", href: "/crm/leads", icon: ListChecks },
+    { kind: "link", name: "Data Pelanggan", href: "/customers", icon: Users },
+    { kind: "link", name: "Penawaran Booth/Event", href: "/penawaran", icon: FilePlus },
+    { kind: "link", name: "RAB (Anggaran Proyek)", href: "/rab", icon: CalcIcon },
+
+    // ── 📅 Event & Produksi ──
+    { kind: "section", label: "Event & Produksi" },
+    { kind: "link", name: "Event Timeline (Gantt)", href: "/events/timeline", icon: CalendarDays },
+    { kind: "link", name: "Jadwal Event", href: "/events", icon: CalendarDays },
+    { kind: "link", name: "Laporan Crew Lapangan", href: "/reports/crew", icon: Users },
+    { kind: "link", name: "Master Team Crew", href: "/settings/crew-teams", icon: Users },
+    { kind: "link", name: "Antrian Produksi", href: "/produksi", icon: Printer },
+
+    // ── 📦 Gudang & Stok ──
+    { kind: "section", label: "Gudang & Stok" },
+    { kind: "link", name: "Manajemen Stok", href: "/inventory", icon: Package },
+    { kind: "link", name: "Laporan Stok", href: "/reports/stock", icon: TrendingDown },
+    { kind: "link", name: "Data Supplier", href: "/inventory/suppliers", icon: Truck },
+    { kind: "link", name: "Stok Opname", href: "/inventory/opname", icon: ClipboardList },
+    { kind: "link", name: "Ambil dari Gudang", href: "/gudang/ambil", icon: PackageOpen },
+    { kind: "link", name: "Peminjaman Gudang", href: "/gudang/peminjaman", icon: WarehouseIcon, badgeKey: "overdue" },
+
+    // ── 💰 Keuangan ──
+    { kind: "section", label: "Keuangan" },
+    { kind: "link", name: "Cashflow Bisnis", href: "/cashflow", icon: Banknote },
+    { kind: "link", name: "Laba per Project", href: "/reports/event-profit", icon: TrendingDown },
+    { kind: "link", name: "Daftar DP / Piutang", href: "/transactions/dp", icon: Wallet },
+    { kind: "link", name: "Invoice & Penawaran", href: "/invoices", icon: FileText },
+
+    // ── 🖨️ Lini Printing & POS (5%) ──
+    { kind: "section", label: "Lini Printing & POS" },
+    { kind: "link", name: "Surat Order Designer", href: "/sales-orders", icon: FileSignature, badgeKey: "pendingInvoice" },
+    { kind: "link", name: "Antrian Cetak Paper", href: "/print-queue", icon: Printer },
+    { kind: "link", name: "Kasir POS", href: "/pos", icon: ShoppingCart },
+    { kind: "link", name: "Rekap Penjualan", href: "/reports/sales", icon: BarChart3 },
+    { kind: "link", name: "Laporan Laba Kotor", href: "/reports/profit", icon: BarChart3 },
+    { kind: "link", name: "Riwayat Tutup Shift", href: "/reports/shift-history", icon: ClipboardList },
+
+    // ── ⚙️ Tools & Pengaturan ──
+    { kind: "section", label: "Tools" },
+    { kind: "link", name: "Kalkulator HPP", href: "/reports/hpp", icon: Calculator },
+    { kind: "link", name: "Peta Cuan Lokasi", href: "/maps", icon: MapPin },
+    { kind: "link", name: "CRM — Stages", href: "/crm/stages", icon: Settings2 },
+    { kind: "link", name: "CRM — Labels", href: "/crm/labels", icon: Tags },
+    { kind: "link", name: "Permintaan Edit", href: "/transactions/edit-requests", icon: ClipboardEdit, badgeKey: "pendingEdit", managerOnly: true },
 ];
 
 export function Sidebar() {
@@ -157,14 +195,28 @@ export function Sidebar() {
                 {/* Navigation links */}
                 <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
                     <nav className="flex-1 space-y-1 px-3">
-                        {navigation.map((item) => {
-                            const isActive = pathname === item.href ||
-                                (item.href !== '/' && pathname.startsWith(item.href + "/")) ||
-                                (item.href !== '/' && pathname === item.href);
+                        {navigation.map((entry, idx) => {
+                            if (entry.kind === "section") {
+                                return (
+                                    <div
+                                        key={`section-${idx}`}
+                                        className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50"
+                                    >
+                                        {entry.label}
+                                    </div>
+                                );
+                            }
+                            if (entry.managerOnly && !isManager) return null;
+                            const isActive = pathname === entry.href ||
+                                (entry.href !== '/' && pathname.startsWith(entry.href + "/"));
+                            const badgeCount =
+                                entry.badgeKey === "overdue" ? overdueCount :
+                                entry.badgeKey === "pendingInvoice" ? pendingInvoiceCount :
+                                entry.badgeKey === "pendingEdit" ? pendingEditCount : 0;
                             return (
                                 <Link
-                                    key={item.name}
-                                    href={item.href}
+                                    key={entry.name}
+                                    href={entry.href}
                                     onClick={() => {
                                         if (window.innerWidth < 1024) closeSidebar();
                                     }}
@@ -172,101 +224,25 @@ export function Sidebar() {
                                         isActive
                                             ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
                                             : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-                                        "group flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-all"
+                                        "group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-all"
                                     )}
                                 >
-                                    <item.icon
+                                    <entry.icon
                                         className={cn(
                                             isActive ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
-                                            "mr-3 h-5 w-5 flex-shrink-0 transition-colors"
+                                            "mr-3 h-4 w-4 flex-shrink-0 transition-colors"
                                         )}
                                         aria-hidden="true"
                                     />
-                                    {item.name}
+                                    <span className="flex-1">{entry.name}</span>
+                                    {badgeCount > 0 && (
+                                        <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                                            {badgeCount > 9 ? '9+' : badgeCount}
+                                        </span>
+                                    )}
                                 </Link>
                             );
                         })}
-
-                        {/* Peminjaman Gudang — badge overdue */}
-                        <Link
-                            href="/gudang/peminjaman"
-                            onClick={() => { if (window.innerWidth < 1024) closeSidebar(); }}
-                            className={cn(
-                                pathname === '/gudang/peminjaman' || pathname.startsWith('/gudang/peminjaman/')
-                                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-                                    : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-                                "group flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-all"
-                            )}
-                        >
-                            <WarehouseIcon
-                                className={cn(
-                                    pathname === '/gudang/peminjaman' || pathname.startsWith('/gudang/peminjaman/')
-                                        ? "text-sidebar-accent-foreground"
-                                        : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
-                                    "mr-3 h-5 w-5 flex-shrink-0 transition-colors"
-                                )}
-                            />
-                            Peminjaman Gudang
-                            {overdueCount > 0 && (
-                                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                                    {overdueCount > 9 ? '9+' : overdueCount}
-                                </span>
-                            )}
-                        </Link>
-
-                        {/* Sales Order — badge pending-invoice */}
-                        <Link
-                            href="/sales-orders"
-                            onClick={() => { if (window.innerWidth < 1024) closeSidebar(); }}
-                            className={cn(
-                                pathname === '/sales-orders' || pathname.startsWith('/sales-orders/')
-                                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-                                    : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-                                "group flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-all"
-                            )}
-                        >
-                            <FileSignature
-                                className={cn(
-                                    pathname === '/sales-orders' || pathname.startsWith('/sales-orders/')
-                                        ? "text-sidebar-accent-foreground"
-                                        : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
-                                    "mr-3 h-5 w-5 flex-shrink-0 transition-colors"
-                                )}
-                            />
-                            Sales Order
-                            {pendingInvoiceCount > 0 && (
-                                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                                    {pendingInvoiceCount > 9 ? '9+' : pendingInvoiceCount}
-                                </span>
-                            )}
-                        </Link>
-
-                        {/* Permintaan Edit — hanya untuk Admin/Owner */}
-                        {isManager && (
-                            <Link
-                                href="/transactions/edit-requests"
-                                onClick={() => { if (window.innerWidth < 1024) closeSidebar(); }}
-                                className={cn(
-                                    pathname === '/transactions/edit-requests'
-                                        ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-                                        : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-                                    "group flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-all"
-                                )}
-                            >
-                                <ClipboardEdit
-                                    className={cn(
-                                        pathname === '/transactions/edit-requests' ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
-                                        "mr-3 h-5 w-5 flex-shrink-0 transition-colors"
-                                    )}
-                                />
-                                Permintaan Edit
-                                {pendingEditCount > 0 && (
-                                    <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                                        {pendingEditCount > 9 ? '9+' : pendingEditCount}
-                                    </span>
-                                )}
-                            </Link>
-                        )}
                     </nav>
                 </div>
 

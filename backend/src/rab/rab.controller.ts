@@ -9,6 +9,7 @@ import {
     ParseIntPipe,
     Patch,
     Post,
+    Request,
     Res,
     UploadedFile,
     UseGuards,
@@ -147,6 +148,20 @@ export class RabController {
             imageUrl,
         };
         return this.service.saveAsProduct(id, parsed);
+    }
+
+    @Post(':id/generate-cashflow')
+    async generateCashflow(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { mode?: 'detail' | 'category'; eventId?: number | null; skipExisting?: boolean },
+        @Request() req: any,
+    ) {
+        return this.service.generateCashflowFromRab(id, {
+            mode: body.mode,
+            eventId: body.eventId,
+            skipExisting: body.skipExisting,
+            userId: req.user?.userId,
+        });
     }
 
     @Delete(':id')

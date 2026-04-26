@@ -351,14 +351,20 @@ model Cashflow {
   date           DateTime       @default(now())
   shiftReportId    Int?     @map("shift_report_id") // tag pengeluaran ke shift tertentu
   excludeFromShift Boolean  @default(false) @map("exclude_from_shift") // true = tidak masuk laporan shift manapun (retroaktif/lupa)
+  eventId       Int?           @map("event_id")     // tag ke event tertentu (untuk laba per project)
+  rabPlanId     Int?           @map("rab_plan_id")  // tag ke RAB plan tertentu
   createdAt        DateTime? @default(now()) @map("created_at")
   updatedAt     DateTime?      @default(now()) @updatedAt @map("updated_at")
 
   user           User?        @relation(fields: [userId], references: [id])
   bankAccount    BankAccount? @relation(fields: [bankAccountId], references: [id])
   shiftReport    ShiftReport? @relation(fields: [shiftReportId], references: [id], onDelete: SetNull)
+  event          Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  rabPlan        RabPlan?     @relation(fields: [rabPlanId], references: [id], onDelete: SetNull)
   changeRequests CashflowChangeRequest[]
 
+  @@index([eventId])
+  @@index([rabPlanId])
   @@map("cashflows")
 }
 
@@ -540,6 +546,7 @@ model RabPlan {
   quotations        Invoice[]         @relation("QuotationRabPlan")
   generatedVariants ProductVariant[]  @relation("RabPlanGeneratedVariants")
   events            Event[]           @relation("EventRabPlan")
+  cashflows         Cashflow[]
 
   @@map("rab_plans")
 }
@@ -1117,10 +1124,12 @@ model Worker {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   withdrawals        Withdrawal[]
-  eventsAsPic        Event[]            @relation("EventPic")
-  packingChecked     EventPackingItem[] @relation("PackingCheckedBy")
+  eventsAsPic        Event[]              @relation("EventPic")
+  packingChecked     EventPackingItem[]   @relation("PackingCheckedBy")
   assignedLeads      Lead[]
   leadActivities     LeadActivity[]
+  crewAssignments    EventCrewAssignment[]
+  leadingTeams       CrewTeam[]           @relation("TeamLeader")
 
   @@map("workers")
 }
@@ -1212,16 +1221,64 @@ model Event {
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at")
 
-  customer     Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  picWorker    Worker?            @relation("EventPic", fields: [picWorkerId], references: [id], onDelete: SetNull)
-  rabPlan      RabPlan?           @relation("EventRabPlan", fields: [rabPlanId], references: [id], onDelete: SetNull)
-  withdrawals  Withdrawal[]
-  packingItems EventPackingItem[]
+  customer         Customer?              @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  picWorker        Worker?                @relation("EventPic", fields: [picWorkerId], references: [id], onDelete: SetNull)
+  rabPlan          RabPlan?               @relation("EventRabPlan", fields: [rabPlanId], references: [id], onDelete: SetNull)
+  withdrawals      Withdrawal[]
+  packingItems     EventPackingItem[]
+  crewAssignments  EventCrewAssignment[]
+  cashflows        Cashflow[]
 
   @@index([status])
   @@index([eventStart])
   @@index([brand])
   @@map("events")
+}
+
+// ----- Event Crew Setup-Time Tracking ----- //
+model CrewTeam {
+  id              Int       @id @default(autoincrement())
+  name            String    @unique @db.VarChar(80)
+  leaderWorkerId  Int?      @map("leader_worker_id")
+  color           String    @default("#6366f1") @db.VarChar(20)
+  notes           String?   @db.Text
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  leader      Worker?               @relation("TeamLeader", fields: [leaderWorkerId], references: [id], onDelete: SetNull)
+  assignments EventCrewAssignment[]
+
+  @@map("crew_teams")
+}
+
+model EventCrewAssignment {
+  id              Int       @id @default(autoincrement())
+  eventId         Int       @map("event_id")
+  workerId        Int       @map("worker_id")
+  teamId          Int?      @map("team_id")
+  role            String?   @db.VarChar(80)
+  scheduledStart  DateTime? @map("scheduled_start")
+  scheduledEnd    DateTime? @map("scheduled_end")
+  startedAt       DateTime? @map("started_at")
+  finishedAt      DateTime? @map("finished_at")
+  startPhotoUrl   String?   @map("start_photo_url") @db.Text
+  endPhotoUrl     String?   @map("end_photo_url") @db.Text
+  startNote       String?   @db.Text @map("start_note")
+  endNote         String?   @db.Text @map("end_note")
+  accessToken     String    @unique @map("access_token") @db.VarChar(64)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  event  Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  worker Worker    @relation(fields: [workerId], references: [id])
+  team   CrewTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, workerId])
+  @@index([eventId])
+  @@index([workerId])
+  @@index([teamId])
+  @@map("event_crew_assignments")
 }
 
 enum PackingDisposition {

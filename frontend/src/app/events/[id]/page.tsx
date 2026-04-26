@@ -14,6 +14,8 @@ import {
     type EventBrand, type EventStatus,
 } from "@/lib/api/events";
 import PackingListTab from "./PackingListTab";
+import CrewTab from "./CrewTab";
+import ProfitTab from "./ProfitTab";
 
 const STATUS_CFG: Record<EventStatus, { label: string; cls: string }> = {
     DRAFT: { label: "Draft", cls: "bg-gray-100 text-gray-700" },
@@ -45,7 +47,7 @@ function fmtDate(d: string | null | undefined) {
 export default function EventDetailPage() {
     const params = useParams<{ id: string }>();
     const id = Number(params.id);
-    const [tab, setTab] = useState<"info" | "packing" | "items" | "withdrawals">("info");
+    const [tab, setTab] = useState<"info" | "packing" | "crew" | "profit" | "items" | "withdrawals">("info");
     const [shareUrl, setShareUrl] = useState<string | null>(null);
     const [shareOpen, setShareOpen] = useState(false);
     const [waTarget, setWaTarget] = useState("");
@@ -211,6 +213,8 @@ export default function EventDetailPage() {
                 {([
                     { k: "info", label: "Info" },
                     { k: "packing", label: "Packing List" },
+                    { k: "crew", label: "Crew" },
+                    { k: "profit", label: "💰 Profit" },
                     { k: "items", label: "Ringkasan Barang" },
                     { k: "withdrawals", label: `Pengeluaran (${ev.withdrawals.length})` },
                 ] as const).map((t) => (
@@ -256,6 +260,10 @@ export default function EventDetailPage() {
             )}
 
             {tab === "packing" && <PackingListTab eventId={id} />}
+
+            {tab === "crew" && <CrewTab eventId={id} />}
+
+            {tab === "profit" && <ProfitTab eventId={id} />}
 
             {tab === "items" && (
                 <div className="border rounded-lg overflow-hidden">

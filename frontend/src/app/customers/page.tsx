@@ -7,6 +7,7 @@ import {
 } from "@/lib/api";
 import { exportToExcel, exportToPDF } from "@/lib/export";
 import { useState } from "react";
+import Link from "next/link";
 import {
     Plus, Edit2, Trash2, Search, X, Users, TrendingUp, Wallet,
     Phone, MapPin, FileSpreadsheet, FileText, Loader2, MessageCircle, BarChart2,
@@ -267,7 +268,12 @@ export default function CustomersPage() {
                             {/* Name + badges */}
                             <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                    <p className="font-bold text-foreground">{c.name}</p>
+                                    <Link href={`/customers/${c.id}`} className="font-bold text-foreground hover:text-primary hover:underline">
+                                        {c.name}
+                                    </Link>
+                                    {c.companyName && (
+                                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{c.companyName}</p>
+                                    )}
                                     {c.address && (
                                         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                                             <MapPin className="w-3 h-3 shrink-0" />

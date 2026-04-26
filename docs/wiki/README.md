@@ -14,6 +14,7 @@ Selamat datang di dokumentasi **Pospro Event** — aplikasi manajemen vendor boo
 | [🗂️ Pipeline Kanban](./crm-kanban.md) | Cara pakai drag-drop board, filter, card anatomy |
 | [📥 Import Lead XLSX](./crm-import.md) | Migrasi dari tool WhatsApp CRM lama |
 | [🔁 Convert Lead → Customer](./crm-convert.md) | Flow konversi + auto-create Penawaran/RAB |
+| [👥 Data Pelanggan (Customer)](./customers.md) | Master klien B2B + analytics + integrasi ke Penawaran/RAB/Event |
 
 ## 📑 Penawaran & RAB Event
 
@@ -21,12 +22,16 @@ Selamat datang di dokumentasi **Pospro Event** — aplikasi manajemen vendor boo
 |---|---|
 | [📄 Penawaran Booth/Event](./penawaran-event.md) | SPH variant SEWA & PENGADAAN_BOOTH |
 | [🧮 RAB Event](./rab-event.md) | Rencana Anggaran Biaya internal per project |
+| [📦 Save RAB as Product](./rab-to-product.md) | Convert item RAB jadi katalog produk reusable — booth standar siap jual via POS / SPH / RAB lain |
 | [🏭 Data Supplier](./suppliers.md) | Manajemen vendor material booth |
 
 ## 🏪 Operasional Event
 
 | Halaman | Fungsi |
 |---|---|
+| [📅 Event Timeline (Gantt)](./event-timeline.md) | Gantt-style command center untuk semua event paralel — drag-drop reschedule, conflict detection, RAB margin chip, export iCal |
+| [👷 Setup Time Tracking Crew](./crew-tracking.md) | Assign crew ke event, kirim WA link unik → crew check-in/check-out di lokasi (foto opsional) → laporan durasi & ranking |
+| [📝 Surat Order Designer](./sales-order.md) | Work order ke designer untuk digital printing (banner/poster/X-banner) — public link, upload proof, convert ke POS |
 | [🖨️ Antrian Produksi](./produksi.md) | Job queue produksi booth (cutting → kirim) |
 | [🖨️ Antrian Cetak Paper](./mesin-cetak.md) | Sub-queue cetak material paper |
 | [📋 Stok Opname](./stock-opname.md) | Audit stok material berkala |

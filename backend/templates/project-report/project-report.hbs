@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<title>Project Report — {{event.name}}</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #1f2937;
+    font-size: 11px;
+    line-height: 1.5;
+    margin: 0;
+    padding: 24px 28px;
+  }
+  h1, h2, h3 { margin: 0; font-weight: 700; }
+  h1 { font-size: 22px; color: #0f172a; }
+  h2 { font-size: 14px; color: #1e293b; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 2px solid #e5e7eb; }
+  h3 { font-size: 12px; color: #475569; margin-bottom: 4px; }
+
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 3px solid #6366f1; }
+  .header .brand { font-size: 10px; color: #6366f1; font-weight: 600; letter-spacing: 1px; }
+  .header h1 { margin-top: 4px; }
+  .header .subtitle { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .header .meta { text-align: right; font-size: 10px; color: #6b7280; }
+  .header .meta .doc-no { font-size: 12px; color: #1f2937; font-weight: 600; }
+
+  /* Status badge */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge-DRAFT { background: #f3f4f6; color: #4b5563; }
+  .badge-SCHEDULED { background: #dbeafe; color: #1e40af; }
+  .badge-IN_PROGRESS { background: #fef3c7; color: #92400e; }
+  .badge-COMPLETED { background: #d1fae5; color: #065f46; }
+  .badge-CANCELLED { background: #fee2e2; color: #991b1b; }
+
+  /* Event info table */
+  .info-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .info-table td { padding: 6px 10px; border: 1px solid #e5e7eb; vertical-align: top; }
+  .info-table td.label { background: #f9fafb; font-weight: 600; color: #475569; width: 28%; font-size: 10px; }
+  .info-table td.value { font-size: 11px; }
+
+  /* Stat cards */
+  .stat-grid { display: flex; gap: 8px; margin-bottom: 16px; }
+  .stat-card { flex: 1; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; text-align: center; }
+  .stat-card .label { font-size: 9px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .stat-card .value { font-size: 14px; font-weight: 700; }
+  .stat-income .value { color: #059669; }
+  .stat-expense .value { color: #dc2626; }
+  .stat-profit-positive .value { color: #059669; }
+  .stat-profit-negative .value { color: #dc2626; }
+  .stat-margin .value { color: #6366f1; }
+
+  /* Section */
+  .section { margin-bottom: 16px; }
+
+  /* Tables */
+  table.data { width: 100%; border-collapse: collapse; font-size: 10px; }
+  table.data th { background: #f3f4f6; color: #374151; font-weight: 600; padding: 6px 8px; text-align: left; border: 1px solid #e5e7eb; }
+  table.data td { padding: 5px 8px; border: 1px solid #e5e7eb; vertical-align: top; }
+  table.data tr:nth-child(even) td { background: #fafafa; }
+  table.data .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.data .income-amt { color: #059669; font-weight: 600; }
+  table.data .expense-amt { color: #dc2626; font-weight: 600; }
+  table.data tfoot td { font-weight: 700; background: #f3f4f6 !important; border-top: 2px solid #94a3b8; }
+
+  /* Category bars */
+  .cat-bar-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 10px; }
+  .cat-bar-row .cat-name { flex: 0 0 35%; color: #475569; }
+  .cat-bar-row .cat-value { flex: 0 0 25%; text-align: right; font-weight: 600; }
+  .cat-bar-row .cat-bar { flex: 1; height: 6px; background: #f3f4f6; border-radius: 3px; overflow: hidden; }
+  .cat-bar-row .cat-bar-fill { height: 100%; }
+  .cat-income .cat-bar-fill { background: #10b981; }
+  .cat-expense .cat-bar-fill { background: #ef4444; }
+
+  /* Crew status */
+  .crew-status-DONE { color: #059669; font-weight: 600; }
+  .crew-status-ON_SITE { color: #d97706; font-weight: 600; }
+  .crew-status-ASSIGNED { color: #6b7280; }
+
+  /* Monthly trend chart */
+  .trend-chart {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 8px;
+  }
+  .trend-chart-grid {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 6px;
+    height: 110px;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+  }
+  .trend-month {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+  }
+  .trend-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 100%;
+    width: 100%;
+    justify-content: center;
+  }
+  .trend-bar {
+    width: 18px;
+    border-radius: 3px 3px 0 0;
+    min-height: 1px;
+    position: relative;
+  }
+  .trend-bar-income { background: #10b981; }
+  .trend-bar-expense { background: #ef4444; }
+  .trend-bar-empty { background: #f3f4f6; height: 1px !important; }
+  .trend-labels {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 9px;
+    color: #475569;
+  }
+  .trend-label {
+    flex: 1;
+    text-align: center;
+  }
+  .trend-label .month-name { font-weight: 600; color: #1f2937; font-size: 9px; }
+  .trend-label .profit-value { font-size: 8px; margin-top: 2px; }
+  .profit-positive { color: #059669; font-weight: 600; }
+  .profit-negative { color: #dc2626; font-weight: 600; }
+  .trend-legend {
+    display: flex;
+    gap: 12px;
+    font-size: 9px;
+    color: #6b7280;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed #e5e7eb;
+  }
+  .trend-legend-item { display: flex; align-items: center; gap: 4px; }
+  .trend-legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* Footer */
+  .page-footer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; font-size: 9px; color: #9ca3af; }
+
+  .empty { font-style: italic; color: #9ca3af; padding: 8px; text-align: center; }
+
+  .team-chip { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 9px; color: white; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="brand">POSPRO EVENT — PROJECT REPORT</div>
+    <h1>{{event.name}}</h1>
+    <div class="subtitle">{{event.code}} · <span class="badge badge-{{event.status}}">{{statusLabel}}</span></div>
+  </div>
+  <div class="meta">
+    <div class="doc-no">Generated: {{generatedAt}}</div>
+    <div>Brand: {{event.brand}}</div>
+  </div>
+</div>
+
+<!-- Event Info -->
+<div class="section">
+  <h2>📋 Informasi Event</h2>
+  <table class="info-table">
+    <tr><td class="label">Klien</td><td class="value">{{customerLine}}</td></tr>
+    <tr><td class="label">Venue</td><td class="value">{{event.venue}}</td></tr>
+    <tr><td class="label">PIC</td><td class="value">{{picLine}}</td></tr>
+    {{#if departureLine}}<tr><td class="label">Berangkat</td><td class="value">{{departureLine}}</td></tr>{{/if}}
+    {{#if setupLine}}<tr><td class="label">Pasang (Setup)</td><td class="value">{{setupLine}}</td></tr>{{/if}}
+    {{#if eventDateLine}}<tr><td class="label">Event Day</td><td class="value">{{eventDateLine}}</td></tr>{{/if}}
+    {{#if loadingLine}}<tr><td class="label">Bongkar (Loading)</td><td class="value">{{loadingLine}}</td></tr>{{/if}}
+    {{#if event.notes}}<tr><td class="label">Catatan</td><td class="value">{{event.notes}}</td></tr>{{/if}}
+  </table>
+</div>
+
+<!-- Financial Summary -->
+<div class="section">
+  <h2>💰 Ringkasan Keuangan</h2>
+  <div class="stat-grid">
+    <div class="stat-card stat-income">
+      <div class="label">Total Income</div>
+      <div class="value">{{financial.totalIncomeFmt}}</div>
+    </div>
+    <div class="stat-card stat-expense">
+      <div class="label">Total Expense</div>
+      <div class="value">{{financial.totalExpenseFmt}}</div>
+    </div>
+    <div class="stat-card {{profitClass}}">
+      <div class="label">Laba Kotor</div>
+      <div class="value">{{financial.grossProfitFmt}}</div>
+    </div>
+    <div class="stat-card stat-margin">
+      <div class="label">Margin %</div>
+      <div class="value">{{financial.marginPctFmt}}%</div>
+    </div>
+  </div>
+
+  {{#if hasMonthlyTrend}}
+    <h3>Tren 6 Bulan Terakhir</h3>
+    <div class="trend-chart">
+      <div class="trend-chart-grid">
+        {{#each monthlyTrend}}
+          <div class="trend-month">
+            <div class="trend-bars">
+              {{#if this.hasData}}
+                {{#if this.incomeFmt}}
+                  <div class="trend-bar trend-bar-income" style="height: {{this.incomeHeight}}%"></div>
+                {{else}}
+                  <div class="trend-bar trend-bar-empty"></div>
+                {{/if}}
+                {{#if this.expenseFmt}}
+                  <div class="trend-bar trend-bar-expense" style="height: {{this.expenseHeight}}%"></div>
+                {{else}}
+                  <div class="trend-bar trend-bar-empty"></div>
+                {{/if}}
+              {{else}}
+                <div class="trend-bar trend-bar-empty"></div>
+                <div class="trend-bar trend-bar-empty"></div>
+              {{/if}}
+            </div>
+          </div>
+        {{/each}}
+      </div>
+      <div class="trend-labels">
+        {{#each monthlyTrend}}
+          <div class="trend-label">
+            <div class="month-name">{{this.month}}</div>
+            <div class="profit-value {{this.profitClass}}">{{this.profitFmt}}</div>
+          </div>
+        {{/each}}
+      </div>
+      <div class="trend-legend">
+        <div class="trend-legend-item"><span class="trend-legend-swatch" style="background:#10b981"></span> Income</div>
+        <div class="trend-legend-item"><span class="trend-legend-swatch" style="background:#ef4444"></span> Expense</div>
+        <div class="trend-legend-item">Angka di bawah = Profit per bulan</div>
+      </div>
+    </div>
+  {{/if}}
+
+  {{#if hasCashflowEntries}}
+    <h3>Breakdown per Kategori</h3>
+    {{#if incomeCategories.length}}
+      <div style="margin-bottom: 8px;">
+        <div style="font-size: 10px; color: #059669; font-weight: 600; margin-bottom: 4px;">↗ Income</div>
+        {{#each incomeCategories}}
+          <div class="cat-bar-row cat-income">
+            <span class="cat-name">{{this.category}}</span>
+            <div class="cat-bar"><div class="cat-bar-fill" style="width: {{this.pct}}%"></div></div>
+            <span class="cat-value">{{this.amountFmt}}</span>
+          </div>
+        {{/each}}
+      </div>
+    {{/if}}
+    {{#if expenseCategories.length}}
+      <div>
+        <div style="font-size: 10px; color: #dc2626; font-weight: 600; margin-bottom: 4px;">↘ Expense</div>
+        {{#each expenseCategories}}
+          <div class="cat-bar-row cat-expense">
+            <span class="cat-name">{{this.category}}</span>
+            <div class="cat-bar"><div class="cat-bar-fill" style="width: {{this.pct}}%"></div></div>
+            <span class="cat-value">{{this.amountFmt}}</span>
+          </div>
+        {{/each}}
+      </div>
+    {{/if}}
+  {{else}}
+    <div class="empty">Belum ada cashflow ter-tag ke event ini.</div>
+  {{/if}}
+</div>
+
+<!-- Cashflow entries -->
+{{#if cashflowEntries.length}}
+<div class="section">
+  <h2>📜 Detail Transaksi Cashflow ({{cashflowEntries.length}})</h2>
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Tanggal</th>
+        <th>Tipe</th>
+        <th>Kategori</th>
+        <th>Catatan</th>
+        <th class="num">Income</th>
+        <th class="num">Expense</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each cashflowEntries}}
+      <tr>
+        <td>{{this.dateFmt}}</td>
+        <td>{{this.typeLabel}}</td>
+        <td>{{this.category}}</td>
+        <td>{{this.note}}</td>
+        <td class="num income-amt">{{this.incomeFmt}}</td>
+        <td class="num expense-amt">{{this.expenseFmt}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4" class="num">TOTAL</td>
+        <td class="num income-amt">{{financial.totalIncomeFmt}}</td>
+        <td class="num expense-amt">{{financial.totalExpenseFmt}}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{{/if}}
+
+<!-- Crew -->
+{{#if crew.length}}
+<div class="section">
+  <h2>👷 Crew Lapangan ({{crew.length}})</h2>
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Nama</th>
+        <th>Team</th>
+        <th>Role</th>
+        <th>Check-in</th>
+        <th>Check-out</th>
+        <th>Durasi</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each crew}}
+      <tr>
+        <td>{{this.workerName}}</td>
+        <td>
+          {{#if this.team}}
+            <span class="team-chip" style="background: {{this.team.color}}">{{this.team.name}}</span>
+          {{else}}—{{/if}}
+        </td>
+        <td>{{this.role}}</td>
+        <td>{{this.startedAtFmt}}</td>
+        <td>{{this.finishedAtFmt}}</td>
+        <td>{{this.durationFmt}}</td>
+        <td><span class="crew-status-{{this.statusKey}}">{{this.statusLabel}}</span></td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+</div>
+{{/if}}
+
+<div class="page-footer">
+  <span>Pospro Event — Project Report — {{event.code}}</span>
+  <span>Generated {{generatedAt}} oleh {{generatedBy}}</span>
+</div>
+
+</body>
+</html>

@@ -94,7 +94,13 @@ export class EventsService {
             include: {
                 customer: { select: { id: true, name: true, companyName: true } },
                 picWorker: { select: { id: true, name: true, position: true } },
-                _count: { select: { withdrawals: true } },
+                _count: { select: { withdrawals: true, crewAssignments: true } },
+                crewAssignments: {
+                    select: {
+                        teamId: true,
+                        team: { select: { id: true, name: true, color: true } },
+                    },
+                },
             },
         });
     }

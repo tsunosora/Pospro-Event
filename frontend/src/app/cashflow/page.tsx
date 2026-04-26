@@ -14,6 +14,8 @@ import {
     submitCashflowRequest, getPendingRequests, getMyRequests, approveRequest, rejectRequest,
     type CashflowChangeRequest,
 } from "@/lib/api";
+import { getEvents } from "@/lib/api/events";
+import { getRabList } from "@/lib/api/rab";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import dayjs from "dayjs";
 import {
@@ -34,6 +36,10 @@ type CashflowEntry = {
     user?: { email: string; name?: string } | null;
     paymentMethod?: string | null;
     bankAccount?: { bankName: string; accountNumber: string } | null;
+    eventId?: number | null;
+    event?: { id: number; code: string; name: string } | null;
+    rabPlanId?: number | null;
+    rabPlan?: { id: number; code: string; title: string } | null;
 };
 
 type PeriodKey = 'today' | 'yesterday' | 'this_month' | 'last_3_months' | 'this_year' | 'all' | 'custom';
@@ -48,9 +54,65 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
     { key: 'custom', label: 'Kustom' },
 ];
 
-const INCOME_CATEGORIES = ['Penjualan Lunas', 'Pembayaran DP', 'Pelunasan DP', 'Modal Usaha', 'Investasi', 'Pinjaman', 'Lainnya'];
-const EXPENSE_CATEGORIES = ['Operasional', 'Bahan Baku', 'Gaji Karyawan', 'Sewa', 'Listrik & Air', 'Transportasi', 'Marketing', 'Pemeliharaan', 'Pajak', 'Lainnya'];
-const PLATFORM_OPTIONS = ['POS (Offline)', 'Tokopedia', 'Shopee', 'Lincah', 'TikTok Shop', 'Lainnya'];
+const INCOME_CATEGORIES = [
+    // Lini utama: Booth & Event (95%)
+    'Sewa Booth',
+    'Pengadaan Booth',
+    'Jasa Setup Event',
+    'DP Booth/Event',
+    'Pelunasan Booth/Event',
+    // Lini Printing (5%)
+    'Pendapatan Printing',
+    'Pembayaran DP',
+    'Pelunasan DP',
+    'Penjualan Lunas',
+    // Non-operasional
+    'Modal Usaha',
+    'Investasi',
+    'Pinjaman',
+    'Lainnya',
+];
+
+const EXPENSE_CATEGORIES = [
+    // Project / Event direct cost
+    'Material Booth (Kayu/MDF)',
+    'Material Booth (Lighting/Hardware)',
+    'Jasa Crew Lapangan',
+    'Jasa Tukang Workshop',
+    'Transport Event',
+    'Akomodasi Crew',
+    'Sewa Alat Event',
+    'Konsumsi Crew',
+    // Lini Printing
+    'Bahan Baku Printing',
+    'Designer Fee',
+    // Operasional rutin
+    'Operasional Kantor',
+    'Gaji Karyawan',
+    'Sewa Workshop/Kantor',
+    'Listrik & Air',
+    'Internet & Telepon',
+    'Pemeliharaan',
+    'Marketing META Ads',
+    'Marketing Lainnya',
+    'Pajak',
+    'Lainnya',
+];
+
+const PLATFORM_OPTIONS = [
+    // Konteks vendor booth/event
+    'Direct B2B (Event)',
+    'Walk-in Counter (Printing)',
+    'META Ads Lead',
+    'WhatsApp Lead',
+    'Website',
+    // POS / Marketplace (jaga compatibility)
+    'POS (Offline)',
+    'Tokopedia',
+    'Shopee',
+    'TikTok Shop',
+    'Lainnya',
+];
 
 function getPeriodDates(period: PeriodKey, customStart?: string, customEnd?: string): { startDate?: string; endDate?: string } {
     const now = dayjs();
@@ -408,6 +470,22 @@ export default function CashflowPage() {
     const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'QRIS' | 'BANK_TRANSFER'>('CASH');
     const [bankAccountId, setBankAccountId] = useState<number | ''>('');
     const [excludeFromShift, setExcludeFromShift] = useState(false);
+    const [eventId, setEventId] = useState<number | "">("");
+    const [rabPlanId, setRabPlanId] = useState<number | "">("");
+
+    // Filter list by event / RAB
+    const [filterEventId, setFilterEventId] = useState<number | "">("");
+    const [filterRabPlanId, setFilterRabPlanId] = useState<number | "">("");
+
+    // Active events untuk dropdown (load all SCHEDULED + IN_PROGRESS recent)
+    const { data: events = [] } = useQuery({
+        queryKey: ["cashflow-events-options"],
+        queryFn: () => getEvents({}),
+    });
+    const { data: rabPlans = [] } = useQuery({
+        queryKey: ["cashflow-rab-options"],
+        queryFn: () => getRabList(),
+    });
 
     // Edit + delete
     const [editEntry, setEditEntry] = useState<CashflowEntry | null>(null);
@@ -424,8 +502,13 @@ export default function CashflowPage() {
     const [filterType, setFilterType] = useState<'ALL' | 'INCOME' | 'EXPENSE'>('ALL');
 
     const { data, isLoading } = useQuery({
-        queryKey: ['cashflows', startDate, endDate],
-        queryFn: () => getCashflows(startDate, endDate),
+        queryKey: ['cashflows', startDate, endDate, filterEventId, filterRabPlanId],
+        queryFn: () => getCashflows(
+            startDate,
+            endDate,
+            filterEventId === "" ? undefined : Number(filterEventId),
+            filterRabPlanId === "" ? undefined : Number(filterRabPlanId),
+        ),
     });
 
     const { data: trendData } = useQuery({
@@ -492,6 +575,8 @@ export default function CashflowPage() {
             setPaymentMethod('CASH');
             setBankAccountId('');
             setExcludeFromShift(false);
+            setEventId('');
+            setRabPlanId('');
         },
     });
 
@@ -524,6 +609,8 @@ export default function CashflowPage() {
             paymentMethod,
             bankAccountId: paymentMethod === 'BANK_TRANSFER' && bankAccountId ? bankAccountId : null,
             excludeFromShift,
+            eventId: eventId === "" ? null : Number(eventId),
+            rabPlanId: rabPlanId === "" ? null : Number(rabPlanId),
         });
     };
 
@@ -811,7 +898,27 @@ export default function CashflowPage() {
             <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-border flex justify-between items-center flex-wrap gap-3">
                     <h3 className="font-semibold text-foreground">Histori Cashflow</h3>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center flex-wrap">
+                        <select
+                            value={filterEventId === "" ? "" : String(filterEventId)}
+                            onChange={(e) => setFilterEventId(e.target.value === "" ? "" : Number(e.target.value))}
+                            className="px-2 py-1.5 rounded-lg text-xs font-medium border border-input bg-background text-foreground"
+                        >
+                            <option value="">🎪 Semua Event</option>
+                            {events.map((ev) => (
+                                <option key={ev.id} value={ev.id}>{ev.code}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={filterRabPlanId === "" ? "" : String(filterRabPlanId)}
+                            onChange={(e) => setFilterRabPlanId(e.target.value === "" ? "" : Number(e.target.value))}
+                            className="px-2 py-1.5 rounded-lg text-xs font-medium border border-input bg-background text-foreground"
+                        >
+                            <option value="">🧮 Semua RAB</option>
+                            {rabPlans.map((r) => (
+                                <option key={r.id} value={r.id}>{r.code}</option>
+                            ))}
+                        </select>
                         {(['ALL', 'INCOME', 'EXPENSE'] as const).map(f => (
                             <button key={f} onClick={() => setFilterType(f)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterType === f ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'}`}>
@@ -846,6 +953,16 @@ export default function CashflowPage() {
                                                     {entry.paymentMethod === 'CASH' ? '💵 Tunai'
                                                         : entry.paymentMethod === 'QRIS' ? '📱 QRIS'
                                                         : `🏦 ${entry.bankAccount?.bankName || 'Transfer'}`}
+                                                </span>
+                                            )}
+                                            {entry.event && (
+                                                <span className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 px-1.5 py-0.5 rounded-full" title={`Event: ${entry.event.name}`}>
+                                                    🎪 {entry.event.code}
+                                                </span>
+                                            )}
+                                            {entry.rabPlan && (
+                                                <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-1.5 py-0.5 rounded-full" title={`RAB: ${entry.rabPlan.title}`}>
+                                                    🧮 {entry.rabPlan.code}
                                                 </span>
                                             )}
                                         </div>
@@ -977,6 +1094,42 @@ export default function CashflowPage() {
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-foreground">Nominal (Rp)</label>
                                 <input required type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-foreground">
+                                        🎪 Tag Event <span className="text-xs text-muted-foreground font-normal">(opsional)</span>
+                                    </label>
+                                    <select
+                                        value={eventId === "" ? "" : String(eventId)}
+                                        onChange={e => setEventId(e.target.value === "" ? "" : Number(e.target.value))}
+                                        className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                    >
+                                        <option value="">— Tidak terkait event —</option>
+                                        {events.map((ev) => (
+                                            <option key={ev.id} value={ev.id}>
+                                                {ev.code} — {ev.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-foreground">
+                                        🧮 Tag RAB <span className="text-xs text-muted-foreground font-normal">(opsional)</span>
+                                    </label>
+                                    <select
+                                        value={rabPlanId === "" ? "" : String(rabPlanId)}
+                                        onChange={e => setRabPlanId(e.target.value === "" ? "" : Number(e.target.value))}
+                                        className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                    >
+                                        <option value="">— Tidak terkait RAB —</option>
+                                        {rabPlans.map((r) => (
+                                            <option key={r.id} value={r.id}>
+                                                {r.code} — {r.title}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-foreground">Catatan / Keterangan</label>

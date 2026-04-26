@@ -5,12 +5,18 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CustomersService {
     constructor(private readonly prisma: PrismaService) { }
 
-    async create(data: { name: string; phone?: string; address?: string }) {
+    async create(data: { name: string; phone?: string; email?: string; address?: string; companyName?: string; companyPIC?: string }) {
         return this.prisma.customer.create({ data });
     }
 
     async findAll() {
         return this.prisma.customer.findMany({ orderBy: { name: 'asc' } });
+    }
+
+    async findOne(id: number) {
+        const c = await this.prisma.customer.findUnique({ where: { id } });
+        if (!c) throw new NotFoundException('Customer not found');
+        return c;
     }
 
     async findAllWithStats() {
@@ -102,7 +108,129 @@ export class CustomersService {
             items: t.items.map(i => i.productVariant.product.name),
         }));
 
-        return { customer, totalRevenue, totalOrders, lastOrderDate, topProducts, monthlySpend, recentTransactions };
+        // ── EVENT/PROJECT ANALYTICS (vendor booth-aware) ──
+        // Invoice (Penawaran ACCEPTED + Invoice PAID)
+        const invoices = await this.prisma.invoice.findMany({
+            where: {
+                customerId: id,
+                OR: [
+                    { type: 'INVOICE', status: 'PAID' },
+                    { type: 'QUOTATION', status: { in: ['ACCEPTED', 'SENT'] } },
+                ],
+            },
+            select: {
+                id: true,
+                invoiceNumber: true,
+                type: true,
+                status: true,
+                quotationVariant: true,
+                projectName: true,
+                eventDateStart: true,
+                total: true,
+                date: true,
+            },
+            orderBy: { date: 'desc' },
+        });
+
+        const acceptedQuotations = invoices.filter(i => i.type === 'QUOTATION' && i.status === 'ACCEPTED');
+        const paidInvoices = invoices.filter(i => i.type === 'INVOICE' && i.status === 'PAID');
+
+        const totalQuotationValue = acceptedQuotations.reduce((s, i) => s + Number(i.total), 0);
+        const totalInvoicePaid = paidInvoices.reduce((s, i) => s + Number(i.total), 0);
+
+        // RAB Plans
+        const rabPlans = await this.prisma.rabPlan.findMany({
+            where: { customerId: id },
+            select: {
+                id: true,
+                code: true,
+                title: true,
+                projectName: true,
+                periodStart: true,
+                items: { select: { quantity: true, priceRab: true, quantityCost: true, priceCost: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        let totalRabValue = 0;
+        let totalRabCost = 0;
+        for (const r of rabPlans) {
+            for (const it of r.items) {
+                totalRabValue += Number(it.priceRab) * Number(it.quantity);
+                totalRabCost += Number(it.priceCost) * Number(it.quantityCost);
+            }
+        }
+
+        // Events terkait
+        const events = await this.prisma.event.findMany({
+            where: { customerId: id },
+            select: {
+                id: true,
+                code: true,
+                name: true,
+                status: true,
+                eventStart: true,
+                venue: true,
+            },
+            orderBy: { eventStart: 'desc' },
+        });
+        const eventIds = events.map(e => e.id);
+
+        // Cashflow ter-tag ke event milik customer ini
+        let totalEventIncome = 0;
+        let totalEventExpense = 0;
+        if (eventIds.length > 0) {
+            const cashflows = await this.prisma.cashflow.findMany({
+                where: { eventId: { in: eventIds } },
+                select: { type: true, amount: true },
+            });
+            for (const cf of cashflows) {
+                const amount = Number(cf.amount);
+                if (cf.type === 'INCOME') totalEventIncome += amount;
+                else totalEventExpense += amount;
+            }
+        }
+        const eventGrossProfit = totalEventIncome - totalEventExpense;
+        const eventMarginPct = totalEventIncome > 0 ? (eventGrossProfit / totalEventIncome) * 100 : 0;
+
+        const eventAnalytics = {
+            invoiceCount: paidInvoices.length,
+            quotationCount: acceptedQuotations.length,
+            totalQuotationValue,
+            totalInvoicePaid,
+            rabCount: rabPlans.length,
+            totalRabValue,
+            totalRabCost,
+            rabMarginPct: totalRabValue > 0 ? ((totalRabValue - totalRabCost) / totalRabValue) * 100 : 0,
+            eventCount: events.length,
+            totalEventIncome,
+            totalEventExpense,
+            eventGrossProfit,
+            eventMarginPct,
+            recentInvoices: invoices.slice(0, 10),
+            recentEvents: events.slice(0, 10),
+            recentRabPlans: rabPlans.slice(0, 10).map(r => ({
+                id: r.id,
+                code: r.code,
+                title: r.title,
+                projectName: r.projectName,
+                periodStart: r.periodStart,
+                itemCount: r.items.length,
+            })),
+        };
+
+        return {
+            customer,
+            // POS metrics (lini Printing 5%)
+            totalRevenue,
+            totalOrders,
+            lastOrderDate,
+            topProducts,
+            monthlySpend,
+            recentTransactions,
+            // Event metrics (lini Booth 95%) — NEW
+            eventAnalytics,
+        };
     }
 
     async findAllForExport() {
@@ -167,7 +295,7 @@ export class CustomersService {
         });
     }
 
-    async update(id: number, data: { name?: string; phone?: string; address?: string }) {
+    async update(id: number, data: { name?: string; phone?: string | null; email?: string | null; address?: string | null; companyName?: string | null; companyPIC?: string | null }) {
         return this.prisma.customer.update({ where: { id }, data });
     }
 
