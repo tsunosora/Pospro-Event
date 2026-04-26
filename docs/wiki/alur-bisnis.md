@@ -1,166 +1,301 @@
-# 🔄 Alur Bisnis Pospro Event — End-to-End
+# 🔄 Alur Bisnis Pospro Event
 
-Halaman ini menjelaskan bagaimana semua modul **Pospro Event** bekerja bersama — dari Lead pertama yang masuk via META Ads / WhatsApp, sampai event selesai dan laba dihitung.
+> **Halaman ini ngobrol santai** menjelaskan alur kerja Pospro Event dari awal sampai akhir. Cocok untuk pemilik usaha, owner, atau staff baru yang baru pertama kali pegang aplikasi ini.
 
-## Profil Usaha
+## Cerita Singkat — Sehari di Vendor Booth
 
-Pospro Event dirancang untuk usaha hybrid:
+Bayangkan Anda adalah owner vendor booth & event. Berikut **cerita normal sehari**:
 
-```
-   95%   📍 Booth & Event Vendor + Persewaan (lini utama)
-            └─ B2B project: pameran, exhibition, custom booth
-   5%    🖨️ Digital Printing (sesekali / bundling dgn booth)
-            └─ Walk-in counter / WA / sub-item RAB event
-```
+> *Pagi-pagi buka HP, ada chat WA dari beberapa orang yang nanya soal booth pameran. Tim sales follow-up. Beberapa hari kemudian, ada yang minta penawaran. Anda hitung modal, kasih harga, kirim PDF. Klien ACC, transfer DP. Tim produksi mulai bikin booth di workshop. Crew berangkat ke lokasi, setting booth. Event jalan 3 hari. Bongkar. Klien lunasi. Akhir bulan, Anda ingin tahu: untung berapa per project?*
 
-Dua lini ini saling **terintegrasi** — bukan dipisah modul. Customer event yang minta cetak banner tetap satu profil. Item RAB event yang sering reuse (mis. Booth 3×3 Wood Standard) bisa di-[Save as Product](./rab-to-product.md) dan dijual via Kasir POS untuk klien walk-in.
+Itulah **alur bisnis Pospro Event**. Sekarang kita lihat aplikasinya bantu di setiap tahap.
 
-## Diagram Alur
+## Diagram Besar
 
 ```
-  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-  │  META Ads    │     │  WhatsApp    │     │   Website    │
-  └──────┬───────┘     └──────┬───────┘     └──────┬───────┘
-         └────────────────────┴────────────────────┘
-                              ↓
-                    ╔═════════════════════╗
-                    ║   1. CRM            ║  (Sales)
-                    ║   /crm/board        ║
-                    ║   Kanban drag-drop  ║
-                    ╚══════════╤══════════╝
-                               ↓ deal
-                    ╔═════════════════════╗
-                    ║   2. Convert        ║
-                    ║   → Customer        ║
-                    ║   → draft Penawaran ║
-                    ║   → draft RAB       ║
-                    ╚══════════╤══════════╝
-                               ↓
-                ┌──────────────┴──────────────┐
-                ↓                             ↓
-       ╔════════════════╗            ╔════════════════╗
-       ║  3a. Penawaran ║ kirim klien║  3b. RAB Event ║  (Internal)
-       ║  (SPH PDF)     ║ ─────────► ║  (cost plan)   ║
-       ║  ACCEPTED      ║            ║  APPROVED      ║
-       ╚════════╤═══════╝            ╚════════╤═══════╝
-                ↓ convert                     ↓ event jalan
-       ╔════════════════╗            ╔════════════════╗
-       ║  4a. Invoice   ║            ║  4b. Produksi  ║
-       ║  (final)       ║            ║  (job queue)   ║
-       ╚════════╤═══════╝            ╚════════╤═══════╝
-                └──────────────┬──────────────┘
-                               ↓
-                    ╔═════════════════════╗
-                    ║   5. Cashflow       ║
-                    ║   + Laba Project    ║
-                    ║   + RAB CLOSED      ║
-                    ╚═════════════════════╝
+   ┌──────────────────────────────────────────────────────────────┐
+   │                                                                │
+   │  CHAT WA   META ADS   WEBSITE                                  │
+   │     │         │          │                                     │
+   │     └─────────┴──────────┘                                     │
+   │                ↓                                                │
+   │  ┌─────────────────────┐                                       │
+   │  │  1. CRM Lead        │  Kanban drag-drop                     │
+   │  │     /crm/board      │  (Lead Masuk → Follow Up → ...)       │
+   │  └──────────┬──────────┘                                       │
+   │             │                                                   │
+   │             ↓ klien deal                                        │
+   │  ┌─────────────────────┐                                       │
+   │  │  2. Convert ke      │  → Customer dibuat                    │
+   │  │     Customer        │  → Draft Penawaran (opsional)         │
+   │  │                     │  → Draft RAB (opsional)               │
+   │  └──────────┬──────────┘                                       │
+   │             │                                                   │
+   │  ┌──────────┴──────────┐                                       │
+   │  ↓                     ↓                                       │
+   │ Penawaran            RAB                                       │
+   │ (kirim klien)        (internal)                                │
+   │  ↓                     ↓                                       │
+   │ Klien ACC + DP       Hitung modal & margin                     │
+   │  ↓                     ↓                                       │
+   │  └──────────┬──────────┘                                       │
+   │             ↓                                                   │
+   │  ┌─────────────────────┐                                       │
+   │  │  3. Eksekusi Event  │                                       │
+   │  │     - Produksi      │                                       │
+   │  │     - Crew Setup    │  Check-in via link WA + foto          │
+   │  │     - Event Day     │                                       │
+   │  │     - Dismantle     │                                       │
+   │  └──────────┬──────────┘                                       │
+   │             │                                                   │
+   │             ↓                                                   │
+   │  ┌─────────────────────┐                                       │
+   │  │  4. Cashflow & Laba │  Tag setiap entry ke Event            │
+   │  │     /reports/event- │  Lihat laba per project               │
+   │  │     profit          │                                       │
+   │  └─────────────────────┘                                       │
+   │                                                                │
+   └──────────────────────────────────────────────────────────────┘
 ```
 
-## Tahap 1 — Lead Capture (CRM)
+## Tahap 1 — Lead Masuk
 
-Lead masuk via 3 channel utama:
+### Apa yang Terjadi
+Calon klien hubungi Anda lewat 3 channel utama:
+- 📱 **META Ads** — biasanya ratusan/bulan, mayoritas tanya-tanya doang
+- 💬 **WhatsApp** — lebih serius, sudah dapat info dari mana
+- 🌐 **Website** — kalau Anda punya kontak form
 
-- **META Ads** — biasanya banyak (ratusan/bulan), mayoritas tidak respon. Import via XLSX dari tool ads/CRM eksternal.
-- **WhatsApp** — chat masuk manual. PIC catat di card.
-- **Website** — form kontak (jika ada).
+### Aplikasi Bantu Apa?
+Buka **CRM → Pipeline** (`/crm/board`). Setiap lead jadi card di kolom **"Lead Masuk"**.
 
-**Aksi PIC sales:**
-1. Buka `/crm/board` → kanban kolom "Lead Masuk" terisi.
-2. Klik card → drawer detail.
-3. Tombol **WA** → buka chat di tab baru dengan template greeting.
-4. Setelah kirim → tombol "Greeting Sent" → log activity.
-5. Kirim ComPro PDF → tombol "ComPro Sent" → log.
-6. Klien respon → drag card ke "Follow Up" + assign label Hot/Warm/Cold.
+### Aksi Sales/Owner:
+1. **Tap card** → drawer detail buka
+2. **Tombol WA hijau** → langsung buka chat WhatsApp dengan template greeting
+3. Setelah chat → tombol **"Greeting Sent"** untuk catat aktivitas
+4. Klien jawab → **drag card** ke kolom "Follow Up"
+5. Beri **label warna**: Hot 🔴 (sangat tertarik) / Warm 🟡 / Cold 🔵
 
-→ [Detail: CRM Overview](./crm.md) · [Pipeline Kanban](./crm-kanban.md)
+> **Tips**: Atur PIN sales yang menghandle setiap lead. Jadi kalau lead bentrok antar sales, kelihatan dari awal.
 
-## Tahap 2 — Convert ke Customer
+📖 [Detail CRM Pipeline](./crm-kanban.md)
 
-Saat klien deal, drag card ke **Closed Deal** → tombol Convert unlock.
+## Tahap 2 — Klien Deal
 
-```
-[ Convert ke Customer ]
-  ☑ Sekalian buat draft Penawaran  (•) PENGADAAN_BOOTH
-  ☑ Sekalian buat draft RAB Event
-  [ Convert → ]
-```
+### Apa yang Terjadi
+Setelah follow-up beberapa kali, klien ngomong "OK saya mau order". Yes! 🎉
 
-Output 1 transaksi:
-- `Customer` baru (link ke leadId)
-- Draft `Invoice` (Penawaran SPH) — variant pilihan
-- Draft `RabPlan`
-- Activity `CONVERTED` di timeline lead
+### Aplikasi Bantu Apa?
+Drag card ke kolom **"Closed Deal"** → tombol **"Convert ke Customer"** muncul di drawer.
 
-→ [Detail: Convert Lead → Customer](./crm-convert.md)
+### Aksi Owner:
+1. Klik **"Convert ke Customer"** → form muncul
+2. Centang opsi:
+   - ☑️ Buat draft Penawaran (variant SEWA / PENGADAAN_BOOTH)
+   - ☑️ Buat draft RAB
+3. Klik **Convert** → 3 hal dibuat sekaligus:
+   - **Customer** baru di master
+   - **Draft Penawaran** kosong siap di-edit
+   - **Draft RAB** kosong siap diisi item
 
-## Tahap 3a — Penawaran (External)
+📖 [Detail Convert Lead](./crm-convert.md)
 
-Penawaran adalah dokumen yang **dikirim ke klien**.
+## Tahap 3a — Bikin Penawaran (untuk klien)
 
-1. Buka draft `Penawaran` → edit item via Catalog Picker / Custom Item.
-2. Kalkulasi auto: subtotal, PPN 11%, total.
-3. Cetak PDF → kirim WhatsApp/Email ke klien.
-4. Klien ACC → ubah status SPH → ACCEPTED.
-5. (Opsional) Convert SPH → Invoice final dengan nomor `INV/<bln>/<thn>/<seq>`.
+### Apa yang Terjadi
+Klien mau lihat angka dulu sebelum bayar DP. Anda kirim Surat Penawaran Harga (SPH).
 
-→ [Detail: Penawaran Booth/Event](./penawaran-event.md)
+### Aplikasi Bantu Apa?
+Buka **Penawaran Booth/Event → klik draft yang baru dibuat**.
 
-## Tahap 3b — RAB (Internal)
+### Aksi Owner:
+1. Isi **Project Name**, lokasi event, tanggal event
+2. Klik **"+ Tambah Item"** — pilih dari katalog produk atau ketik custom
+3. Atur **PPN** (default 11%) dan **DP %** (default 50%)
+4. Pilih **rekening bank** yang dicantumkan di footer
+5. **Save**
+6. Klik **"Assign Nomor"** → dapat nomor format Indonesia (mis. `42/Xp/Pnwr/IV/26`)
+7. Klik **"Export PDF"** atau **"Export DOCX"**
+8. Kirim ke klien via WhatsApp/Email
 
-RAB adalah breakdown biaya **internal** — tidak dikirim ke klien.
+### Setelah Klien ACC:
+- Update status SPH jadi **"ACCEPTED"**
+- Klien transfer DP → **catat di Cashflow** dengan tag event ini
+- Klik **"Convert to Invoice"** → bikin Invoice resmi (opsional)
 
-1. Buka draft `RabPlan` → isi item per kategori:
-   - Material (plywood, MDF, cat duco, dll)
+📖 [Detail Penawaran](./penawaran-event.md)
+
+## Tahap 3b — Bikin RAB (internal, hitung modal)
+
+### Apa yang Terjadi
+Sebelum jalankan project, Anda hitung modal sendiri. Berapa biaya material? Jasa crew? Transport? Akomodasi? Margin berapa? **Ini RAB**.
+
+### Aplikasi Bantu Apa?
+Buka **RAB (Anggaran Proyek) → klik draft yang baru dibuat**.
+
+### Aksi Owner:
+1. Pilih **Customer** dan **Period Start/End**
+2. Klik **"+ Tambah Item"** per kategori:
+   - Material (kayu, MDF, plywood, lighting)
    - Jasa (tukang, finishing, setter)
-   - Transport, Akomodasi, Sewa Alat, Loose Items
-2. Per item: qty × unitCost (modal) vs unitPrice (jual).
-3. Dashboard auto-tampilkan **margin %**.
-4. Approve → status APPROVED → item terkunci.
+   - Transport (pickup, kirim)
+   - Akomodasi (hotel crew)
+   - Sewa Alat
+3. Per item, isi:
+   - **Quantity & priceRab** — apa yang Anda jual ke klien
+   - **QuantityCost & priceCost** — apa yang Anda beli/eksekusi
+4. **Save** → buka tab **"Summary"** lihat margin
 
-→ [Detail: RAB Event](./rab-event.md)
+```
+Total Jual:    Rp 12.765.000
+Total Cost:    Rp  8.420.000
+─────────────────────────────
+Margin:        Rp  4.345.000  (34% — Sehat ✅)
+```
 
-## Tahap 4a — Invoice & Pembayaran
+### Trik Powerful:
+- Tombol **"Generate Penawaran"** di RAB → bikin SPH otomatis dari item RAB. Hemat input ulang.
+- Tombol **"💸 Generate Cashflow"** di RAB CLOSED → bulk-create entries expense ter-tag event.
+- Tombol **"Simpan sebagai Produk"** → kalau item ini sering reuse (mis. "Booth 3×3 Wood Standard"), simpan jadi katalog.
 
-- Klien transfer DP → catat di Invoice → masuk Cashflow otomatis.
-- Pelunasan saat event selesai.
+📖 [Detail RAB](./rab-event.md)
 
-## Tahap 4b — Produksi Booth
+## Tahap 4 — Eksekusi Event
 
-1. RAB APPROVED → buka `/produksi` → bikin Job baru link ke RAB.
-2. Per item booth: tahap **Cutting → Finishing → Packing → Kirim**.
-3. Operator login dengan PIN → klaim job → update status.
-4. BOM auto-potong stok material saat tahap mulai.
+### Apa yang Terjadi
+Tanggal event mendekat. Crew workshop produksi booth, lalu crew lapangan setting di venue.
 
-→ [Detail: Produksi](./produksi.md) · [Mesin Cetak Paper](./mesin-cetak.md)
+### Aplikasi Bantu Apa?
 
-## Tahap 5 — Realisasi & Laporan
+**4a. Schedule di Event Timeline**
+Buka **Event Timeline** (Gantt) — lihat semua event paralel:
+- Bar **merah** = Setup (crew di lokasi pasang booth)
+- Bar **kuning** = Event Day (acara berjalan)
+- Bar **biru** = Dismantle (bongkar)
 
-Saat event berjalan & selesai:
+Conflict detection otomatis kalau crew yang sama dijadwalkan di 2 event yang phase-nya overlap.
 
-1. **RAB EXECUTED** → tab Realisasi aktif → catat actual cost (boleh beda dengan plan).
-2. **RAB CLOSED** → laporan final, masuk Cashflow.
-3. Buka `/cashflow` → lihat arus kas per event.
-4. Laporan laba project: `(Total Invoice) − (Total RAB CLOSED) = Laba`.
+**4b. Assign Crew Lapangan**
+Buka detail event → tab **"Crew"** → klik **"+ Assign Crew"**:
+1. Pilih Worker (mis. Sendy)
+2. Pilih **Team** (Team Kepuh / Team Sawah / kosong) — leader otomatis ter-link
+3. Set role (Setter / Finisher / Loader)
+4. Set jadwal mulai-selesai
+5. **Save**
 
-→ [Detail: Cashflow](./cashflow.md) · [Laporan Stok](./laporan-stok.md)
+Sistem generate **link unik** untuk crew ini (mis. `app.../public/crew/abc123`).
 
-## Setup Awal (One-Time)
+**4c. Crew Check-in di Lokasi**
+1. Owner klik tombol **💬 WA** di card crew → buka WhatsApp dengan template otomatis
+2. Crew terima link → tap link → halaman check-in muncul (mobile-friendly)
+3. Crew tap **"Mulai Tugas (Check-in)"** + foto opsional
+4. Selesai kerja → tap **"Selesai Tugas (Check-out)"**
+5. Sistem hitung **durasi setup otomatis**
 
-Sebelum mulai operasional, lakukan ini sekali:
+📖 [Detail Crew Tracking](./crew-tracking.md) · [Event Timeline](./event-timeline.md)
 
-1. **Login admin** → `admin@pospro.id` / `admin123` (ganti password).
-2. **Master Worker** — daftarkan PIC sales, operator produksi, designer.
-3. **Master Supplier** — vendor kayu, lighting, transport.
-4. **Master Material** — plywood, MDF, dll dengan stok awal.
-5. **CRM Stages** — default sudah ada (Lead Masuk → Lost). Sesuaikan via `/crm/stages`.
-6. **CRM Labels** — default Hot/Warm/Cold. Tambah custom (Booth F&B, Event Pameran, dll) via `/crm/labels`.
-7. **Backup pertama** — `/backup` → Download ZIP. Simpan di drive eksternal.
+**4d. Pinjam Barang dari Gudang (kalau perlu)**
+Crew ke gudang ambil booth/lighting/dll → buka link **PIN gudang public** → upload foto checkout barang yang dibawa. Saat kembali, upload foto lagi.
+
+📖 [Detail Peminjaman Stok](./peminjaman-stok.md)
+
+## Tahap 5 — Pembukuan & Laba
+
+### Apa yang Terjadi
+Event selesai. Klien lunasi. Owner ingin tahu: **untung berapa per project?**
+
+### Aplikasi Bantu Apa?
+
+**5a. Catat Pemasukan & Pengeluaran**
+Buka **Cashflow Bisnis** → klik **"+ Tambah Entry"**:
+- DP klien masuk → kategori "DP Booth/Event" → pilih **Tag Event**
+- Pelunasan → kategori "Pelunasan Booth/Event" → tag event yang sama
+- Beli material → kategori "Material Booth (Kayu/MDF)" → tag event
+- Bayar transport, akomodasi, jasa crew → tag event semua
+
+> **Trik**: Kalau RAB sudah final, klik **"💸 Generate Cashflow"** di RAB → semua expense bulk dibuat dengan tag otomatis.
+
+**5b. Lihat Laba per Project**
+Buka **Event Detail → tab "💰 Profit"**:
+
+```
+┌──────────┬──────────┬──────────┬──────────┐
+│ Income   │ Expense  │ Profit   │ Margin   │
+│ Rp 12.7jt│ Rp 8.4jt │ Rp 4.3jt │ 34.0%   │
+│  hijau   │  merah   │  hijau   │ Sehat ✅ │
+└──────────┴──────────┴──────────┴──────────┘
+
+📊 Tren 6 Bulan Terakhir
+[Bar chart bulanan + line profit]
+
+📜 Detail Transaksi (12 entries)
+```
+
+**5c. Leaderboard Semua Project**
+Buka **Laporan Laba per Project** (`/reports/event-profit`):
+- Ranking event by profit (medal 🥇🥈🥉)
+- Filter periode
+- Export CSV semua / Download PDF per event / Bulk ZIP
+
+📖 [Detail Cashflow](./cashflow.md) · [Project Reports PDF](./penawaran-event.md)
+
+## Tahap Bonus — Lini Printing (Sekali-sekali)
+
+Selain event, kadang ada klien walk-in minta cetak banner/X-banner/poster. Pakai modul **Surat Order Designer**:
+
+1. Klien minta cetak → admin bikin **Sales Order** (`/sales-orders`)
+2. Pilih designer → kirim link via WA
+3. Designer kerjakan → upload **proof** (preview hasil desain)
+4. Admin approve → kirim ke Antrian Cetak Paper
+5. Klien datang ambil + bayar → **Convert ke POS** → struk cetak
+
+📖 [Detail Surat Order Designer](./sales-order.md)
 
 ## Tips Operasional Harian
 
-- **Pagi**: Cek `/crm` dashboard → stat hari ini. Buka `/crm/board` → follow-up lead Warm/Hot.
-- **Siang**: Update activity card lead yang baru kontak.
-- **Sore**: Cek `/produksi` → progress booth on-going.
-- **Akhir minggu**: Backup ZIP → simpan eksternal.
-- **Akhir bulan**: Review `/cashflow` + laba per project di RAB CLOSED.
+| Pagi | Aktivitas |
+|---|---|
+| 08:00 | Buka **CRM Pipeline** → follow-up lead Hot/Warm yang ada |
+| 08:30 | Cek **Event Timeline** → event hari ini, ada yang setup? |
+| 09:00 | Update activity card lead yang baru kontak |
+
+| Siang/Sore | Aktivitas |
+|---|---|
+| 13:00 | Cek **Antrian Produksi** → progress booth on-going |
+| 16:00 | Cek **Crew Tab** → siapa sudah check-in/out |
+| 17:00 | Catat **Cashflow** transaksi hari ini (DP masuk, beli material) |
+
+| Mingguan | Aktivitas |
+|---|---|
+| Senin pagi | **Backup ZIP** → simpan di flashdisk + Google Drive |
+| Senin pagi | **Copy WA jadwal mingguan** dari Event Timeline → kirim grup crew |
+| Sabtu sore | Review event yang minggu ini selesai → audit profit |
+
+| Bulanan | Aktivitas |
+|---|---|
+| Awal bulan | Review **Leaderboard Laba per Project** bulan lalu |
+| Awal bulan | Update harga material di **Suppliers** kalau ada perubahan |
+| Awal bulan | Review **CRM** — lead lama yang belum closed → archive atau follow up lagi |
+
+## Setup Awal (Sekali Saja)
+
+Sebelum mulai pakai harian, ada hal yang perlu disetup sekali saja:
+
+1. **Login admin** → `admin@pospro.id` / `admin123` (ganti password)
+2. **Master Worker** — daftarkan PIC sales, operator produksi, crew lapangan, designer
+3. **Master Team Crew** — bikin "Team Kepuh", "Team Sawah" dengan leader
+4. **Master Supplier** — vendor kayu, lighting, transport
+5. **Master Material** — plywood, MDF, dll dengan stok awal
+6. **CRM Stages** — default sudah ada, sesuaikan kalau perlu (tambah "Booked")
+7. **CRM Labels** — default Hot/Warm/Cold, tambah custom (mis. "Booth F&B", "Pameran 2026")
+8. **Bank Account** — daftarkan rekening BCA/Mandiri/dll
+9. **Backup pertama** — selesai setup → langsung backup
+
+📖 Detail step-by-step: [Panduan Pemula](./panduan-pemula.md)
+
+## Lihat Juga
+
+- [Panduan Pemula](./panduan-pemula.md) — step-by-step pertama kali
+- [Backup & Restore](./backup.md) — wajib rutin tiap minggu
+- [CRM Overview](./crm.md) — masuk dalam ke kanban
+- [Event Timeline](./event-timeline.md) — Gantt view semua event paralel

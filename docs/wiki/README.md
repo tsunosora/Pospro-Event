@@ -4,6 +4,7 @@ Selamat datang di dokumentasi **Pospro Event** — aplikasi manajemen vendor boo
 
 ## 🚀 Mulai dari Sini
 
+- [👶 **Panduan Pemula**](./panduan-pemula.md) — pertama kali pakai aplikasi, dijelaskan pelan-pelan ⭐
 - [🔄 Alur Bisnis Event](./alur-bisnis.md) — overview end-to-end dari Lead sampai Event selesai
 
 ## 🎯 CRM & Lead Pipeline

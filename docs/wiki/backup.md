@@ -1,121 +1,182 @@
-# 💾 Backup & Restore Pospro Event
+# 💾 Backup & Restore — Panduan Mudah
 
-Panduan lengkap export data ke file ZIP & restore. Mencakup **semua tabel** termasuk modul CRM, Penawaran, RAB, Produksi, dan Master.
+> **Singkatnya**: Backup itu seperti **foto kopi semua data Anda**. Kalau komputer rusak, datanya kebanjiran, atau ada yang salah klik, Anda bisa kembalikan semua dari foto kopi ini. Wajib dilakukan **rutin**!
+
+## Kenapa Wajib Backup?
+
+Bayangkan kerja keras berbulan-bulan: data ratusan klien, puluhan event, daftar harga material, foto crew check-in di lokasi, semua nomor penawaran… **semua hilang dalam sekejap** kalau:
+
+- 💻 Komputer/laptop rusak
+- ⚡ Mati lampu mendadak saat update
+- 🦠 Kena virus / ransomware
+- ✋ Salah klik "hapus" atau "restore" yang salah
+- 🔄 Update aplikasi yang gagal
+
+**Backup = asuransi data**. 5 menit setiap minggu, bisa selamatkan kerja berbulan-bulan.
 
 ## Akses
 
-Menu: **Pengaturan → Backup & Restore** (`/backup`).
+Menu sidebar: **Pengaturan** (di footer kiri bawah) → **Backup & Restore** (`/backup`).
 
-## Group Tabel
+## Apa Saja yang Di-Backup?
 
-Backup di-organisir per group fungsional. Saat export, pilih group yang mau di-include:
+Pospro Event mem-backup **semua data** yang Anda input. Dikelompokkan jadi beberapa "paket" supaya bisa dipilih kalau perlu:
 
-| Group | Tabel |
+| Paket | Isinya |
 |---|---|
-| **CRM / Pipeline Lead** | `leadStage`, `leadLabel`, `lead`, `leadLabelOnLead`, `leadActivity` |
-| **Master Customer** | `customer`, `customerContact` |
-| **Master Worker** | `worker`, `workerSession` |
-| **Master Supplier** | `supplier` |
-| **Master Produk & Stok** | `product`, `productVariant`, `productCategory`, `bomItem`, `stockMovement` |
-| **Penawaran & Invoice** | `invoice`, `invoiceItem`, `quotation`, `quotationItem` |
-| **RAB Event** | `rabPlan`, `rabItem`, `rabLooseItem`, `rabRealisasi` |
-| **Produksi** | `produksiJob`, `produksiTahap`, `produksiBatch` |
-| **Cashflow & Keuangan** | `cashflowEntry`, `cashflowCategory`, `bankAccount` |
-| **System** | `user`, `role`, `setting`, `notification` |
+| **Master Data** | Pengaturan toko, kategori produk, satuan, rekening bank, cabang |
+| **Pengguna** | Akun login user (admin, kasir, dll) |
+| **Produk & Inventori** | Daftar produk, varian, stok, mutasi stok |
+| **Supplier** | Daftar pemasok material |
+| **Pelanggan** | Master customer (nama, kontak, perusahaan) |
+| **HPP & Costing** | Worksheet hitung modal produk |
+| **Transaksi & Penjualan** | Transaksi POS kasir + cashflow |
+| **Invoice & Penawaran** | SPH (penawaran) & invoice |
+| **Produksi** | Job produksi booth, batch cetak |
+| **Stok Opname** | Sesi audit stok |
+| **Laporan Shift** | Tutup shift kasir + kompetitor |
+| **Petugas / Worker** | Daftar crew/karyawan |
+| **Gudang & Lokasi** | Master gudang + rak penyimpanan |
+| **Event & Packing** | Event + packing list + peminjaman barang |
+| **Crew Lapangan & Team** ⭐ | Team Kepuh/Sawah + check-in/out crew |
+| **RAB & Penomoran** | RAB plan + counter nomor dokumen |
+| **CRM / Pipeline Lead** | Lead, stages, label, activity |
+| **Printing & Antrian** | Job cetak paper |
+| **Sales Order & Designer** | Surat order ke designer |
 
-## Export Backup
+> **Versi backup saat ini: 2.4** (sudah include data CRM + Crew Team + Event Crew Assignment yang baru ditambah).
 
-1. Buka `/backup` → tab **Export**.
-2. Centang group yang mau di-backup (default: semua).
-3. Klik **Download Backup ZIP**.
-4. File `pospro-event-backup-YYYYMMDD-HHMMSS.zip` ter-download.
+## Cara Backup (Bikin Foto Kopi)
 
-Isi ZIP:
+### Langkah 1
+Klik menu **"Pengaturan"** di sidebar kiri bawah → pilih **"Backup & Restore"**.
 
-```
-pospro-event-backup-20260425-143022.zip
-├── meta.json              (versi 2.3, daftar tabel, timestamp)
-├── crm/
-│   ├── leadStage.json
-│   ├── leadLabel.json
-│   ├── lead.json
-│   ├── leadLabelOnLead.json
-│   └── leadActivity.json
-├── master/...
-├── rab/...
-└── ...
-```
+### Langkah 2
+Klik tab **"Backup / Export"**.
 
-> Versi schema backup saat ini: **2.3** (sudah include tabel CRM + RAB Loose Items).
+### Langkah 3
+Centang paket data yang ingin di-backup. **Untuk aman, centang semua**.
 
-## Restore Backup
+### Langkah 4
+Klik tombol biru **"Download Backup ZIP"**.
 
-1. Buka `/backup` → tab **Restore**.
-2. Upload file ZIP (drag-drop atau click).
-3. Pilih mode:
-   - **Skip Duplicate** — baris dengan PK yang sudah ada akan di-skip (aman, default).
-   - **Overwrite** — upsert; data lama ditimpa data backup.
-4. Klik **Restore** → konfirmasi.
-5. Backend menjalankan dalam 1 transaksi:
-   ```sql
-   SET FOREIGN_KEY_CHECKS = 0;
-   -- INSERT/UPSERT semua data sesuai RESTORE_ORDER
-   SET FOREIGN_KEY_CHECKS = 1;
-   ```
-6. Ringkasan: `{ table: { success, skipped }, errors[] }`.
-
-## Restore Order (FK Safety)
-
-Urutan restore dipilih supaya FK terjaga:
+### Langkah 5
+File `backup-pospro-event-YYYY-MM-DD.zip` akan ter-download ke komputer Anda.
 
 ```
-1. role, user, setting           (system)
-2. worker, workerSession         (master indep.)
-3. supplier
-4. customer, customerContact
-5. leadStage, leadLabel          (CRM stages/labels independent)
-6. productCategory
-7. product, productVariant
-8. bomItem, stockMovement
-9. rabLooseItem                  (master loose items)
-10. invoice, invoiceItem, quotation, quotationItem
-11. rabPlan, rabItem, rabRealisasi
-12. produksiJob, produksiTahap, produksiBatch
-13. cashflowCategory, bankAccount, cashflowEntry
-14. lead                         (depends customer + worker + leadStage)
-15. leadLabelOnLead              (depends lead + leadLabel) — composite PK
-16. leadActivity                 (depends lead)
-17. notification
+Contoh nama file:
+  backup-pospro-event-2026-04-27.zip
+  └────────────────────────────────┘
+        artinya: backup tanggal 27 April 2026
 ```
 
-## Composite PK Handling
+### Langkah 6 — PENTING!
+**Pindahkan file ZIP** ke tempat aman:
+- 💾 Flashdisk / hard disk eksternal
+- ☁️ Google Drive / Dropbox / OneDrive
+- 📧 Email ke diri sendiri (lampiran)
 
-Tabel `LeadLabelOnLead` punya `@@id([leadId, labelId])` (no `id` field). Restore otomatis pakai `createMany({ skipDuplicates: true })` — bukan `upsert by id`.
+> **Jangan simpan file ZIP cuma di laptop yang sama**! Kalau laptop rusak, ZIP-nya juga ikut hilang. Selalu **simpan minimal 2 tempat**.
 
-## Auto-Backup (Rclone)
+## Cara Restore (Kembalikan dari Backup)
 
-Untuk auto-backup ke cloud (Google Drive, Dropbox, S3):
+Restore dipakai saat:
+- Ganti komputer / pindah server
+- Data hilang karena error
+- Mau coba di komputer lain (testing)
 
-1. Install [Rclone](https://rclone.org) di server.
-2. Setup remote: `rclone config`.
-3. Cron job harian (Linux):
-   ```bash
-   0 2 * * * cd /path/to/app && curl -X POST http://localhost:3001/backup/auto-export -o /tmp/backup.zip && rclone copy /tmp/backup.zip remote:pospro-event-backups/
-   ```
-4. Windows Task Scheduler: panggil PowerShell yang sama.
+### Langkah 1
+Buka **Pengaturan → Backup & Restore** → tab **"Restore / Import"**.
 
-## Best Practice
+### Langkah 2
+Klik **"Pilih File ZIP"** → pilih file backup ZIP yang Anda punya.
 
-- 📅 **Mingguan**: Manual download ZIP → simpan di drive eksternal / cloud pribadi.
-- 📅 **Harian**: Auto-backup via Rclone ke cloud.
-- 🔄 **Sebelum upgrade**: Selalu backup dulu sebelum `prisma db push` atau update schema.
-- 🧪 **Test restore**: Sekali sebulan, restore backup ke DB sandbox untuk verify integritas.
+### Langkah 3
+Pilih mode:
+
+| Mode | Kapan Dipakai |
+|---|---|
+| **Skip Duplicate** ✅ (default, paling aman) | Data lama yang sudah ada **tidak ditimpa**. Hanya isi data baru yang belum ada |
+| **Overwrite** ⚠️ | Data lama **diganti** dengan data dari backup. Pakai hanya kalau yakin mau timpa total |
+
+### Langkah 4
+Klik **"Restore"** → konfirmasi → tunggu sampai selesai.
+
+### Langkah 5
+Halaman akan tampilkan ringkasan: berapa baris berhasil di-import, berapa di-skip, dll.
+
+> **Catatan**: Restore akan butuh **beberapa menit** kalau data banyak. Jangan tutup browser/refresh sampai selesai.
+
+## Penjelasan Versi Backup
+
+Setiap file backup punya **versi** yang menunjukkan struktur datanya:
+
+| Versi | Tanggal Rilis | Perubahan |
+|---|---|---|
+| 2.0 | 2026 awal | Versi awal Pospro Event |
+| 2.1 | 2026 awal | Tambah CRM Pipeline |
+| 2.2 | 2026 Q1 | Tambah RAB Loose Items |
+| 2.3 | 2026 April | Tambah link Cashflow ke Event/RAB |
+| **2.4** ⭐ | **2026 April** | **Tambah CrewTeam + EventCrewAssignment** |
+
+### ⚠️ Bisa Restore Versi Lama?
+
+- ✅ Restore backup **2.0/2.1/2.2/2.3** ke aplikasi 2.4 → **OK**, data lama tidak rusak (tabel baru dilewati)
+- ❌ Restore backup **2.4** ke aplikasi versi lama → **TIDAK BISA**, tabel baru tidak dikenali
+
+**Saran**: Setelah upgrade aplikasi, **buat backup baru** secepatnya supaya selalu pakai format terbaru.
+
+## Best Practice — Jadwal Backup
+
+Pakai aturan **3-2-1**:
+- **3 copy** data (1 di komputer + 2 di tempat lain)
+- **2 jenis penyimpanan** berbeda (mis. flashdisk + cloud)
+- **1 copy off-site** (di luar kantor — mis. Google Drive)
+
+### Jadwal Disarankan:
+
+| Frekuensi | Aktivitas |
+|---|---|
+| **Setiap Senin pagi** | Download backup ZIP → simpan ke flashdisk + Google Drive |
+| **Sebelum update aplikasi** | Wajib backup dulu sebelum klik update |
+| **Sebelum acara besar (event)** | Backup biar pas-pasan saat sibuk tidak khawatir |
+| **Setelah input besar** (mis. import 500 lead) | Backup supaya tidak mubazir kalau ada gangguan |
+
+## Auto-Backup ke Cloud (Opsional)
+
+Kalau Anda mau **otomatis** (tanpa harus klik manual tiap minggu), bisa setup auto-backup pakai **Rclone** ke Google Drive/Dropbox/dll. Detail cara setup di [Panduan Deployment](./deployment.md).
+
+## Apa yang TIDAK Termasuk Backup?
+
+- ❌ **File foto upload** (foto produk, foto check-in crew, foto proof) — disimpan terpisah di folder `public/uploads/`. Kalau pindah server, **manually copy folder tersebut juga**.
+- ❌ **Konfigurasi WhatsApp Bot** — sesi WA login, perlu re-login di server baru.
+- ❌ **File PDF/DOCX hasil export** — itu cuma file output, bukan data master.
+
+**Saran**: untuk backup foto upload, pakai **Rclone** atau **rsync** untuk sync folder `public/uploads/` ke cloud secara terpisah.
 
 ## Troubleshooting
 
-| Error | Solusi |
-|---|---|
-| `FK constraint fails` saat restore | Pakai mode Overwrite, atau cek RESTORE_ORDER apakah parent table sudah ter-restore |
-| `Duplicate entry for PK` | Pakai mode Skip Duplicate |
-| ZIP corrupt | Coba download ulang; pastikan archiver versi backend cocok dengan adm-zip versi restore |
-| Tabel CRM tidak ke-backup | Cek meta.json — versi harus ≥ 2.3 |
+### "File ZIP corrupt" saat upload
+- Coba download ulang file backup → mungkin saat transfer rusak
+- Pastikan tidak buka/extract ZIP-nya dulu sebelum upload (biarkan tetap ZIP)
+
+### Restore stuck / lama
+- Data banyak butuh waktu — buka tab terminal/network di browser lihat progress
+- Jangan refresh page sampai notif sukses muncul
+
+### "FK constraint failed"
+- Pakai mode **Overwrite** (mungkin ada data lama yang konflik)
+- Atau hapus data manual dulu yang konflik, baru restore mode Skip Duplicate
+
+### Setelah restore, foto produk tidak muncul
+- File foto disimpan terpisah dari database — perlu copy folder `public/uploads/` juga
+- Lihat penjelasan di section "Apa yang TIDAK Termasuk Backup?"
+
+### Backup file terlalu besar
+- File ZIP biasanya 5-50 MB tergantung jumlah data
+- Kalau > 200 MB, mungkin ada banyak transaksi POS → wajar untuk usaha aktif
+
+## Lihat Juga
+
+- [Panduan Deployment](./deployment.md) — setup auto-backup via Rclone
+- [Alur Bisnis Event](./alur-bisnis.md) — gambaran besar Pospro Event

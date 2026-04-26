@@ -1,304 +1,225 @@
-# 🎪 Pospro Event — Aplikasi Manajemen CRM, Penawaran & RAB Booth/Event
+# 🎪 Pospro Event
 
-[![NestJS](https://img.shields.io/badge/Backend-NestJS%2011-red?style=flat-square&logo=nestjs)](https://nestjs.com)
-[![Next.js](https://img.shields.io/badge/Frontend-Next.js%2016-black?style=flat-square&logo=next.js)](https://nextjs.org)
-[![Prisma](https://img.shields.io/badge/ORM-Prisma%206-2D3748?style=flat-square&logo=prisma)](https://www.prisma.io)
-[![MySQL](https://img.shields.io/badge/Database-MySQL-orange?style=flat-square&logo=mysql)](https://mysql.com)
-[![VitePress](https://img.shields.io/badge/Docs-VitePress-646CFF?style=flat-square&logo=vite)](https://vitepress.dev)
+> Aplikasi gratis untuk **vendor booth & event** — bantu kelola lead WhatsApp, bikin penawaran, hitung anggaran, jadwal crew, sampai laporan untung-rugi project. Semua dalam satu aplikasi.
 
-> **Pospro Event by Muhammad Faishal Abdul Hakim**
-> Aplikasi web all-in-one untuk vendor booth & event: dari **Lead** WhatsApp/META Ads, ke **Penawaran** (SPH), **RAB** internal, **Produksi** booth, sampai **Cashflow** & laporan profitabilitas per project.
+**By Muhammad Faishal Abdul Hakim**
 
 ---
 
-## 📖 Apa itu Pospro Event?
+## 🤔 Aplikasi Ini Untuk Siapa?
 
-Pospro Event adalah evolusi dari aplikasi **PosPro** (Point of Sale) yang dirombak khusus untuk industri **vendor booth, exhibition builder, dan event organizer**. Daripada hanya kasir, Pospro Event memodelkan **alur lengkap** dari kontak pertama klien sampai event selesai dan dilaporkan profitnya.
+Pospro Event dirancang untuk Anda yang:
 
-**Masalah yang diselesaikan:**
+✅ **Vendor booth pameran** — bikin booth custom untuk klien (PT, brand, instansi)
+✅ **Persewaan booth/equipment event** — sewakan booth jadi atau alat-alat event
+✅ **Workshop digital printing** — sambil bantu cetak banner/poster/X-banner walk-in
+✅ **Punya tim lapangan** — crew yang setting booth di lokasi event
 
-- 🔻 Lead dari META Ads / WhatsApp / Website tersebar di tool eksternal — sulit di-track.
-- 🔻 Penawaran (SPH) dibuat manual di Word, nomor dokumen tidak konsisten.
-- 🔻 RAB internal dipisah di Excel — tidak ter-link ke penawaran/customer.
-- 🔻 Tidak tahu margin per project sampai event selesai.
-- 🔻 Backup data tersebar di banyak tool berbeda.
-
-**Solusi Pospro Event:** satu aplikasi self-hosted, satu database, satu backup ZIP. Modul **CRM** self-contained — siap di-extract jadi app terpisah di kemudian hari.
-
----
-
-## ✨ Fitur Utama
-
-### 🎯 1. CRM / Lead Pipeline
-- **Kanban drag-drop** antar stage (Lead Masuk → Follow Up → Penawaran → Negosiasi → Closed Deal / Lost) pakai `@dnd-kit`.
-- **Import XLSX** dari tool WhatsApp CRM lama dengan dedupe by phone (dry-run + commit).
-- **Click-to-Chat WhatsApp** — tombol WA di setiap card dengan template greeting otomatis.
-- **Activity timeline** per lead (greeting sent, ComPro sent, response, stage change).
-- **Label multi-color** (Hot/Warm/Cold/custom) + assign PIC (Worker).
-- **Convert ke Customer** (sekali klik bikin Customer + opsional draft Penawaran + draft RAB).
-- Filter board: search, PIC, label.
-
-→ [Dokumentasi CRM lengkap](./docs/wiki/crm.md)
-
-### 📄 2. Penawaran Booth & Event (SPH)
-- 2 variant: **SEWA** (rental booth) & **PENGADAAN_BOOTH** (custom build).
-- Format nomor Indonesia: `SPH/IV/2026/0042` (auto-sequence per tahun).
-- Catalog picker (produk/material) + Custom item bebas.
-- Cetak PDF profesional siap kirim WhatsApp/Email.
-- Konversi: SPH → RAB (copy item) atau SPH → Invoice final.
-
-→ [Dokumentasi Penawaran](./docs/wiki/penawaran-event.md)
-
-### 🧮 3. RAB Event (Rencana Anggaran Biaya)
-- Kategori biaya: Material, Jasa, Transport, Akomodasi, Sewa Alat, Loose Items.
-- Per item: qty, unit, unitCost (modal), unitPrice (jual) — auto kalkulasi margin.
-- Lifecycle: DRAFT → APPROVED → EXECUTED → CLOSED.
-- Tab realisasi untuk catat actual cost saat event berjalan.
-- Export PDF & XLSX.
-
-→ [Dokumentasi RAB](./docs/wiki/rab-event.md)
-
-### 🖨️ 4. Antrian Produksi Booth
-Job queue produksi dengan PIN operator, batch cetak, tracking status real-time per tahap (cutting → finishing → packing → kirim).
-
-### 📦 5. Manajemen Stok Material
-Inventori material booth (kayu, plywood, lighting, dll), varian, BOM (bahan baku otomatis terpotong saat produksi), stok opname berkala, manajemen supplier.
-
-### 💰 6. Cashflow & Laporan
-- Arus kas masuk/keluar manual + otomatis dari transaksi.
-- Laporan laba kotor per project (sinkron dengan RAB CLOSED).
-- Kalkulator HPP material (Lebar × Tinggi → m² otomatis).
-- Peta cuan lokasi event/pameran (Leaflet).
-
-### 💾 7. Backup & Restore
-- Export semua data (CRM + Penawaran + RAB + Produksi + Stok) ke **ZIP** dengan archiver.
-- Restore dengan satu klik (FK_CHECKS=0 saat restore).
-- Group: `crm`, `rab`, `produksi`, `keuangan`, `master` — pilih yang mau di-backup.
-- Auto-backup terjadwal via Rclone ke cloud.
-
-→ [Dokumentasi Backup](./docs/wiki/backup.md)
-
-### 🚀 8. Self-Hosted & Modular
-Pasang di home server (XAMPP/Laragon di Windows) atau VPS. Panduan deployment lengkap. Modul `crm/` di backend & `/crm/*` di frontend self-contained — siap di-extract jadi app terpisah.
+**Tidak cocok kalau Anda**:
+- ❌ Toko retail biasa (lebih cocok pakai POS murni)
+- ❌ Restoran/F&B
+- ❌ Online shop marketplace murni
 
 ---
 
-## 🧱 Arsitektur
+## 💡 Apa Masalah yang Diselesaikan?
+
+### Sebelum Pospro Event:
+- 📱 Lead WA berserakan di chat — sering hilang/lupa di-follow up
+- 📝 Penawaran dibuat manual di Word — nomor sering nggak konsisten
+- 📊 Hitung modal di Excel — tidak ter-link ke penawaran
+- 👷 Crew yang berangkat ke lokasi tidak ter-track jelas
+- 💰 Untung-rugi per event baru ketahuan setelah event selesai (kadang udah rugi)
+- 💾 Data tersebar di banyak tool — sulit di-backup
+
+### Setelah Pospro Event:
+- 🎯 Lead masuk dari META Ads / WA / Website **otomatis ter-track** di Kanban
+- 📄 Penawaran dengan **format nomor Indonesia** (`42/Xp/Pnwr/IV/26`), 1 klik PDF
+- 🧮 RAB ter-link ke penawaran — **margin terlihat real-time**
+- 👷 Crew check-in via link WA + foto opsional — **tahu siapa di mana, kapan**
+- 💰 **Laba per project** terhitung otomatis dari cashflow ter-tag event
+- 💾 Backup ZIP semua data dengan **1 klik** + restore juga 1 klik
+
+---
+
+## ✨ Fitur Utama (Singkat)
+
+### 🎯 Lead Pipeline (CRM)
+Tampung semua lead dari META Ads / WA / Website. Kanban drag-drop antar tahap (Lead Masuk → Follow Up → Penawaran → Closed Deal). Tombol click-to-chat WA langsung dari card.
+
+### 📄 Penawaran Booth/Event (SPH)
+Bikin Surat Penawaran Harga profesional. 2 variant: **SEWA** (rental) atau **PENGADAAN_BOOTH** (custom build). Format nomor Indonesia auto. PDF & DOCX siap kirim klien.
+
+### 🧮 RAB (Anggaran Proyek)
+Breakdown biaya internal per project: Material, Jasa, Transport, Akomodasi, Sewa Alat. **Dual qty/price**: harga jual ke klien vs harga modal aktual. Margin auto-hitung. Bisa generate Penawaran dari RAB dengan 1 klik.
+
+### 📅 Event Timeline (Gantt)
+Lihat semua event paralel dalam 1 layar. Color-coded per phase (Setup merah / Event kuning / Dismantle biru). Drag-drop untuk geser tanggal. Conflict detection kalau crew bentrok. Filter by client/team/venue/RAB margin.
+
+### 👷 Crew Tracking dengan Foto
+Assign crew ke event → kirim link unik via WA → crew tap link saat tiba di lokasi (check-in) dan saat selesai (check-out). Foto **opsional**. Otomatis hitung durasi setup. **Team-based** (Team Kepuh, Team Sawah, dll) dengan leader masing-masing.
+
+### 💰 Cashflow + Laba per Project
+Catat semua pemasukan/pengeluaran. Tag setiap entry ke **Event** atau **RAB** → laba per project terhitung otomatis. Leaderboard laba per project untuk audit cepat. Export PDF/CSV/ZIP.
+
+### 📤 Peminjaman Stok dengan Foto
+Crew ambil barang dari gudang via link PIN publik. **Wajib upload foto** saat pinjam dan saat kembalikan. Auto-deteksi OVERDUE.
+
+### 📝 Surat Order Designer
+Untuk lini digital printing: order cetak banner/poster → kirim ke designer via WA → designer upload proof → approve → cetak. Convert ke transaksi POS saat klien bayar.
+
+### 💾 Backup & Restore
+Export ZIP semua data (CRM + RAB + Penawaran + Stok + Crew + dll) dalam 1 klik. Restore juga 1 klik. Versi backup saat ini **2.4**.
+
+### 📚 Dokumentasi Lengkap
+Wiki VitePress yang bisa diakses online untuk training tim.
+
+---
+
+## 🚀 Cara Mulai (Untuk Pemula)
+
+### 1. Pasang Aplikasi
+Lihat [Panduan Deployment](./docs/wiki/deployment.md) untuk install di:
+- Laptop / PC pribadi (untuk test)
+- Komputer kantor (akses LAN)
+- VPS publik (akses internet)
+
+### 2. Login Pertama Kali
+Buka browser → `http://localhost:3000` (atau alamat server Anda).
 
 ```
-pospenawaran/app/
-├── backend/         → NestJS 11 + Prisma 6 + MySQL (port 3001)
-│   └── src/
-│       ├── crm/         (Lead pipeline — self-contained module)
-│       │   ├── leads/   stages/   labels/   activities/
-│       │   ├── import/  convert/  utils/
-│       ├── penawaran/   (SPH / Quotation)
-│       ├── rab/         (Rencana Anggaran Biaya)
-│       ├── customers/   workers/   products/   suppliers/
-│       ├── produksi/    cashflow/  backup/     exporters/
-│       └── ...
-├── frontend/        → Next.js 16 App Router + React 19 (port 3000)
-│   └── src/
-│       ├── app/crm/         (board, leads, import, stages, labels)
-│       ├── app/penawaran/   app/rab/   app/customers/
-│       ├── components/crm/  components/layout/  components/ui/
-│       └── lib/api/         (TanStack Query clients)
-├── .vitepress/      → Konfigurasi situs dokumentasi
-└── docs/wiki/       → Markdown dokumentasi (sumber VitePress)
+Email default:    admin@pospro.id
+Password default: admin123
 ```
+
+⚠️ **Wajib ganti password** setelah login pertama kali!
+
+### 3. Setup Awal (Sekali Saja)
+Sebelum mulai pakai harian, setup ini dulu:
+
+1. **Profil Toko** — Pengaturan → ubah nama, logo, alamat
+2. **Worker / Crew** — daftarkan tim Anda
+3. **Team Crew** — bikin "Team Kepuh", "Team Sawah" dengan leader masing-masing
+4. **Supplier** — daftarkan vendor material
+5. **Bank Account** — daftarkan rekening untuk terima pembayaran
+6. **Backup pertama** — sekali setup selesai, langsung buat backup
+
+### 4. Mulai Pakai!
+- Sales: kelola lead di CRM
+- Owner: bikin penawaran & RAB
+- Crew lapangan: check-in via link WA
+- Akhir bulan: lihat laba per project
+
+📖 **Detail step-by-step** ada di [Panduan Pemula](./docs/wiki/panduan-pemula.md).
 
 ---
 
-## 🔄 Alur Bisnis End-to-End
+## 🧱 Stack Teknis (Untuk Developer)
 
 ```
-  ┌──────────────┐       ┌──────────────┐       ┌──────────────┐
-  │  META Ads    │       │  WhatsApp    │       │   Website    │
-  └──────┬───────┘       └──────┬───────┘       └──────┬───────┘
-         │                      │                      │
-         └──────────────────────┴──────────────────────┘
-                                ↓
-                  ┌─────────────────────────┐
-                  │  CRM /crm/board         │  ← Import XLSX, manual,
-                  │  (Kanban drag-drop)     │     atau API webhook
-                  └────────────┬────────────┘
-                               ↓ stage berubah → Closed Deal
-                  ┌─────────────────────────┐
-                  │  Convert Lead           │
-                  │  → Customer             │
-                  │  → Draft Penawaran      │  ← variant SEWA / PENGADAAN
-                  │  → Draft RAB            │
-                  └────────────┬────────────┘
-                               ↓
-              ┌────────────────┴────────────────┐
-              ↓                                 ↓
-     ┌────────────────┐              ┌──────────────────┐
-     │  Penawaran     │ kirim klien  │  RAB Event       │
-     │  (SPH PDF)     │ ───────────► │  (internal)      │
-     │  ACCEPTED      │              │  APPROVED        │
-     └────────┬───────┘              └────────┬─────────┘
-              ↓ convert                       ↓ event jalan
-     ┌────────────────┐              ┌──────────────────┐
-     │  Invoice       │              │  Produksi Booth  │
-     │  (final)       │              │  (job queue)     │
-     └────────┬───────┘              └────────┬─────────┘
-              └────────────────┬──────────────┘
-                               ↓
-                  ┌─────────────────────────┐
-                  │  Cashflow & Laporan     │
-                  │  Laba per Project       │
-                  └─────────────────────────┘
+Frontend  : Next.js 16 + React 19 + TanStack Query + Tailwind v4
+Backend   : NestJS 11 + Prisma 6 + MySQL
+Docs      : VitePress 1.6
+Lib utama :
+  - @dnd-kit    → Kanban drag-drop CRM & Event Timeline
+  - Recharts    → Chart cashflow + project profit
+  - Puppeteer   → Generate PDF Project Report
+  - Handlebars  → Template engine PDF
+  - ExcelJS     → Import/export XLSX
+  - Archiver    → Backup ZIP + bulk PDF download
+  - Multer      → Upload foto (produk, crew check-in, proof)
+  - whatsapp-web.js → Bot WA untuk kirim link & laporan
 ```
 
----
-
-## 📦 Dependencies
-
-### Backend (`app/backend/package.json`)
-
-| Package | Versi | Fungsi |
-|---|---|---|
-| `@nestjs/core`, `@nestjs/common` | ^11 | Framework |
-| `@prisma/client`, `prisma` | ^6 | ORM MySQL |
-| `class-validator`, `class-transformer` | latest | DTO validation |
-| `bcryptjs`, `jsonwebtoken` | latest | Auth |
-| `multer` | ^1 | Upload file (XLSX, foto produk) |
-| `exceljs` | ^4 | Parse & generate XLSX |
-| `archiver`, `adm-zip` | latest | Backup ZIP & restore |
-| `pdfkit` / `puppeteer` | latest | Generate PDF SPH/RAB |
-
-### Frontend (`app/frontend/package.json`)
-
-| Package | Versi | Fungsi |
-|---|---|---|
-| `next`, `react`, `react-dom` | 16 / 19 | Framework |
-| `@tanstack/react-query` | ^5 | Data fetching + cache |
-| `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` | latest | **CRM Kanban drag-drop** |
-| `tailwindcss` | ^4 | Styling |
-| `lucide-react` | latest | Icon set |
-| `recharts` | ^2 | Chart cashflow |
-| `leaflet`, `react-leaflet` | latest | Peta cuan |
-| `zustand` | ^4 | Client state |
-| `radix-ui/*` | latest | Dialog, Dropdown, Popover |
-
-### Docs
-
-| Package | Versi | Fungsi |
-|---|---|---|
-| `vitepress` | ^1.6 | Static site generator dokumentasi |
-
----
-
-## 🚀 Quick Start
-
-### Prasyarat
-
-- **Node.js** 20+ (testing di Node 22 / Node 24)
-- **MySQL** 8 (via XAMPP/Laragon di Windows, atau native di Linux)
-- **Git**
-
-### Setup
+### Quick Setup Dev
 
 ```bash
-# 1. Clone & install
-git clone <repo-url> pospenawaran
-cd pospenawaran/app
-
-# 2. Backend
-cd backend
-cp .env.example .env       # edit DATABASE_URL, JWT_SECRET, dll
+# Backend
+cd app/backend
+cp .env.example .env       # set DATABASE_URL, JWT_SECRET
 npm install
 npx prisma db push --accept-data-loss
-npx ts-node prisma/seed.ts          # admin default + master data
-npx ts-node prisma/seed-crm.ts      # stages + labels CRM
+npx ts-node prisma/seed.ts          # admin + master data
+npx ts-node prisma/seed-crm.ts      # CRM stages + labels
 npm run start:dev                    # → http://localhost:3001
 
-# 3. Frontend (terminal lain)
+# Frontend (terminal lain)
 cd ../frontend
 cp .env.example .env.local
 npm install
 npm run dev                          # → http://localhost:3000
 
-# 4. Dokumentasi (opsional, terminal lain)
+# Docs (opsional, terminal lain)
 cd ../                               # ke pospenawaran/app
 npm install
 npm run docs:dev                     # → http://localhost:5173
 ```
 
-Login default: `admin@pospro.id` / `admin123` (ganti setelah login pertama).
-
 ### Build Production
 
 ```bash
-# Backend
 cd app/backend && npm run build && npm run start:prod
-
-# Frontend
 cd app/frontend && npm run build && npm run start
-
-# Docs (static export)
-cd app && npm run docs:build         # output di .vitepress/dist/
+cd app && npm run docs:build         # static docs di .vitepress/dist/
 ```
 
 ---
 
-## 📚 Dokumentasi Lengkap
+## 📚 Daftar Dokumentasi
 
-Dokumentasi VitePress berisi semua panduan fitur, alur, dan cara penggunaan. **Akses via:**
+Semua dokumentasi ada di folder [`docs/wiki/`](./docs/wiki/):
 
-```bash
-cd app && npm run docs:dev
-# Buka http://localhost:5173
-```
+### 🌟 Mulai dari Sini (Pemula)
+- [Alur Bisnis Event](./docs/wiki/alur-bisnis.md) — gambaran besar end-to-end
+- [Panduan Pemula](./docs/wiki/panduan-pemula.md) — step-by-step pertama kali pakai
 
-Atau build static & host di mana saja:
+### 🎯 CRM & Lead
+- [CRM Overview](./docs/wiki/crm.md)
+- [Pipeline Kanban](./docs/wiki/crm-kanban.md)
+- [Import Lead XLSX](./docs/wiki/crm-import.md)
+- [Convert Lead → Customer](./docs/wiki/crm-convert.md)
+- [Data Pelanggan](./docs/wiki/customers.md)
 
-```bash
-npm run docs:build
-# Upload .vitepress/dist/ ke Netlify/Vercel/GitHub Pages/server
-```
+### 📑 Penawaran & RAB
+- [Penawaran Booth/Event](./docs/wiki/penawaran-event.md)
+- [RAB Event](./docs/wiki/rab-event.md)
+- [Save RAB as Product](./docs/wiki/rab-to-product.md)
+- [Data Supplier](./docs/wiki/suppliers.md)
 
-### Daftar Halaman Dokumentasi
+### 📅 Event & Crew
+- [Event Timeline (Gantt)](./docs/wiki/event-timeline.md)
+- [Crew Setup Time Tracking](./docs/wiki/crew-tracking.md)
+- [Surat Order Designer](./docs/wiki/sales-order.md)
 
-| Halaman | File |
-|---|---|
-| Beranda | [`docs/wiki/index.md`](./docs/wiki/index.md) |
-| Daftar Isi Lengkap | [`docs/wiki/README.md`](./docs/wiki/README.md) |
-| Alur Bisnis Event | [`docs/wiki/alur-bisnis.md`](./docs/wiki/alur-bisnis.md) |
-| **CRM Overview** | [`docs/wiki/crm.md`](./docs/wiki/crm.md) |
-| **Pipeline Kanban** | [`docs/wiki/crm-kanban.md`](./docs/wiki/crm-kanban.md) |
-| **Import Lead XLSX** | [`docs/wiki/crm-import.md`](./docs/wiki/crm-import.md) |
-| **Convert Lead → Customer** | [`docs/wiki/crm-convert.md`](./docs/wiki/crm-convert.md) |
-| **Penawaran Booth/Event** | [`docs/wiki/penawaran-event.md`](./docs/wiki/penawaran-event.md) |
-| **RAB Event** | [`docs/wiki/rab-event.md`](./docs/wiki/rab-event.md) |
-| Antrian Produksi | [`docs/wiki/produksi.md`](./docs/wiki/produksi.md) |
-| Mesin Cetak | [`docs/wiki/mesin-cetak.md`](./docs/wiki/mesin-cetak.md) |
-| Stok Opname | [`docs/wiki/stock-opname.md`](./docs/wiki/stock-opname.md) |
-| Data Supplier | [`docs/wiki/suppliers.md`](./docs/wiki/suppliers.md) |
-| Cashflow Bisnis | [`docs/wiki/cashflow.md`](./docs/wiki/cashflow.md) |
-| Laporan Stok | [`docs/wiki/laporan-stok.md`](./docs/wiki/laporan-stok.md) |
-| Kalkulator HPP | [`docs/wiki/hpp-calculator.md`](./docs/wiki/hpp-calculator.md) |
-| Peta Cuan | [`docs/wiki/peta-cuan.md`](./docs/wiki/peta-cuan.md) |
-| Backup & Restore | [`docs/wiki/backup.md`](./docs/wiki/backup.md) |
-| Panduan Deployment | [`docs/wiki/deployment.md`](./docs/wiki/deployment.md) |
+### 🏪 Operasional
+- [Antrian Produksi](./docs/wiki/produksi.md)
+- [Antrian Cetak Paper](./docs/wiki/mesin-cetak.md)
+- [Stok Opname](./docs/wiki/stock-opname.md)
+- [Peminjaman Stok (Foto)](./docs/wiki/peminjaman-stok.md)
 
----
+### 💰 Keuangan
+- [Cashflow Bisnis](./docs/wiki/cashflow.md)
+- [Laporan Stok](./docs/wiki/laporan-stok.md)
+- [Kalkulator HPP](./docs/wiki/hpp-calculator.md)
+- [Peta Cuan Lokasi](./docs/wiki/peta-cuan.md)
 
-## 🔐 Default Credentials
-
-```
-Email:    admin@pospro.id
-Password: admin123
-```
-
-**Wajib ganti** setelah login pertama via menu Profile.
+### ⚙️ Teknis
+- [Backup & Restore](./docs/wiki/backup.md) ⭐ versi 2.4
+- [Panduan Deployment](./docs/wiki/deployment.md)
 
 ---
 
-## 🤝 Lisensi & Kontak
+## 🆘 Butuh Bantuan?
+
+- 📖 **Pertama kali pakai?** Buka [Panduan Pemula](./docs/wiki/panduan-pemula.md)
+- 🔧 **Setup install?** Lihat [Panduan Deployment](./docs/wiki/deployment.md)
+- 💾 **Mau backup?** Baca [Backup & Restore](./docs/wiki/backup.md)
+- ❓ **Pertanyaan lain?** Email muhamadfaisal288@gmail.com
+
+---
+
+## 📄 Lisensi
 
 **© 2026 Muhammad Faishal Abdul Hakim**
 
 Aplikasi internal untuk operasional vendor booth & event. Tidak didistribusikan untuk umum.
-
-Email: muhamadfaisal288@gmail.com

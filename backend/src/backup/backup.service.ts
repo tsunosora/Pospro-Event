@@ -68,6 +68,10 @@ export const BACKUP_GROUPS = {
         label: 'Event & Packing',
         tables: ['event', 'eventPackingItem', 'withdrawal', 'withdrawalItem'],
     },
+    eventCrew: {
+        label: 'Crew Lapangan & Team',
+        tables: ['crewTeam', 'eventCrewAssignment'],
+    },
     rab: {
         label: 'RAB & Penomoran',
         tables: ['rabCategory', 'rabPlan', 'rabItem', 'rabLooseItem', 'documentNumberCounter'],
@@ -110,6 +114,8 @@ const RESTORE_ORDER = [
     'rabPlan',                                  // → setelah customer
     'invoice', 'invoiceItem',
     'event',                                    // → setelah customer & rabPlan
+    'crewTeam',                                 // → setelah worker (FK leaderWorkerId optional)
+    'eventCrewAssignment',                      // → setelah event, worker, crewTeam
     'eventPackingItem',                         // → setelah event, productVariant, storageLocation, worker
     'withdrawal', 'withdrawalItem',             // → setelah event, worker, warehouse, productVariant
     'rabItem',                                  // → setelah rabPlan, rabCategory, productVariant, eventPackingItem
@@ -168,7 +174,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.3',
+                version: '2.4',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,

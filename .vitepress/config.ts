@@ -25,6 +25,7 @@ export default defineConfig({
         items: [
           { text: 'Beranda', link: '/' },
           { text: 'Wiki Lengkap (Daftar Isi)', link: '/README' },
+          { text: '👶 Panduan Pemula', link: '/panduan-pemula' },
           { text: '🔄 Alur Bisnis Event', link: '/alur-bisnis' },
         ]
       },
