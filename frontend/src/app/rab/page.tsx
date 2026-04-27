@@ -118,7 +118,9 @@ export default function RabListPage() {
 
     const computeTotalCost = (rab: RabPlan) =>
         (rab.items ?? []).reduce((acc, it) => {
-            const q = typeof it.quantity === "string" ? parseFloat(it.quantity) : it.quantity;
+            // Cost pakai quantityCost (sisi internal/aktual) — fallback ke quantity untuk backward compat
+            const qSrc = it.quantityCost ?? it.quantity;
+            const q = typeof qSrc === "string" ? parseFloat(qSrc) : qSrc;
             const p = typeof it.priceCost === "string" ? parseFloat(it.priceCost) : it.priceCost;
             return acc + (q || 0) * (p || 0);
         }, 0);
