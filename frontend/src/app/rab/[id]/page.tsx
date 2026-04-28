@@ -37,7 +37,9 @@ import {
     ImagePlus,
     Bookmark,
     BookmarkCheck,
+    Calculator,
 } from "lucide-react";
+import MultiplierCalculator, { type CalcResult } from "../MultiplierCalculator";
 
 const toast = {
     success: (msg: string) => alert(msg),
@@ -229,6 +231,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
             next.delete(catId);
             return next;
         });
+        setLastUsedCatId(catId);
     };
 
     const updateItem = (key: string, patch: Partial<LocalItem>) => {
@@ -237,6 +240,29 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
 
     const removeItem = (key: string) => {
         setItems((prev) => prev.filter((it) => it._key !== key));
+    };
+
+    // Kalkulator multiplier (org × hari × jam × kali) — popover per row.
+    const [calcOpenKey, setCalcOpenKey] = useState<string | null>(null);
+
+    // Ingat kategori terakhir yang user pakai (untuk FAB tambah cepat)
+    const [lastUsedCatId, setLastUsedCatId] = useState<number | null>(null);
+
+    const applyCalc = (key: string, r: CalcResult) => {
+        const patch: Partial<LocalItem> = {
+            description: r.descriptionText,
+            notes: r.notesText,
+        };
+        if (r.target === "COST" || r.target === "BOTH") {
+            patch.quantityCost = r.qty;
+            patch.priceCost = r.unitPrice;
+        }
+        if (r.target === "RAB" || r.target === "BOTH") {
+            patch.quantity = r.qty;
+            patch.priceRab = r.unitPrice;
+        }
+        updateItem(key, patch);
+        setCalcOpenKey(null);
     };
 
     const toggleCollapse = (catId: number) => {
@@ -273,6 +299,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
             next.delete(catId);
             return next;
         });
+        setLastUsedCatId(catId);
     };
 
     // Save
@@ -516,7 +543,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                     const sub = categorySubtotals.get(cat.id) || { rab: 0, cost: 0, selisih: 0 };
                     const isCollapsed = collapsed.has(cat.id);
                     return (
-                        <div key={cat.id} className="border rounded-lg overflow-hidden">
+                        <div key={cat.id} id={`rab-cat-${cat.id}`} className="border rounded-lg overflow-hidden">
                             <div className="bg-muted/50 px-3 py-2 flex items-center justify-between">
                                 <button
                                     onClick={() => toggleCollapse(cat.id)}
@@ -566,200 +593,300 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                             </div>
 
                             {!isCollapsed && list.length > 0 && (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-xs">
-                                        <thead className="bg-muted/30 text-left">
-                                            <tr>
-                                                <th className="p-2 font-medium" rowSpan={2}>Uraian</th>
-                                                <th className="p-2 font-medium" rowSpan={2}>Satuan</th>
-                                                <th
-                                                    className="p-2 font-medium text-center border-l bg-blue-50/40"
-                                                    colSpan={3}
-                                                >
-                                                    Sisi RAB (Klien)
-                                                </th>
-                                                <th
-                                                    className="p-2 font-medium text-center border-l bg-amber-50/40"
-                                                    colSpan={3}
-                                                >
-                                                    Sisi COST (Internal)
-                                                </th>
-                                                <th className="p-2 font-medium text-right border-l" rowSpan={2}>Selisih</th>
-                                                <th className="p-2 w-[40px]" rowSpan={2}></th>
-                                            </tr>
-                                            <tr>
-                                                <th className="p-2 font-medium w-[70px] text-right border-l bg-blue-50/40">Qty</th>
-                                                <th className="p-2 font-medium w-[120px] text-right bg-blue-50/40">Harga</th>
-                                                <th className="p-2 font-medium w-[120px] text-right bg-blue-50/40">Sub</th>
-                                                <th className="p-2 font-medium w-[70px] text-right border-l bg-amber-50/40">Qty</th>
-                                                <th className="p-2 font-medium w-[120px] text-right bg-amber-50/40">Harga</th>
-                                                <th className="p-2 font-medium w-[120px] text-right bg-amber-50/40">Sub</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {list.map((it) => {
-                                                const { subRab, subCost, selisih } = calcRow(it);
-                                                return (
-                                                    <tr key={it._key} className="border-t hover:bg-muted/20">
-                                                        <td className="p-1 min-w-[260px]">
-                                                            <UraianAutocomplete
-                                                                value={it.description}
-                                                                onChange={(v) =>
-                                                                    updateItem(it._key, { description: v })
-                                                                }
-                                                                onPick={(v) => {
-                                                                    const price = Number(v.price) || 0;
-                                                                    const cost = Number(v.hpp) || 0;
-                                                                    const desc = `${v.product.name}${v.variantName ? ` — ${v.variantName}` : ""}`;
-                                                                    const unit = v.defaultRentalUnit || v.product.unit?.name || "unit";
-                                                                    updateItem(it._key, {
-                                                                        description: desc,
-                                                                        unit,
-                                                                        priceRab: price,
-                                                                        priceCost: cost,
-                                                                        productVariantId: v.id,
-                                                                    });
-                                                                }}
-                                                                onPickLoose={(li) => {
-                                                                    updateItem(it._key, {
-                                                                        description: li.description,
-                                                                        unit: li.unit ?? it.unit,
-                                                                        priceRab: parseFloat(li.lastPriceRab) || Number(it.priceRab) || 0,
-                                                                        priceCost: parseFloat(li.lastPriceCost) || Number(it.priceCost) || 0,
-                                                                        productVariantId: null,
-                                                                        saveAsLoose: true,
-                                                                    });
-                                                                }}
-                                                            />
-                                                            {!it.productVariantId && (() => {
-                                                                const hasDesc = !!it.description?.trim();
-                                                                const willSave = hasDesc && (it.saveAsLoose ?? true);
-                                                                return (
-                                                                    <button
-                                                                        type="button"
-                                                                        disabled={!hasDesc}
-                                                                        onClick={() =>
-                                                                            updateItem(it._key, { saveAsLoose: !willSave })
-                                                                        }
-                                                                        title={
-                                                                            !hasDesc
-                                                                                ? "Isi uraian dulu untuk bisa disimpan"
-                                                                                : willSave
-                                                                                    ? "Klik untuk batal simpan"
-                                                                                    : "Klik untuk simpan ke Item Lepas"
-                                                                        }
-                                                                        className={
-                                                                            "mt-1.5 inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium border transition " +
-                                                                            (!hasDesc
-                                                                                ? "border-dashed border-border text-muted-foreground/50 cursor-not-allowed"
-                                                                                : willSave
-                                                                                    ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
-                                                                                    : "border-border bg-muted/40 text-muted-foreground hover:bg-muted/70")
-                                                                        }
-                                                                    >
-                                                                        {willSave ? (
-                                                                            <BookmarkCheck className="h-3.5 w-3.5" />
-                                                                        ) : (
-                                                                            <Bookmark className="h-3.5 w-3.5" />
-                                                                        )}
-                                                                        {willSave
-                                                                            ? "Akan disimpan ke Item Lepas"
-                                                                            : "Tidak disimpan"}
-                                                                    </button>
-                                                                );
-                                                            })()}
-                                                        </td>
-                                                        <td className="p-1">
-                                                            <input
-                                                                type="text"
-                                                                value={it.unit || ""}
-                                                                onChange={(e) =>
-                                                                    updateItem(it._key, { unit: e.target.value })
-                                                                }
-                                                                placeholder="pcs / m² / …"
-                                                                className="w-full border rounded px-2 py-1"
-                                                            />
-                                                        </td>
-                                                        {/* Sisi RAB */}
-                                                        <td className="p-1 border-l bg-blue-50/20">
-                                                            <input
-                                                                type="number"
-                                                                value={it.quantity as number}
-                                                                step="0.01"
-                                                                min="0"
-                                                                onChange={(e) =>
-                                                                    updateItem(it._key, {
-                                                                        quantity: parseFloat(e.target.value) || 0,
-                                                                    })
-                                                                }
-                                                                className="w-full border rounded px-2 py-1 text-right"
-                                                            />
-                                                        </td>
-                                                        <td className="p-1 bg-blue-50/20">
-                                                            <input
-                                                                type="number"
-                                                                value={it.priceRab as number}
-                                                                step="1"
-                                                                min="0"
-                                                                onChange={(e) =>
-                                                                    updateItem(it._key, {
-                                                                        priceRab: parseFloat(e.target.value) || 0,
-                                                                    })
-                                                                }
-                                                                className="w-full border rounded px-2 py-1 text-right font-mono"
-                                                            />
-                                                        </td>
-                                                        <td className="p-2 text-right font-mono bg-blue-50/20">{fmtRp(subRab)}</td>
-                                                        {/* Sisi COST */}
-                                                        <td className="p-1 border-l bg-amber-50/20">
-                                                            <input
-                                                                type="number"
-                                                                value={(it.quantityCost ?? it.quantity) as number}
-                                                                step="0.01"
-                                                                min="0"
-                                                                onChange={(e) =>
-                                                                    updateItem(it._key, {
-                                                                        quantityCost: parseFloat(e.target.value) || 0,
-                                                                    })
-                                                                }
-                                                                className="w-full border rounded px-2 py-1 text-right"
-                                                            />
-                                                        </td>
-                                                        <td className="p-1 bg-amber-50/20">
-                                                            <input
-                                                                type="number"
-                                                                value={it.priceCost as number}
-                                                                step="1"
-                                                                min="0"
-                                                                onChange={(e) =>
-                                                                    updateItem(it._key, {
-                                                                        priceCost: parseFloat(e.target.value) || 0,
-                                                                    })
-                                                                }
-                                                                className="w-full border rounded px-2 py-1 text-right font-mono"
-                                                            />
-                                                        </td>
-                                                        <td className="p-2 text-right font-mono bg-amber-50/20">{fmtRp(subCost)}</td>
-                                                        <td
-                                                            className={`p-2 text-right font-mono border-l ${
-                                                                selisih >= 0 ? "text-green-600" : "text-red-600"
+                                <div className="p-3 space-y-3 bg-slate-50/50">
+                                    {list.map((it, idx) => {
+                                        const { subRab, subCost, selisih } = calcRow(it);
+                                        const hasDesc = !!it.description?.trim();
+                                        const willSave = hasDesc && (it.saveAsLoose ?? true);
+                                        const untung = selisih >= 0;
+                                        return (
+                                            <div
+                                                key={it._key}
+                                                className="bg-white border-2 border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 transition"
+                                            >
+                                                {/* Header: nomor + uraian + hapus */}
+                                                <div className="flex items-start gap-2 p-3 border-b bg-white">
+                                                    <span className="shrink-0 w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-xs font-bold flex items-center justify-center mt-1">
+                                                        {idx + 1}
+                                                    </span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                                                            Uraian Item
+                                                        </label>
+                                                        <UraianAutocomplete
+                                                            value={it.description}
+                                                            onChange={(v) =>
+                                                                updateItem(it._key, { description: v })
+                                                            }
+                                                            onPick={(v) => {
+                                                                const price = Number(v.price) || 0;
+                                                                const cost = Number(v.hpp) || 0;
+                                                                const desc = `${v.product.name}${v.variantName ? ` — ${v.variantName}` : ""}`;
+                                                                const unit = v.defaultRentalUnit || v.product.unit?.name || "unit";
+                                                                updateItem(it._key, {
+                                                                    description: desc,
+                                                                    unit,
+                                                                    priceRab: price,
+                                                                    priceCost: cost,
+                                                                    productVariantId: v.id,
+                                                                });
+                                                            }}
+                                                            onPickLoose={(li) => {
+                                                                updateItem(it._key, {
+                                                                    description: li.description,
+                                                                    unit: li.unit ?? it.unit,
+                                                                    priceRab: parseFloat(li.lastPriceRab) || Number(it.priceRab) || 0,
+                                                                    priceCost: parseFloat(li.lastPriceCost) || Number(it.priceCost) || 0,
+                                                                    productVariantId: null,
+                                                                    saveAsLoose: true,
+                                                                });
+                                                            }}
+                                                        />
+                                                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[11px] text-slate-500">Satuan:</span>
+                                                                <input
+                                                                    type="text"
+                                                                    value={it.unit || ""}
+                                                                    onChange={(e) =>
+                                                                        updateItem(it._key, { unit: e.target.value })
+                                                                    }
+                                                                    placeholder="pcs / m² / …"
+                                                                    className="w-24 border rounded px-2 py-1 text-sm"
+                                                                />
+                                                            </div>
+                                                            {!it.productVariantId && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={!hasDesc}
+                                                                    onClick={() =>
+                                                                        updateItem(it._key, { saveAsLoose: !willSave })
+                                                                    }
+                                                                    title={
+                                                                        !hasDesc
+                                                                            ? "Isi uraian dulu untuk bisa disimpan"
+                                                                            : willSave
+                                                                                ? "Klik untuk batal simpan"
+                                                                                : "Klik untuk simpan ke Item Lepas"
+                                                                    }
+                                                                    className={
+                                                                        "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium border transition " +
+                                                                        (!hasDesc
+                                                                            ? "border-dashed border-border text-muted-foreground/50 cursor-not-allowed"
+                                                                            : willSave
+                                                                                ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                                                                                : "border-border bg-muted/40 text-muted-foreground hover:bg-muted/70")
+                                                                    }
+                                                                >
+                                                                    {willSave ? (
+                                                                        <BookmarkCheck className="h-3.5 w-3.5" />
+                                                                    ) : (
+                                                                        <Bookmark className="h-3.5 w-3.5" />
+                                                                    )}
+                                                                    {willSave
+                                                                        ? "Akan disimpan ke Item Lepas"
+                                                                        : "Tidak disimpan"}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => removeItem(it._key)}
+                                                        className="shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                                                        title="Hapus item"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+
+                                                {/* Dua panel: RAB & COST */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-200">
+                                                    {/* Panel RAB (Klien) */}
+                                                    <div className="bg-blue-50/40 p-3">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                                                <span className="text-xs font-bold text-blue-800 uppercase tracking-wide">
+                                                                    Untuk Klien (RAB)
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <div>
+                                                                <label className="block text-[11px] text-slate-600 mb-0.5">
+                                                                    Jumlah
+                                                                </label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={it.quantity as number}
+                                                                    step="0.01"
+                                                                    min="0"
+                                                                    onChange={(e) =>
+                                                                        updateItem(it._key, {
+                                                                            quantity: parseFloat(e.target.value) || 0,
+                                                                        })
+                                                                    }
+                                                                    className="w-full border-2 border-blue-200 focus:border-blue-500 outline-none rounded px-2 py-1.5 text-right text-sm bg-white"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-[11px] text-slate-600 mb-0.5">
+                                                                    Harga
+                                                                </label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={it.priceRab as number}
+                                                                    step="1"
+                                                                    min="0"
+                                                                    onChange={(e) =>
+                                                                        updateItem(it._key, {
+                                                                            priceRab: parseFloat(e.target.value) || 0,
+                                                                        })
+                                                                    }
+                                                                    className="w-full border-2 border-blue-200 focus:border-blue-500 outline-none rounded px-2 py-1.5 text-right font-mono text-sm bg-white"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-2 flex items-baseline justify-between">
+                                                            <span className="text-[11px] text-slate-600">
+                                                                Subtotal
+                                                            </span>
+                                                            <span className="font-mono font-bold text-blue-800">
+                                                                {fmtRp(subRab)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Panel COST (Internal) */}
+                                                    <div className="bg-amber-50/40 p-3">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                                                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">
+                                                                    Biaya Internal (Cost)
+                                                                </span>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setCalcOpenKey(it._key)}
+                                                                title="Kalkulator: hitung qty dari org × hari × jam × kali"
+                                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-blue-300 bg-white text-blue-700 text-[11px] font-semibold hover:bg-blue-50"
+                                                            >
+                                                                <Calculator className="h-3 w-3" />
+                                                                Hitung
+                                                            </button>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <div>
+                                                                <label className="block text-[11px] text-slate-600 mb-0.5">
+                                                                    Jumlah
+                                                                </label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={(it.quantityCost ?? it.quantity) as number}
+                                                                    step="0.01"
+                                                                    min="0"
+                                                                    onChange={(e) =>
+                                                                        updateItem(it._key, {
+                                                                            quantityCost: parseFloat(e.target.value) || 0,
+                                                                        })
+                                                                    }
+                                                                    className="w-full border-2 border-amber-200 focus:border-amber-500 outline-none rounded px-2 py-1.5 text-right text-sm bg-white"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-[11px] text-slate-600 mb-0.5">
+                                                                    Harga
+                                                                </label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={it.priceCost as number}
+                                                                    step="1"
+                                                                    min="0"
+                                                                    onChange={(e) =>
+                                                                        updateItem(it._key, {
+                                                                            priceCost: parseFloat(e.target.value) || 0,
+                                                                        })
+                                                                    }
+                                                                    className="w-full border-2 border-amber-200 focus:border-amber-500 outline-none rounded px-2 py-1.5 text-right font-mono text-sm bg-white"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-2 flex items-baseline justify-between">
+                                                            <span className="text-[11px] text-slate-600">
+                                                                Subtotal
+                                                            </span>
+                                                            <span className="font-mono font-bold text-amber-800">
+                                                                {fmtRp(subCost)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Footer: notes (kalau ada) + selisih */}
+                                                {(it.notes || hasDesc) && (
+                                                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-white border-t">
+                                                        {it.notes ? (
+                                                            <div className="text-[11px] text-slate-500 italic flex-1 min-w-0 truncate">
+                                                                📝 {it.notes}
+                                                            </div>
+                                                        ) : (
+                                                            <span />
+                                                        )}
+                                                        <div
+                                                            className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                                                                untung
+                                                                    ? "bg-emerald-100 text-emerald-700"
+                                                                    : "bg-red-100 text-red-700"
                                                             }`}
                                                         >
-                                                            {fmtRp(selisih)}
-                                                        </td>
-                                                        <td className="p-1 text-center">
-                                                            <button
-                                                                onClick={() => removeItem(it._key)}
-                                                                className="p-1 text-red-600 hover:bg-red-50 rounded"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                            {untung ? "Untung" : "Rugi"}
+                                                            <span className="font-mono">
+                                                                {fmtRp(Math.abs(selisih))}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+
+                                    {/* Tombol tambah item di bawah list — supaya tidak perlu scroll ke header kategori */}
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        <button
+                                            onClick={() => addItem(cat.id)}
+                                            className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-blue-300 bg-blue-50/40 hover:bg-blue-100/60 text-blue-700 rounded-xl font-semibold text-sm transition"
+                                        >
+                                            <Plus className="h-5 w-5" />
+                                            Tambah Item ke {cat.name}
+                                        </button>
+                                        <button
+                                            onClick={() => setShowPicker(cat.id)}
+                                            className="inline-flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-semibold text-sm transition"
+                                            title="Pilih dari katalog produk"
+                                        >
+                                            <Package className="h-5 w-5" />
+                                            Dari Katalog
+                                        </button>
+                                    </div>
+
+                                    {/* Render kalkulator sekali di luar loop biar tidak berkali-kali */}
+                                    {calcOpenKey && (() => {
+                                        const target = list.find((x) => x._key === calcOpenKey);
+                                        if (!target) return null;
+                                        return (
+                                            <MultiplierCalculator
+                                                initialDescription={target.description}
+                                                initialUnitPrice={
+                                                    Number(target.priceCost) ||
+                                                    Number(target.priceRab) ||
+                                                    0
+                                                }
+                                                onApply={(r) => applyCalc(target._key, r)}
+                                                onCancel={() => setCalcOpenKey(null)}
+                                            />
+                                        );
+                                    })()}
                                 </div>
                             )}
 
@@ -1080,7 +1207,96 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                     }}
                 />
             )}
+
+            {/* FAB tambah cepat — tetap di pojok layar saat scroll */}
+            <FabAddItem
+                categories={visibleCategories}
+                lastUsedCatId={lastUsedCatId}
+                onAdd={(catId) => {
+                    addItem(catId);
+                    // setelah tambah, scroll ke bawah area kategori-nya
+                    requestAnimationFrame(() => {
+                        const el = document.getElementById(`rab-cat-${catId}`);
+                        el?.scrollIntoView({ behavior: "smooth", block: "end" });
+                    });
+                }}
+            />
         </div>
+    );
+}
+
+function FabAddItem({
+    categories,
+    lastUsedCatId,
+    onAdd,
+}: {
+    categories: { id: number; name: string }[];
+    lastUsedCatId: number | null;
+    onAdd: (catId: number) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    if (categories.length === 0) return null;
+    const lastCat = categories.find((c) => c.id === lastUsedCatId) ?? categories[0];
+
+    return (
+        <>
+            {/* Backdrop saat menu kategori terbuka */}
+            {open && (
+                <div
+                    className="fixed inset-0 z-[80] bg-black/30"
+                    onClick={() => setOpen(false)}
+                />
+            )}
+            <div className="fixed bottom-5 right-5 z-[90] flex flex-col items-end gap-2">
+                {/* Daftar kategori (muncul saat menu open) */}
+                {open && (
+                    <div className="bg-white border-2 border-slate-200 rounded-xl shadow-2xl p-2 max-h-[60vh] overflow-y-auto w-[260px] animate-in fade-in slide-in-from-bottom-2">
+                        <div className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                            Pilih Kategori
+                        </div>
+                        {categories.map((c) => (
+                            <button
+                                key={c.id}
+                                onClick={() => {
+                                    onAdd(c.id);
+                                    setOpen(false);
+                                }}
+                                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-blue-50 text-sm font-medium text-slate-800 flex items-center gap-2"
+                            >
+                                <Plus className="h-4 w-4 text-blue-600" />
+                                {c.name}
+                            </button>
+                        ))}
+                    </div>
+                )}
+                {/* Tombol utama: split — klik kiri tambah ke last category, klik kanan buka menu */}
+                <div className="flex items-stretch shadow-2xl rounded-full overflow-hidden">
+                    <button
+                        onClick={() => onAdd(lastCat.id)}
+                        title={`Tambah item ke ${lastCat.name}`}
+                        className="flex items-center gap-2 pl-5 pr-4 py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm"
+                    >
+                        <Plus className="h-5 w-5" />
+                        <span className="hidden sm:inline">Tambah Item</span>
+                    </button>
+                    <button
+                        onClick={() => setOpen((v) => !v)}
+                        title="Pilih kategori lain"
+                        className="px-3 py-3.5 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white border-l border-blue-500"
+                    >
+                        <ChevronDown
+                            className={`h-5 w-5 transition-transform ${open ? "rotate-180" : ""}`}
+                        />
+                    </button>
+                </div>
+                {/* Hint kecil di atas tombol — kategori terakhir */}
+                {!open && (
+                    <div className="bg-slate-900/90 text-white text-[10px] px-2 py-0.5 rounded-md hidden md:block">
+                        ke: <b>{lastCat.name}</b>
+                    </div>
+                )}
+            </div>
+        </>
     );
 }
 

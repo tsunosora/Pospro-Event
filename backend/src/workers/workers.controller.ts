@@ -42,8 +42,18 @@ export class WorkersController {
     constructor(private svc: WorkersService) { }
 
     @Get()
-    list(@Query('includeInactive') includeInactive?: string) {
-        return this.svc.findAll(includeInactive === 'true' || includeInactive === '1');
+    list(
+        @Query('includeInactive') includeInactive?: string,
+        @Query('position') position?: string,
+        @Query('positions') positions?: string,
+    ) {
+        return this.svc.findAll(
+            includeInactive === 'true' || includeInactive === '1',
+            {
+                position: position || undefined,
+                positions: positions ? positions.split(',').map((p) => p.trim()).filter(Boolean) : undefined,
+            },
+        );
     }
 
     @Get(':id')

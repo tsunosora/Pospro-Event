@@ -37,6 +37,7 @@ export interface RabPlan {
     pelunasan: string;
     incomeOther: string;
     notes: string | null;
+    imageUrl: string | null;
     createdAt: string;
     updatedAt: string;
     items: RabItem[];
@@ -121,6 +122,19 @@ export const generateQuotationFromRab = async (
 ) => (await api.post(`/rab/${rabId}/generate-quotation`, body)).data;
 
 export const deleteRab = async (id: number) => (await api.delete(`/rab/${id}`)).data;
+
+export const uploadRabImage = async (id: number, file: File) => {
+    const fd = new FormData();
+    fd.append('image', file);
+    return (await api.post<{ id: number; code: string; imageUrl: string | null }>(
+        `/rab/${id}/upload-image`,
+        fd,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+    )).data;
+};
+
+export const removeRabImage = async (id: number) =>
+    (await api.delete<{ id: number; code: string; imageUrl: string | null }>(`/rab/${id}/image`)).data;
 
 export const downloadRabXlsx = async (id: number): Promise<Blob> => {
     const res = await api.get(`/rab/${id}/export/xlsx`, { responseType: 'blob' });

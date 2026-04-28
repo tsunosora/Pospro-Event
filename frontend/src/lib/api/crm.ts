@@ -39,6 +39,7 @@ export interface Lead {
     phoneNormalized: string;
     organization: string | null;
     productCategory: string | null;
+    city: string | null;
     level: LeadLevel | null;
     source: LeadSource;
     sourceDetail: string | null;
@@ -47,6 +48,7 @@ export interface Lead {
     stageId: number;
     stageOrderIndex: number;
     assignedWorkerId: number | null;
+    previousAssignedWorkerId: number | null;
     followUpDate: string | null;
     orderDescription: string | null;
     projectValueEst: string | null;
@@ -61,9 +63,23 @@ export interface Lead {
     updatedAt: string;
     stage?: LeadStage;
     assignedWorker?: { id: number; name: string; position: string | null; photoUrl: string | null } | null;
+    previousAssignedWorker?: { id: number; name: string; position: string | null; photoUrl: string | null } | null;
     convertedCustomer?: { id: number; name: string } | null;
     labels?: { label: LeadLabel }[];
     activities?: LeadActivity[];
+}
+
+export interface MarketerPerformance {
+    workerId: number;
+    name: string;
+    position: string | null;
+    photoUrl: string | null;
+    totalLeads: number;
+    convertedLeads: number;
+    conversionRate: number;
+    totalValueClosed: number;
+    avgResponseHours: number | null;
+    stuckLeads: number;
 }
 
 export interface BoardData {
@@ -91,6 +107,8 @@ export const listLeads = async (params: {
     stageId?: number;
     level?: LeadLevel;
     assignedWorkerId?: number;
+    city?: string;
+    productCategory?: string;
     search?: string;
     from?: string;
     to?: string;
@@ -98,6 +116,52 @@ export const listLeads = async (params: {
     offset?: number;
 } = {}): Promise<{ items: Lead[]; total: number }> =>
     (await api.get('/crm/leads', { params })).data;
+
+export const getDistinctValues = async (
+    field: 'city' | 'productCategory',
+): Promise<string[]> => (await api.get(`/crm/distinct/${field}`)).data;
+
+export const getMarketerPerformance = async (params: { from?: string; to?: string } = {}): Promise<MarketerPerformance[]> =>
+    (await api.get('/crm/performance/by-marketer', { params })).data;
+
+export interface DashboardSummary {
+    period: { from: string | null; to: string | null; days: number };
+    total: number;
+    avgPerDay: number;
+    byLevel: { level: string; count: number }[];
+    bySource: { source: LeadSource; count: number }[];
+    byStatus: { status: LeadStatus; count: number }[];
+    byStage: {
+        stageId: number;
+        name: string;
+        color: string;
+        isWinStage: boolean;
+        isTerminal: boolean;
+        count: number;
+    }[];
+    projectValue: {
+        won: number;
+        lost: number;
+        pipeline: number;
+        wonCount: number;
+        lostCount: number;
+        pipelineCount: number;
+        winRate: number;
+    };
+    dailySeries: {
+        date: string;
+        count: number;
+        won: number;
+        lost: number;
+        valueWon: number;
+        valueLost: number;
+    }[];
+}
+
+export const getDashboardSummary = async (
+    params: { from?: string; to?: string } = {},
+): Promise<DashboardSummary> =>
+    (await api.get('/crm/dashboard/summary', { params })).data;
 
 export const getLead = async (id: number): Promise<Lead> =>
     (await api.get(`/crm/leads/${id}`)).data;

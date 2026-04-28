@@ -12,6 +12,7 @@ import {
     createLead,
     listStages,
     listLabels,
+    getDistinctValues,
     type LeadLevel,
     type LeadSource,
 } from "@/lib/api/crm";
@@ -36,12 +37,21 @@ export default function NewLeadPage() {
     const router = useRouter();
     const { data: stages } = useQuery({ queryKey: ["crm-stages"], queryFn: listStages });
     const { data: labels } = useQuery({ queryKey: ["crm-labels"], queryFn: listLabels });
+    const { data: cityOptions } = useQuery({
+        queryKey: ["crm-distinct", "city"],
+        queryFn: () => getDistinctValues("city"),
+    });
+    const { data: productOptions } = useQuery({
+        queryKey: ["crm-distinct", "productCategory"],
+        queryFn: () => getDistinctValues("productCategory"),
+    });
 
     const [form, setForm] = useState({
         name: "",
         phone: "",
         organization: "",
         productCategory: "",
+        city: "",
         level: "" as LeadLevel | "",
         source: "WHATSAPP" as LeadSource,
         sourceDetail: "",
@@ -60,6 +70,7 @@ export default function NewLeadPage() {
                 phone: form.phone,
                 organization: form.organization || null,
                 productCategory: form.productCategory || null,
+                city: form.city || null,
                 level: form.level || null,
                 source: form.source,
                 sourceDetail: form.sourceDetail || null,
@@ -159,12 +170,34 @@ export default function NewLeadPage() {
                         <Field label="Kategori Produk" hint="Booth jenis apa?">
                             <InputWithIcon icon={<Tag className="h-4 w-4" />}>
                                 <input
+                                    list="product-options"
                                     value={form.productCategory}
                                     onChange={(e) => set("productCategory", e.target.value)}
                                     className="form-input"
                                     placeholder="Special Design Kayu, Sewa Booth"
                                 />
                             </InputWithIcon>
+                            <datalist id="product-options">
+                                {(productOptions ?? []).map((p) => (
+                                    <option key={p} value={p} />
+                                ))}
+                            </datalist>
+                        </Field>
+                        <Field label="Kota" hint="Kota klien / lokasi proyek (untuk filter & laporan)">
+                            <InputWithIcon icon={<MapPin className="h-4 w-4" />}>
+                                <input
+                                    list="city-options"
+                                    value={form.city}
+                                    onChange={(e) => set("city", e.target.value)}
+                                    className="form-input"
+                                    placeholder="Jakarta, Surabaya, Bandung, ..."
+                                />
+                            </InputWithIcon>
+                            <datalist id="city-options">
+                                {(cityOptions ?? []).map((c) => (
+                                    <option key={c} value={c} />
+                                ))}
+                            </datalist>
                         </Field>
                     </div>
                 </Section>

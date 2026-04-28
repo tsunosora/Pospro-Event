@@ -285,6 +285,16 @@ export class RabService {
         return this.prisma.rabPlan.delete({ where: { id } });
     }
 
+    /** Upload/replace RAB image (single image — sketsa/desain/referensi) */
+    async setImage(id: number, imageUrl: string | null) {
+        await this.findOne(id);
+        return this.prisma.rabPlan.update({
+            where: { id },
+            data: { imageUrl },
+            select: { id: true, code: true, imageUrl: true },
+        });
+    }
+
     /**
      * Generate draft Penawaran dari RAB. Copy `priceRab` saja (bukan priceCost),
      * kategori di-abaikan (penawaran tidak menampilkan kategori RAB).

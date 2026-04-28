@@ -27,9 +27,17 @@ export interface UpdateWorkerInput {
 export class WorkersService {
     constructor(private prisma: PrismaService) { }
 
-    async findAll(includeInactive = false) {
+    async findAll(
+        includeInactive = false,
+        options: { position?: string; positions?: string[] } = {},
+    ) {
+        const where: any = includeInactive ? {} : { isActive: true };
+        if (options.position) where.position = options.position;
+        else if (options.positions && options.positions.length > 0) {
+            where.position = { in: options.positions };
+        }
         return this.prisma.worker.findMany({
-            where: includeInactive ? {} : { isActive: true },
+            where,
             orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
             include: {
                 _count: { select: { withdrawals: true } },

@@ -1,5 +1,35 @@
 import api from './client';
 
+/**
+ * Daftar posisi/role karyawan yang dipakai sistem.
+ * Disimpan sebagai string di Worker.position — value persis seperti label di sini
+ * supaya filter & dashboard konsisten.
+ */
+export const WORKER_POSITIONS = [
+    { value: 'MARKETING', label: 'Marketing', color: 'blue', emoji: '📣' },
+    { value: 'SALES', label: 'Sales', color: 'emerald', emoji: '💼' },
+    { value: 'ADMIN', label: 'Admin / Administrasi', color: 'violet', emoji: '🗂️' },
+    { value: 'PRODUKSI', label: 'Produksi', color: 'amber', emoji: '🔨' },
+    { value: 'KEPALA_TIM', label: 'Kepala Tim', color: 'red', emoji: '👷' },
+    { value: 'TUKANG', label: 'Tukang / Crew', color: 'slate', emoji: '🪚' },
+    { value: 'DESAINER', label: 'Desainer', color: 'pink', emoji: '🎨' },
+    { value: 'OPERATOR', label: 'Operator', color: 'cyan', emoji: '⚙️' },
+] as const;
+
+export type WorkerPositionValue = typeof WORKER_POSITIONS[number]['value'];
+
+/** Posisi yang menangani lead di CRM (untuk dropdown assign + dashboard). */
+export const MARKETER_POSITIONS: WorkerPositionValue[] = ['MARKETING', 'SALES'];
+
+export function getPositionMeta(position: string | null | undefined) {
+    if (!position) return null;
+    return WORKER_POSITIONS.find((p) => p.value === position) ?? null;
+}
+
+export function isMarketerPosition(position: string | null | undefined): boolean {
+    return !!position && MARKETER_POSITIONS.includes(position as WorkerPositionValue);
+}
+
 export interface Worker {
     id: number;
     name: string;
@@ -22,9 +52,18 @@ export interface WorkerFormInput {
     photo?: File | null;
 }
 
-export const getWorkers = async (includeInactive = false) => {
-    const suffix = includeInactive ? '?includeInactive=1' : '';
-    return (await api.get<Worker[]>(`/workers${suffix}`)).data;
+export const getWorkers = async (
+    includeInactive = false,
+    options: { position?: string; positions?: string[] } = {},
+) => {
+    const params = new URLSearchParams();
+    if (includeInactive) params.set('includeInactive', '1');
+    if (options.position) params.set('position', options.position);
+    if (options.positions && options.positions.length > 0) {
+        params.set('positions', options.positions.join(','));
+    }
+    const qs = params.toString();
+    return (await api.get<Worker[]>(`/workers${qs ? `?${qs}` : ''}`)).data;
 };
 
 export const getWorker = async (id: number) =>

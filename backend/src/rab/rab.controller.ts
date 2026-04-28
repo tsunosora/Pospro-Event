@@ -117,6 +117,29 @@ export class RabController {
         res.end(buf);
     }
 
+    @Post(':id/upload-image')
+    @UseInterceptors(FileInterceptor('image', {
+        storage: imageStorage,
+        fileFilter: imageFilter,
+        limits: { fileSize: 5 * 1024 * 1024 },
+    }))
+    async uploadImage(
+        @Param('id', ParseIntPipe) id: number,
+        @UploadedFile() file?: Express.Multer.File,
+    ) {
+        if (!file) {
+            throw new BadRequestException('File gambar wajib diupload');
+        }
+        await compressImage(file.path);
+        const imageUrl = `/uploads/${file.filename}`;
+        return this.service.setImage(id, imageUrl);
+    }
+
+    @Delete(':id/image')
+    async removeImage(@Param('id', ParseIntPipe) id: number) {
+        return this.service.setImage(id, null);
+    }
+
     @Post(':id/save-as-product')
     @UseInterceptors(FileInterceptor('image', {
         storage: imageStorage,

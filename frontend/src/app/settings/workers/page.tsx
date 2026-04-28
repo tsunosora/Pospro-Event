@@ -8,12 +8,14 @@ import {
 } from "lucide-react";
 import {
     getWorkers, createWorker, updateWorker, deleteWorker, restoreWorker,
+    WORKER_POSITIONS, getPositionMeta,
     type Worker,
 } from "@/lib/api/workers";
 
 export default function WorkersSettingsPage() {
     const qc = useQueryClient();
     const [showInactive, setShowInactive] = useState(true);
+    const [positionFilter, setPositionFilter] = useState<string>("");
     const [showForm, setShowForm] = useState(false);
     const [editId, setEditId] = useState<number | null>(null);
     const [name, setName] = useState("");
@@ -26,8 +28,8 @@ export default function WorkersSettingsPage() {
     const [deleteConfirm, setDeleteConfirm] = useState<Worker | null>(null);
 
     const { data: workers = [], isLoading } = useQuery<Worker[]>({
-        queryKey: ["workers", showInactive],
-        queryFn: () => getWorkers(showInactive),
+        queryKey: ["workers", showInactive, positionFilter],
+        queryFn: () => getWorkers(showInactive, { position: positionFilter || undefined }),
     });
 
     const invalidate = () => qc.invalidateQueries({ queryKey: ["workers"] });
@@ -99,7 +101,19 @@ export default function WorkersSettingsPage() {
                         Daftar pekerja yang dapat mengambil barang dari gudang. Foto dipakai untuk identifikasi.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <select
+                        value={positionFilter}
+                        onChange={(e) => setPositionFilter(e.target.value)}
+                        className="text-xs border rounded px-2 py-1.5 bg-white"
+                    >
+                        <option value="">Semua role</option>
+                        {WORKER_POSITIONS.map((p) => (
+                            <option key={p.value} value={p.value}>
+                                {p.emoji} {p.label}
+                            </option>
+                        ))}
+                    </select>
                     <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                         <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
                         Tampilkan nonaktif
@@ -137,8 +151,24 @@ export default function WorkersSettingsPage() {
                                     <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Budi Santoso" className="w-full border rounded px-3 py-2 text-sm" />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium block mb-1">Jabatan</label>
-                                    <input value={position} onChange={(e) => setPosition(e.target.value)} placeholder="Tukang / Kepala Tim" className="w-full border rounded px-3 py-2 text-sm" />
+                                    <label className="text-xs font-medium block mb-1">
+                                        Jabatan / Role <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={position}
+                                        onChange={(e) => setPosition(e.target.value)}
+                                        className="w-full border rounded px-3 py-2 text-sm bg-white"
+                                    >
+                                        <option value="">— Pilih Role —</option>
+                                        {WORKER_POSITIONS.map((p) => (
+                                            <option key={p.value} value={p.value}>
+                                                {p.emoji} {p.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                        Pilih <b>Marketing</b> atau <b>Sales</b> untuk yang handle CRM lead. <b>Admin</b> untuk administrasi.
+                                    </p>
                                 </div>
                                 <div>
                                     <label className="text-xs font-medium block mb-1">HP/WA</label>
@@ -189,7 +219,32 @@ export default function WorkersSettingsPage() {
                                 {w.name}
                                 {!w.isActive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">nonaktif</span>}
                             </div>
-                            <div className="text-xs text-muted-foreground">{w.position || "—"}</div>
+                            {(() => {
+                                const meta = getPositionMeta(w.position);
+                                if (meta) {
+                                    const colorCls: Record<string, string> = {
+                                        blue: "bg-blue-100 text-blue-700 border-blue-200",
+                                        emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
+                                        violet: "bg-violet-100 text-violet-700 border-violet-200",
+                                        amber: "bg-amber-100 text-amber-700 border-amber-200",
+                                        red: "bg-red-100 text-red-700 border-red-200",
+                                        slate: "bg-slate-100 text-slate-700 border-slate-200",
+                                        pink: "bg-pink-100 text-pink-700 border-pink-200",
+                                        cyan: "bg-cyan-100 text-cyan-700 border-cyan-200",
+                                    };
+                                    return (
+                                        <span
+                                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border mt-0.5 ${colorCls[meta.color] ?? "bg-slate-100 text-slate-700 border-slate-200"}`}
+                                        >
+                                            <span>{meta.emoji}</span>
+                                            {meta.label}
+                                        </span>
+                                    );
+                                }
+                                return (
+                                    <div className="text-xs text-muted-foreground">{w.position || "— belum di-set —"}</div>
+                                );
+                            })()}
                             {w.phone && <div className="text-xs text-muted-foreground">{w.phone}</div>}
                             <div className="text-[11px] text-muted-foreground mt-1">
                                 {w._count?.withdrawals ?? 0} pengambilan

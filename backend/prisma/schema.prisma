@@ -538,6 +538,7 @@ model RabPlan {
   pelunasan   Decimal   @default(0) @db.Decimal(15, 2)
   incomeOther Decimal   @default(0) @map("income_other") @db.Decimal(15, 2)
   notes       String?   @db.Text
+  imageUrl    String?   @map("image_url") @db.Text  // Foto sketsa/desain/referensi project (single image)
   createdAt   DateTime? @default(now()) @map("created_at")
   updatedAt   DateTime? @default(now()) @updatedAt @map("updated_at")
 
@@ -1126,7 +1127,8 @@ model Worker {
   withdrawals        Withdrawal[]
   eventsAsPic        Event[]              @relation("EventPic")
   packingChecked     EventPackingItem[]   @relation("PackingCheckedBy")
-  assignedLeads      Lead[]
+  assignedLeads      Lead[]               @relation("LeadAssignedWorker")
+  previousAssignedLeads Lead[]            @relation("LeadPreviousWorker")
   leadActivities     LeadActivity[]
   crewAssignments    EventCrewAssignment[]
   leadingTeams       CrewTeam[]           @relation("TeamLeader")
@@ -1382,11 +1384,13 @@ model Lead {
   stageId             Int        @map("stage_id")
   stageOrderIndex     Int        @default(0) @map("stage_order_index")
   assignedWorkerId    Int?       @map("assigned_worker_id")
+  previousAssignedWorkerId Int?  @map("previous_assigned_worker_id")
   followUpDate        DateTime?  @map("follow_up_date")
   orderDescription    String?    @map("order_description") @db.Text
   projectValueEst     Decimal?   @map("project_value_est") @db.Decimal(15, 2)
   eventDate           DateTime?  @map("event_date")
   eventLocation       String?    @map("event_location") @db.VarChar(200)
+  city                String?    @db.VarChar(100)
   notes               String?    @db.Text
   leadCameAt          DateTime   @default(now()) @map("lead_came_at")
   lastContactedAt     DateTime?  @map("last_contacted_at")
@@ -1396,7 +1400,8 @@ model Lead {
   updatedAt           DateTime   @updatedAt @map("updated_at")
 
   stage             LeadStage         @relation(fields: [stageId], references: [id])
-  assignedWorker    Worker?           @relation(fields: [assignedWorkerId], references: [id])
+  assignedWorker    Worker?           @relation("LeadAssignedWorker", fields: [assignedWorkerId], references: [id])
+  previousAssignedWorker Worker?      @relation("LeadPreviousWorker", fields: [previousAssignedWorkerId], references: [id])
   convertedCustomer Customer?         @relation(fields: [convertedCustomerId], references: [id])
   labels            LeadLabelOnLead[]
   activities        LeadActivity[]
@@ -1405,6 +1410,8 @@ model Lead {
   @@index([phoneNormalized])
   @@index([assignedWorkerId, status])
   @@index([leadCameAt])
+  @@index([city])
+  @@index([productCategory])
   @@map("leads")
 }
 

@@ -113,6 +113,16 @@ export function LeadDrawer({
                                 Stage: <span className="font-medium" style={{ color: lead.stage.color }}>{lead.stage.name}</span>
                             </div>
                         )}
+                        {lead?.assignedWorker && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                                Marketing: <span className="font-medium text-slate-800">{lead.assignedWorker.name}</span>
+                            </div>
+                        )}
+                        {lead?.previousAssignedWorker && (
+                            <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
+                                🔄 Sebelumnya dipegang oleh <b>{lead.previousAssignedWorker.name}</b>
+                            </div>
+                        )}
                     </div>
                     <button
                         onClick={onClose}
@@ -156,6 +166,7 @@ export function LeadDrawer({
                         <Field label="Nomor HP" value={lead.phone} />
                         <Field label="Organization" value={lead.organization} icon={<Building2 className="h-3 w-3" />} />
                         <Field label="Product Category" value={lead.productCategory} />
+                        <Field label="Kota" value={lead.city} icon={<MapPin className="h-3 w-3" />} />
                         <Field label="Order Description" value={lead.orderDescription} />
                         <Field label="Project Value Est." value={lead.projectValueEst ? `Rp ${Number(lead.projectValueEst).toLocaleString("id-ID")}` : null} />
                         <Field label="Event Date" value={lead.eventDate ? new Date(lead.eventDate).toLocaleDateString("id-ID") : null} />

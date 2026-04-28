@@ -37,6 +37,8 @@ export class LeadsController {
         @Query('stageId') stageId?: string,
         @Query('level') level?: LeadLevel,
         @Query('assignedWorkerId') assignedWorkerId?: string,
+        @Query('city') city?: string,
+        @Query('productCategory') productCategory?: string,
         @Query('search') search?: string,
         @Query('from') from?: string,
         @Query('to') to?: string,
@@ -47,12 +49,38 @@ export class LeadsController {
             stageId: stageId ? Number(stageId) : undefined,
             level,
             assignedWorkerId: assignedWorkerId ? Number(assignedWorkerId) : undefined,
+            city: city || undefined,
+            productCategory: productCategory || undefined,
             search,
             from,
             to,
             limit: limit ? Number(limit) : undefined,
             offset: offset ? Number(offset) : undefined,
         });
+    }
+
+    @Get('distinct/:field')
+    distinct(@Param('field') field: string) {
+        if (field !== 'city' && field !== 'productCategory') {
+            return [];
+        }
+        return this.svc.distinctValues(field);
+    }
+
+    @Get('performance/by-marketer')
+    performanceByMarketer(
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+    ) {
+        return this.svc.performanceByMarketer({ from, to });
+    }
+
+    @Get('dashboard/summary')
+    dashboardSummary(
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+    ) {
+        return this.svc.dashboardSummary({ from, to });
     }
 
     @Get('leads/:id')
