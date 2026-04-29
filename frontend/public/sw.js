@@ -1,7 +1,9 @@
 // Pospro Event — Service Worker (basic offline shell)
 // Copyright © 2026 Muhammad Faishal Abdul Hakim · All rights reserved.
 
-const CACHE_VERSION = 'pospro-v1';
+// Version string — bump manual saat deploy major changes, atau replace via build script
+// Contoh build script: sed -i "s/__BUILD_ID__/$(date +%s)/" public/sw.js
+const CACHE_VERSION = 'pospro-v2-1777469831024';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -61,10 +63,18 @@ self.addEventListener('fetch', (event) => {
     // Skip Next.js dev WebSocket / hot-reload
     if (url.pathname.startsWith('/_next/webpack-hmr')) return;
 
-    // Static assets — cache-first
+    // Safety: skip caching saat hostname localhost (dev mode) — kalau SW masih hidup di dev
+    if (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1') {
+        return;
+    }
+
+    // Hanya cache chunk yang punya content hash (immutable). Chunk dev tanpa hash skip.
+    const hasContentHash = /[a-f0-9]{8,}\.(js|css|woff2?|png|jpg|svg)$/i.test(url.pathname);
+
+    // Static assets — cache-first, HANYA kalau ada content hash (production chunks)
     if (
-        url.pathname.startsWith('/_next/static/') ||
-        /\.(png|jpg|jpeg|svg|gif|webp|ico|woff2?|ttf|otf|css|js)$/i.test(url.pathname)
+        hasContentHash ||
+        /\.(png|jpg|jpeg|svg|gif|webp|ico|woff2?|ttf|otf)$/i.test(url.pathname)
     ) {
         event.respondWith(
             caches.match(request).then((cached) => {

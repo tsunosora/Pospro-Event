@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { Suspense, useState, useMemo, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Plus, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Loader2,
     Pencil, Trash2, TrendingUp, BarChart3, Download, Filter, X, Store,
-    Clock, CheckCircle2, XCircle, AlertTriangle,
+    Clock, CheckCircle2, XCircle, AlertTriangle, RefreshCw,
 } from "lucide-react";
 import {
     getCashflows, createCashflow, updateCashflow, deleteCashflow,
@@ -15,7 +17,7 @@ import {
     type CashflowChangeRequest,
 } from "@/lib/api";
 import { getEvents } from "@/lib/api/events";
-import { getRabList } from "@/lib/api/rab";
+import { getRabList, syncAllRabCashflow } from "@/lib/api/rab";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import dayjs from "dayjs";
 import {
@@ -444,8 +446,130 @@ function ReviewModal({ request, note, setNote, onClose, onApprove, onReject, isA
 }
 
 export default function CashflowPage() {
+    return (
+        <Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground">Memuat…</div>}>
+            <CashflowPageInner />
+        </Suspense>
+    );
+}
+
+/**
+ * Searchable combobox untuk pilih RAB di filter cashflow.
+ * Native <select> jelek untuk daftar panjang (50+) — combobox dengan search jauh lebih scalable.
+ */
+function RabFilterCombobox({
+    value,
+    onChange,
+    options,
+}: {
+    value: number | "";
+    onChange: (v: number | "") => void;
+    options: Array<{ id: number; code: string; title: string; projectName: string | null }>;
+}) {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    const labelOf = (r: { code: string; title: string; projectName: string | null }) =>
+        r.projectName?.trim() || r.title?.trim() || r.code;
+
+    const selected = useMemo(
+        () => (value === "" ? null : options.find(r => r.id === value) ?? null),
+        [value, options],
+    );
+
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return options;
+        return options.filter(r => {
+            const hay = [r.code, r.title, r.projectName ?? ""].join(" ").toLowerCase();
+            return hay.includes(q);
+        });
+    }, [search, options]);
+
+    // Click outside → close
+    useEffect(() => {
+        if (!open) return;
+        const handler = (e: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+                setOpen(false);
+                setSearch("");
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [open]);
+
+    const triggerLabel = selected ? `🧮 ${labelOf(selected)}` : "🧮 Semua RAB";
+
+    return (
+        <div ref={wrapperRef} className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className="px-2 py-1.5 rounded-lg text-xs font-medium border border-input bg-background text-foreground hover:bg-muted/40 transition-colors flex items-center gap-1 max-w-[220px]"
+                title={selected ? `${selected.code} · ${selected.title}` : "Filter berdasarkan RAB"}
+            >
+                <span className="truncate">{triggerLabel}</span>
+                <span className="text-muted-foreground">▾</span>
+            </button>
+
+            {open && (
+                <div className="absolute z-30 mt-1 w-72 max-w-[90vw] rounded-lg border border-input bg-card shadow-lg">
+                    <div className="p-2 border-b border-border">
+                        <input
+                            autoFocus
+                            type="text"
+                            placeholder="Cari nama proyek / kode RAB..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Escape") { setOpen(false); setSearch(""); }
+                            }}
+                            className="w-full px-2 py-1.5 rounded-md text-xs border border-input bg-background text-foreground"
+                        />
+                    </div>
+                    <div className="max-h-64 overflow-y-auto py-1">
+                        <button
+                            type="button"
+                            onClick={() => { onChange(""); setOpen(false); setSearch(""); }}
+                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/60 ${value === "" ? "bg-purple-50 text-purple-700 font-semibold" : "text-foreground"}`}
+                        >
+                            🧮 Semua RAB
+                        </button>
+                        {filtered.length === 0 && (
+                            <div className="px-3 py-3 text-xs text-muted-foreground text-center">
+                                Tidak ada RAB cocok
+                            </div>
+                        )}
+                        {filtered.map((r) => (
+                            <button
+                                type="button"
+                                key={r.id}
+                                onClick={() => { onChange(r.id); setOpen(false); setSearch(""); }}
+                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/60 ${value === r.id ? "bg-purple-50 text-purple-700 font-semibold" : "text-foreground"}`}
+                                title={`${r.code} · ${r.title}`}
+                            >
+                                <div className="truncate">{labelOf(r)}</div>
+                                <div className="text-[10px] text-muted-foreground font-mono truncate">{r.code}</div>
+                            </button>
+                        ))}
+                    </div>
+                    {options.length > 0 && (
+                        <div className="px-3 py-1.5 border-t border-border text-[10px] text-muted-foreground bg-muted/20">
+                            {filtered.length} dari {options.length} RAB
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CashflowPageInner() {
     const queryClient = useQueryClient();
     const { isManager } = useCurrentUser();
+    const searchParams = useSearchParams();
 
     // Period filter
     const [period, setPeriod] = useState<PeriodKey>('this_month');
@@ -473,9 +597,23 @@ export default function CashflowPage() {
     const [eventId, setEventId] = useState<number | "">("");
     const [rabPlanId, setRabPlanId] = useState<number | "">("");
 
-    // Filter list by event / RAB
+    // Filter list by event / RAB — initial dari ?rabPlanId= URL query (link dari RAB detail)
+    const initialRabPlanFromUrl = (() => {
+        const v = searchParams.get("rabPlanId");
+        const n = v ? Number(v) : NaN;
+        return Number.isFinite(n) && n > 0 ? n : "" as const;
+    })();
     const [filterEventId, setFilterEventId] = useState<number | "">("");
-    const [filterRabPlanId, setFilterRabPlanId] = useState<number | "">("");
+    const [filterRabPlanId, setFilterRabPlanId] = useState<number | "">(initialRabPlanFromUrl);
+
+    // Auto-set period ke 'all' kalau dateng dari RAB filter — supaya entries tampil tanpa date filter cut off
+    useEffect(() => {
+        if (initialRabPlanFromUrl) {
+            // pakai 'all_time' kalau ada, atau biarkan default
+            // Tujuan: user lihat SEMUA entries RAB itu, bukan filter periode default
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Active events untuk dropdown (load all SCHEDULED + IN_PROGRESS recent)
     const { data: events = [] } = useQuery({
@@ -596,6 +734,41 @@ export default function CashflowPage() {
         },
     });
 
+    /** One-time backfill — sync semua RAB existing ke cashflow */
+    const syncAllRabMutation = useMutation({
+        mutationFn: syncAllRabCashflow,
+        onSuccess: (res) => {
+            invalidateAll();
+            const errLines = res.errors.length
+                ? `\n\nError pada ${res.errors.length} RAB:\n` +
+                  res.errors.slice(0, 5).map(e => `• ${e.code}: ${e.error}`).join('\n') +
+                  (res.errors.length > 5 ? `\n…+${res.errors.length - 5} lagi` : '')
+                : '';
+            alert(
+                `✅ Sync selesai\n\n` +
+                `Total RAB: ${res.total}\n` +
+                `Berhasil sync: ${res.synced}\n` +
+                `Skip (kosong): ${res.skipped}\n` +
+                `Gagal: ${res.failed}` +
+                errLines
+            );
+        },
+        onError: (err: any) => {
+            alert(`❌ Gagal sync: ${err?.response?.data?.message || err?.message || 'Unknown error'}`);
+        },
+    });
+
+    const handleSyncAllRab = () => {
+        if (!confirm(
+            'Sync ulang cashflow dari SEMUA RAB existing?\n\n' +
+            'Ini akan:\n' +
+            '• Hapus entri cashflow lama yang ber-tag RAB\n' +
+            '• Generate ulang dari RAB terkini\n\n' +
+            'Operasi ini bisa makan waktu beberapa detik untuk RAB banyak.'
+        )) return;
+        syncAllRabMutation.mutate();
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const finalCategory = category === 'Lainnya' ? customCategory : category;
@@ -617,10 +790,32 @@ export default function CashflowPage() {
     const entries: CashflowEntry[] = data?.list ?? [];
     const summary = data?.summary ?? { totalIncome: 0, totalExpense: 0, balance: 0 };
 
+    /**
+     * Source filter — split entries:
+     * - ALL_SOURCE: semua entry (default)
+     * - FROM_RAB: hanya entry yang ter-tag rabPlanId (auto-synced dari RAB)
+     * - MANUAL: hanya entry tanpa rabPlanId (input manual oleh user)
+     */
+    const [filterSource, setFilterSource] = useState<'ALL_SOURCE' | 'FROM_RAB' | 'MANUAL'>('ALL_SOURCE');
+
     const filteredEntries = useMemo(() => {
-        if (filterType === 'ALL') return entries;
-        return entries.filter(e => e.type === filterType);
-    }, [entries, filterType]);
+        let list = entries;
+        if (filterType !== 'ALL') {
+            list = list.filter(e => e.type === filterType);
+        }
+        if (filterSource === 'FROM_RAB') {
+            list = list.filter(e => e.rabPlanId != null);
+        } else if (filterSource === 'MANUAL') {
+            list = list.filter(e => e.rabPlanId == null);
+        }
+        return list;
+    }, [entries, filterType, filterSource]);
+
+    // Counts untuk badges di filter chips
+    const sourceCounts = useMemo(() => {
+        const fromRab = entries.filter(e => e.rabPlanId != null).length;
+        return { fromRab, manual: entries.length - fromRab, all: entries.length };
+    }, [entries]);
 
     const categoryOptions = type === 'INCOME' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
@@ -655,7 +850,19 @@ export default function CashflowPage() {
                     <h1 className="text-2xl font-bold text-foreground">Cashflow Bisnis</h1>
                     <p className="mt-1 text-sm text-muted-foreground">Pantau arus kas masuk dan keluar bisnis Anda.</p>
                 </div>
-                <div className="mt-4 sm:mt-0 flex gap-3">
+                <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
+                    <button
+                        onClick={handleSyncAllRab}
+                        disabled={syncAllRabMutation.isPending}
+                        title="Sync ulang cashflow dari SEMUA RAB existing — pakai sekali untuk migrasi RAB lama"
+                        className="flex items-center gap-2 border-2 border-purple-300 bg-purple-50 text-purple-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-100 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                        {syncAllRabMutation.isPending ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Sync...</>
+                        ) : (
+                            <><RefreshCw className="h-4 w-4" /> 🧮 Sync RAB Lama</>
+                        )}
+                    </button>
                     <button onClick={handleExport} className="flex items-center gap-2 border border-input bg-card text-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted/50 transition-colors shadow-sm">
                         <Download className="h-4 w-4" />
                         Export Excel
@@ -909,22 +1116,49 @@ export default function CashflowPage() {
                                 <option key={ev.id} value={ev.id}>{ev.code}</option>
                             ))}
                         </select>
-                        <select
-                            value={filterRabPlanId === "" ? "" : String(filterRabPlanId)}
-                            onChange={(e) => setFilterRabPlanId(e.target.value === "" ? "" : Number(e.target.value))}
-                            className="px-2 py-1.5 rounded-lg text-xs font-medium border border-input bg-background text-foreground"
-                        >
-                            <option value="">🧮 Semua RAB</option>
-                            {rabPlans.map((r) => (
-                                <option key={r.id} value={r.id}>{r.code}</option>
-                            ))}
-                        </select>
+                        <RabFilterCombobox
+                            value={filterRabPlanId}
+                            onChange={setFilterRabPlanId}
+                            options={rabPlans.map(r => ({
+                                id: r.id,
+                                code: r.code,
+                                title: r.title,
+                                projectName: r.projectName,
+                            }))}
+                        />
                         {(['ALL', 'INCOME', 'EXPENSE'] as const).map(f => (
                             <button key={f} onClick={() => setFilterType(f)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterType === f ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'}`}>
                                 {f === 'ALL' ? 'Semua' : f === 'INCOME' ? 'Pemasukan' : 'Pengeluaran'}
                             </button>
                         ))}
+                        {/* Source filter — bedakan auto-synced dari RAB vs manual entry */}
+                        <div className="inline-flex items-center gap-1 ml-1 pl-2 border-l border-border">
+                            <button
+                                onClick={() => setFilterSource('ALL_SOURCE')}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterSource === 'ALL_SOURCE' ? 'bg-slate-700 text-white' : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'}`}
+                                title="Semua sumber"
+                            >
+                                Semua Sumber
+                                <span className={`text-[10px] font-mono px-1 rounded-full ${filterSource === 'ALL_SOURCE' ? 'bg-white/30' : 'bg-muted/60'}`}>{sourceCounts.all}</span>
+                            </button>
+                            <button
+                                onClick={() => setFilterSource('FROM_RAB')}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterSource === 'FROM_RAB' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 hover:bg-purple-100'}`}
+                                title="Auto-synced dari RAB project"
+                            >
+                                🧮 Dari RAB
+                                <span className={`text-[10px] font-mono px-1 rounded-full ${filterSource === 'FROM_RAB' ? 'bg-white/30' : 'bg-purple-100 text-purple-700'}`}>{sourceCounts.fromRab}</span>
+                            </button>
+                            <button
+                                onClick={() => setFilterSource('MANUAL')}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterSource === 'MANUAL' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 hover:bg-emerald-100'}`}
+                                title="Manual entry oleh user"
+                            >
+                                ✍️ Manual
+                                <span className={`text-[10px] font-mono px-1 rounded-full ${filterSource === 'MANUAL' ? 'bg-white/30' : 'bg-emerald-100 text-emerald-700'}`}>{sourceCounts.manual}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div className="divide-y divide-border">
@@ -961,9 +1195,13 @@ export default function CashflowPage() {
                                                 </span>
                                             )}
                                             {entry.rabPlan && (
-                                                <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-1.5 py-0.5 rounded-full" title={`RAB: ${entry.rabPlan.title}`}>
+                                                <Link
+                                                    href={`/rab/${entry.rabPlan.id ?? entry.rabPlanId}`}
+                                                    className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-1.5 py-0.5 rounded-full hover:bg-purple-200 dark:hover:bg-purple-900/50 hover:underline transition inline-flex items-center gap-0.5"
+                                                    title={`Buka RAB: ${entry.rabPlan.title}`}
+                                                >
                                                     🧮 {entry.rabPlan.code}
-                                                </span>
+                                                </Link>
                                             )}
                                         </div>
                                         <p className="text-sm text-muted-foreground truncate">{dayjs(entry.date).format('DD MMM YYYY HH:mm')} &bull; {entry.note || '-'}</p>

@@ -7,6 +7,7 @@ import {
     getRab,
     getRabSummary,
     updateRab,
+    markRabReportStatus,
     generateQuotationFromRab,
     downloadRabXlsx,
     getBoothVariants,
@@ -107,6 +108,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
     const [customerId, setCustomerId] = useState<number | null>(null);
     const [brand, setBrand] = useState<Brand | null>(null);
     const [tags, setTags] = useState<string[]>([]);
+    const [reportCompletedAt, setReportCompletedAt] = useState<string | null>(null);
 
     const [showPicker, setShowPicker] = useState<number | null>(null);
     const [showCustomerPicker, setShowCustomerPicker] = useState(false);
@@ -140,6 +142,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
         setIncomeOther(parseFloat(rab.incomeOther as any) || 0);
         setCustomerId(rab.customerId ?? null);
         setTags(parseRabTags(rab.tags));
+        setReportCompletedAt(rab.reportCompletedAt ?? null);
         setItems(
             (rab.items || []).map((it) => ({
                 ...it,
@@ -334,6 +337,22 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
     };
 
     // Save
+    // Mutation: toggle status laporan lengkap
+    const reportMut = useMutation({
+        mutationFn: (complete: boolean) => markRabReportStatus(id, complete),
+        onSuccess: (res) => {
+            setReportCompletedAt(res.reportCompletedAt ?? null);
+            qc.invalidateQueries({ queryKey: ["rab", id] });
+            qc.invalidateQueries({ queryKey: ["rab-list"] });
+            toast.success(
+                res.reportCompletedAt
+                    ? "✅ Laporan ditandai LENGKAP. Status berubah jadi 'Laporan Lengkap'."
+                    : "↩️ Tanda laporan lengkap dibatalkan.",
+            );
+        },
+        onError: (err: any) => toast.error(err?.response?.data?.message || "Gagal update status laporan"),
+    });
+
     const saveMut = useMutation({
         mutationFn: () =>
             updateRab(id, {
@@ -368,10 +387,13 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                 })),
             }),
         onSuccess: () => {
-            toast.success("RAB tersimpan");
+            toast.success("✅ RAB tersimpan · 💸 Cashflow auto-sync");
             qc.invalidateQueries({ queryKey: ["rab", id] });
             qc.invalidateQueries({ queryKey: ["rab-summary", id] });
             qc.invalidateQueries({ queryKey: ["rab-list"] });
+            // Invalidate cashflow caches juga karena auto-sync di backend
+            qc.invalidateQueries({ queryKey: ["cashflow"] });
+            qc.invalidateQueries({ queryKey: ["cashflows"] });
         },
         onError: (err: any) => toast.error(err?.response?.data?.message || "Gagal simpan"),
     });
@@ -480,13 +502,14 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                         <PackagePlus className="h-4 w-4" />
                         Simpan sebagai Produk
                     </button>
-                    <button
-                        onClick={() => setShowGenCashflowModal(true)}
-                        className="flex items-center gap-2 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 px-3 py-2 rounded-md"
-                        title="Buat entry expense di Cashflow dari item-item RAB"
+                    {/* Cashflow status — auto-sync indicator + link */}
+                    <Link
+                        href={`/cashflow?rabPlanId=${id}`}
+                        className="flex items-center gap-2 border-2 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300 px-3 py-2 rounded-md transition"
+                        title="Cashflow auto-sync setiap kali Simpan RAB. Klik untuk lihat entries di Cashflow page."
                     >
-                        💸 Generate Cashflow
-                    </button>
+                        💸 Cashflow Tersinkron
+                    </Link>
                 </div>
             </div>
 
@@ -1165,6 +1188,87 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
 
             {/* Pengadaan Inventaris — track items tagged isInventory */}
             {!isNaN(id) && <InventoryAcquisitionsSection rabPlanId={id} />}
+
+            {/* ─── Status Laporan Project — admin tandai laporan lengkap ─── */}
+            <div className={`rounded-xl border-2 p-4 sm:p-5 ${reportCompletedAt
+                ? "border-violet-300 bg-gradient-to-br from-violet-50 to-violet-100/60 dark:from-violet-950/30 dark:to-violet-950/10 dark:border-violet-700"
+                : "border-slate-200 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800/40 dark:border-slate-700"
+                }`}>
+                <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-start gap-3 min-w-0">
+                        <div className={`shrink-0 rounded-full p-2.5 ${reportCompletedAt
+                            ? "bg-violet-200 text-violet-800 dark:bg-violet-800/40 dark:text-violet-200"
+                            : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                            }`}>
+                            {reportCompletedAt ? (
+                                <span className="text-xl leading-none">📄</span>
+                            ) : (
+                                <span className="text-xl leading-none">📋</span>
+                            )}
+                        </div>
+                        <div className="min-w-0">
+                            <div className="text-xs uppercase tracking-wider font-bold text-muted-foreground">
+                                Status Laporan Project
+                            </div>
+                            <h3 className="text-base sm:text-lg font-bold mt-0.5">
+                                {reportCompletedAt ? (
+                                    <span className="text-violet-700 dark:text-violet-300 inline-flex items-center gap-1.5">
+                                        ✅ Laporan Lengkap
+                                    </span>
+                                ) : (
+                                    <span className="text-slate-700 dark:text-slate-200">
+                                        Laporan Belum Lengkap
+                                    </span>
+                                )}
+                            </h3>
+                            {reportCompletedAt ? (
+                                <p className="text-[11px] sm:text-xs text-violet-700/80 dark:text-violet-300/80 mt-0.5">
+                                    Ditandai lengkap pada <b>{new Date(reportCompletedAt).toLocaleString("id-ID", {
+                                        day: "numeric", month: "long", year: "numeric",
+                                        hour: "2-digit", minute: "2-digit",
+                                    })}</b>
+                                </p>
+                            ) : (
+                                <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                                    Klik tombol di samping kalau semua data laporan RAB ini sudah selesai diinput
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="shrink-0 w-full sm:w-auto">
+                        {reportCompletedAt ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (window.confirm("Batalkan tanda 'Laporan Lengkap'? Status RAB akan kembali sesuai tanggal event.")) {
+                                        reportMut.mutate(false);
+                                    }
+                                }}
+                                disabled={reportMut.isPending}
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-violet-300 bg-white text-violet-700 hover:bg-violet-50 text-sm font-semibold disabled:opacity-50 transition"
+                            >
+                                {reportMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                ↩️ Batalkan Tanda Lengkap
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (window.confirm("Tandai laporan RAB ini sebagai LENGKAP?\n\nStatus akan berubah menjadi 'Laporan Lengkap'. Masih bisa dibatalkan kapan saja.")) {
+                                        reportMut.mutate(true);
+                                    }
+                                }}
+                                disabled={reportMut.isPending}
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white text-sm font-bold disabled:opacity-50 shadow-md hover:shadow-lg transition"
+                            >
+                                {reportMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>✅</span>}
+                                Tandai Laporan Lengkap
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
 
             {/* Modal generate penawaran */}
             {showGenModal && (

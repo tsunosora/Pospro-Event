@@ -63,6 +63,12 @@ export class RabController {
         return this.service.getAllTags();
     }
 
+    /** Hapus tag dari semua RAB (cleanup typo / tag tidak terpakai) */
+    @Delete('tags/:tag')
+    deleteTag(@Param('tag') tag: string) {
+        return this.service.deleteTagGlobally(decodeURIComponent(tag));
+    }
+
     @Get()
     findAll() {
         return this.service.findAll();
@@ -81,6 +87,20 @@ export class RabController {
     @Patch(':id')
     update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateRabDto) {
         return this.service.update(id, dto);
+    }
+
+    /**
+     * Toggle status "Laporan Lengkap" — admin tandai RAB yang laporannya sudah selesai/lengkap.
+     * Body: { complete: boolean } — true untuk tandai lengkap, false untuk batalkan.
+     */
+    @Patch(':id/report-status')
+    markReportStatus(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { complete: boolean },
+        @Request() req: any,
+    ) {
+        const userId = req?.user?.sub ?? req?.user?.id ?? null;
+        return this.service.markReportStatus(id, !!body?.complete, userId);
     }
 
     @Post(':id/duplicate')
@@ -176,6 +196,12 @@ export class RabController {
             imageUrl,
         };
         return this.service.saveAsProduct(id, parsed);
+    }
+
+    /** Backfill cashflow untuk SEMUA RAB existing (one-time migration helper) */
+    @Post('sync-all-cashflow')
+    async syncAllCashflow(@Request() req: any) {
+        return this.service.syncAllCashflow(req.user?.userId ?? null);
     }
 
     @Post(':id/generate-cashflow')

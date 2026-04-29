@@ -42,6 +42,8 @@ export interface RabPlan {
     notes: string | null;
     imageUrl: string | null;
     tags: string | null; // JSON-serialized string[]
+    reportCompletedAt: string | null;  // Admin tandai laporan lengkap
+    reportCompletedBy: number | null;  // user ID yang menandai
     createdAt: string;
     updatedAt: string;
     items: RabItem[];
@@ -109,6 +111,12 @@ export interface RabTagSuggestion {
 export const getRabTags = async () =>
     (await api.get<RabTagSuggestion[]>('/rab/tags')).data;
 
+/** Hapus tag dari semua RAB (cleanup) — return jumlah RAB yang ter-update */
+export const deleteRabTag = async (tag: string) =>
+    (await api.delete<{ tag: string; updatedCount: number }>(
+        `/rab/tags/${encodeURIComponent(tag)}`,
+    )).data;
+
 export const getRabList = async () => (await api.get<RabPlan[]>('/rab')).data;
 
 export const getRab = async (id: number) => (await api.get<RabPlan>(`/rab/${id}`)).data;
@@ -121,6 +129,26 @@ export const createRab = async (data: CreateRabInput) =>
 
 export const updateRab = async (id: number, data: Partial<CreateRabInput>) =>
     (await api.patch<RabPlan>(`/rab/${id}`, data)).data;
+
+/** Toggle status laporan RAB — admin tandai sudah lengkap atau batalkan */
+export const markRabReportStatus = async (id: number, complete: boolean) =>
+    (await api.patch<{
+        id: number;
+        code: string;
+        title: string;
+        reportCompletedAt: string | null;
+        reportCompletedBy: number | null;
+    }>(`/rab/${id}/report-status`, { complete })).data;
+
+/** Backfill cashflow untuk SEMUA RAB existing — one-time migration helper */
+export const syncAllRabCashflow = async () =>
+    (await api.post<{
+        total: number;
+        synced: number;
+        skipped: number;
+        failed: number;
+        errors: Array<{ rabId: number; code: string; error: string }>;
+    }>(`/rab/sync-all-cashflow`)).data;
 
 export const generateCashflowFromRab = async (
     id: number,

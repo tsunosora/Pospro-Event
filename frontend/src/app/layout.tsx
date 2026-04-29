@@ -63,15 +63,41 @@ export default function RootLayout({
       <head>
         {/* Manifest link — public/manifest.webmanifest (Next.js metadata.manifest dihindari karena konflik dengan public file) */}
         <link rel="manifest" href="/manifest.webmanifest" />
-        {/* Service worker registration — basic offline shell */}
+        {/* Service worker registration — production only (dev mode pakai HMR, SW bikin stale cache) */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('/sw.js').catch(() => {});
-                });
-              }
+              (function() {
+                var isProd = ${process.env.NODE_ENV === "production" ? "true" : "false"};
+                if ('serviceWorker' in navigator) {
+                  if (isProd) {
+                    window.addEventListener('load', function() {
+                      navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                        // Cek update tiap 1 jam (utk user yang buka aplikasi lama)
+                        setInterval(function() { reg.update().catch(function(){}); }, 60 * 60 * 1000);
+                        // Notify saat ada SW baru ready → reload otomatis
+                        reg.addEventListener('updatefound', function() {
+                          var nw = reg.installing;
+                          if (!nw) return;
+                          nw.addEventListener('statechange', function() {
+                            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                              // Versi baru tersedia, reload supaya pakai chunk baru
+                              if (confirm('Versi baru Pospro Event tersedia. Reload sekarang?')) {
+                                window.location.reload();
+                              }
+                            }
+                          });
+                        });
+                      }).catch(function(){});
+                    });
+                  } else {
+                    // Dev mode: unregister SW yang mungkin masih ke-install dari prod build sebelumnya
+                    navigator.serviceWorker.getRegistrations().then(function(regs) {
+                      regs.forEach(function(r) { r.unregister(); });
+                    }).catch(function(){});
+                  }
+                }
+              })();
             `,
           }}
         />

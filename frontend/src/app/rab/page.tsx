@@ -32,7 +32,7 @@ import { DateRangeFilter, presetToRange, type DateRange } from "@/components/Dat
 type ViewMode = "card" | "list" | "details";
 const VIEW_MODE_KEY = "pospro:rab-list:viewMode";
 
-type EventStatus = "UPCOMING" | "ONGOING" | "FINISHED" | "NO_DATE";
+type EventStatus = "UPCOMING" | "ONGOING" | "FINISHED" | "REPORT_DONE" | "NO_DATE";
 
 const STATUS_META: Record<EventStatus, {
     label: string;
@@ -65,13 +65,23 @@ const STATUS_META: Record<EventStatus, {
         icon: PlayCircle,
     },
     FINISHED: {
-        label: "Selesai",
-        short: "Selesai",
+        label: "Selesai Event",
+        short: "Selesai Event",
         emoji: "✅",
         bg: "bg-slate-50",
         text: "text-slate-600",
         border: "border-slate-300",
         bar: "bg-slate-400",
+        icon: CheckCircle2,
+    },
+    REPORT_DONE: {
+        label: "Laporan Lengkap",
+        short: "Laporan Lengkap",
+        emoji: "📄",
+        bg: "bg-violet-50",
+        text: "text-violet-700",
+        border: "border-violet-400",
+        bar: "bg-violet-500",
         icon: CheckCircle2,
     },
     NO_DATE: {
@@ -86,17 +96,23 @@ const STATUS_META: Record<EventStatus, {
     },
 };
 
-/** Tentukan status event berdasarkan periodStart/periodEnd vs sekarang. */
+/**
+ * Tentukan status RAB berdasarkan:
+ * 1. reportCompletedAt — kalau sudah, status = REPORT_DONE (laporan tuntas, project closed)
+ * 2. periodStart/periodEnd vs sekarang — UPCOMING / ONGOING / FINISHED
+ * 3. NO_DATE kalau belum ada tanggal
+ */
 function getRabEventStatus(rab: RabPlan): EventStatus {
+    // Prioritas tertinggi: laporan lengkap (admin sudah finalize)
+    if (rab.reportCompletedAt) return "REPORT_DONE";
+
     const now = new Date();
     const start = rab.periodStart ? new Date(rab.periodStart) : null;
     const end = rab.periodEnd ? new Date(rab.periodEnd) : null;
 
     if (!start && !end) return "NO_DATE";
-    // Jika hanya ada salah satu, anggap sama (event 1 hari)
     const s = start ?? end!;
     const e = end ?? start!;
-    // Set ke akhir hari supaya event hari ini = ONGOING
     const eEnd = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59);
     const sStart = new Date(s.getFullYear(), s.getMonth(), s.getDate());
 
@@ -484,7 +500,7 @@ function RabListPageInner() {
     // Hitung jumlah RAB per status (untuk badge di tab)
     const statusCounts = useMemo(() => {
         const acc: Record<EventStatus | "ALL", number> = {
-            ALL: 0, UPCOMING: 0, ONGOING: 0, FINISHED: 0, NO_DATE: 0,
+            ALL: 0, UPCOMING: 0, ONGOING: 0, FINISHED: 0, REPORT_DONE: 0, NO_DATE: 0,
         };
         if (!rabs) return acc;
         acc.ALL = rabs.length;
@@ -749,9 +765,16 @@ function RabListPageInner() {
                         <StatusTab
                             active={statusFilter === "FINISHED"}
                             onClick={() => setStatusFilter("FINISHED")}
-                            label="✅ Selesai"
+                            label="✅ Selesai Event"
                             count={statusCounts.FINISHED}
                             color="slate"
+                        />
+                        <StatusTab
+                            active={statusFilter === "REPORT_DONE"}
+                            onClick={() => setStatusFilter("REPORT_DONE")}
+                            label="📄 Laporan Lengkap"
+                            count={statusCounts.REPORT_DONE}
+                            color="blue"
                         />
                         {statusCounts.NO_DATE > 0 && (
                             <StatusTab
@@ -1759,7 +1782,7 @@ function RabDetailsView({
     const sorted = useMemo(() => {
         const copy = [...rabs];
         const STATUS_ORDER: Record<EventStatus, number> = {
-            ONGOING: 1, UPCOMING: 2, FINISHED: 3, NO_DATE: 4,
+            ONGOING: 1, UPCOMING: 2, FINISHED: 3, REPORT_DONE: 4, NO_DATE: 5,
         };
         copy.sort((a, b) => {
             const dir = sortDir === "asc" ? 1 : -1;

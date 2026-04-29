@@ -181,6 +181,43 @@ export class RabService {
             .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
     }
 
+    /**
+     * Hapus sebuah tag dari semua RabPlan yang memilikinya.
+     * Berguna untuk cleanup tag typo / tidak terpakai.
+     * Returns: jumlah RAB yang ter-update.
+     */
+    async deleteTagGlobally(tag: string): Promise<{ tag: string; updatedCount: number }> {
+        const target = tag.trim();
+        if (!target) return { tag, updatedCount: 0 };
+        const targetLower = target.toLowerCase();
+
+        const rabs = await this.prisma.rabPlan.findMany({
+            where: { tags: { not: null } },
+            select: { id: true, tags: true },
+        });
+
+        let updatedCount = 0;
+        for (const r of rabs) {
+            if (!r.tags) continue;
+            let arr: unknown;
+            try { arr = JSON.parse(r.tags); } catch { continue; }
+            if (!Array.isArray(arr)) continue;
+
+            const filtered = arr.filter(
+                (t) => !(typeof t === 'string' && t.trim().toLowerCase() === targetLower),
+            );
+            if (filtered.length === arr.length) continue; // tidak ada perubahan
+
+            await this.prisma.rabPlan.update({
+                where: { id: r.id },
+                data: { tags: filtered.length > 0 ? JSON.stringify(filtered) : null },
+            });
+            updatedCount += 1;
+        }
+
+        return { tag: target, updatedCount };
+    }
+
     findAll() {
         return this.prisma.rabPlan.findMany({
             orderBy: { createdAt: 'desc' },
@@ -269,6 +306,8 @@ export class RabService {
         });
         await this.persistLooseItems(dto.items);
         await this.syncInventoryAcquisitions(id);
+        // Auto-sync cashflow setelah save sukses (fail-safe, tidak block save kalau gagal)
+        await this.autoSyncCashflow(id);
         return result;
     }
 
@@ -354,6 +393,34 @@ export class RabService {
         };
     }
 
+    /**
+     * Toggle status laporan RAB.
+     * Saat complete=true, set reportCompletedAt = now & reportCompletedBy = userId.
+     * Saat complete=false, clear keduanya.
+     */
+    async markReportStatus(id: number, complete: boolean, userId: number | null) {
+        await this.findOne(id);
+        const updated = await this.prisma.rabPlan.update({
+            where: { id },
+            data: {
+                reportCompletedAt: complete ? new Date() : null,
+                reportCompletedBy: complete ? (userId ?? null) : null,
+            },
+            select: {
+                id: true,
+                code: true,
+                title: true,
+                reportCompletedAt: true,
+                reportCompletedBy: true,
+            },
+        });
+        // Final sync saat ditandai laporan lengkap (snapshot data RAB sebagai final state)
+        if (complete) {
+            await this.autoSyncCashflow(id, userId);
+        }
+        return updated;
+    }
+
     async duplicate(id: number, overrides: { title?: string; location?: string; periodStart?: string; periodEnd?: string } = {}) {
         const src = await this.findOne(id);
         const year = overrides.periodStart ? new Date(overrides.periodStart).getFullYear() : new Date().getFullYear();
@@ -393,7 +460,12 @@ export class RabService {
 
     async remove(id: number) {
         await this.findOne(id);
-        return this.prisma.rabPlan.delete({ where: { id } });
+        // Cascade: hapus juga cashflow entries yang ter-tag rabPlanId ini
+        // (FK schema cuma SetNull, jadi kita explicit delete supaya gak ada orphan).
+        return this.prisma.$transaction(async (tx) => {
+            await tx.cashflow.deleteMany({ where: { rabPlanId: id } });
+            return tx.rabPlan.delete({ where: { id } });
+        });
     }
 
     /** Upload/replace RAB image (single image — sketsa/desain/referensi) */
@@ -551,6 +623,15 @@ export class RabService {
      * @param opts.userId   User yang melakukan generate (untuk audit)
      * @param opts.skipExisting  Skip kalau RAB ini sudah pernah di-generate (default: true)
      */
+    /**
+     * Generate Cashflow entries dari data RAB (income + expense).
+     *
+     * Mode operasi:
+     * - opts.replace = true (default untuk auto-sync): hapus entries lama dengan rabPlanId yang sama, buat fresh
+     * - opts.skipExisting = true (manual mode lama): block kalau sudah ada entries
+     *
+     * Note format: SINGKAT — pakai nama klien & project, tidak verbose lagi
+     */
     async generateCashflowFromRab(
         rabPlanId: number,
         opts: {
@@ -558,10 +639,12 @@ export class RabService {
             eventId?: number | null;
             userId?: number | null;
             skipExisting?: boolean;
+            replace?: boolean;        // ← NEW: kalau true, hapus entries lama dulu
         } = {},
     ) {
         const mode = opts.mode ?? 'detail';
-        const skipExisting = opts.skipExisting ?? true;
+        const replace = opts.replace ?? false;
+        const skipExisting = opts.skipExisting ?? !replace;
 
         const rab = await this.prisma.rabPlan.findUnique({
             where: { id: rabPlanId },
@@ -571,15 +654,18 @@ export class RabService {
                     orderBy: [{ categoryId: 'asc' }, { orderIndex: 'asc' }],
                 },
                 events: { select: { id: true } },
+                customer: { select: { id: true, name: true, companyName: true } },
             },
         });
         if (!rab) throw new NotFoundException('RAB tidak ditemukan');
-        if (rab.items.length === 0) {
+
+        // Saat replace mode — boleh proceed even kalau no items (untuk delete entries lama)
+        if (rab.items.length === 0 && !replace) {
             throw new BadRequestException('RAB ini belum punya item');
         }
 
-        // Cek apakah sudah pernah di-generate (cek total semua entry RAB ini, INCOME + EXPENSE)
-        if (skipExisting) {
+        // Cek apakah sudah pernah di-generate — hanya saat skipExisting & bukan replace
+        if (skipExisting && !replace) {
             const existing = await this.prisma.cashflow.count({
                 where: { rabPlanId },
             });
@@ -590,13 +676,15 @@ export class RabService {
             }
         }
 
-        // Auto-resolve eventId: kalau tidak di-supply, ambil dari Event yang link ke RAB ini (kalau ada satu)
+        // Auto-resolve eventId
         const resolvedEventId =
             opts.eventId ??
             (rab.events.length === 1 ? rab.events[0].id : null);
 
-        // Map RAB category name → cashflow category string
-        // (langsung pakai nama RAB category — user bisa pilih dari list yg sudah ada di frontend)
+        // Project label untuk note — singkat & informatif
+        const clientLabel = rab.customer?.companyName || rab.customer?.name || 'Klien';
+        const projectLabel = rab.projectName || rab.title || rab.code;
+
         const categoryMap: Record<string, string> = {
             material: 'Material Booth (Kayu/MDF)',
             jasa: 'Jasa Crew Lapangan',
@@ -610,28 +698,44 @@ export class RabService {
             for (const key in categoryMap) {
                 if (lower.includes(key)) return categoryMap[key];
             }
-            return rabCatName; // fallback: pakai nama RAB category as-is
+            return rabCatName;
         };
 
         const created: Array<{ id: number; amount: number; category: string }> = [];
-        const noteSuffix = ` (auto dari RAB ${rab.code})`;
 
         await this.prisma.$transaction(async (tx) => {
-            // ── INCOME: DP, Pelunasan, IncomeOther dari RAB ──
+            // Replace mode: hapus entries lama dengan rabPlanId yang sama
+            if (replace) {
+                await tx.cashflow.deleteMany({ where: { rabPlanId } });
+            }
+
+            // ── INCOME: DP, Pelunasan, IncomeOther — note SINGKAT ──
             const dpAmount = parseFloat(rab.dpAmount.toString()) || 0;
             const pelunasan = parseFloat(rab.pelunasan.toString()) || 0;
             const incomeOther = parseFloat(rab.incomeOther.toString()) || 0;
             const incomes: Array<{ category: string; amount: number; note: string }> = [];
-            if (dpAmount > 0) incomes.push({ category: 'DP Project', amount: dpAmount, note: `DP ${rab.title}${noteSuffix}` });
-            if (pelunasan > 0) incomes.push({ category: 'Pelunasan Project', amount: pelunasan, note: `Pelunasan ${rab.title}${noteSuffix}` });
-            if (incomeOther > 0) incomes.push({ category: 'Income Lain Project', amount: incomeOther, note: `Income lain ${rab.title}${noteSuffix}` });
+            if (dpAmount > 0) incomes.push({
+                category: 'DP Project',
+                amount: dpAmount,
+                note: `DP Project: ${clientLabel} (${projectLabel})`,
+            });
+            if (pelunasan > 0) incomes.push({
+                category: 'Pelunasan Project',
+                amount: pelunasan,
+                note: `Pelunasan: ${clientLabel} (${projectLabel})`,
+            });
+            if (incomeOther > 0) incomes.push({
+                category: 'Income Lain Project',
+                amount: incomeOther,
+                note: `Income Lain: ${clientLabel} (${projectLabel})`,
+            });
             for (const inc of incomes) {
                 const entry = await tx.cashflow.create({
                     data: {
                         type: 'INCOME',
                         category: inc.category,
                         amount: new Prisma.Decimal(inc.amount),
-                        note: inc.note,
+                        note: inc.note.slice(0, 255),
                         rabPlanId,
                         eventId: resolvedEventId ?? undefined,
                         userId: opts.userId ?? undefined,
@@ -642,7 +746,7 @@ export class RabService {
             }
 
             if (mode === 'category') {
-                // Group by RAB category, sum — split inventaris vs non
+                // Group by RAB category — note SINGKAT
                 const byCat = new Map<string, { name: string; total: number; count: number; isInventory: boolean }>();
                 for (const it of rab.items) {
                     const subtotal = parseFloat(it.priceCost.toString()) * parseFloat(it.quantityCost.toString());
@@ -660,7 +764,7 @@ export class RabService {
                             type: 'EXPENSE',
                             category: v.isInventory ? 'Pengadaan Inventaris' : mapCategory(v.name),
                             amount: new Prisma.Decimal(v.total),
-                            note: `${v.isInventory ? '📦 ' : ''}${v.name} — ${v.count} item${noteSuffix}`,
+                            note: `${v.isInventory ? '📦 ' : ''}${v.name} · ${v.count} item (${projectLabel})`.slice(0, 255),
                             rabPlanId,
                             eventId: resolvedEventId ?? undefined,
                             userId: opts.userId ?? undefined,
@@ -670,20 +774,21 @@ export class RabService {
                     created.push({ id: entry.id, amount: v.total, category: v.name });
                 }
             } else {
-                // detail mode: 1 entry per item
+                // detail mode: note SINGKAT — "{description} · {qty} {unit} ({projectLabel})"
                 for (const it of rab.items) {
                     const subtotal = parseFloat(it.priceCost.toString()) * parseFloat(it.quantityCost.toString());
                     if (subtotal <= 0) continue;
-                    const noteParts = [it.description];
-                    if (it.unit) noteParts.push(`${it.quantityCost} ${it.unit}`);
-                    if (it.notes) noteParts.push(it.notes);
-                    if (it.isInventory) noteParts.unshift('📦 INVENTARIS');
+                    const qtyStr = it.unit
+                        ? `${it.quantityCost} ${it.unit}`
+                        : `${it.quantityCost}`;
+                    const prefix = it.isInventory ? '📦 INVENTARIS · ' : '';
+                    const note = `${prefix}${it.description} · ${qtyStr} (${projectLabel})`;
                     const entry = await tx.cashflow.create({
                         data: {
                             type: 'EXPENSE',
                             category: it.isInventory ? 'Pengadaan Inventaris' : mapCategory(it.category.name),
                             amount: new Prisma.Decimal(subtotal),
-                            note: `${noteParts.join(' · ')}${noteSuffix}`,
+                            note: note.slice(0, 255),
                             rabPlanId,
                             eventId: resolvedEventId ?? undefined,
                             userId: opts.userId ?? undefined,
@@ -703,6 +808,124 @@ export class RabService {
             eventId: resolvedEventId,
             created: created.length,
             totalAmount: total,
+            replaced: replace,
         };
+    }
+
+    /**
+     * Auto-sync cashflow setelah RAB save.
+     * Fail-safe: kalau gagal, log warning tapi gak throw (RAB save tetap commit).
+     * Skip kalau RAB tidak punya items (no expense) AND no income (DP/Pelunasan/Other = 0).
+     */
+    private async autoSyncCashflow(rabPlanId: number, userId: number | null = null): Promise<void> {
+        try {
+            // Cek dulu apakah RAB punya items atau income — kalau gak ada, hapus entries lama saja
+            const rab = await this.prisma.rabPlan.findUnique({
+                where: { id: rabPlanId },
+                select: {
+                    id: true,
+                    dpAmount: true,
+                    pelunasan: true,
+                    incomeOther: true,
+                    _count: { select: { items: true } },
+                },
+            });
+            if (!rab) return;
+
+            const hasIncome =
+                parseFloat(rab.dpAmount.toString()) > 0 ||
+                parseFloat(rab.pelunasan.toString()) > 0 ||
+                parseFloat(rab.incomeOther.toString()) > 0;
+            const hasItems = rab._count.items > 0;
+
+            if (!hasIncome && !hasItems) {
+                // RAB kosong — clear entries lama (kalau ada) supaya konsisten
+                await this.prisma.cashflow.deleteMany({ where: { rabPlanId } });
+                return;
+            }
+
+            await this.generateCashflowFromRab(rabPlanId, {
+                mode: 'detail',
+                replace: true,
+                skipExisting: false,
+                userId,
+            });
+        } catch (e) {
+            // Fail-safe: log tapi jangan throw — RAB save tetap commit
+            // eslint-disable-next-line no-console
+            console.warn(`[RAB ${rabPlanId}] Auto-sync cashflow failed:`, (e as Error).message);
+        }
+    }
+
+    /**
+     * Backfill cashflow untuk SEMUA RAB existing.
+     * Dipakai sekali saat migrasi (RAB lama dibuat sebelum auto-sync hook ada).
+     * Loop semua RabPlan → trigger autoSyncCashflow per-RAB.
+     * Returns ringkasan: total RAB, berapa yang berhasil sync, berapa yang skip (kosong), berapa error.
+     */
+    async syncAllCashflow(userId: number | null = null): Promise<{
+        total: number;
+        synced: number;
+        skipped: number;
+        failed: number;
+        errors: Array<{ rabId: number; code: string; error: string }>;
+    }> {
+        const allRabs = await this.prisma.rabPlan.findMany({
+            select: { id: true, code: true },
+            orderBy: { id: 'asc' },
+        });
+
+        const result = {
+            total: allRabs.length,
+            synced: 0,
+            skipped: 0,
+            failed: 0,
+            errors: [] as Array<{ rabId: number; code: string; error: string }>,
+        };
+
+        for (const rab of allRabs) {
+            try {
+                const rabFull = await this.prisma.rabPlan.findUnique({
+                    where: { id: rab.id },
+                    select: {
+                        dpAmount: true,
+                        pelunasan: true,
+                        incomeOther: true,
+                        _count: { select: { items: true } },
+                    },
+                });
+                if (!rabFull) {
+                    result.skipped += 1;
+                    continue;
+                }
+                const hasIncome =
+                    parseFloat(rabFull.dpAmount.toString()) > 0 ||
+                    parseFloat(rabFull.pelunasan.toString()) > 0 ||
+                    parseFloat(rabFull.incomeOther.toString()) > 0;
+                const hasItems = rabFull._count.items > 0;
+                if (!hasIncome && !hasItems) {
+                    // RAB kosong — bersihkan entries lama, hitung sebagai skip
+                    await this.prisma.cashflow.deleteMany({ where: { rabPlanId: rab.id } });
+                    result.skipped += 1;
+                    continue;
+                }
+                await this.generateCashflowFromRab(rab.id, {
+                    mode: 'detail',
+                    replace: true,
+                    skipExisting: false,
+                    userId,
+                });
+                result.synced += 1;
+            } catch (e) {
+                result.failed += 1;
+                result.errors.push({
+                    rabId: rab.id,
+                    code: rab.code,
+                    error: (e as Error).message,
+                });
+            }
+        }
+
+        return result;
     }
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { X, Tag as TagIcon } from "lucide-react";
-import { getRabTags } from "@/lib/api/rab";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { X, Tag as TagIcon, Trash2 } from "lucide-react";
+import { getRabTags, deleteRabTag } from "@/lib/api/rab";
 
 /**
  * Tag chip input dengan autocomplete dari tag yang sudah pernah dipakai
@@ -29,14 +29,63 @@ export function TagChipInput({
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLInputElement | null>(null);
 
+    const qc = useQueryClient();
     const { data: suggestions } = useQuery({
         queryKey: ["rab-tags"],
         queryFn: getRabTags,
         staleTime: 60_000,
     });
 
+    // Hidden presets — tag preset hardcoded yang user "hapus" dari sugestion.
+    // Disimpan di localStorage karena preset gak bisa di-hapus dari kode.
+    const HIDDEN_KEY = "rab-hidden-preset-tags";
+    const [hiddenPresets, setHiddenPresets] = useState<string[]>([]);
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(HIDDEN_KEY);
+            if (raw) {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)) setHiddenPresets(arr.filter((x: unknown): x is string => typeof x === "string"));
+            }
+        } catch { /* ignore */ }
+    }, []);
+    const persistHidden = (next: string[]) => {
+        setHiddenPresets(next);
+        try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    };
+    const hideLocalPreset = (tag: string) => {
+        const lower = tag.toLowerCase();
+        if (hiddenPresets.some(h => h.toLowerCase() === lower)) return;
+        persistHidden([...hiddenPresets, tag]);
+        // Hapus juga dari value lokal kalau RAB ini punya tag itu
+        onChange(value.filter((v) => v.toLowerCase() !== lower));
+    };
+
+    const deleteTagMut = useMutation({
+        mutationFn: deleteRabTag,
+        onSuccess: (res) => {
+            qc.invalidateQueries({ queryKey: ["rab-tags"] });
+            qc.invalidateQueries({ queryKey: ["rabs"] });
+            // Hapus juga dari value lokal kalau RAB ini punya tag tsb
+            onChange(value.filter((v) => v.toLowerCase() !== res.tag.toLowerCase()));
+        },
+        onError: (e: any) => {
+            alert(`❌ Gagal hapus tag: ${e?.response?.data?.message || e?.message || "Unknown"}`);
+        },
+    });
+
+    function handleDeleteSuggestion(tag: string, count: number) {
+        const msg = count > 0
+            ? `Hapus tag "${tag}" dari ${count} RAB yang memilikinya?\n\nTag akan hilang dari semua RAB tersebut. Operasi tidak bisa di-undo.`
+            : `Hapus tag "${tag}"?`;
+        if (!confirm(msg)) return;
+        deleteTagMut.mutate(tag);
+    }
+
     const allCandidates = useMemo(() => {
         const fromDb = (suggestions ?? []).map((s) => s.tag);
+        const hiddenLower = new Set(hiddenPresets.map(h => h.toLowerCase()));
+        const dbLower = new Set(fromDb.map(t => t.toLowerCase()));
         const merged: string[] = [];
         const seen = new Set<string>();
         for (const t of [...fromDb, ...presets]) {
@@ -44,11 +93,13 @@ export function TagChipInput({
             if (!k) continue;
             const lk = k.toLowerCase();
             if (seen.has(lk)) continue;
+            // Skip preset yang user "hapus" — tapi kalau tag itu sudah dipakai di DB, tetap show
+            if (hiddenLower.has(lk) && !dbLower.has(lk)) continue;
             seen.add(lk);
             merged.push(k);
         }
         return merged;
-    }, [suggestions, presets]);
+    }, [suggestions, presets, hiddenPresets]);
 
     const filtered = useMemo(() => {
         const q = input.trim().toLowerCase();
@@ -140,23 +191,72 @@ export function TagChipInput({
                     )}
                     {filtered.map((t) => {
                         const sug = (suggestions ?? []).find((s) => s.tag === t);
+                        const fromDb = !!sug;
+                        // Tag preset (belum dipakai RAB) → tombol hapus = hide dari sugestion (localStorage)
+                        // Tag DB (dipakai 1+ RAB) → tombol hapus = hapus global dari semua RAB
                         return (
-                            <button
+                            <div
                                 key={t}
-                                type="button"
-                                onMouseDown={(e) => { e.preventDefault(); commit(t); }}
-                                className="w-full text-left px-3 py-1.5 hover:bg-muted flex items-center justify-between gap-2"
+                                className="group flex items-center justify-between gap-2 hover:bg-muted"
                             >
-                                <span className="inline-flex items-center gap-1.5">
+                                <button
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); commit(t); }}
+                                    className="flex-1 text-left px-3 py-1.5 inline-flex items-center gap-1.5"
+                                >
                                     <TagIcon className="h-3 w-3 text-muted-foreground" />
                                     {t}
-                                </span>
-                                {sug && (
-                                    <span className="text-[10px] text-muted-foreground">{sug.count}×</span>
-                                )}
-                            </button>
+                                </button>
+                                <div className="flex items-center gap-1 pr-2">
+                                    {sug ? (
+                                        <span className="text-[10px] text-muted-foreground">{sug.count}×</span>
+                                    ) : (
+                                        <span className="text-[10px] text-muted-foreground italic">preset</span>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            if (fromDb) {
+                                                handleDeleteSuggestion(t, sug?.count ?? 0);
+                                            } else {
+                                                // Preset: cuma hide dari sugestion (localStorage), gak ada DB op
+                                                hideLocalPreset(t);
+                                            }
+                                        }}
+                                        disabled={deleteTagMut.isPending}
+                                        title={
+                                            fromDb
+                                                ? `Hapus tag "${t}" dari ${sug?.count ?? 0} RAB`
+                                                : `Sembunyikan preset "${t}" dari sugestion`
+                                        }
+                                        className="p-1 rounded hover:bg-red-100 text-muted-foreground hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-40"
+                                    >
+                                        <Trash2 className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            </div>
                         );
                     })}
+                    {hiddenPresets.length > 0 && (
+                        <div className="border-t mt-1 pt-1 px-3 py-1.5 flex items-center justify-between gap-2 bg-muted/30">
+                            <span className="text-[10px] text-muted-foreground">
+                                {hiddenPresets.length} preset disembunyikan
+                            </span>
+                            <button
+                                type="button"
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    persistHidden([]);
+                                }}
+                                className="text-[10px] font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                                Tampilkan kembali
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
