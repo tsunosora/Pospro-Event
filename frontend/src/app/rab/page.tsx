@@ -27,6 +27,7 @@ import { getCustomer, type Customer } from "@/lib/api/customers";
 import { Users as UsersIcon, Tag as TagIcon } from "lucide-react";
 import { TagChipInput } from "@/components/TagChipInput";
 import { parseRabTags, getRabTags } from "@/lib/api/rab";
+import { DateRangeFilter, presetToRange, type DateRange } from "@/components/DateRangeFilter";
 
 type ViewMode = "card" | "list" | "details";
 const VIEW_MODE_KEY = "pospro:rab-list:viewMode";
@@ -253,11 +254,11 @@ function RabTagFilterStrip({
 
     return (
         <div className="flex items-center gap-2 overflow-x-auto sm:flex-wrap whitespace-nowrap pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0 [scrollbar-width:thin]">
-            <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 shrink-0 w-[60px] sm:w-[64px]">🏷️ Tag</span>
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 w-[56px] uppercase tracking-wider">🏷️ Tag</span>
             <button
                 type="button"
                 onClick={() => onChange("")}
-                className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold rounded-full border-2 transition ${active === ""
+                className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition ${active === ""
                     ? "bg-slate-700 text-white border-slate-700"
                     : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
                     }`}
@@ -271,13 +272,13 @@ function RabTagFilterStrip({
                         key={tag}
                         type="button"
                         onClick={() => onChange(isActive ? "" : tag)}
-                        className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1.5 ${isActive
+                        className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1.5 ${isActive
                             ? "bg-blue-600 text-white border-blue-600"
                             : "bg-white text-blue-700 border-blue-200 hover:border-blue-400"
                             }`}
                     >
                         {tag}
-                        <span className={`text-[11px] font-mono px-1.5 rounded-full ${isActive ? "bg-white/30" : "bg-blue-50 text-blue-700"}`}>
+                        <span className={`text-[10px] font-mono px-1 rounded-full ${isActive ? "bg-white/30" : "bg-blue-50 text-blue-700"}`}>
                             {count}
                         </span>
                     </button>
@@ -343,6 +344,7 @@ function RabListPageInner() {
     const [statusFilter, setStatusFilter] = useState<EventStatus | "ALL">("ALL");
     const [brandFilter, setBrandFilter] = useState<Brand | "">("");
     const [tagFilter, setTagFilter] = useState<string>("");
+    const [dateRange, setDateRange] = useState<DateRange>({ preset: "ALL" });
     const [viewMode, setViewMode] = useState<ViewMode>("card");
 
     // Persist viewMode di localStorage
@@ -504,6 +506,21 @@ function RabListPageInner() {
             const tf = tagFilter.toLowerCase();
             list = list.filter((r) => parseRabTags(r.tags).some((t) => t.toLowerCase() === tf));
         }
+        // Date range filter — pakai periodStart RAB (kapan event berlangsung)
+        // Bisa filter past (event tahun lalu) maupun future (event yang akan datang)
+        const { from: dateFrom, to: dateTo } = presetToRange(dateRange.preset, {
+            from: dateRange.fromDate, to: dateRange.toDate,
+        });
+        if (dateFrom || dateTo) {
+            list = list.filter((r) => {
+                const sourceDate = r.periodStart ?? r.periodEnd ?? null;
+                const d = sourceDate ? new Date(sourceDate) : null;
+                if (!d) return false; // RAB tanpa tanggal event di-exclude saat filter aktif
+                if (dateFrom && d < dateFrom) return false;
+                if (dateTo && d > dateTo) return false;
+                return true;
+            });
+        }
         if (!q) return list;
         return list.filter((r) => {
             const tagText = parseRabTags(r.tags).join(" ");
@@ -518,7 +535,7 @@ function RabListPageInner() {
             ].join(" ").toLowerCase();
             return haystack.includes(q);
         });
-    }, [rabs, search, statusFilter, brandFilter, tagFilter]);
+    }, [rabs, search, statusFilter, brandFilter, tagFilter, dateRange]);
 
     const computeTotalRab = (rab: RabPlan) =>
         (rab.items ?? []).reduce((acc, it) => {
@@ -566,147 +583,187 @@ function RabListPageInner() {
                 </button>
             </div>
 
-            {/* ─── Search bar ─── */}
-            <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3 flex-wrap">
-                <div className="relative flex-1 w-full sm:max-w-xl">
-                    <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground pointer-events-none" />
-                    <input
-                        type="search"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Cari RAB... (kode, judul, klien, lokasi)"
-                        className="w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg border-2 border-border bg-background focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
-                    />
-                    {search && (
-                        <button
-                            onClick={() => setSearch("")}
-                            className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-muted"
-                            aria-label="Bersihkan pencarian"
-                        >
-                            <X className="h-4 w-4 text-muted-foreground" />
-                        </button>
+            {/* ═════════════════════════════════════════════════════════════
+              ║ Panel Filter — restructure jadi 1 card terpadu, 3 section:
+              ║   Top    : Search + counter + view mode toggle
+              ║   Middle : Klasifikasi (Brand + Tag) — apa jenis project
+              ║   Bottom : Temporal (Tanggal + Status) — kapan project
+              ╚════════════════════════════════════════════════════════════*/}
+            <div className="mb-4 sm:mb-6 rounded-xl border border-slate-200 bg-slate-50/40 dark:bg-slate-900/20 dark:border-slate-800 overflow-hidden">
+
+                {/* ── TOP BAR: Search + View Mode ── */}
+                <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40">
+                    <div className="relative flex-1 min-w-0">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        <input
+                            type="search"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Cari RAB — kode, judul, klien, lokasi…"
+                            className="w-full pl-10 pr-10 py-2 sm:py-2.5 text-sm rounded-lg border-2 border-border bg-background focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                        />
+                        {search && (
+                            <button
+                                onClick={() => setSearch("")}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-muted"
+                                aria-label="Bersihkan pencarian"
+                            >
+                                <X className="h-4 w-4 text-muted-foreground" />
+                            </button>
+                        )}
+                    </div>
+                    {/* Counter chip — show always when filter aktif */}
+                    {(search || brandFilter !== "" || tagFilter || dateRange.preset !== "ALL" || statusFilter !== "ALL") && (
+                        <span className="hidden sm:inline-flex shrink-0 text-xs text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full">
+                            <strong className="text-foreground">{filteredRabs.length}</strong>
+                            <span className="opacity-60">/{rabs?.length ?? 0}</span>
+                        </span>
                     )}
+                    {/* View mode toggle */}
+                    <div className="inline-flex items-center gap-0.5 bg-white dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0">
+                        <ViewModeBtn
+                            active={viewMode === "card"}
+                            onClick={() => setViewMode("card")}
+                            icon={<LayoutGrid className="h-4 w-4" />}
+                            label="Card"
+                        />
+                        <ViewModeBtn
+                            active={viewMode === "list"}
+                            onClick={() => setViewMode("list")}
+                            icon={<ListIcon className="h-4 w-4" />}
+                            label="List"
+                        />
+                        <ViewModeBtn
+                            active={viewMode === "details"}
+                            onClick={() => setViewMode("details")}
+                            icon={<TableIcon className="h-4 w-4" />}
+                            label="Detail"
+                        />
+                    </div>
                 </div>
-                {search && (
-                    <span className="text-xs sm:text-sm text-muted-foreground bg-muted/50 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full">
-                        <strong>{filteredRabs.length}</strong>/{rabs?.length ?? 0} RAB
-                    </span>
-                )}
-            </div>
 
-            {/* ─── Panel Filter — Brand / Tag / Status digabung di 1 card ─── */}
-            <div className="mb-4 sm:mb-6 rounded-xl border border-slate-200 bg-slate-50/40 dark:bg-slate-900/20 dark:border-slate-800 p-2.5 sm:p-3 space-y-2">
-
-            {/* Brand row */}
-            <div className="flex items-center gap-2 overflow-x-auto sm:flex-wrap whitespace-nowrap pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0 [scrollbar-width:thin]">
-                <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 shrink-0 w-[60px] sm:w-[64px]">Brand</span>
-                <button
-                    type="button"
-                    onClick={() => setBrandFilter("")}
-                    className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold rounded-full border-2 transition ${brandFilter === ""
-                        ? "bg-slate-700 text-white border-slate-700"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
-                        }`}
-                >
-                    Semua
-                </button>
-                {ACTIVE_BRANDS.map((b) => {
-                    const meta = BRAND_META[b];
-                    const active = brandFilter === b;
-                    const count = (rabs ?? []).filter((r) => r.brand === b).length;
-                    return (
+                {/* Counter chip — mobile only (di bawah search bar) */}
+                {(search || brandFilter !== "" || tagFilter || dateRange.preset !== "ALL" || statusFilter !== "ALL") && (
+                    <div className="sm:hidden px-3 pt-2 pb-0 -mb-1 flex items-center justify-between">
+                        <span className="text-[11px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
+                            <strong className="text-foreground">{filteredRabs.length}</strong>
+                            <span className="opacity-60">/{rabs?.length ?? 0} RAB cocok</span>
+                        </span>
                         <button
-                            key={b}
+                            onClick={() => {
+                                setSearch("");
+                                setBrandFilter("");
+                                setTagFilter("");
+                                setDateRange({ preset: "ALL" });
+                                setStatusFilter("ALL");
+                            }}
+                            className="text-[11px] text-red-600 hover:underline"
+                        >
+                            Reset semua
+                        </button>
+                    </div>
+                )}
+
+                {/* ── KLASIFIKASI: Brand + Tag ── */}
+                <div className="px-3 sm:px-4 py-2.5 sm:py-3 space-y-2 border-b border-slate-200 dark:border-slate-800">
+                    {/* Brand row */}
+                    <div className="flex items-center gap-2 overflow-x-auto sm:flex-wrap whitespace-nowrap pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0 [scrollbar-width:thin]">
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 w-[56px] uppercase tracking-wider">Brand</span>
+                        <button
                             type="button"
-                            onClick={() => setBrandFilter(b)}
-                            className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold rounded-full border-2 transition inline-flex items-center gap-1.5 ${active
-                                ? `${meta.bg} ${meta.text} ${meta.border}`
+                            onClick={() => setBrandFilter("")}
+                            className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition ${brandFilter === ""
+                                ? "bg-slate-700 text-white border-slate-700"
                                 : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
                                 }`}
                         >
-                            <span>{meta.emoji}</span>
-                            {meta.short}
-                            <span className={`text-[11px] font-mono px-1.5 rounded-full ${active ? "bg-white/30" : "bg-slate-100"}`}>
-                                {count}
-                            </span>
+                            Semua
                         </button>
-                    );
-                })}
-                {(rabs ?? []).some((r) => !r.brand) && (
-                    <span className="text-xs text-amber-700 bg-amber-50 border border-amber-300 rounded-full px-2 py-0.5">
-                        ⚠ {(rabs ?? []).filter((r) => !r.brand).length} belum tag brand
-                    </span>
-                )}
-            </div>
+                        {ACTIVE_BRANDS.map((b) => {
+                            const meta = BRAND_META[b];
+                            const active = brandFilter === b;
+                            const count = (rabs ?? []).filter((r) => r.brand === b).length;
+                            return (
+                                <button
+                                    key={b}
+                                    type="button"
+                                    onClick={() => setBrandFilter(b)}
+                                    className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1.5 ${active
+                                        ? `${meta.bg} ${meta.text} ${meta.border}`
+                                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                                        }`}
+                                >
+                                    <span>{meta.emoji}</span>
+                                    {meta.short}
+                                    <span className={`text-[10px] font-mono px-1 rounded-full ${active ? "bg-white/30" : "bg-slate-100"}`}>
+                                        {count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                        {(rabs ?? []).some((r) => !r.brand) && (
+                            <span className="shrink-0 text-[10px] text-amber-700 bg-amber-50 border border-amber-300 rounded-full px-2 py-0.5">
+                                ⚠ {(rabs ?? []).filter((r) => !r.brand).length} belum tag
+                            </span>
+                        )}
+                    </div>
 
-            {/* ─── Filter Tag (chip dari distinct tag) ─── */}
-            <RabTagFilterStrip rabs={rabs ?? []} active={tagFilter} onChange={setTagFilter} />
-
-            {/* ─── Filter Status Event + View Mode Toggle ─── */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
-                <div className="flex items-center gap-2 overflow-x-auto sm:flex-wrap whitespace-nowrap pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0 [scrollbar-width:thin] flex-1 min-w-0">
-                <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 shrink-0 w-[60px] sm:w-[64px]">Status</span>
-                <StatusTab
-                    active={statusFilter === "ALL"}
-                    onClick={() => setStatusFilter("ALL")}
-                    label="Semua"
-                    count={statusCounts.ALL}
-                    color="slate"
-                />
-                <StatusTab
-                    active={statusFilter === "ONGOING"}
-                    onClick={() => setStatusFilter("ONGOING")}
-                    label="🟢 Berjalan"
-                    count={statusCounts.ONGOING}
-                    color="emerald"
-                />
-                <StatusTab
-                    active={statusFilter === "UPCOMING"}
-                    onClick={() => setStatusFilter("UPCOMING")}
-                    label="📅 Akan Datang"
-                    count={statusCounts.UPCOMING}
-                    color="blue"
-                />
-                <StatusTab
-                    active={statusFilter === "FINISHED"}
-                    onClick={() => setStatusFilter("FINISHED")}
-                    label="✅ Selesai"
-                    count={statusCounts.FINISHED}
-                    color="slate"
-                />
-                {statusCounts.NO_DATE > 0 && (
-                    <StatusTab
-                        active={statusFilter === "NO_DATE"}
-                        onClick={() => setStatusFilter("NO_DATE")}
-                        label="❔ Tanpa Tanggal"
-                        count={statusCounts.NO_DATE}
-                        color="amber"
-                    />
-                )}
+                    {/* Tag row */}
+                    <RabTagFilterStrip rabs={rabs ?? []} active={tagFilter} onChange={setTagFilter} />
                 </div>
 
-                {/* View mode toggle (Card / List / Details) */}
-                <div className="inline-flex items-center gap-0.5 bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0 self-start sm:self-auto">
-                    <ViewModeBtn
-                        active={viewMode === "card"}
-                        onClick={() => setViewMode("card")}
-                        icon={<LayoutGrid className="h-4 w-4" />}
-                        label="Card"
-                    />
-                    <ViewModeBtn
-                        active={viewMode === "list"}
-                        onClick={() => setViewMode("list")}
-                        icon={<ListIcon className="h-4 w-4" />}
-                        label="List"
-                    />
-                    <ViewModeBtn
-                        active={viewMode === "details"}
-                        onClick={() => setViewMode("details")}
-                        icon={<TableIcon className="h-4 w-4" />}
-                        label="Detail"
-                    />
+                {/* ── TEMPORAL: Tanggal + Status ── */}
+                <div className="px-3 sm:px-4 py-2.5 sm:py-3 space-y-2 bg-slate-50/30 dark:bg-slate-900/10">
+                    {/* Tanggal row — filter by tanggal event (periodStart) */}
+                    <div className="flex items-start gap-2">
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 w-[56px] uppercase tracking-wider mt-1.5">Tanggal</span>
+                        <div className="flex-1 min-w-0">
+                            <DateRangeFilter value={dateRange} onChange={setDateRange} label="" />
+                        </div>
+                    </div>
+
+                    {/* Status row */}
+                    <div className="flex items-center gap-2 overflow-x-auto sm:flex-wrap whitespace-nowrap pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0 [scrollbar-width:thin]">
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 w-[56px] uppercase tracking-wider">Status</span>
+                        <StatusTab
+                            active={statusFilter === "ALL"}
+                            onClick={() => setStatusFilter("ALL")}
+                            label="Semua"
+                            count={statusCounts.ALL}
+                            color="slate"
+                        />
+                        <StatusTab
+                            active={statusFilter === "ONGOING"}
+                            onClick={() => setStatusFilter("ONGOING")}
+                            label="🟢 Berjalan"
+                            count={statusCounts.ONGOING}
+                            color="emerald"
+                        />
+                        <StatusTab
+                            active={statusFilter === "UPCOMING"}
+                            onClick={() => setStatusFilter("UPCOMING")}
+                            label="📅 Akan Datang"
+                            count={statusCounts.UPCOMING}
+                            color="blue"
+                        />
+                        <StatusTab
+                            active={statusFilter === "FINISHED"}
+                            onClick={() => setStatusFilter("FINISHED")}
+                            label="✅ Selesai"
+                            count={statusCounts.FINISHED}
+                            color="slate"
+                        />
+                        {statusCounts.NO_DATE > 0 && (
+                            <StatusTab
+                                active={statusFilter === "NO_DATE"}
+                                onClick={() => setStatusFilter("NO_DATE")}
+                                label="❔ Tanpa Tanggal"
+                                count={statusCounts.NO_DATE}
+                                color="amber"
+                            />
+                        )}
+                    </div>
                 </div>
-            </div>
 
             </div>{/* /Panel Filter */}
 

@@ -20,6 +20,7 @@ import { listQuotationVariants, type QuotationVariantConfig } from "@/lib/api/qu
 import { getWorkers, MARKETER_POSITIONS } from "@/lib/api/workers";
 import { getCustomer, type Customer } from "@/lib/api/customers";
 import { CustomerPickerModal } from "@/components/CustomerPickerModal";
+import { DateRangeFilter, presetToRange, type DateRange } from "@/components/DateRangeFilter";
 
 dayjs.locale("id");
 
@@ -56,6 +57,8 @@ function PenawaranListPageInner() {
 
     const [variantFilter, setVariantFilter] = useState<string>("");
     const [typeFilter, setTypeFilter] = useState<'QUOTATION' | 'INVOICE' | 'ALL'>('QUOTATION');
+    const [dateRange, setDateRange] = useState<DateRange>({ preset: "ALL" });
+    const [search, setSearch] = useState("");
     const [showCreate, setShowCreate] = useState(false);
     const [previewQ, setPreviewQ] = useState<Quotation | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -166,7 +169,41 @@ function PenawaranListPageInner() {
         }
     };
 
-    const quotations: Quotation[] = data ?? [];
+    const allQuotations: Quotation[] = data ?? [];
+
+    // Apply date range filter + search filter
+    const quotations: Quotation[] = (() => {
+        const { from, to } = presetToRange(dateRange.preset, {
+            from: dateRange.fromDate, to: dateRange.toDate,
+        });
+        const q = search.trim().toLowerCase();
+        let list = allQuotations;
+        // Date filter
+        if (from || to) {
+            list = list.filter((doc) => {
+                const d = doc.date ? new Date(doc.date) : null;
+                if (!d) return false;
+                if (from && d < from) return false;
+                if (to && d > to) return false;
+                return true;
+            });
+        }
+        // Search filter — match invoiceNumber, clientName, clientCompany, projectName, eventLocation, notes
+        if (q) {
+            list = list.filter((doc) => {
+                const haystack = [
+                    doc.invoiceNumber,
+                    doc.clientName,
+                    doc.clientCompany ?? "",
+                    doc.projectName ?? "",
+                    doc.eventLocation ?? "",
+                    doc.notes ?? "",
+                ].join(" ").toLowerCase();
+                return haystack.includes(q);
+            });
+        }
+        return list;
+    })();
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
@@ -185,6 +222,34 @@ function PenawaranListPageInner() {
                 >
                     <Plus className="w-4 h-4" /> Buat Penawaran
                 </button>
+            </div>
+
+            {/* Search bar */}
+            <div className="mb-4 flex items-center gap-3 flex-wrap">
+                <div className="relative flex-1 min-w-[260px] max-w-2xl">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <input
+                        type="search"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Cari nomor, klien, perusahaan, project, lokasi, catatan…"
+                        className="w-full pl-10 pr-10 py-2.5 text-sm rounded-lg border-2 border-border bg-background focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                    />
+                    {search && (
+                        <button
+                            onClick={() => setSearch("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-muted"
+                            aria-label="Bersihkan pencarian"
+                        >
+                            <X className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                    )}
+                </div>
+                {search && (
+                    <span className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full">
+                        <strong>{quotations.length}</strong>/{allQuotations.length} cocok
+                    </span>
+                )}
             </div>
 
             {/* Tab tipe dokumen: Penawaran / Invoice / Semua */}
@@ -253,6 +318,16 @@ function PenawaranListPageInner() {
                 >
                     <Plus className="h-3.5 w-3.5" /> Tambah Varian
                 </Link>
+            </div>
+
+            {/* Filter Tanggal — preset (Hari Ini, Kemarin, Minggu Ini, dll) + custom range */}
+            <div className="mb-4">
+                <DateRangeFilter value={dateRange} onChange={setDateRange} label="Tanggal Dokumen" />
+                {dateRange.preset !== "ALL" && (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                        Menampilkan <b>{quotations.length}</b> dari {allQuotations.length} dokumen
+                    </p>
+                )}
             </div>
 
             {isLoading ? (
