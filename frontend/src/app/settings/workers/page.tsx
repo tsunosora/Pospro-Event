@@ -8,7 +8,9 @@ import {
 } from "lucide-react";
 import {
     getWorkers, createWorker, updateWorker, deleteWorker, restoreWorker,
-    WORKER_POSITIONS, getPositionMeta,
+    uploadWorkerSignature, removeWorkerSignature,
+    uploadWorkerStamp, removeWorkerStamp,
+    WORKER_POSITIONS, getPositionMeta, isSignerPosition,
     type Worker,
 } from "@/lib/api/workers";
 
@@ -53,6 +55,44 @@ export default function WorkersSettingsPage() {
         mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) => updateWorker(id, { isActive }),
         onSuccess: invalidate,
     });
+    const uploadSigMut = useMutation({
+        mutationFn: ({ id, file }: { id: number; file: File }) => uploadWorkerSignature(id, file),
+        onSuccess: invalidate,
+    });
+    const removeSigMut = useMutation({
+        mutationFn: removeWorkerSignature,
+        onSuccess: invalidate,
+    });
+    const uploadStampMut = useMutation({
+        mutationFn: ({ id, file }: { id: number; file: File }) => uploadWorkerStamp(id, file),
+        onSuccess: invalidate,
+    });
+    const removeStampMut = useMutation({
+        mutationFn: removeWorkerStamp,
+        onSuccess: invalidate,
+    });
+
+    function handleUploadSig(workerId: number) {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = () => {
+            const f = input.files?.[0];
+            if (f) uploadSigMut.mutate({ id: workerId, file: f });
+        };
+        input.click();
+    }
+
+    function handleUploadStamp(workerId: number) {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = () => {
+            const f = input.files?.[0];
+            if (f) uploadStampMut.mutate({ id: workerId, file: f });
+        };
+        input.click();
+    }
 
     function resetForm() {
         setShowForm(false); setEditId(null);
@@ -249,6 +289,86 @@ export default function WorkersSettingsPage() {
                             <div className="text-[11px] text-muted-foreground mt-1">
                                 {w._count?.withdrawals ?? 0} pengambilan
                             </div>
+
+                            {/* Signature + Stamp untuk worker MARKETING/SALES (penawaran) atau ADMIN (invoice) */}
+                            {isSignerPosition(w.position) && (
+                                <div className="mt-2 pt-2 border-t border-border/40">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-violet-600 mb-1">
+                                        Tanda Tangan & Stempel
+                                        <span className="ml-1 font-normal text-muted-foreground normal-case">
+                                            ({w.position === 'ADMIN' ? 'untuk Invoice' : 'untuk Penawaran'})
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {/* Signature slot */}
+                                        <div>
+                                            <div className="text-[10px] text-muted-foreground mb-0.5">Tanda Tangan</div>
+                                            <div className="aspect-[2/1] rounded border border-dashed bg-white overflow-hidden flex items-center justify-center">
+                                                {w.signatureImageUrl ? (
+                                                    <img
+                                                        src={`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}${w.signatureImageUrl}`}
+                                                        alt="TTD"
+                                                        className="max-w-full max-h-full object-contain"
+                                                    />
+                                                ) : (
+                                                    <span className="text-[10px] text-muted-foreground">— belum ada —</span>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-1 mt-1">
+                                                <button
+                                                    onClick={() => handleUploadSig(w.id)}
+                                                    disabled={uploadSigMut.isPending}
+                                                    className="flex-1 inline-flex items-center justify-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-violet-100 text-violet-700 hover:bg-violet-200 disabled:opacity-50"
+                                                >
+                                                    {uploadSigMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                                                    {w.signatureImageUrl ? "Ganti" : "Upload"}
+                                                </button>
+                                                {w.signatureImageUrl && (
+                                                    <button
+                                                        onClick={() => { if (confirm("Hapus tanda tangan?")) removeSigMut.mutate(w.id); }}
+                                                        className="text-[10px] px-1 py-0.5 rounded text-red-600 hover:bg-red-50"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {/* Stamp slot */}
+                                        <div>
+                                            <div className="text-[10px] text-muted-foreground mb-0.5">Stempel</div>
+                                            <div className="aspect-square rounded border border-dashed bg-white overflow-hidden flex items-center justify-center">
+                                                {w.stampImageUrl ? (
+                                                    <img
+                                                        src={`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}${w.stampImageUrl}`}
+                                                        alt="Stempel"
+                                                        className="max-w-full max-h-full object-contain"
+                                                    />
+                                                ) : (
+                                                    <span className="text-[10px] text-muted-foreground">— optional —</span>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-1 mt-1">
+                                                <button
+                                                    onClick={() => handleUploadStamp(w.id)}
+                                                    disabled={uploadStampMut.isPending}
+                                                    className="flex-1 inline-flex items-center justify-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-50"
+                                                >
+                                                    {uploadStampMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                                                    {w.stampImageUrl ? "Ganti" : "Upload"}
+                                                </button>
+                                                {w.stampImageUrl && (
+                                                    <button
+                                                        onClick={() => { if (confirm("Hapus stempel?")) removeStampMut.mutate(w.id); }}
+                                                        className="text-[10px] px-1 py-0.5 rounded text-red-600 hover:bg-red-50"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="flex flex-col gap-1">
                             <button onClick={() => startEdit(w)} title="Edit" className="p-1.5 hover:bg-muted rounded">

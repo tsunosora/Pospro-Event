@@ -52,3 +52,9 @@ Per mesin cetak, sistem track:
 
 - [Antrian Produksi Booth](./produksi.md)
 - [Stok Opname](./stock-opname.md) — material paper masuk inventory
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

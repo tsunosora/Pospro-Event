@@ -172,3 +172,9 @@ Field `dpPercent` (default 50%) — persentase DP yang harus dibayar saat klien 
 - [RAB Event](./rab-event.md) — sumber item & pricing untuk Generate Penawaran
 - [CRM Convert](./crm-convert.md) — auto-create draft Penawaran saat lead deal
 - [Cashflow](./cashflow.md) — DP & pelunasan klien tag ke event
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

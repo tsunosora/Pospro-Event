@@ -314,4 +314,4 @@ Kertas A4 - Rim: sisa 3 unit
 
 ---
 
-**© 2026 Muhammad Faisal. All rights reserved.**
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**

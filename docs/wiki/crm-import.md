@@ -53,3 +53,9 @@ Importer pakai `upsert by phoneNormalized`:
 
 - File contoh: `contacts-export-2026-04-25.xlsx` dari tool WhatsApp CRM lama bisa langsung di-import tanpa edit.
 - Jika butuh re-export (audit / migrasi balik), pakai endpoint `GET /crm/export/xlsx`.
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

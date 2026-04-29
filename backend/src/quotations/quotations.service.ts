@@ -40,11 +40,24 @@ export class QuotationsService {
     ) { }
 
     async create(dto: CreateQuotationDto): Promise<InvoiceWithItems> {
-        if (!dto.quotationVariant) {
-            throw new BadRequestException('quotationVariant wajib diisi (SEWA atau PENGADAAN_BOOTH)');
+        if (!dto.quotationVariant && !dto.variantCode) {
+            throw new BadRequestException('Varian penawaran wajib diisi (variantCode atau quotationVariant)');
         }
         if (!dto.clientName) {
             throw new BadRequestException('clientName wajib diisi');
+        }
+
+        // Kalau pakai variantCode (CRUD config), set quotationVariant enum dari templateKey config
+        // agar pdf-export tetap pilih template yang benar.
+        let resolvedEnum = dto.quotationVariant;
+        if (dto.variantCode) {
+            const cfg = await this.prisma.quotationVariantConfig.findUnique({
+                where: { code: dto.variantCode },
+            });
+            if (!cfg) {
+                throw new BadRequestException(`Varian "${dto.variantCode}" tidak ditemukan di config`);
+            }
+            resolvedEnum = (cfg.templateKey === 'sewa' ? 'SEWA' : 'PENGADAAN_BOOTH') as QuotationVariant;
         }
 
         const items = dto.items ?? [];
@@ -60,8 +73,12 @@ export class QuotationsService {
                 invoiceNumber: draftNumber,
                 type: InvoiceType.QUOTATION,
                 status: InvoiceStatus.DRAFT,
-                quotationVariant: dto.quotationVariant,
+                quotationVariant: resolvedEnum,
+                variantCode: dto.variantCode ?? null,
+                signedByWorkerId: dto.signedByWorkerId ?? null,
+                itemDisplayMode: dto.itemDisplayMode ?? null,
                 revisionNumber: 0,
+                brand: dto.brand ?? null,
 
                 customerId: dto.customerId ?? null,
                 clientName: dto.clientName,
@@ -76,6 +93,7 @@ export class QuotationsService {
                 eventDateEnd: dto.eventDateEnd ? new Date(dto.eventDateEnd) : null,
 
                 date: dto.date ? new Date(dto.date) : new Date(),
+                signCity: dto.signCity?.trim() || null,
                 validUntil: dto.validUntil ? new Date(dto.validUntil) : null,
                 dpPercent: toDecimal(dto.dpPercent ?? 50, '50'),
                 bankAccountIds: dto.bankAccountIds,
@@ -95,6 +113,7 @@ export class QuotationsService {
                         price: toDecimal(it.price),
                         orderIndex: it.orderIndex ?? idx,
                         productVariantId: it.productVariantId ?? null,
+                        categoryName: it.categoryName ?? null,
                     })),
                 },
             },
@@ -103,10 +122,17 @@ export class QuotationsService {
         return created;
     }
 
-    async findAll(filter: { variant?: QuotationVariant; year?: number; status?: InvoiceStatus } = {}) {
+    async findAll(filter: { variant?: QuotationVariant; variantCode?: string; year?: number; status?: InvoiceStatus; type?: 'QUOTATION' | 'INVOICE' | 'ALL' } = {}) {
+        // Default: QUOTATION saja. Kalau filter.type='INVOICE' → tampilkan invoice. 'ALL' → semua tipe.
+        const typeFilter: Prisma.InvoiceWhereInput =
+            filter.type === 'ALL' ? {} :
+            filter.type === 'INVOICE' ? { type: InvoiceType.INVOICE } :
+            { type: InvoiceType.QUOTATION };
         const where: Prisma.InvoiceWhereInput = {
-            type: InvoiceType.QUOTATION,
-            ...(filter.variant ? { quotationVariant: filter.variant } : {}),
+            ...typeFilter,
+            // variantCode filter (CRUD config) prioritas dibanding variant enum
+            ...(filter.variantCode ? { variantCode: filter.variantCode } : {}),
+            ...(filter.variant && !filter.variantCode ? { quotationVariant: filter.variant } : {}),
             ...(filter.status ? { status: filter.status } : {}),
         };
         if (filter.year) {
@@ -122,11 +148,14 @@ export class QuotationsService {
                 items: { orderBy: { orderIndex: 'asc' } },
                 customer: true,
                 parent: { select: { id: true, invoiceNumber: true, revisionNumber: true } },
+                signedByWorker: { select: { id: true, name: true, position: true, signatureImageUrl: true } },
             },
         });
     }
 
     async findOne(id: number): Promise<InvoiceWithItems> {
+        // Accept both QUOTATION & INVOICE types — UI di /penawaran/[id] dipakai untuk keduanya
+        // (invoice yang di-generate dari quotation tetap pakai layout/page yang sama).
         const inv = await this.prisma.invoice.findUnique({
             where: { id },
             include: {
@@ -136,16 +165,17 @@ export class QuotationsService {
                 children: { orderBy: { revisionNumber: 'asc' } },
             },
         });
-        if (!inv || inv.type !== InvoiceType.QUOTATION) {
-            throw new NotFoundException(`Penawaran id=${id} tidak ditemukan`);
+        if (!inv) {
+            throw new NotFoundException(`Dokumen id=${id} tidak ditemukan`);
         }
         return inv as InvoiceWithItems;
     }
 
     async update(id: number, dto: UpdateQuotationDto) {
+        // Accept both QUOTATION & INVOICE — invoice yang di-generate juga bisa di-edit
         const existing = await this.prisma.invoice.findUnique({ where: { id } });
-        if (!existing || existing.type !== InvoiceType.QUOTATION) {
-            throw new NotFoundException(`Penawaran id=${id} tidak ditemukan`);
+        if (!existing) {
+            throw new NotFoundException(`Dokumen id=${id} tidak ditemukan`);
         }
 
         // Hitung ulang totals kalau items dikirim, else pakai existing.
@@ -187,6 +217,7 @@ export class QuotationsService {
                         ? { eventDateEnd: dto.eventDateEnd ? new Date(dto.eventDateEnd) : null }
                         : {}),
                     ...(dto.date !== undefined ? { date: new Date(dto.date as any) } : {}),
+                    ...(dto.signCity !== undefined ? { signCity: dto.signCity?.trim() || null } : {}),
                     ...(dto.validUntil !== undefined
                         ? { validUntil: dto.validUntil ? new Date(dto.validUntil) : null }
                         : {}),
@@ -195,6 +226,10 @@ export class QuotationsService {
                     ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
                     ...(dto.taxRate !== undefined ? { taxRate: toDecimal(dto.taxRate) } : {}),
                     ...(dto.discount !== undefined ? { discount: toDecimal(dto.discount) } : {}),
+                    ...(dto.brand !== undefined ? { brand: dto.brand } : {}),
+                    ...(dto.variantCode !== undefined ? { variantCode: dto.variantCode || null } : {}),
+                    ...(dto.signedByWorkerId !== undefined ? { signedByWorkerId: dto.signedByWorkerId } : {}),
+                    ...(dto.itemDisplayMode !== undefined ? { itemDisplayMode: dto.itemDisplayMode } : {}),
                     ...(recomputed ?? {}),
                     ...(dto.items !== undefined
                         ? {
@@ -206,6 +241,7 @@ export class QuotationsService {
                                     price: toDecimal(it.price),
                                     orderIndex: it.orderIndex ?? idx,
                                     productVariantId: it.productVariantId ?? null,
+                                    categoryName: it.categoryName ?? null,
                                 })),
                             },
                         }
@@ -226,11 +262,145 @@ export class QuotationsService {
     }
 
     /**
+     * Generate Invoice (DP / Pelunasan / Full) dari Quotation existing.
+     * Otomatis:
+     *  - Copy item, brand, signedBy, variantCode dari quotation
+     *  - Hitung amount: DP = total × dpPercent%, Pelunasan = total - DP, Full = total
+     *  - Generate nomor invoice (counter terpisah dari penawaran, kode brand sama)
+     *  - Link parent ke quotation
+     */
+    async generateInvoiceFromQuotation(
+        quotationId: number,
+        options: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string },
+    ): Promise<InvoiceWithItems> {
+        const quotation = await this.prisma.invoice.findUnique({
+            where: { id: quotationId },
+            include: { items: { orderBy: { orderIndex: 'asc' } } },
+        });
+        if (!quotation || quotation.type !== InvoiceType.QUOTATION) {
+            throw new NotFoundException(`Penawaran id=${quotationId} tidak ditemukan`);
+        }
+        if (quotation.invoiceNumber.startsWith(DRAFT_NUMBER_PREFIX)) {
+            throw new BadRequestException(
+                'Quotation belum punya nomor resmi. Assign nomor dulu sebelum buat invoice.',
+            );
+        }
+
+        const totalNum = Number(quotation.total ?? 0);
+        const dpPercentNum = Number(quotation.dpPercent ?? 50);
+        const dpAmount = (totalNum * dpPercentNum) / 100;
+        const sisa = totalNum - dpAmount;
+
+        let amountToPay: number;
+        switch (options.part) {
+            case 'DP':
+                amountToPay = options.customAmount ?? dpAmount;
+                break;
+            case 'PELUNASAN':
+                amountToPay = options.customAmount ?? sisa;
+                break;
+            case 'FULL':
+                amountToPay = options.customAmount ?? totalNum;
+                break;
+        }
+
+        // Generate nomor invoice — pakai counter terpisah dengan docType='Inv', kode brand sama
+        let kode: string | undefined;
+        if (quotation.brand) {
+            const brandSettings = await this.prisma.brandSettings.findUnique({
+                where: { brand: quotation.brand },
+            });
+            kode = brandSettings?.companyCode?.trim();
+        } else {
+            const settings = await this.prisma.storeSettings.findFirst();
+            kode = settings?.companyCode?.trim();
+        }
+        if (!kode) {
+            throw new BadRequestException('companyCode brand belum di-set');
+        }
+
+        // Format nomor: {seq}/{kode}/Inv/{romanMonth}/{yy}
+        const now = new Date();
+        const seq = await this.docNumberService.nextSequence('Inv', kode, now.getFullYear());
+        const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+        const yy = String(now.getFullYear()).slice(-2);
+        const mm = ROMAN[now.getMonth() + 1];
+        const invoiceNumber = `${seq}/${kode}/Inv/${mm}/${yy}`;
+
+        const dueDate = options.dueDate ? new Date(options.dueDate) : null;
+
+        return this.prisma.invoice.create({
+            data: {
+                invoiceNumber,
+                type: InvoiceType.INVOICE,
+                status: InvoiceStatus.DRAFT,
+                invoicePart: options.part,
+                amountToPay: toDecimal(amountToPay),
+                parentQuotationId: quotation.id,
+                rabPlanId: quotation.rabPlanId,
+                quotationVariant: quotation.quotationVariant,
+                variantCode: quotation.variantCode,
+                brand: quotation.brand,
+                signedByWorkerId: quotation.signedByWorkerId,
+                signCity: quotation.signCity,
+
+                customerId: quotation.customerId,
+                clientName: quotation.clientName,
+                clientCompany: quotation.clientCompany,
+                clientAddress: quotation.clientAddress,
+                clientPhone: quotation.clientPhone,
+                clientEmail: quotation.clientEmail,
+
+                projectName: quotation.projectName,
+                eventLocation: quotation.eventLocation,
+                eventDateStart: quotation.eventDateStart,
+                eventDateEnd: quotation.eventDateEnd,
+
+                date: now,
+                dueDate,
+                dpPercent: quotation.dpPercent,
+                bankAccountIds: quotation.bankAccountIds,
+                notes: quotation.notes,
+
+                taxRate: quotation.taxRate,
+                discount: quotation.discount,
+                subtotal: quotation.subtotal,
+                taxAmount: quotation.taxAmount,
+                total: quotation.total,
+
+                items: {
+                    create: quotation.items.map((it) => ({
+                        description: it.description,
+                        unit: it.unit,
+                        quantity: it.quantity,
+                        price: it.price,
+                        orderIndex: it.orderIndex,
+                        productVariantId: it.productVariantId,
+                        categoryName: it.categoryName,
+                    })),
+                },
+            },
+            include: { items: true, customer: true, parent: true, children: true },
+        });
+    }
+
+    async listInvoicesByQuotation(quotationId: number) {
+        return this.prisma.invoice.findMany({
+            where: {
+                type: InvoiceType.INVOICE,
+                parentQuotationId: quotationId,
+            },
+            orderBy: { date: 'asc' },
+            include: { items: { orderBy: { orderIndex: 'asc' } } },
+        });
+    }
+
+    /**
      * Reserve nomor resmi untuk penawaran (hanya kalau masih DRAFT-).
      * Ambil `companyCode` dari StoreSettings. Jika revisi (revisionNumber>0),
      * sisipkan suffix rev{n}.
      */
-    async assignNumber(id: number) {
+    async assignNumber(id: number, options: { mode?: 'auto' | 'manual'; customNumber?: string } = {}) {
         const inv = await this.prisma.invoice.findUnique({ where: { id } });
         if (!inv || inv.type !== InvoiceType.QUOTATION) {
             throw new NotFoundException(`Penawaran id=${id} tidak ditemukan`);
@@ -241,12 +411,52 @@ export class QuotationsService {
             );
         }
 
-        const settings = await this.prisma.storeSettings.findFirst();
-        const kode = settings?.companyCode?.trim();
-        if (!kode) {
-            throw new BadRequestException(
-                'companyCode belum di-set di StoreSettings — atur dulu di /settings (mis. "Xp" atau "Ep")',
-            );
+        // ── MANUAL MODE: user input nomor sendiri (tidak increment counter) ──
+        if (options.mode === 'manual') {
+            const custom = options.customNumber?.trim();
+            if (!custom) {
+                throw new BadRequestException('Nomor manual wajib diisi');
+            }
+            // Validasi unique
+            const existing = await this.prisma.invoice.findUnique({ where: { invoiceNumber: custom } });
+            if (existing && existing.id !== id) {
+                throw new BadRequestException(
+                    `Nomor "${custom}" sudah dipakai quotation lain (id=${existing.id}). Pilih nomor lain.`,
+                );
+            }
+            // Tambah revision suffix kalau ini revisi
+            const finalNumber = inv.revisionNumber > 0
+                ? this.docNumberService.formatWithRevision(custom, inv.revisionNumber)
+                : custom;
+            return this.prisma.invoice.update({
+                where: { id },
+                data: { invoiceNumber: finalNumber },
+                include: { items: true },
+            });
+        }
+
+        // ── AUTO MODE: increment counter (default) ──
+        // Brand-aware numbering: kalau invoice punya brand, ambil companyCode dari BrandSettings.
+        // Fallback ke StoreSettings.companyCode kalau brand null (legacy / generic).
+        let kode: string | undefined;
+        if (inv.brand) {
+            const brandSettings = await this.prisma.brandSettings.findUnique({
+                where: { brand: inv.brand },
+            });
+            kode = brandSettings?.companyCode?.trim();
+            if (!kode) {
+                throw new BadRequestException(
+                    `companyCode brand ${inv.brand} belum di-set — atur dulu di /settings/brands`,
+                );
+            }
+        } else {
+            const settings = await this.prisma.storeSettings.findFirst();
+            kode = settings?.companyCode?.trim();
+            if (!kode) {
+                throw new BadRequestException(
+                    'companyCode belum di-set di StoreSettings — atur dulu di /settings (mis. "Xp" atau "Ep")',
+                );
+            }
         }
 
         const base = await this.docNumberService.assignForQuotation(kode, inv.date ?? new Date());
@@ -315,6 +525,8 @@ export class QuotationsService {
                 subtotal: source.subtotal,
                 taxAmount: source.taxAmount,
                 total: source.total,
+                brand: source.brand,
+                variantCode: source.variantCode,
 
                 items: {
                     create: source.items.map((it) => ({
@@ -324,6 +536,7 @@ export class QuotationsService {
                         price: it.price,
                         orderIndex: it.orderIndex,
                         productVariantId: it.productVariantId,
+                        categoryName: it.categoryName,
                     })),
                 },
             },
@@ -350,17 +563,29 @@ export class QuotationsService {
     }
 
     async remove(id: number) {
+        // Accept BOTH quotation & invoice — UI page detail dipakai untuk keduanya
         const inv = await this.prisma.invoice.findUnique({
             where: { id },
             include: { children: true },
         });
-        if (!inv || inv.type !== InvoiceType.QUOTATION) {
-            throw new NotFoundException(`Penawaran id=${id} tidak ditemukan`);
+        if (!inv) {
+            throw new NotFoundException(`Dokumen id=${id} tidak ditemukan`);
         }
-        if (inv.children.length > 0) {
-            throw new BadRequestException(
-                `Penawaran id=${id} memiliki ${inv.children.length} revisi — hapus revisi dulu`,
-            );
+        // Check: quotation tidak boleh dihapus kalau punya revisi atau invoice anak
+        if (inv.type === InvoiceType.QUOTATION) {
+            const childInvoiceCount = await this.prisma.invoice.count({
+                where: { parentQuotationId: id, type: InvoiceType.INVOICE },
+            });
+            if (inv.children.length > 0) {
+                throw new BadRequestException(
+                    `Penawaran id=${id} memiliki ${inv.children.length} revisi — hapus revisi dulu`,
+                );
+            }
+            if (childInvoiceCount > 0) {
+                throw new BadRequestException(
+                    `Penawaran id=${id} sudah punya ${childInvoiceCount} invoice anak — hapus invoice dulu`,
+                );
+            }
         }
         return this.prisma.invoice.delete({ where: { id } });
     }

@@ -1,0 +1,65 @@
+PROPRIETARY LICENSE — POSPRO EVENT
+==================================
+
+Copyright © 2026 Muhammad Faishal Abdul Hakim
+All rights reserved.
+
+This software ("Pospro Event") and its associated documentation, source code,
+configuration files, and database schema (collectively, "the Software") are the
+proprietary and confidential property of Muhammad Faishal Abdul Hakim ("the
+Author"). The Software is licensed, not sold, under the following terms.
+
+1. GRANT OF LICENSE
+   The Author grants to authorized users a non-exclusive, non-transferable,
+   revocable license to install, configure, and use the Software for the
+   internal business operations of:
+
+     - CV. Exindo Pratama
+     - CV. Xposer Event
+
+   and any other business entity explicitly authorized in writing by the Author.
+
+2. RESTRICTIONS
+   Without prior written consent from the Author, you may NOT:
+
+   a) Copy, modify, merge, publish, distribute, sublicense, or sell copies of
+      the Software, in whole or in part, to any third party.
+   b) Reverse engineer, decompile, or disassemble the Software except to the
+      extent permitted by applicable law.
+   c) Remove or alter any copyright notices, author attributions, license
+      footers, or other proprietary markings from the Software or its
+      documentation.
+   d) Use the Software, source code, or documentation to develop a competing
+      product or service.
+
+3. AUTHORSHIP
+   The Software is created and maintained by Muhammad Faishal Abdul Hakim.
+   All commits, design decisions, schema, and documentation are authored by
+   the Author unless explicitly attributed otherwise.
+
+   Contact: muhamadfaisal288@gmail.com
+
+4. THIRD-PARTY DEPENDENCIES
+   The Software depends on open-source libraries (Next.js, NestJS, Prisma,
+   Tailwind, etc.) which retain their respective licenses. See package.json
+   files in app/backend/ and app/frontend/ for the full list. The proprietary
+   license of this Software does not extend to those upstream packages.
+
+5. WARRANTY DISCLAIMER
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
+   THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING
+   FROM THE USE OR INABILITY TO USE THE SOFTWARE.
+
+6. TERMINATION
+   This license remains in effect until terminated. The Author may terminate
+   this license at any time if the licensee breaches any of the terms above.
+   Upon termination, the licensee must cease all use of the Software and
+   destroy all copies in their possession.
+
+────────────────────────────────────────────────────────────────────────────────
+By installing, copying, or otherwise using the Software, you acknowledge that
+you have read this license, understand it, and agree to be bound by its terms.
+
+© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.

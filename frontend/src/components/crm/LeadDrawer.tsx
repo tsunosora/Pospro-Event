@@ -15,6 +15,7 @@ import {
 } from "@/lib/api/crm";
 import { LevelBadge } from "./LevelBadge";
 import { WaButton } from "./WaButton";
+import { BrandBadge } from "@/components/BrandBadge";
 import { Building2, MapPin, Trash2, X, MessageCircle, FileText, Send, CheckCircle2 } from "lucide-react";
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -104,9 +105,10 @@ export function LeadDrawer({
             <div className="relative bg-background w-full max-w-md h-full overflow-y-auto border-l border-border shadow-xl">
                 <div className="sticky top-0 bg-background z-10 border-b border-border p-3 flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="font-bold text-base truncate">{display}</h2>
                             <LevelBadge level={lead?.level} />
+                            {lead && <BrandBadge brand={lead.brand} size="xs" />}
                         </div>
                         {lead?.stage && (
                             <div className="text-xs text-muted-foreground">

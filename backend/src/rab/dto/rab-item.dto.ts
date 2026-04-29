@@ -10,4 +10,5 @@ export interface RabItemInput {
     productVariantId?: number | null;
     notes?: string;
     saveAsLoose?: boolean;
+    isInventory?: boolean;          // true = barang aset perusahaan, masuk inventory acquisition
 }

@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import {
     LayoutDashboard,
     ShoppingCart,
@@ -27,6 +29,7 @@ import {
     Calculator as CalcIcon,
     Warehouse as WarehouseIcon,
     PackageOpen,
+    PackagePlus,
     CalendarDays,
     KanbanSquare,
     ListChecks,
@@ -44,15 +47,23 @@ import { getOverdueCount } from "@/lib/api/withdrawals";
 
 type BadgeKey = "overdue" | "pendingInvoice" | "pendingEdit";
 
+type LinkEntry = {
+    kind: "link";
+    name: string;
+    href: string;
+    icon: typeof LayoutDashboard;
+    badgeKey?: BadgeKey;
+    managerOnly?: boolean;
+};
+
 type NavEntry =
     | { kind: "section"; label: string }
+    | LinkEntry
     | {
-          kind: "link";
+          kind: "group";
           name: string;
-          href: string;
           icon: typeof LayoutDashboard;
-          badgeKey?: BadgeKey;
-          managerOnly?: boolean;
+          children: LinkEntry[];
       };
 
 const navigation: NavEntry[] = [
@@ -81,8 +92,16 @@ const navigation: NavEntry[] = [
     { kind: "link", name: "Laporan Stok", href: "/reports/stock", icon: TrendingDown },
     { kind: "link", name: "Data Supplier", href: "/inventory/suppliers", icon: Truck },
     { kind: "link", name: "Stok Opname", href: "/inventory/opname", icon: ClipboardList },
-    { kind: "link", name: "Ambil dari Gudang", href: "/gudang/ambil", icon: PackageOpen },
-    { kind: "link", name: "Peminjaman Gudang", href: "/gudang/peminjaman", icon: WarehouseIcon, badgeKey: "overdue" },
+    {
+        kind: "group",
+        name: "Gudang",
+        icon: WarehouseIcon,
+        children: [
+            { kind: "link", name: "Ambil dari Gudang", href: "/gudang/ambil", icon: PackageOpen },
+            { kind: "link", name: "Stok Lapangan (Tukang)", href: "/gudang/stok", icon: PackagePlus },
+            { kind: "link", name: "Peminjaman Gudang", href: "/gudang/peminjaman", icon: WarehouseIcon, badgeKey: "overdue" },
+        ],
+    },
 
     // ── 💰 Keuangan ──
     { kind: "section", label: "Keuangan" },
@@ -95,7 +114,7 @@ const navigation: NavEntry[] = [
     { kind: "section", label: "Lini Printing & POS" },
     { kind: "link", name: "Surat Order Designer", href: "/sales-orders", icon: FileSignature, badgeKey: "pendingInvoice" },
     { kind: "link", name: "Antrian Cetak Paper", href: "/print-queue", icon: Printer },
-    { kind: "link", name: "Kasir POS", href: "/pos", icon: ShoppingCart },
+    { kind: "link", name: "Order Booth/Event", href: "/pos", icon: ShoppingCart },
     { kind: "link", name: "Rekap Penjualan", href: "/reports/sales", icon: BarChart3 },
     { kind: "link", name: "Laporan Laba Kotor", href: "/reports/profit", icon: BarChart3 },
     { kind: "link", name: "Riwayat Tutup Shift", href: "/reports/shift-history", icon: ClipboardList },
@@ -109,10 +128,43 @@ const navigation: NavEntry[] = [
     { kind: "link", name: "Permintaan Edit", href: "/transactions/edit-requests", icon: ClipboardEdit, badgeKey: "pendingEdit", managerOnly: true },
 ];
 
+// Persisted state untuk group expand/collapse
+const GROUP_STATE_KEY = "pospro:sidebar:groups-open";
+
+function readGroupState(): Record<string, boolean> {
+    if (typeof window === "undefined") return {};
+    try {
+        const raw = localStorage.getItem(GROUP_STATE_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeGroupState(state: Record<string, boolean>) {
+    if (typeof window === "undefined") return;
+    try {
+        localStorage.setItem(GROUP_STATE_KEY, JSON.stringify(state));
+    } catch { /* ignore */ }
+}
+
 export function Sidebar() {
     const pathname = usePathname();
     const { isSidebarOpen, closeSidebar } = useUIStore();
     const { isManager } = useCurrentUser();
+
+    // State untuk group expand/collapse — auto-restore dari localStorage
+    const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+    useEffect(() => {
+        setOpenGroups(readGroupState());
+    }, []);
+    const toggleGroup = (name: string) => {
+        setOpenGroups((s) => {
+            const next = { ...s, [name]: !s[name] };
+            writeGroupState(next);
+            return next;
+        });
+    };
 
     // Ambil nama dan logo toko dari settings
     const { data: settings } = useQuery({
@@ -206,6 +258,109 @@ export function Sidebar() {
                                     </div>
                                 );
                             }
+
+                            // ── GROUP (collapsible parent dengan children) ──
+                            if (entry.kind === "group") {
+                                const visibleChildren = entry.children.filter((c) => !c.managerOnly || isManager);
+                                if (visibleChildren.length === 0) return null;
+
+                                // Auto-expand kalau ada child yang aktif
+                                const hasActiveChild = visibleChildren.some(
+                                    (c) => pathname === c.href || (c.href !== "/" && pathname.startsWith(c.href + "/"))
+                                );
+                                const isOpen = openGroups[entry.name] ?? hasActiveChild;
+
+                                // Total badge count dari children
+                                const totalBadge = visibleChildren.reduce((sum, c) => {
+                                    const bc =
+                                        c.badgeKey === "overdue" ? overdueCount :
+                                        c.badgeKey === "pendingInvoice" ? pendingInvoiceCount :
+                                        c.badgeKey === "pendingEdit" ? pendingEditCount : 0;
+                                    return sum + bc;
+                                }, 0);
+
+                                return (
+                                    <div key={`group-${entry.name}`}>
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleGroup(entry.name)}
+                                            className={cn(
+                                                hasActiveChild
+                                                    ? "bg-sidebar-accent/30 text-sidebar-accent-foreground"
+                                                    : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                                                "group w-full flex items-center rounded-md px-3 py-2 text-sm font-medium transition-all"
+                                            )}
+                                        >
+                                            <entry.icon
+                                                className={cn(
+                                                    hasActiveChild
+                                                        ? "text-sidebar-accent-foreground"
+                                                        : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
+                                                    "mr-3 h-4 w-4 flex-shrink-0 transition-colors"
+                                                )}
+                                                aria-hidden="true"
+                                            />
+                                            <span className="flex-1 text-left">{entry.name}</span>
+                                            {totalBadge > 0 && (
+                                                <span className="mr-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                                                    {totalBadge > 9 ? "9+" : totalBadge}
+                                                </span>
+                                            )}
+                                            {isOpen ? (
+                                                <ChevronDown className="h-3.5 w-3.5 text-sidebar-foreground/50" />
+                                            ) : (
+                                                <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50" />
+                                            )}
+                                        </button>
+                                        {isOpen && (
+                                            <div className="mt-0.5 ml-3 pl-3 border-l border-sidebar-border/40 space-y-0.5">
+                                                {visibleChildren.map((child) => {
+                                                    const isActive =
+                                                        pathname === child.href ||
+                                                        (child.href !== "/" && pathname.startsWith(child.href + "/"));
+                                                    const badgeCount =
+                                                        child.badgeKey === "overdue" ? overdueCount :
+                                                        child.badgeKey === "pendingInvoice" ? pendingInvoiceCount :
+                                                        child.badgeKey === "pendingEdit" ? pendingEditCount : 0;
+                                                    return (
+                                                        <Link
+                                                            key={child.name}
+                                                            href={child.href}
+                                                            onClick={() => {
+                                                                if (window.innerWidth < 1024) closeSidebar();
+                                                            }}
+                                                            className={cn(
+                                                                isActive
+                                                                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+                                                                    : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                                                                "group flex items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-all"
+                                                            )}
+                                                        >
+                                                            <child.icon
+                                                                className={cn(
+                                                                    isActive
+                                                                        ? "text-sidebar-accent-foreground"
+                                                                        : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground",
+                                                                    "mr-2.5 h-3.5 w-3.5 flex-shrink-0 transition-colors"
+                                                                )}
+                                                                aria-hidden="true"
+                                                            />
+                                                            <span className="flex-1">{child.name}</span>
+                                                            {badgeCount > 0 && (
+                                                                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                                                                    {badgeCount > 9 ? "9+" : badgeCount}
+                                                                </span>
+                                                            )}
+                                                        </Link>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            // ── LINK biasa ──
                             if (entry.managerOnly && !isManager) return null;
                             const isActive = pathname === entry.href ||
                                 (entry.href !== '/' && pathname.startsWith(entry.href + "/"));

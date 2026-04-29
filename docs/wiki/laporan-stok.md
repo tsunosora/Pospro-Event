@@ -66,3 +66,9 @@ Excel: kolom lengkap (movement_id, date, type, product, qty, ref_type, ref_id, w
 - [Stok Opname](./stock-opname.md)
 - [Antrian Produksi](./produksi.md) — sumber `PRODUKSI_OUT`
 - [Suppliers](./suppliers.md) — sumber `PURCHASE_IN`
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

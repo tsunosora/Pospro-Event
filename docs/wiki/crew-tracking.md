@@ -298,3 +298,9 @@ Crew yang **sering check-out tanpa check-in** atau **durasi tidak masuk akal** (
 - [Jadwal Event](./alur-bisnis.md) — Crew tab di detail event
 - [Peminjaman Stok (Foto)](./peminjaman-stok.md) — pattern foto opsional yang sama
 - [RAB Event](./rab-event.md) — input cost setter berdasarkan rata-rata setup time
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

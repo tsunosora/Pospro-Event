@@ -113,3 +113,9 @@ Kalau mau update harga di RAB lama yang sudah running, edit langsung di RAB-nya.
 - [RAB Event](./rab-event.md) — sumber item yang di-save
 - [Penawaran Booth/Event](./penawaran-event.md) — konsumsi via Catalog Picker
 - [Manajemen Stok](./laporan-stok.md) — produk hasil save tampil di inventory
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

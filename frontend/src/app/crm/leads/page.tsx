@@ -22,6 +22,8 @@ import {
     getDistinctValues,
     type LeadLevel,
 } from "@/lib/api/crm";
+import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
+import { BrandBadge } from "@/components/BrandBadge";
 import { getWorkers, MARKETER_POSITIONS } from "@/lib/api/workers";
 import { LevelBadge } from "@/components/crm/LevelBadge";
 import { LeadDrawer } from "@/components/crm/LeadDrawer";
@@ -35,6 +37,7 @@ export default function CrmLeadsListPage() {
     const [city, setCity] = useState<string>("");
     const [productCategory, setProductCategory] = useState<string>("");
     const [assignedWorkerId, setAssignedWorkerId] = useState<number | "">("");
+    const [brandFilter, setBrandFilter] = useState<Brand | "">("");
     const [drawerId, setDrawerId] = useState<number | null>(null);
 
     const { data: stages } = useQuery({ queryKey: ["crm-stages"], queryFn: listStages });
@@ -51,7 +54,7 @@ export default function CrmLeadsListPage() {
         queryFn: () => getDistinctValues("productCategory"),
     });
     const { data, isLoading } = useQuery({
-        queryKey: ["crm-leads", { search, stageId, level, city, productCategory, assignedWorkerId }],
+        queryKey: ["crm-leads", { search, stageId, level, city, productCategory, assignedWorkerId, brandFilter }],
         queryFn: () =>
             listLeads({
                 search: search || undefined,
@@ -60,11 +63,12 @@ export default function CrmLeadsListPage() {
                 city: city || undefined,
                 productCategory: productCategory || undefined,
                 assignedWorkerId: typeof assignedWorkerId === "number" ? assignedWorkerId : undefined,
+                brand: brandFilter || undefined,
                 limit: 200,
             }),
     });
 
-    const hasFilter = !!(search || stageId || level || city || productCategory || assignedWorkerId);
+    const hasFilter = !!(search || stageId || level || city || productCategory || assignedWorkerId || brandFilter);
     const clearFilters = () => {
         setSearch("");
         setStageId("");
@@ -72,6 +76,7 @@ export default function CrmLeadsListPage() {
         setCity("");
         setProductCategory("");
         setAssignedWorkerId("");
+        setBrandFilter("");
     };
 
     return (
@@ -134,6 +139,38 @@ export default function CrmLeadsListPage() {
                         {data ? `${data.items.length} dari ${data.total} lead` : ""}
                     </span>
                 </div>
+                {/* Brand pills */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600 mr-1">Brand:</span>
+                    <button
+                        type="button"
+                        onClick={() => setBrandFilter("")}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-full border-2 transition ${brandFilter === ""
+                            ? "bg-slate-700 text-white border-slate-700"
+                            : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                            }`}
+                    >
+                        Semua
+                    </button>
+                    {ACTIVE_BRANDS.map((b) => {
+                        const meta = BRAND_META[b];
+                        const active = brandFilter === b;
+                        return (
+                            <button
+                                key={b}
+                                type="button"
+                                onClick={() => setBrandFilter(b)}
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1 ${active
+                                    ? `${meta.bg} ${meta.text} ${meta.border}`
+                                    : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                                    }`}
+                            >
+                                <span>{meta.emoji}</span>
+                                {meta.short}
+                            </button>
+                        );
+                    })}
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                     <FilterSelect
                         icon={<Tag className="h-3.5 w-3.5" />}
@@ -193,6 +230,7 @@ export default function CrmLeadsListPage() {
                     <table className="w-full text-sm">
                         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
                             <tr>
+                                <th className="px-3 py-2.5 text-left">Brand</th>
                                 <th className="px-3 py-2.5 text-left">Nama</th>
                                 <th className="px-3 py-2.5 text-left">Phone</th>
                                 <th className="px-3 py-2.5 text-left">Organisasi</th>
@@ -207,7 +245,7 @@ export default function CrmLeadsListPage() {
                         <tbody>
                             {isLoading && (
                                 <tr>
-                                    <td colSpan={9} className="px-3 py-6 text-center text-muted-foreground text-xs">
+                                    <td colSpan={10} className="px-3 py-6 text-center text-muted-foreground text-xs">
                                         Memuat...
                                     </td>
                                 </tr>
@@ -225,6 +263,9 @@ export default function CrmLeadsListPage() {
                                     onClick={() => setDrawerId(l.id)}
                                     className="border-t border-slate-100 hover:bg-blue-50/40 cursor-pointer"
                                 >
+                                    <td className="px-3 py-2.5">
+                                        <BrandBadge brand={l.brand} size="xs" />
+                                    </td>
                                     <td className="px-3 py-2.5 font-medium">
                                         {l.name?.trim() || (
                                             <span className="text-muted-foreground italic">— anonim —</span>

@@ -261,3 +261,9 @@ Body: { mode?: 'detail' | 'category', eventId?: number, skipExisting?: boolean }
 - [Save RAB as Product](./rab-to-product.md) — convert item ke katalog
 - [Cashflow Bisnis](./cashflow.md) — Generate Cashflow flow
 - [Kalkulator HPP](./hpp-calculator.md) — bantu hitung priceCost material
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

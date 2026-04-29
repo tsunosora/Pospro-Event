@@ -125,3 +125,9 @@ Source: endpoint `GET /customers/export-data` + frontend converter.
 - [Penawaran Booth/Event](./penawaran-event.md) — Customer dipakai sebagai client
 - [RAB Event](./rab-event.md) — Customer dipakai sebagai project owner
 - [Surat Order Designer](./sales-order.md) — Customer untuk lini printing
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

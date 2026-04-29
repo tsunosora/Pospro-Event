@@ -38,6 +38,8 @@ export const readPin = (): string | null => {
 export interface PublicWorker {
     id: number;
     name: string;
+    fullName?: string | null;
+    phone?: string | null;
     position: string | null;
     photoUrl: string | null;
 }
@@ -54,6 +56,8 @@ export interface PublicVariant {
     variantName: string;
     stock: number;
     variantImageUrl: string | null;
+    defaultWarehouseId?: number | null;
+    defaultWarehouse?: { id: number; name: string } | null;
 }
 
 export interface PublicProduct {
@@ -76,11 +80,23 @@ export interface PublicEvent {
     status: 'DRAFT' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 }
 
+export interface PublicCategory {
+    id: number;
+    name: string;
+}
+
+export interface PublicUnit {
+    id: number;
+    name: string;
+}
+
 export interface Bootstrap {
     workers: PublicWorker[];
     warehouses: PublicWarehouse[];
     products: PublicProduct[];
     events: PublicEvent[];
+    categories: PublicCategory[];
+    units: PublicUnit[];
 }
 
 export const bootstrapPublicGudang = async () =>
@@ -132,5 +148,66 @@ export const registerPublicWorker = async (form: FormData) =>
 
 export const returnPublicWithdrawal = async (id: number, form: FormData) =>
     (await publicApi.post(`/public/gudang/return/${id}`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+
+// ── Stok Lapangan: Restok / Adjust / Item Baru ─────────────────────────────
+
+export interface RestockResult {
+    ok: true;
+    variant: {
+        id: number;
+        sku: string;
+        variantName: string | null;
+        productName: string;
+        stockBefore: number;
+        stockAfter: number;
+    };
+    movement: { id: number; referenceId: string; photoUrl: string | null };
+}
+
+export interface AdjustResult {
+    ok: true;
+    variant: {
+        id: number;
+        sku: string;
+        variantName: string | null;
+        productName: string;
+        stockBefore: number;
+        stockAfter: number;
+        diff: number;
+    };
+    movement: { id: number; referenceId: string; photoUrl: string | null };
+}
+
+export interface NewItemResult {
+    ok: true;
+    product: { id: number; name: string };
+    /** Multi-varian: setiap entry punya id, sku, variantName, stock, deskripsi, catatan, foto, movementId */
+    variants: Array<{
+        id: number;
+        sku: string;
+        variantName: string | null;
+        stock: number;
+        description: string | null;
+        notes: string | null;
+        variantImageUrl: string | null;
+        movementId: number | null;
+    }>;
+    photoUrl: string | null;
+}
+
+export const restockPublicGudang = async (form: FormData) =>
+    (await publicApi.post<RestockResult>('/public/gudang/restock', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+
+export const adjustStockPublicGudang = async (form: FormData) =>
+    (await publicApi.post<AdjustResult>('/public/gudang/adjust-stock', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+
+export const createNewItemPublicGudang = async (form: FormData) =>
+    (await publicApi.post<NewItemResult>('/public/gudang/new-item', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
     })).data;

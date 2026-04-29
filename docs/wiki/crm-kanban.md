@@ -56,3 +56,9 @@ Halaman **`/crm/board`** adalah jantung modul CRM — semua aktivitas harian PIC
 - Stage dengan `isTerminal=true` (Closed Deal, Lost) **disembunyikan** dari kanban default — atur di `/crm/stages`.
 - Tombol **Convert** muncul hanya saat lead di stage `isWinStage=true`.
 - Warna kolom diambil dari `LeadStage.color` — atur di `/crm/stages`.
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

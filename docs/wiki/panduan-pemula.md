@@ -279,3 +279,9 @@ Sudah semua? 🎉 **Selamat!** Anda siap pakai Pospro Event harian.
 - [Event Timeline](./event-timeline.md) — schedule semua event
 - [Crew Tracking](./crew-tracking.md) — track crew di lapangan
 - [Backup & Restore](./backup.md) — wajib baca!
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

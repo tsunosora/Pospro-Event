@@ -66,3 +66,9 @@ Pin custom (kompetitor, lokasi survey) tersimpan **per user** — admin lain tid
 
 - [Suppliers](./suppliers.md) — sumber pin supplier
 - [RAB Event](./rab-event.md) — sumber pin event aktif
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

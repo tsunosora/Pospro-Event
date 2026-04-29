@@ -36,6 +36,7 @@ import {
     Cell,
 } from "recharts";
 import { getDashboardSummary, type DashboardSummary } from "@/lib/api/crm";
+import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
 import dayjs from "dayjs";
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -105,12 +106,13 @@ export default function CrmDashboardPage() {
     const [period, setPeriod] = useState<PeriodKey>("month");
     const [customFrom, setCustomFrom] = useState<string>(dayjs().subtract(30, "day").format("YYYY-MM-DD"));
     const [customTo, setCustomTo] = useState<string>(dayjs().format("YYYY-MM-DD"));
+    const [brandFilter, setBrandFilter] = useState<Brand | "">("");
 
     const range = useMemo(() => periodRange(period, customFrom, customTo), [period, customFrom, customTo]);
 
     const { data, isLoading } = useQuery({
-        queryKey: ["crm-dashboard", range],
-        queryFn: () => getDashboardSummary(range),
+        queryKey: ["crm-dashboard", range, brandFilter],
+        queryFn: () => getDashboardSummary({ ...range, brand: brandFilter || undefined }),
     });
 
     return (
@@ -206,6 +208,39 @@ export default function CrmDashboardPage() {
                         {data.period.to && <> sampai {dayjs(data.period.to).format("DD MMM YYYY")}</>}
                     </div>
                 )}
+
+                {/* Brand filter — sub-toggle */}
+                <div className="flex items-center gap-2 flex-wrap pt-2 border-t">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600">Brand:</span>
+                    <button
+                        type="button"
+                        onClick={() => setBrandFilter("")}
+                        className={`px-3 py-1 text-xs font-semibold rounded-full border-2 transition ${brandFilter === ""
+                            ? "bg-slate-700 text-white border-slate-700"
+                            : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                            }`}
+                    >
+                        Semua
+                    </button>
+                    {ACTIVE_BRANDS.map((b) => {
+                        const meta = BRAND_META[b];
+                        const active = brandFilter === b;
+                        return (
+                            <button
+                                key={b}
+                                type="button"
+                                onClick={() => setBrandFilter(b)}
+                                className={`px-3 py-1 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1 ${active
+                                    ? `${meta.bg} ${meta.text} ${meta.border}`
+                                    : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                                    }`}
+                            >
+                                <span>{meta.emoji}</span>
+                                {meta.short}
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Top stats */}

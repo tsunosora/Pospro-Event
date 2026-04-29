@@ -1,0 +1,69 @@
+{
+  "name": "Pospro Event — CRM, RAB, Booth & Event",
+  "short_name": "Pospro Event",
+  "description": "Aplikasi manajemen vendor booth & event — CRM Lead, Penawaran (SPH), RAB, Stok Lapangan, Cashflow per Project. By Muhammad Faishal Abdul Hakim.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "scope": "/",
+  "lang": "id",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "description": "Lihat ringkasan event & RAB",
+      "url": "/",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "CRM Pipeline",
+      "short_name": "CRM",
+      "description": "Lead pipeline kanban",
+      "url": "/crm/board",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Buat RAB",
+      "short_name": "RAB",
+      "description": "RAB project baru",
+      "url": "/rab",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Stok Lapangan",
+      "short_name": "Stok",
+      "description": "Kiosk tukang lapangan",
+      "url": "/gudang/stok",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

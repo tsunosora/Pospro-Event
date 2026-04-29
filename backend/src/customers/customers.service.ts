@@ -109,15 +109,9 @@ export class CustomersService {
         }));
 
         // ── EVENT/PROJECT ANALYTICS (vendor booth-aware) ──
-        // Invoice (Penawaran ACCEPTED + Invoice PAID)
+        // Pull ALL invoices/quotations (untuk hitung conversion rate)
         const invoices = await this.prisma.invoice.findMany({
-            where: {
-                customerId: id,
-                OR: [
-                    { type: 'INVOICE', status: 'PAID' },
-                    { type: 'QUOTATION', status: { in: ['ACCEPTED', 'SENT'] } },
-                ],
-            },
+            where: { customerId: id },
             select: {
                 id: true,
                 invoiceNumber: true,
@@ -132,8 +126,33 @@ export class CustomersService {
             orderBy: { date: 'desc' },
         });
 
-        const acceptedQuotations = invoices.filter(i => i.type === 'QUOTATION' && i.status === 'ACCEPTED');
+        const allQuotations = invoices.filter(i => i.type === 'QUOTATION');
+        const acceptedQuotations = allQuotations.filter(i => i.status === 'ACCEPTED');
+        const rejectedQuotations = allQuotations.filter(i => i.status === 'REJECTED' || i.status === 'EXPIRED' || i.status === 'CANCELLED');
+        const pendingQuotations = allQuotations.filter(i => i.status === 'SENT' || i.status === 'DRAFT');
         const paidInvoices = invoices.filter(i => i.type === 'INVOICE' && i.status === 'PAID');
+
+        // Conversion rate (closing): ACCEPTED dari total yang sudah ada keputusan (ACC + tolak/expired)
+        const decidedCount = acceptedQuotations.length + rejectedQuotations.length;
+        const conversionRatePct = decidedCount > 0 ? (acceptedQuotations.length / decidedCount) * 100 : 0;
+
+        // Breakdown by quotation variant (SEWA / PENGADAAN_BOOTH)
+        const boothTypeBreakdown = {
+            SEWA: { total: 0, accepted: 0, rejected: 0, value: 0 },
+            PENGADAAN_BOOTH: { total: 0, accepted: 0, rejected: 0, value: 0 },
+            OTHER: { total: 0, accepted: 0, rejected: 0, value: 0 },
+        } as Record<string, { total: number; accepted: number; rejected: number; value: number }>;
+        for (const q of allQuotations) {
+            const key = q.quotationVariant ?? 'OTHER';
+            const slot = boothTypeBreakdown[key] ?? boothTypeBreakdown.OTHER;
+            slot.total += 1;
+            if (q.status === 'ACCEPTED') {
+                slot.accepted += 1;
+                slot.value += Number(q.total);
+            } else if (q.status === 'REJECTED' || q.status === 'EXPIRED' || q.status === 'CANCELLED') {
+                slot.rejected += 1;
+            }
+        }
 
         const totalQuotationValue = acceptedQuotations.reduce((s, i) => s + Number(i.total), 0);
         const totalInvoicePaid = paidInvoices.reduce((s, i) => s + Number(i.total), 0);
@@ -207,7 +226,16 @@ export class CustomersService {
             totalEventExpense,
             eventGrossProfit,
             eventMarginPct,
-            recentInvoices: invoices.slice(0, 10),
+            // Closing/conversion stats
+            quotationsTotal: allQuotations.length,
+            quotationsAccepted: acceptedQuotations.length,
+            quotationsRejected: rejectedQuotations.length,
+            quotationsPending: pendingQuotations.length,
+            conversionRatePct,
+            boothTypeBreakdown,
+            recentInvoices: invoices.slice(0, 50),
+            // Semua quotations & invoices customer ini — untuk tab khusus "Dokumen"
+            allInvoices: invoices,
             recentEvents: events.slice(0, 10),
             recentRabPlans: rabPlans.slice(0, 10).map(r => ({
                 id: r.id,

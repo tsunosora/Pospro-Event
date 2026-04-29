@@ -21,6 +21,10 @@ export type WorkerPositionValue = typeof WORKER_POSITIONS[number]['value'];
 /** Posisi yang menangani lead di CRM (untuk dropdown assign + dashboard). */
 export const MARKETER_POSITIONS: WorkerPositionValue[] = ['MARKETING', 'SALES'];
 
+/** Posisi yang bisa menandatangani dokumen (penawaran/invoice).
+ *  Marketing/Sales TTD penawaran. Admin biasanya TTD invoice/finance. */
+export const SIGNER_POSITIONS: WorkerPositionValue[] = ['MARKETING', 'SALES', 'ADMIN'];
+
 export function getPositionMeta(position: string | null | undefined) {
     if (!position) return null;
     return WORKER_POSITIONS.find((p) => p.value === position) ?? null;
@@ -30,12 +34,18 @@ export function isMarketerPosition(position: string | null | undefined): boolean
     return !!position && MARKETER_POSITIONS.includes(position as WorkerPositionValue);
 }
 
+export function isSignerPosition(position: string | null | undefined): boolean {
+    return !!position && SIGNER_POSITIONS.includes(position as WorkerPositionValue);
+}
+
 export interface Worker {
     id: number;
     name: string;
     position: string | null;
     phone: string | null;
     photoUrl: string | null;
+    signatureImageUrl: string | null;
+    stampImageUrl: string | null;
     notes: string | null;
     isActive: boolean;
     createdAt: string;
@@ -105,3 +115,25 @@ export const deleteWorker = async (id: number) =>
 
 export const restoreWorker = async (id: number) =>
     (await api.patch<Worker>(`/workers/${id}/restore`, {})).data;
+
+export const uploadWorkerSignature = async (id: number, file: File): Promise<Worker> => {
+    const fd = new FormData();
+    fd.append('image', file);
+    return (await api.post(`/workers/${id}/upload-signature`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+};
+
+export const removeWorkerSignature = async (id: number): Promise<Worker> =>
+    (await api.delete(`/workers/${id}/signature`)).data;
+
+export const uploadWorkerStamp = async (id: number, file: File): Promise<Worker> => {
+    const fd = new FormData();
+    fd.append('image', file);
+    return (await api.post(`/workers/${id}/upload-stamp`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+};
+
+export const removeWorkerStamp = async (id: number): Promise<Worker> =>
+    (await api.delete(`/workers/${id}/stamp`)).data;

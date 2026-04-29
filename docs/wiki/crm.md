@@ -41,3 +41,9 @@ Saat lead deal (stage Closed Deal), satu klik **Convert** akan membuat:
 - [Pipeline Kanban](/crm-kanban) — cara pakai drag-drop
 - [Import Lead XLSX](/crm-import) — migrasi dari tool lama
 - [Convert Lead → Customer](/crm-convert) — flow lengkap konversi
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

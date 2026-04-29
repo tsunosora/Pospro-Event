@@ -42,13 +42,17 @@ export class QuotationsController {
     @Get()
     findAll(
         @Query('variant') variant?: QuotationVariant,
+        @Query('variantCode') variantCode?: string,
         @Query('year') year?: string,
         @Query('status') status?: InvoiceStatus,
+        @Query('type') type?: 'QUOTATION' | 'INVOICE' | 'ALL',
     ) {
         return this.service.findAll({
             variant,
+            variantCode: variantCode || undefined,
             year: year ? parseInt(year, 10) : undefined,
             status,
+            type,
         });
     }
 
@@ -63,8 +67,24 @@ export class QuotationsController {
     }
 
     @Post(':id/assign-number')
-    assignNumber(@Param('id', ParseIntPipe) id: number) {
-        return this.service.assignNumber(id);
+    assignNumber(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { mode?: 'auto' | 'manual'; customNumber?: string } = {},
+    ) {
+        return this.service.assignNumber(id, body);
+    }
+
+    @Post(':id/generate-invoice')
+    generateInvoice(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string },
+    ) {
+        return this.service.generateInvoiceFromQuotation(id, body);
+    }
+
+    @Get(':id/invoices')
+    listInvoices(@Param('id', ParseIntPipe) id: number) {
+        return this.service.listInvoicesByQuotation(id);
     }
 
     @Post(':id/revise')

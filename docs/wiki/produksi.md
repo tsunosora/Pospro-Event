@@ -108,3 +108,9 @@ Untuk material paper (banner, poster, X-banner) yang sering dicetak per batch �
 - [RAB Event](./rab-event.md) — sumber Job Produksi
 - [Mesin Cetak Paper](./mesin-cetak.md) — sub-queue untuk material paper
 - [Laporan Stok](./laporan-stok.md) — efek BOM ke inventori
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

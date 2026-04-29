@@ -65,3 +65,9 @@ Saat bikin **RAB**, kalkulator HPP & price suggestion otomatis ambil harga suppl
 
 - [Kalkulator HPP](./hpp-calculator.md) — kalkulasi modal pakai harga supplier
 - [RAB Event](./rab-event.md) — supplier dipakai di kategori Material
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

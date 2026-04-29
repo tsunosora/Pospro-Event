@@ -1,8 +1,11 @@
-import { Store, CreditCard, Users, Settings, MessageCircle, Building2, Paintbrush, HardDrive, Bell, Palette, Tags, Warehouse, HardHat, KeyRound, MapPin, Boxes } from 'lucide-react';
+import { Store, CreditCard, Users, Settings, MessageCircle, Building2, Paintbrush, HardDrive, Bell, Palette, Tags, Warehouse, HardHat, KeyRound, MapPin, Boxes, Building, FileText, Hash } from 'lucide-react';
 import Link from 'next/link';
 
 const NAV_LINKS = [
     { href: '/settings/general',       icon: Store,          label: 'Profil Toko' },
+    { href: '/settings/brands',        icon: Building,       label: 'Brand (Multi-Perusahaan)' },
+    { href: '/settings/quotation-variants', icon: FileText,  label: 'Varian Penawaran' },
+    { href: '/settings/document-numbers', icon: Hash,       label: 'Nomor Urut Dokumen' },
     { href: '/settings/payments',      icon: CreditCard,     label: 'Pembayaran' },
     { href: '/settings/users',         icon: Users,          label: 'Manajemen Staf' },
     { href: '/settings/whatsapp',      icon: MessageCircle,  label: 'Bot WhatsApp' },

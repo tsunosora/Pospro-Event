@@ -159,30 +159,32 @@ export default function CrmBoardPage() {
     }
 
     return (
-        <div className="flex flex-col h-[calc(100vh-4rem)]">
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border bg-background">
-                <div>
-                    <h1 className="text-lg font-bold">Pipeline Lead</h1>
-                    <p className="text-xs text-muted-foreground">Drag-drop card antar stage</p>
+        <div className="flex flex-col h-[calc(100vh-4rem)] min-h-0 overflow-hidden">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3 border-b border-border bg-background shrink-0">
+                <div className="min-w-0">
+                    <h1 className="text-base sm:text-lg font-bold">Pipeline Lead</h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground hidden sm:block">Drag-drop card antar stage</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                     <button
                         onClick={() => refetch()}
                         disabled={isFetching}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-md border border-border bg-background text-xs sm:text-sm hover:bg-muted disabled:opacity-50"
+                        title="Refresh"
                     >
                         <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
                     </button>
                     <Link
                         href="/crm/import"
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted"
+                        className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-md border border-border bg-background text-xs sm:text-sm hover:bg-muted"
                     >
                         <Upload className="h-3.5 w-3.5" />
-                        Import XLSX
+                        <span className="hidden sm:inline">Import XLSX</span>
                     </Link>
                     <Link
                         href="/crm/leads/new"
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
+                        className="inline-flex items-center gap-1.5 px-2.5 sm:px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs sm:text-sm font-medium hover:bg-primary/90"
                     >
                         <Plus className="h-3.5 w-3.5" />
                         Add Lead
@@ -190,8 +192,9 @@ export default function CrmBoardPage() {
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-border bg-muted/20">
-                <div className="relative flex-1 min-w-[180px] max-w-sm">
+            {/* Filter bar */}
+            <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 border-b border-border bg-muted/20 shrink-0">
+                <div className="relative flex-1 min-w-[160px] max-w-sm">
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <input
                         value={search}
@@ -203,9 +206,9 @@ export default function CrmBoardPage() {
                 <select
                     value={workerFilter}
                     onChange={(e) => setWorkerFilter(e.target.value ? Number(e.target.value) : "")}
-                    className="text-sm rounded-md border border-border bg-background py-1.5 px-2"
+                    className="text-xs sm:text-sm rounded-md border border-border bg-background py-1.5 px-2 max-w-[140px]"
                 >
-                    <option value="">Semua PIC</option>
+                    <option value="">Semua Marketing</option>
                     {workerOptions.map((w) => (
                         <option key={w.id} value={w.id}>{w.name}</option>
                     ))}
@@ -213,7 +216,7 @@ export default function CrmBoardPage() {
                 <select
                     value={labelFilter}
                     onChange={(e) => setLabelFilter(e.target.value ? Number(e.target.value) : "")}
-                    className="text-sm rounded-md border border-border bg-background py-1.5 px-2"
+                    className="text-xs sm:text-sm rounded-md border border-border bg-background py-1.5 px-2 max-w-[140px]"
                 >
                     <option value="">Semua label</option>
                     {labels?.map((l) => (
@@ -231,21 +234,22 @@ export default function CrmBoardPage() {
                 )}
             </div>
 
-            {isLoading && <div className="p-6 text-sm text-muted-foreground">Memuat board...</div>}
+            {isLoading && <div className="p-6 text-sm text-muted-foreground shrink-0">Memuat board...</div>}
             {!isLoading && stages.length === 0 && (
-                <div className="p-6 text-sm text-muted-foreground">
+                <div className="p-6 text-sm text-muted-foreground shrink-0">
                     Belum ada stage. Jalankan seed-crm.
                 </div>
             )}
 
+            {/* Kanban board area — fill remaining height, horizontal scroll between columns */}
             <DndContext
                 sensors={sensors}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 onDragCancel={() => setActiveLead(null)}
             >
-                <div className="flex-1 overflow-x-auto overflow-y-hidden">
-                    <div className="flex gap-3 p-4 h-full min-h-0">
+                <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden [scrollbar-width:thin]">
+                    <div className="flex gap-3 p-3 sm:p-4 h-full min-h-0">
                         {stages.map((stage) => (
                             <StageColumn
                                 key={stage.id}

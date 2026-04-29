@@ -7,6 +7,7 @@ const variantInclude = {
         include: { rawMaterialVariant: { include: { product: true } } },
         orderBy: { id: 'asc' as const }
     },
+    defaultWarehouse: { select: { id: true, name: true } },
 };
 
 @Injectable()

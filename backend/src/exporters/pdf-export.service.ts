@@ -7,6 +7,11 @@ import { QuotationContextBuilder } from './quotation-context.builder';
 
 type TemplateKey = 'sewa' | 'pengadaan-booth';
 
+// Register Handlebars helper "eq" — untuk {{#eq a b}}...{{/eq}} string equality check
+Handlebars.registerHelper('eq', function (this: any, a: any, b: any, options: any) {
+    return a === b ? options.fn(this) : options.inverse(this);
+});
+
 @Injectable()
 export class PdfExportService implements OnModuleDestroy {
     private compiledTemplates: Partial<Record<TemplateKey, Handlebars.TemplateDelegate>> = {};
@@ -54,7 +59,7 @@ export class PdfExportService implements OnModuleDestroy {
 
     async renderQuotationPdf(quotationId: number): Promise<Buffer> {
         const ctx = await this.contextBuilder.build(quotationId);
-        const key: TemplateKey = ctx.doc.variant === 'PENGADAAN_BOOTH' ? 'pengadaan-booth' : 'sewa';
+        const key: TemplateKey = ctx.doc.templateKey;
         const template = this.loadTemplate(key);
         const html = template(ctx);
 
@@ -65,7 +70,9 @@ export class PdfExportService implements OnModuleDestroy {
             const pdf = await page.pdf({
                 format: 'A4',
                 printBackground: true,
-                margin: { top: '15mm', right: '18mm', bottom: '18mm', left: '18mm' },
+                // margin Puppeteer = 0 agar paper full bleed; image fixed cover full A4
+                // Per-page text margin di-handle via <table thead/tfoot> trick di template
+                margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
             });
             return Buffer.from(pdf);
         } finally {

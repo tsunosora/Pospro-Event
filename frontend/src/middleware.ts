@@ -14,7 +14,7 @@ export function middleware(request: NextRequest) {
 
     const token = request.cookies.get('token')?.value;
     const isLoginPage = pathname.startsWith('/login');
-    const isPublicPage = pathname.startsWith('/opname/') || pathname.startsWith('/produksi') || pathname.startsWith('/cetak') || pathname.startsWith('/p/') || pathname.startsWith('/so-designer') || pathname.startsWith('/gudang/ambil') || pathname.startsWith('/share/');
+    const isPublicPage = pathname.startsWith('/opname/') || pathname.startsWith('/produksi') || pathname.startsWith('/cetak') || pathname.startsWith('/p/') || pathname.startsWith('/so-designer') || pathname.startsWith('/gudang/ambil') || pathname.startsWith('/gudang/stok') || pathname.startsWith('/share/');
 
     // If there is no token and the user is NOT on the login page (or public paths), redirect to login
     if (!token && !isLoginPage && !isPublicPage) {
@@ -38,6 +38,11 @@ export const config = {
          * - _next/image (image optimization files)
          * - favicon.ico, sitemap.xml, robots.txt (metadata files)
          */
-        '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.webmanifest).*)',
+        // Exclude:
+        // - api, _next/static, _next/image (Next internals)
+        // - favicon.ico, sitemap.xml, robots.txt (metadata)
+        // - manifest.webmanifest, sw.js (PWA)
+        // - icon files (PWA icons: icon.svg, icon-*.png, apple-touch-icon.png, favicon-*.png)
+        '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.webmanifest|sw\\.js|icon\\.svg|icon-.*\\.png|apple-touch-icon\\.png|favicon-.*\\.png).*)',
     ],
 };

@@ -158,3 +158,9 @@ Setiap warehouse bisa punya banyak `StorageLocation` (rak A1, B2, dll). Saat che
 - [Antrian Produksi](./produksi.md) — sumber kebutuhan material
 - [Stok Opname](./stock-opname.md) — audit cocok dengan record withdrawal
 - [Laporan Stok](./laporan-stok.md) — mutasi `WITHDRAWAL_OUT` / `WITHDRAWAL_IN`
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

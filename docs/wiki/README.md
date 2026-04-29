@@ -72,3 +72,9 @@ Selamat datang di dokumentasi **Pospro Event** — aplikasi manajemen vendor boo
 - **Stok & Supplier** — Inventori material, varian, BOM, opname
 - **Cashflow** — Arus kas otomatis + manual, chart tren, export Excel
 - **Backup** — ZIP semua tabel (termasuk CRM), restore satu klik
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

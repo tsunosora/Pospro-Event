@@ -242,7 +242,16 @@ const INV_STATUS_CLS: Record<string, string> = {
 };
 
 function EventAnalyticsSection({ ea }: { ea: any }) {
-    const hasAny = ea.invoiceCount > 0 || ea.quotationCount > 0 || ea.rabCount > 0 || ea.eventCount > 0;
+    // Cek by adanya data riil — bukan cuma counter ACCEPTED/PAID.
+    // Penawaran DRAFT/SENT/REJECTED juga harus dianggap "ada", jadi pakai length array recent*
+    const hasAny =
+        (ea.recentInvoices?.length ?? 0) > 0 ||
+        (ea.recentRabPlans?.length ?? 0) > 0 ||
+        (ea.recentEvents?.length ?? 0) > 0 ||
+        ea.invoiceCount > 0 ||
+        ea.quotationCount > 0 ||
+        ea.rabCount > 0 ||
+        ea.eventCount > 0;
     if (!hasAny) {
         return (
             <div className="rounded-xl border border-border bg-muted/10 p-4 text-center">

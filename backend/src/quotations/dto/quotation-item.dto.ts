@@ -5,4 +5,5 @@ export interface QuotationItemInput {
     price: number | string;
     orderIndex?: number;
     productVariantId?: number | null;
+    categoryName?: string | null;   // untuk grouping di PDF (mis. "Konstruksi Utama Booth")
 }

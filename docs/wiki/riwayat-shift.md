@@ -106,4 +106,4 @@ Daftar shift ditampilkan dengan **pagination** — 20 entri per halaman. Gunakan
 
 *Wiki PosPro — Riwayat Tutup Shift | April 2026*
 
-**© 2026 Muhammad Faisal. All rights reserved.**
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**

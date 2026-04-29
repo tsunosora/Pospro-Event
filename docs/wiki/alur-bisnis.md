@@ -299,3 +299,9 @@ Sebelum mulai pakai harian, ada hal yang perlu disetup sekali saja:
 - [Backup & Restore](./backup.md) — wajib rutin tiap minggu
 - [CRM Overview](./crm.md) — masuk dalam ke kanban
 - [Event Timeline](./event-timeline.md) — Gantt view semua event paralel
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

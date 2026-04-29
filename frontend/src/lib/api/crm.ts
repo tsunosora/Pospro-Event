@@ -1,4 +1,5 @@
 import api from './client';
+import type { Brand } from './brands';
 
 export type LeadLevel = 'HOT' | 'WARM' | 'COLD' | 'UNQUALIFIED';
 export type LeadSource = 'META_ADS' | 'WHATSAPP' | 'WEBSITE' | 'REFERRAL' | 'WALK_IN' | 'OTHER';
@@ -40,6 +41,7 @@ export interface Lead {
     organization: string | null;
     productCategory: string | null;
     city: string | null;
+    brand: Brand | null;
     level: LeadLevel | null;
     source: LeadSource;
     sourceDetail: string | null;
@@ -107,6 +109,7 @@ export const listLeads = async (params: {
     stageId?: number;
     level?: LeadLevel;
     assignedWorkerId?: number;
+    brand?: Brand;
     city?: string;
     productCategory?: string;
     search?: string;
@@ -121,7 +124,7 @@ export const getDistinctValues = async (
     field: 'city' | 'productCategory',
 ): Promise<string[]> => (await api.get(`/crm/distinct/${field}`)).data;
 
-export const getMarketerPerformance = async (params: { from?: string; to?: string } = {}): Promise<MarketerPerformance[]> =>
+export const getMarketerPerformance = async (params: { from?: string; to?: string; brand?: Brand } = {}): Promise<MarketerPerformance[]> =>
     (await api.get('/crm/performance/by-marketer', { params })).data;
 
 export interface DashboardSummary {
@@ -159,7 +162,7 @@ export interface DashboardSummary {
 }
 
 export const getDashboardSummary = async (
-    params: { from?: string; to?: string } = {},
+    params: { from?: string; to?: string; brand?: Brand } = {},
 ): Promise<DashboardSummary> =>
     (await api.get('/crm/dashboard/summary', { params })).data;
 

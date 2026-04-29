@@ -19,7 +19,7 @@ import type {
     ReorderInput,
     UpdateLeadInput,
 } from './leads.service';
-import type { LeadLevel } from '@prisma/client';
+import type { LeadLevel, EventBrand } from '@prisma/client';
 
 @Controller('crm')
 @UseGuards(JwtAuthGuard)
@@ -37,6 +37,7 @@ export class LeadsController {
         @Query('stageId') stageId?: string,
         @Query('level') level?: LeadLevel,
         @Query('assignedWorkerId') assignedWorkerId?: string,
+        @Query('brand') brand?: EventBrand,
         @Query('city') city?: string,
         @Query('productCategory') productCategory?: string,
         @Query('search') search?: string,
@@ -49,6 +50,7 @@ export class LeadsController {
             stageId: stageId ? Number(stageId) : undefined,
             level,
             assignedWorkerId: assignedWorkerId ? Number(assignedWorkerId) : undefined,
+            brand: brand || undefined,
             city: city || undefined,
             productCategory: productCategory || undefined,
             search,
@@ -71,16 +73,18 @@ export class LeadsController {
     performanceByMarketer(
         @Query('from') from?: string,
         @Query('to') to?: string,
+        @Query('brand') brand?: EventBrand,
     ) {
-        return this.svc.performanceByMarketer({ from, to });
+        return this.svc.performanceByMarketer({ from, to, brand });
     }
 
     @Get('dashboard/summary')
     dashboardSummary(
         @Query('from') from?: string,
         @Query('to') to?: string,
+        @Query('brand') brand?: EventBrand,
     ) {
-        return this.svc.dashboardSummary({ from, to });
+        return this.svc.dashboardSummary({ from, to, brand });
     }
 
     @Get('leads/:id')

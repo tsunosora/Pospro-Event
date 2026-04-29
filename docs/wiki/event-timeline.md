@@ -224,3 +224,9 @@ Checkbox "Departure lane" — toggle visibility bar abu-abu departure. Default O
 - [RAB Event](/rab-event) — sumber RAB margin chip
 - [Peminjaman Stok (Foto)](/peminjaman-stok) — sumber count 📦 di card event
 - [Antrian Produksi](/produksi) — eksekusi setelah phase Setup
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

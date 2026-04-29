@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, LeadLevel, LeadSource, LeadStatus } from '@prisma/client';
+import { Prisma, LeadLevel, LeadSource, LeadStatus, EventBrand } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { normalizePhone } from '../utils/phone.util';
 
@@ -9,6 +9,7 @@ export interface CreateLeadInput {
     organization?: string;
     productCategory?: string;
     city?: string;
+    brand?: EventBrand | null;
     level?: LeadLevel | null;
     source?: LeadSource;
     sourceDetail?: string;
@@ -102,6 +103,7 @@ export class LeadsService {
         stageId?: number;
         level?: LeadLevel;
         assignedWorkerId?: number;
+        brand?: EventBrand;
         city?: string;
         productCategory?: string;
         search?: string;
@@ -114,6 +116,7 @@ export class LeadsService {
         if (params.stageId) where.stageId = params.stageId;
         if (params.level) where.level = params.level;
         if (params.assignedWorkerId) where.assignedWorkerId = params.assignedWorkerId;
+        if (params.brand) where.brand = params.brand;
         if (params.city) where.city = params.city;
         if (params.productCategory) where.productCategory = params.productCategory;
         if (params.search) {
@@ -184,6 +187,7 @@ export class LeadsService {
                 organization: input.organization?.trim() || null,
                 productCategory: input.productCategory?.trim() || null,
                 city: input.city?.trim() || null,
+                brand: input.brand ?? null,
                 level: input.level ?? null,
                 source: input.source ?? 'OTHER',
                 sourceDetail: input.sourceDetail?.trim() || null,
@@ -222,6 +226,7 @@ export class LeadsService {
         if (input.organization !== undefined) data.organization = input.organization?.trim() || null;
         if (input.productCategory !== undefined) data.productCategory = input.productCategory?.trim() || null;
         if (input.city !== undefined) data.city = input.city?.trim() || null;
+        if (input.brand !== undefined) data.brand = input.brand;
         if (input.level !== undefined) data.level = input.level;
         if (input.source !== undefined) data.source = input.source;
         if (input.sourceDetail !== undefined) data.sourceDetail = input.sourceDetail?.trim() || null;
@@ -505,10 +510,11 @@ export class LeadsService {
      * - Project value: won / lost / pipeline
      * - Series harian untuk chart
      */
-    async dashboardSummary(params: { from?: string; to?: string }) {
+    async dashboardSummary(params: { from?: string; to?: string; brand?: EventBrand }) {
         const fromDate = params.from ? new Date(params.from) : null;
         const toDate = params.to ? new Date(params.to) : null;
         const where: Prisma.LeadWhereInput = {};
+        if (params.brand) where.brand = params.brand;
         if (fromDate || toDate) {
             where.leadCameAt = {};
             if (fromDate) (where.leadCameAt as any).gte = fromDate;
@@ -652,8 +658,9 @@ export class LeadsService {
     }
 
     /** Performa per marketer: jumlah lead, conversion, total nilai, respon, stuck. */
-    async performanceByMarketer(params: { from?: string; to?: string }) {
+    async performanceByMarketer(params: { from?: string; to?: string; brand?: EventBrand }) {
         const where: Prisma.LeadWhereInput = {};
+        if (params.brand) where.brand = params.brand;
         if (params.from || params.to) {
             where.leadCameAt = {};
             if (params.from) (where.leadCameAt as any).gte = new Date(params.from);

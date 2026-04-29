@@ -66,7 +66,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     const id = Number(idStr);
     const qc = useQueryClient();
     const router = useRouter();
-    const [tab, setTab] = useState<"info" | "timeline" | "analytics">("info");
+    const [tab, setTab] = useState<"info" | "documents" | "timeline" | "analytics">("info");
     const [editMode, setEditMode] = useState(false);
     const [showDelete, setShowDelete] = useState(false);
 
@@ -254,12 +254,63 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         <QuickStat label="Event" value={String(ea.eventCount)} sub={`Profit ${fmtShort(ea.eventGrossProfit)}`} subClass={marginColor(ea.eventMarginPct)} />
                     </div>
                 )}
+
+                {/* Closing/conversion stats — penawaran ACC vs ditolak */}
+                {ea && (ea.quotationsTotal ?? 0) > 0 && (
+                    <div className="mt-4 pt-4 border-t">
+                        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                            <h3 className="text-sm font-semibold inline-flex items-center gap-1.5">
+                                🎯 Riwayat Closing Penawaran
+                            </h3>
+                            <div className="text-xs text-muted-foreground">
+                                Total <b>{ea.quotationsTotal}</b> penawaran ke klien ini
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <ClosingStat label="✅ Closing (ACC)" value={ea.quotationsAccepted} total={ea.quotationsTotal} cls="bg-emerald-50 border-emerald-200 text-emerald-700" />
+                            <ClosingStat label="❌ Tidak Closing" value={ea.quotationsRejected} total={ea.quotationsTotal} cls="bg-red-50 border-red-200 text-red-700" hint="Rejected/Expired/Cancelled" />
+                            <ClosingStat label="⏳ Belum Diputus" value={ea.quotationsPending} total={ea.quotationsTotal} cls="bg-amber-50 border-amber-200 text-amber-700" hint="Sent/Draft" />
+                            <div className="border rounded-lg p-2 bg-primary/5 border-primary/20">
+                                <div className="text-[10px] uppercase text-muted-foreground">Conversion Rate</div>
+                                <div className={`text-2xl font-bold ${(ea.conversionRatePct ?? 0) >= 50 ? "text-emerald-600" : (ea.conversionRatePct ?? 0) >= 25 ? "text-amber-600" : "text-red-600"}`}>
+                                    {(ea.conversionRatePct ?? 0).toFixed(0)}%
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">ACC ÷ (ACC + Ditolak)</div>
+                            </div>
+                        </div>
+
+                        {/* Booth type breakdown */}
+                        {ea.boothTypeBreakdown && (
+                            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {(["SEWA", "PENGADAAN_BOOTH"] as const).map((t) => {
+                                    const b = ea.boothTypeBreakdown[t];
+                                    if (!b || b.total === 0) return null;
+                                    const label = t === "SEWA" ? "🏗️ Sewa Perlengkapan" : "🎪 Pengadaan Booth";
+                                    return (
+                                        <div key={t} className="border rounded-lg p-2.5 bg-background">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="text-sm font-semibold">{label}</div>
+                                                <div className="text-xs text-muted-foreground">{b.total} penawaran</div>
+                                            </div>
+                                            <div className="mt-1.5 flex items-center gap-3 text-xs">
+                                                <span className="text-emerald-700">✅ {b.accepted} ACC</span>
+                                                <span className="text-red-600">❌ {b.rejected} ditolak</span>
+                                                <span className="ml-auto font-mono text-muted-foreground">{fmtShort(b.value)}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Tabs */}
-            <div className="inline-flex border rounded overflow-hidden text-sm">
+            <div className="inline-flex border rounded overflow-hidden text-sm flex-wrap">
                 {([
                     { k: "info", label: "Info Lengkap" },
+                    { k: "documents", label: `📄 Penawaran & Invoice${ea?.allInvoices ? ` (${ea.allInvoices.length})` : ""}` },
                     { k: "timeline", label: "📅 Timeline" },
                     { k: "analytics", label: "📊 Analytics" },
                 ] as const).map((t) => (
@@ -276,6 +327,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             {/* Tab content */}
             {tab === "info" && (
                 <InfoTab customer={customer} />
+            )}
+
+            {tab === "documents" && (
+                <DocumentsTab invoices={ea?.allInvoices ?? []} />
             )}
 
             {tab === "timeline" && (
@@ -342,6 +397,17 @@ function QuickStat({ label, value, sub, valueClass, subClass }: { label: string;
     );
 }
 
+function ClosingStat({ label, value, total, cls, hint }: { label: string; value: number; total: number; cls: string; hint?: string }) {
+    const pct = total > 0 ? (value / total) * 100 : 0;
+    return (
+        <div className={`border rounded-lg p-2 ${cls}`}>
+            <div className="text-[10px] uppercase opacity-80">{label}</div>
+            <div className="text-2xl font-bold">{value}</div>
+            <div className="text-[10px] opacity-80">{pct.toFixed(0)}% dari total{hint ? ` · ${hint}` : ""}</div>
+        </div>
+    );
+}
+
 function InfoTab({ customer }: { customer: Customer }) {
     return (
         <div className="grid md:grid-cols-2 gap-3">
@@ -368,6 +434,100 @@ function InfoRow({ label, value }: { label: string; value: string }) {
         <div className="flex justify-between gap-3">
             <span className="text-muted-foreground">{label}</span>
             <span className="font-medium text-right truncate">{value}</span>
+        </div>
+    );
+}
+
+function DocumentsTab({ invoices }: { invoices: any[] }) {
+    const quotations = invoices.filter((i) => i.type === "QUOTATION");
+    const realInvoices = invoices.filter((i) => i.type === "INVOICE");
+
+    if (invoices.length === 0) {
+        return (
+            <div className="bg-background border rounded-xl p-8 text-center">
+                <div className="text-4xl mb-2">📄</div>
+                <h3 className="font-semibold mb-1">Belum ada penawaran/invoice</h3>
+                <p className="text-sm text-muted-foreground">
+                    Customer ini belum punya dokumen apa pun. Buat penawaran baru via tombol di atas.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {quotations.length > 0 && (
+                <DocSection
+                    title="📄 Penawaran"
+                    docs={quotations}
+                    hrefPrefix="/penawaran"
+                    emptyText="Belum ada penawaran"
+                />
+            )}
+            {realInvoices.length > 0 && (
+                <DocSection
+                    title="🧾 Invoice"
+                    docs={realInvoices}
+                    hrefPrefix="/invoices"
+                    emptyText="Belum ada invoice"
+                />
+            )}
+        </div>
+    );
+}
+
+function DocSection({
+    title, docs, hrefPrefix,
+}: {
+    title: string;
+    docs: any[];
+    hrefPrefix: string;
+    emptyText: string;
+}) {
+    return (
+        <div className="bg-background border rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 border-b bg-muted/30 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">{title}</h3>
+                <span className="text-xs text-muted-foreground">{docs.length} dokumen</span>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead className="bg-muted/20 text-xs uppercase text-muted-foreground">
+                        <tr>
+                            <th className="text-left px-3 py-2 font-semibold">No.</th>
+                            <th className="text-left px-3 py-2 font-semibold">Tanggal</th>
+                            <th className="text-left px-3 py-2 font-semibold">Project</th>
+                            <th className="text-left px-3 py-2 font-semibold">Status</th>
+                            <th className="text-right px-3 py-2 font-semibold">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                        {docs.map((d) => (
+                            <tr key={d.id} className="hover:bg-muted/20">
+                                <td className="px-3 py-2 font-mono text-xs">
+                                    <Link href={`${hrefPrefix}/${d.id}`} className="text-primary hover:underline font-medium">
+                                        {d.invoiceNumber || `#${d.id} (draft)`}
+                                    </Link>
+                                </td>
+                                <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                                    {d.date ? dayjs(d.date).format("DD MMM YYYY") : "—"}
+                                </td>
+                                <td className="px-3 py-2 text-xs">
+                                    {d.projectName || <span className="italic text-muted-foreground">—</span>}
+                                </td>
+                                <td className="px-3 py-2">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${INV_STATUS_CLS[d.status] ?? "bg-gray-100 text-gray-700"}`}>
+                                        {d.status}
+                                    </span>
+                                </td>
+                                <td className="px-3 py-2 text-right font-mono text-xs">
+                                    {fmt(Number(d.total) || 0)}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }

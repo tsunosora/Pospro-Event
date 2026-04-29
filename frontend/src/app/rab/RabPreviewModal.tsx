@@ -7,7 +7,7 @@ import {
     X, Loader2, ExternalLink, Calendar, MapPin, Building2, FileSpreadsheet,
     TrendingUp, ArrowUpRight, ArrowDownRight, Image as ImageIcon,
 } from "lucide-react";
-import { getRab, getRabSummary, downloadRabXlsx } from "@/lib/api/rab";
+import { getRab, getRabSummary, downloadRabXlsx, parseRabTags } from "@/lib/api/rab";
 
 function fmtRp(v: number | string) {
     const n = typeof v === "string" ? parseFloat(v) : v;
@@ -54,6 +54,18 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
         ? (summary.totals.totalSelisih / summary.totals.totalRab) * 100
         : 0;
     const marginColor = margin >= 30 ? "text-green-600" : margin >= 15 ? "text-amber-600" : margin < 0 ? "text-red-600" : "text-amber-700";
+
+    // Payment status
+    const dpVal = summary?.income.dpAmount ?? 0;
+    const pelVal = summary?.income.pelunasan ?? 0;
+    const otherVal = summary?.income.incomeOther ?? 0;
+    const paymentStatus =
+        totalIncome === 0 ? { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-slate-100 text-slate-700 border-slate-300", hint: "Belum ada DP/pelunasan masuk" }
+            : pelVal > 0 && dpVal > 0 ? { label: "Lunas (DP + Pelunasan)", emoji: "✅", cls: "bg-emerald-100 text-emerald-800 border-emerald-300", hint: "Sudah DP & pelunasan — saldo bersih = untung riil" }
+                : pelVal > 0 ? { label: "Lunas", emoji: "✅", cls: "bg-emerald-100 text-emerald-800 border-emerald-300", hint: "Pelunasan sudah masuk" }
+                    : dpVal > 0 ? { label: "Baru DP — belum pelunasan", emoji: "🟡", cls: "bg-amber-100 text-amber-800 border-amber-300", hint: "Baru bayar DP. Saldo minus wajar." }
+                        : otherVal > 0 ? { label: "Income Lain saja", emoji: "ℹ️", cls: "bg-blue-100 text-blue-800 border-blue-300", hint: "Hanya income lain" }
+                            : { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-slate-100 text-slate-700 border-slate-300", hint: "" };
 
     const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -140,6 +152,21 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                             </div>
                         )}
 
+                        {/* Tags — tampil di atas Info Grid kalau ada */}
+                        {parseRabTags(rab.tags).length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-xs font-semibold text-muted-foreground mr-1">🏷️ Tag:</span>
+                                {parseRabTags(rab.tags).map((t) => (
+                                    <span
+                                        key={t}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"
+                                    >
+                                        {t}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
                         {/* Info Grid */}
                         <div className="grid sm:grid-cols-2 gap-3">
                             <InfoCard label="Klien">
@@ -185,7 +212,7 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                         {/* Summary Stats */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                             <StatBox
-                                label="Total RAB"
+                                label="Total Perkiraan Biaya"
                                 value={fmtRp(summary.totals.totalRab)}
                                 icon={<ArrowUpRight className="h-4 w-4" />}
                                 valueClass="text-foreground"
@@ -199,20 +226,111 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                 hint="Biaya internal"
                             />
                             <StatBox
-                                label="Selisih"
+                                label="Selisih (Proyeksi)"
                                 value={fmtRp(summary.totals.totalSelisih)}
                                 icon={<TrendingUp className="h-4 w-4" />}
                                 valueClass={summary.totals.totalSelisih >= 0 ? "text-green-600" : "text-red-600"}
                                 hint={summary.totals.totalRab > 0 ? `Margin ${margin.toFixed(1)}%` : "—"}
                             />
-                            <StatBox
-                                label="Saldo"
-                                value={fmtRp(summary.saldo)}
-                                icon={<TrendingUp className="h-4 w-4" />}
-                                valueClass={summary.saldo >= 0 ? "text-green-600" : "text-red-600"}
-                                hint={`Income ${fmtRp(totalIncome)}`}
-                            />
+                            {/* Saldo Bersih dengan payment status badge */}
+                            <div className="rounded-lg border border-border p-3 bg-background flex flex-col">
+                                <div className="flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                                    💰 Saldo Bersih
+                                </div>
+                                {totalIncome === 0 ? (
+                                    <div className="text-lg font-bold text-slate-500">—</div>
+                                ) : (
+                                    <div className={`text-lg font-bold ${summary.saldo >= 0 ? "text-emerald-600" : "text-amber-600"}`}>
+                                        {summary.saldo >= 0 ? "+" : "−"}{fmtRp(Math.abs(summary.saldo))}
+                                    </div>
+                                )}
+                                <div
+                                    className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${paymentStatus.cls} self-start`}
+                                    title={paymentStatus.hint}
+                                >
+                                    {paymentStatus.emoji} {paymentStatus.label}
+                                </div>
+                                {totalIncome > 0 && (
+                                    <div className="text-[10px] text-muted-foreground mt-1">
+                                        Income {fmtRp(totalIncome)}
+                                        {pelVal === 0 && dpVal > 0 && (
+                                            <span className="block italic text-amber-600 mt-0.5">
+                                                ⚠ Minus karena pelunasan belum diterima
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Payment breakdown — DP / Pelunasan / Income Lain */}
+                        {totalIncome > 0 && (
+                            <div className="rounded-lg border border-border bg-muted/20 p-3">
+                                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                                    💳 Rincian Pembayaran Masuk
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-sm">
+                                    <div className="bg-background rounded p-2 border">
+                                        <div className="text-[10px] uppercase text-muted-foreground">DP</div>
+                                        <div className={`font-mono font-semibold ${dpVal > 0 ? "text-foreground" : "text-muted-foreground/40"}`}>
+                                            {fmtRp(dpVal)}
+                                        </div>
+                                    </div>
+                                    <div className="bg-background rounded p-2 border">
+                                        <div className="text-[10px] uppercase text-muted-foreground">Pelunasan</div>
+                                        <div className={`font-mono font-semibold ${pelVal > 0 ? "text-emerald-700" : "text-muted-foreground/40"}`}>
+                                            {fmtRp(pelVal)}
+                                        </div>
+                                    </div>
+                                    <div className="bg-background rounded p-2 border">
+                                        <div className="text-[10px] uppercase text-muted-foreground">Income Lain</div>
+                                        <div className={`font-mono font-semibold ${otherVal > 0 ? "text-blue-700" : "text-muted-foreground/40"}`}>
+                                            {fmtRp(otherVal)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Inventaris breakdown — hanya tampil kalau ada item ber-tag inventaris */}
+                        {summary.totals.inventoryCount > 0 && (
+                            <div className="rounded-lg border-2 border-violet-200 bg-violet-50/40 p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-sm font-semibold text-violet-900 inline-flex items-center gap-1.5">
+                                        📦 Barang Inventaris
+                                        <span className="text-[10px] font-normal text-violet-700">
+                                            ({summary.totals.inventoryCount} item — aset perusahaan, bisa dipakai event berikutnya)
+                                        </span>
+                                    </h3>
+                                </div>
+                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                                    <StatBox
+                                        label="Cost Inventaris"
+                                        value={fmtRp(summary.totals.costInventory)}
+                                        icon={<ArrowDownRight className="h-4 w-4" />}
+                                        valueClass="text-violet-700"
+                                        hint="Bukan cost murni event"
+                                    />
+                                    <StatBox
+                                        label="Cost Operasional"
+                                        value={fmtRp(summary.totals.costOperational)}
+                                        icon={<ArrowDownRight className="h-4 w-4" />}
+                                        valueClass="text-foreground"
+                                        hint="Cost murni event"
+                                    />
+                                    <StatBox
+                                        label="Untung Operasional"
+                                        value={fmtRp(summary.totals.operationalProfit)}
+                                        icon={<TrendingUp className="h-4 w-4" />}
+                                        valueClass={summary.totals.operationalProfit >= 0 ? "text-green-600" : "text-red-600"}
+                                        hint="Total RAB − Cost Operasional"
+                                    />
+                                </div>
+                                <div className="mt-2 text-[11px] text-violet-800/80 italic">
+                                    💡 Untung Operasional lebih representatif untuk evaluasi event ini — cost inventaris jadi aset, bisa dipakai project berikutnya.
+                                </div>
+                            </div>
+                        )}
 
                         {/* Category Breakdown */}
                         <div className="rounded-lg border border-border overflow-hidden">
@@ -307,7 +425,7 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                             <th className="text-left px-2 py-1.5">Item</th>
                                             <th className="text-right px-2 py-1.5">Qty</th>
                                             <th className="text-right px-2 py-1.5">QtyCost</th>
-                                            <th className="text-right px-2 py-1.5">Harga RAB</th>
+                                            <th className="text-right px-2 py-1.5">Harga Perkiraan</th>
                                             <th className="text-right px-2 py-1.5">Harga COST</th>
                                             <th className="text-right px-2 py-1.5">Sub RAB</th>
                                             <th className="text-right px-2 py-1.5">Sub COST</th>
@@ -323,10 +441,17 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                             const subRab = qRab * r;
                                             const subCost = qCost * c;
                                             return (
-                                                <tr key={it.id ?? idx} className="hover:bg-muted/20">
+                                                <tr key={it.id ?? idx} className={it.isInventory ? "bg-violet-50/60 hover:bg-violet-100/60" : "hover:bg-muted/20"}>
                                                     <td className="px-2 py-1.5 text-muted-foreground">{it.category?.name ?? "—"}</td>
                                                     <td className="px-2 py-1.5">
-                                                        <div className="font-medium">{it.description}</div>
+                                                        <div className="font-medium inline-flex items-center gap-1.5">
+                                                            {it.isInventory && (
+                                                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-violet-200 text-violet-900 uppercase">
+                                                                    📦 Inventaris
+                                                                </span>
+                                                            )}
+                                                            <span>{it.description}</span>
+                                                        </div>
                                                         {it.unit && <span className="text-muted-foreground">{it.unit}</span>}
                                                     </td>
                                                     <td className="px-2 py-1.5 text-right font-mono">{qRab}</td>

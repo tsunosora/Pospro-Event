@@ -131,6 +131,9 @@ model ProductVariant {
   size                    String?   @db.VarChar(50)
   color                   String?   @db.VarChar(50)
   variantImageUrl         String?   @map("variant_image_url") @db.Text
+  description             String?   @db.Text                                  // Keterangan / spesifikasi varian (mis. "Bahan kayu jati, ukuran 60x60cm")
+  notes                   String?   @db.Text                                  // Catatan internal (mis. "Hanya untuk event premium")
+  defaultWarehouseId      Int?      @map("default_warehouse_id")              // Gudang tempat barang ini biasanya disimpan
   isRollMaterial          Boolean   @default(false) @map("is_roll_material")
   rollPhysicalWidth       Decimal?  @map("roll_physical_width") @db.Decimal(10, 2)
   rollEffectivePrintWidth Decimal?  @map("roll_effective_print_width") @db.Decimal(10, 2)
@@ -142,6 +145,7 @@ model ProductVariant {
   updatedAt               DateTime? @default(now()) @updatedAt @map("updated_at")
 
   product                 Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  defaultWarehouse        Warehouse?          @relation("VariantDefaultWarehouse", fields: [defaultWarehouseId], references: [id], onDelete: SetNull)
   batches                 Batch[]
   movements               StockMovement[]
   transactionItems        TransactionItem[]
@@ -163,6 +167,7 @@ model ProductVariant {
   withdrawalItems         WithdrawalItem[]
   packingItems            EventPackingItem[]
   promotedFromLooseItem   RabLooseItem?       @relation("LooseItemPromotedVariant")
+  inventoryAcquisitions   InventoryAcquisition[] @relation("VariantAcquisitions")
 
   @@map("product_variants")
 }
@@ -476,6 +481,13 @@ model Invoice {
   bankAccountIds    String?           @map("bank_account_ids") @db.VarChar(200) // CSV id bank yang dicantumkan di penawaran
   dpPercent         Decimal           @default(50) @map("dp_percent") @db.Decimal(5, 2)
   rabPlanId         Int?              @map("rab_plan_id")
+  brand             EventBrand?
+  signCity          String?           @map("sign_city") @db.VarChar(100) // Kota lokasi surat dibuat (mis. "Semarang"); kalau null pakai default dari brand address
+  variantCode       String?           @map("variant_code") @db.VarChar(50) // FK-style ke QuotationVariantConfig.code; kalau null fallback ke enum quotationVariant
+  signedByWorkerId  Int?              @map("signed_by_worker_id")          // Marketing/Sales yang menandatangani; kalau null pakai fallback director brand
+  invoicePart       String?           @map("invoice_part") @db.VarChar(20)  // "DP" | "PELUNASAN" | "FULL" — untuk dokumen tipe INVOICE
+  amountToPay       Decimal?          @map("amount_to_pay") @db.Decimal(15, 2) // Jumlah yang ditagihkan di invoice ini (mis. DP 50%); kalau null pakai total
+  itemDisplayMode   String?           @map("item_display_mode") @db.VarChar(30) // "detailed" (default) | "category-summary" — sembunyikan harga per item, hanya total per kategori
   createdAt     DateTime?     @default(now()) @map("created_at")
   updatedAt     DateTime?     @default(now()) @updatedAt @map("updated_at")
 
@@ -484,9 +496,12 @@ model Invoice {
   parent   Invoice?  @relation("QuotationRevisions", fields: [parentQuotationId], references: [id], onDelete: SetNull)
   children Invoice[] @relation("QuotationRevisions")
   rabPlan  RabPlan?  @relation("QuotationRabPlan", fields: [rabPlanId], references: [id], onDelete: SetNull)
+  signedByWorker Worker? @relation("InvoiceSignedByWorker", fields: [signedByWorkerId], references: [id], onDelete: SetNull)
 
   @@index([type, quotationVariant])
   @@index([parentQuotationId])
+  @@index([brand])
+  @@index([signedByWorkerId])
   @@map("invoices")
 }
 
@@ -499,6 +514,7 @@ model InvoiceItem {
   price            Decimal @db.Decimal(15, 2)
   orderIndex       Int     @default(0) @map("order_index")
   productVariantId Int?    @map("product_variant_id")
+  categoryName     String? @map("category_name") @db.VarChar(100) // snapshot kategori RAB untuk grouping di PDF
 
   invoice        Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
@@ -525,20 +541,22 @@ model RabCategory {
 }
 
 model RabPlan {
-  id          Int       @id @default(autoincrement())
-  code        String    @unique @db.VarChar(50)              // "RAB-2026-0037"
-  title       String    @db.VarChar(255)
-  projectName String?   @map("project_name") @db.VarChar(200)
-  location    String?   @db.VarChar(200)
-  periodStart DateTime? @map("period_start")
-  periodEnd   DateTime? @map("period_end")
-  customerId  Int?      @map("customer_id")
+  id          Int         @id @default(autoincrement())
+  code        String      @unique @db.VarChar(50)              // "RAB-2026-0037"
+  title       String      @db.VarChar(255)
+  projectName String?     @map("project_name") @db.VarChar(200)
+  location    String?     @db.VarChar(200)
+  periodStart DateTime?   @map("period_start")
+  periodEnd   DateTime?   @map("period_end")
+  customerId  Int?        @map("customer_id")
+  brand       EventBrand?
   // Pendapatan
   dpAmount    Decimal   @default(0) @map("dp_amount") @db.Decimal(15, 2)
   pelunasan   Decimal   @default(0) @db.Decimal(15, 2)
   incomeOther Decimal   @default(0) @map("income_other") @db.Decimal(15, 2)
   notes       String?   @db.Text
   imageUrl    String?   @map("image_url") @db.Text  // Foto sketsa/desain/referensi project (single image)
+  tags        String?   @db.Text  // JSON array of tag strings (e.g. ["Stand Standar 3x3", "Pengadaan"])
   createdAt   DateTime? @default(now()) @map("created_at")
   updatedAt   DateTime? @default(now()) @updatedAt @map("updated_at")
 
@@ -548,7 +566,9 @@ model RabPlan {
   generatedVariants ProductVariant[]  @relation("RabPlanGeneratedVariants")
   events            Event[]           @relation("EventRabPlan")
   cashflows         Cashflow[]
+  inventoryAcquisitions InventoryAcquisition[] @relation("RabPlanAcquisitions")
 
+  @@index([brand])
   @@map("rab_plans")
 }
 
@@ -566,14 +586,17 @@ model RabItem {
   productVariantId      Int?     @map("product_variant_id")
   sourcePackingItemId   Int?     @map("source_packing_item_id")
   notes                 String?  @db.Text
+  isInventory           Boolean  @default(false) @map("is_inventory") // tag: barang yang dibeli sebagai aset perusahaan (bukan murni cost event)
 
   rabPlan            RabPlan           @relation(fields: [rabPlanId], references: [id], onDelete: Cascade)
   category           RabCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   productVariant     ProductVariant?   @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
   sourcePackingItem  EventPackingItem? @relation("PackingSourcedRabItems", fields: [sourcePackingItemId], references: [id], onDelete: SetNull)
+  inventoryAcquisition InventoryAcquisition? @relation("RabItemAcquisition")
 
   @@index([rabPlanId, categoryId, orderIndex])
   @@index([sourcePackingItemId])
+  @@index([isInventory])
   @@map("rab_items")
 }
 
@@ -1091,6 +1114,8 @@ model Warehouse {
 
   withdrawals Withdrawal[]
   storageLocations StorageLocation[]
+  inventoryAcquisitions InventoryAcquisition[] @relation("WarehouseAcquisitions")
+  defaultForVariants ProductVariant[] @relation("VariantDefaultWarehouse")
 
   @@map("warehouses")
 }
@@ -1114,15 +1139,18 @@ model StorageLocation {
 }
 
 model Worker {
-  id        Int      @id @default(autoincrement())
-  name      String   @db.VarChar(100)
-  position  String?  @db.VarChar(100)
-  phone     String?  @db.VarChar(50)
-  photoUrl  String?  @map("photo_url") @db.Text
-  isActive  Boolean  @default(true) @map("is_active")
-  notes     String?  @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  id                 Int      @id @default(autoincrement())
+  name               String   @db.VarChar(100)                          // Nama panggilan / display (yang muncul di dropdown)
+  fullName           String?  @map("full_name") @db.VarChar(150)        // Nama lengkap (untuk audit/HR record, opsional)
+  position           String?  @db.VarChar(100)
+  phone              String?  @db.VarChar(50)
+  photoUrl           String?  @map("photo_url") @db.Text
+  signatureImageUrl  String?  @map("signature_image_url") @db.Text   // Tanda tangan untuk surat penawaran
+  stampImageUrl      String?  @map("stamp_image_url") @db.Text       // Stempel pribadi (optional, fallback ke brand stamp)
+  isActive           Boolean  @default(true) @map("is_active")
+  notes              String?  @db.Text
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
 
   withdrawals        Withdrawal[]
   eventsAsPic        Event[]              @relation("EventPic")
@@ -1132,6 +1160,7 @@ model Worker {
   leadActivities     LeadActivity[]
   crewAssignments    EventCrewAssignment[]
   leadingTeams       CrewTeam[]           @relation("TeamLeader")
+  signedQuotations   Invoice[]            @relation("InvoiceSignedByWorker")
 
   @@map("workers")
 }
@@ -1370,12 +1399,13 @@ model LeadLabel {
 }
 
 model Lead {
-  id                  Int        @id @default(autoincrement())
-  name                String?    @db.VarChar(150)
-  phone               String     @db.VarChar(50)
-  phoneNormalized     String     @map("phone_normalized") @db.VarChar(30)
-  organization        String?    @db.VarChar(200)
-  productCategory     String?    @map("product_category") @db.VarChar(100)
+  id                  Int         @id @default(autoincrement())
+  name                String?     @db.VarChar(150)
+  phone               String      @db.VarChar(50)
+  phoneNormalized     String      @map("phone_normalized") @db.VarChar(30)
+  organization        String?     @db.VarChar(200)
+  productCategory     String?     @map("product_category") @db.VarChar(100)
+  brand               EventBrand?
   level               LeadLevel?
   source              LeadSource @default(OTHER)
   sourceDetail        String?    @map("source_detail") @db.VarChar(150)
@@ -1412,6 +1442,7 @@ model Lead {
   @@index([leadCameAt])
   @@index([city])
   @@index([productCategory])
+  @@index([brand])
   @@map("leads")
 }
 
@@ -1440,4 +1471,83 @@ model LeadActivity {
 
   @@index([leadId, createdAt])
   @@map("lead_activities")
+}
+
+/// Profil per-brand untuk surat penawaran multi-tenant.
+/// Tidak menggantikan StoreSettings (yang tetap untuk global flags & fallback).
+model BrandSettings {
+  id                   Int        @id @default(autoincrement())
+  brand                EventBrand @unique
+  companyName          String     @map("company_name") @db.VarChar(200) // "CV. Exindo Pratama"
+  companyCode          String     @map("company_code") @db.VarChar(20)  // "Ep" / "Xp" — dipakai di nomor seri
+  directorName         String?    @map("director_name") @db.VarChar(150)
+  logoImageUrl         String?    @map("logo_image_url") @db.Text       // logo kecil di pojok
+  letterheadImageUrl   String?    @map("letterhead_image_url") @db.Text // kop surat full-page background image
+  stampImageUrl        String?    @map("stamp_image_url") @db.Text       // stempel default brand (fallback kalau worker tidak punya stempel pribadi)
+  address              String?    @db.Text
+  phone                String?    @db.VarChar(50)
+  email                String?    @db.VarChar(150)
+  npwp                 String?    @db.VarChar(50)
+  bankAccountIds       String?    @map("bank_account_ids") @db.VarChar(200) // CSV BankAccount.id default
+  letterheadFooter     String?    @map("letterhead_footer") @db.Text   // kept for backward-compat
+  quotationDisclaimer  String?    @map("quotation_disclaimer") @db.Text // "# Harga belum termasuk..."
+  quotationPaymentTerms String?   @map("quotation_payment_terms") @db.Text // "Sedangkan system pembayaran 50%..."
+  quotationClosing     String?    @map("quotation_closing") @db.Text   // "Demikian penawaran kerjasama kami..."
+  invoiceClosingText   String?    @map("invoice_closing_text") @db.Text // "Nb: Jika terjadi pembatalan..." khusus untuk invoice (bukan penawaran)
+  isActive             Boolean    @default(true) @map("is_active")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+
+  @@map("brand_settings")
+}
+
+/// Konfigurasi varian penawaran (CRUD-able). Dipakai sebagai sumber dropdown
+/// di /penawaran create form, juga menentukan template & format surat.
+/// Auto-seed 2 default (SEWA, PENGADAAN_BOOTH) saat pertama kali list.
+model QuotationVariantConfig {
+  id                  Int      @id @default(autoincrement())
+  code                String   @unique @db.VarChar(50)   // mis. "SEWA", "INTERIOR", "JASA_DESAIN"
+  label               String   @db.VarChar(150)          // mis. "Sewa Perlengkapan Event"
+  subject             String?  @db.VarChar(200)          // override subject surat — kalau null pakai label
+  templateKey         String   @default("pengadaan-booth") @map("template_key") @db.VarChar(50) // "sewa" | "pengadaan-booth"
+  defaultDpPercent    Decimal  @default(50) @map("default_dp_percent") @db.Decimal(5, 2)
+  color               String?  @db.VarChar(20)           // mis. "#c8203a" untuk badge
+  description         String?  @db.Text                  // hint untuk user di dropdown
+  orderIndex          Int      @default(0) @map("order_index")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("quotation_variant_configs")
+}
+
+/// Pengadaan inventaris dari RAB.
+/// Setiap RabItem dengan isInventory=true otomatis spawn 1 record ini saat RAB save.
+/// Admin bisa store ke stok (create stock movement + link ProductVariant) atau cancel.
+model InventoryAcquisition {
+  id                Int       @id @default(autoincrement())
+  rabPlanId         Int       @map("rab_plan_id")
+  rabItemId         Int       @unique @map("rab_item_id")  // 1:1 dengan RabItem
+  description       String    @db.VarChar(255)             // snapshot dari RabItem.description
+  quantity          Decimal   @db.Decimal(15, 4)
+  unit              String?   @db.VarChar(50)
+  unitCost          Decimal   @map("unit_cost") @db.Decimal(15, 2)
+  totalCost         Decimal   @map("total_cost") @db.Decimal(15, 2)
+  status            String    @default("PENDING") @db.VarChar(20) // PENDING | STORED | CANCELLED
+  productVariantId  Int?      @map("product_variant_id")          // kalau di-stok, link ke variant existing/new
+  warehouseId       Int?      @map("warehouse_id")                // gudang destination
+  storedAt          DateTime? @map("stored_at")
+  photoUrl          String?   @map("photo_url") @db.Text          // foto barang fisik untuk audit
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  rabPlan        RabPlan         @relation("RabPlanAcquisitions", fields: [rabPlanId], references: [id], onDelete: Cascade)
+  rabItem        RabItem         @relation("RabItemAcquisition", fields: [rabItemId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant? @relation("VariantAcquisitions", fields: [productVariantId], references: [id], onDelete: SetNull)
+  warehouse      Warehouse?      @relation("WarehouseAcquisitions", fields: [warehouseId], references: [id], onDelete: SetNull)
+
+  @@index([rabPlanId])
+  @@index([status])
+  @@map("inventory_acquisitions")
 }

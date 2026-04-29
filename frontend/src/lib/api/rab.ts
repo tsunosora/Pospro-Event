@@ -1,4 +1,5 @@
 import api from './client';
+import type { Brand } from './brands';
 
 export interface RabItemCategoryRef {
     id: number;
@@ -22,6 +23,7 @@ export interface RabItem {
     productVariantId?: number | null;
     notes?: string | null;
     saveAsLoose?: boolean;
+    isInventory?: boolean;
 }
 
 export interface RabPlan {
@@ -33,15 +35,27 @@ export interface RabPlan {
     periodStart: string | null;
     periodEnd: string | null;
     customerId: number | null;
+    brand: Brand | null;
     dpAmount: string;
     pelunasan: string;
     incomeOther: string;
     notes: string | null;
     imageUrl: string | null;
+    tags: string | null; // JSON-serialized string[]
     createdAt: string;
     updatedAt: string;
     items: RabItem[];
     customer?: { id: number; name: string; companyName: string | null } | null;
+}
+
+export function parseRabTags(raw: string | null | undefined): string[] {
+    if (!raw) return [];
+    try {
+        const v = JSON.parse(raw);
+        return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()) : [];
+    } catch {
+        return [];
+    }
 }
 
 export interface RabSummary {
@@ -58,7 +72,15 @@ export interface RabSummary {
         selisih: number;
         count: number;
     }>;
-    totals: { totalRab: number; totalCost: number; totalSelisih: number };
+    totals: {
+        totalRab: number;
+        totalCost: number;
+        totalSelisih: number;
+        costInventory: number;
+        costOperational: number;
+        operationalProfit: number;
+        inventoryCount: number;
+    };
     income: { dpAmount: number; pelunasan: number; incomeOther: number; totalIncome: number };
     saldo: number;
 }
@@ -70,12 +92,22 @@ export interface CreateRabInput {
     periodStart?: string;
     periodEnd?: string;
     customerId?: number | null;
+    brand?: Brand | null;
     dpAmount?: number;
     pelunasan?: number;
     incomeOther?: number;
     notes?: string;
+    tags?: string[];
     items?: RabItem[];
 }
+
+export interface RabTagSuggestion {
+    tag: string;
+    count: number;
+}
+
+export const getRabTags = async () =>
+    (await api.get<RabTagSuggestion[]>('/rab/tags')).data;
 
 export const getRabList = async () => (await api.get<RabPlan[]>('/rab')).data;
 

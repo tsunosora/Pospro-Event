@@ -11,10 +11,21 @@ const AdmZip = require('adm-zip');
 
 // ─── Grup filter yang bisa dipilih user ────────────────────────────────────
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
+//
+// CHANGELOG:
+// v2.6 (current) — Field-level additions otomatis ikut backup:
+//   - Worker.fullName (nama lengkap untuk audit)
+//   - ProductVariant.description, notes (keterangan & catatan varian)
+//   - ProductVariant.defaultWarehouseId (lokasi gudang utama varian)
+//   - RabPlan.tags (multi-tag untuk filter)
+//   - Lead.assignedWorkerId (marketing handler)
+// v2.5 — Tambah brandSettings, quotationVariantConfig, inventoryAcquisition
+// v2.4 — Initial multi-brand support
 export const BACKUP_GROUPS = {
     master: {
         label: 'Master Data',
-        tables: ['role', 'category', 'unit', 'storeSettings', 'bankAccount', 'branch'],
+        // brandSettings (multi-brand: Exindo, Xposer, dll) — branding & nomor seri per brand
+        tables: ['role', 'category', 'unit', 'storeSettings', 'bankAccount', 'branch', 'brandSettings'],
     },
     users: {
         label: 'Pengguna',
@@ -42,7 +53,8 @@ export const BACKUP_GROUPS = {
     },
     invoices: {
         label: 'Invoice & Penawaran',
-        tables: ['invoice', 'invoiceItem'],
+        // quotationVariantConfig: konfigurasi varian penawaran (SEWA, PENGADAAN_BOOTH, dll yang user-defined)
+        tables: ['quotationVariantConfig', 'invoice', 'invoiceItem'],
     },
     production: {
         label: 'Produksi',
@@ -74,7 +86,8 @@ export const BACKUP_GROUPS = {
     },
     rab: {
         label: 'RAB & Penomoran',
-        tables: ['rabCategory', 'rabPlan', 'rabItem', 'rabLooseItem', 'documentNumberCounter'],
+        // inventoryAcquisition: tracking item RAB ber-tag inventaris (snapshot saat dibeli)
+        tables: ['rabCategory', 'rabPlan', 'rabItem', 'rabLooseItem', 'inventoryAcquisition', 'documentNumberCounter'],
     },
     crm: {
         label: 'CRM / Pipeline Lead',
@@ -95,12 +108,14 @@ export type BackupGroupKey = keyof typeof BACKUP_GROUPS;
 // Urutan restore — penting untuk FK integrity
 const RESTORE_ORDER = [
     'role', 'storeSettings', 'bankAccount', 'category', 'unit', 'branch', 'competitor',
+    'brandSettings',                            // multi-brand config (independent, no FK ke tabel lain)
+    'quotationVariantConfig',                   // varian penawaran (SEWA/PENGADAAN_BOOTH dll) — sebelum invoice
     'user', 'customer', 'supplier',
     'worker', 'designer',                       // entitas orang yang dipakai di banyak tempat
     'warehouse', 'storageLocation',             // gudang sebelum lokasi penyimpanan
     'rabCategory', 'documentNumberCounter',     // master RAB & counter penomoran
     'leadStage', 'leadLabel',                   // master CRM (independent, sebelum lead)
-    'product', 'productVariant',
+    'product', 'productVariant',                // productVariant.defaultWarehouseId → setelah warehouse (✓)
     'rabLooseItem',                             // → setelah productVariant (FK promotedVariantId)
     'ingredient', 'variantIngredient', 'variantPriceTier',
     'batch', 'stockMovement', 'supplierItem',
@@ -112,13 +127,14 @@ const RESTORE_ORDER = [
     'cashflow', 'cashflowChangeRequest',        // cashflowChangeRequest → setelah cashflow & user
     'transactionEditRequest',                   // → setelah transaction & user
     'rabPlan',                                  // → setelah customer
-    'invoice', 'invoiceItem',
+    'invoice', 'invoiceItem',                   // → setelah quotationVariantConfig (FK variantCode)
     'event',                                    // → setelah customer & rabPlan
     'crewTeam',                                 // → setelah worker (FK leaderWorkerId optional)
     'eventCrewAssignment',                      // → setelah event, worker, crewTeam
     'eventPackingItem',                         // → setelah event, productVariant, storageLocation, worker
     'withdrawal', 'withdrawalItem',             // → setelah event, worker, warehouse, productVariant
     'rabItem',                                  // → setelah rabPlan, rabCategory, productVariant, eventPackingItem
+    'inventoryAcquisition',                     // → setelah rabPlan, rabItem, productVariant, warehouse
     'salesOrder', 'salesOrderItem', 'salesOrderProof',
     'productionBatch', 'productionJob',
     'stockOpnameSession', 'stockOpnameItem',
@@ -174,7 +190,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.4',
+                version: '2.6',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,

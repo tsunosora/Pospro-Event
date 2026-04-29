@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     getRabList,
@@ -19,6 +20,13 @@ import {
     TrendingUp, TrendingDown, Building2, Clock, CheckCircle2, PlayCircle, CalendarOff,
     LayoutGrid, List as ListIcon, Table as TableIcon,
 } from "lucide-react";
+import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
+import { BrandBadge } from "@/components/BrandBadge";
+import { CustomerPickerModal } from "@/components/CustomerPickerModal";
+import { getCustomer, type Customer } from "@/lib/api/customers";
+import { Users as UsersIcon, Tag as TagIcon } from "lucide-react";
+import { TagChipInput } from "@/components/TagChipInput";
+import { parseRabTags, getRabTags } from "@/lib/api/rab";
 
 type ViewMode = "card" | "list" | "details";
 const VIEW_MODE_KEY = "pospro:rab-list:viewMode";
@@ -196,12 +204,12 @@ function StatusTab({
         <button
             type="button"
             onClick={onClick}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border-2 text-sm font-semibold transition ${active ? activeMap[color] : idleMap[color]
+            className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full border-2 text-xs sm:text-sm font-semibold transition ${active ? activeMap[color] : idleMap[color]
                 }`}
         >
             <span>{label}</span>
             <span
-                className={`text-[11px] font-mono font-bold px-1.5 rounded-full ${active ? "bg-white/20" : "bg-slate-100 text-slate-700"
+                className={`text-[10px] sm:text-[11px] font-mono font-bold px-1 sm:px-1.5 rounded-full ${active ? "bg-white/20" : "bg-slate-100 text-slate-700"
                     }`}
             >
                 {count}
@@ -219,19 +227,122 @@ function fmtDate(s: string | null) {
     }
 }
 
+function RabTagFilterStrip({
+    rabs,
+    active,
+    onChange,
+}: {
+    rabs: RabPlan[];
+    active: string;
+    onChange: (t: string) => void;
+}) {
+    // Hitung freq dari semua tag di RAB
+    const tagCounts = useMemo(() => {
+        const counter = new Map<string, number>();
+        for (const r of rabs) {
+            for (const t of parseRabTags(r.tags)) {
+                counter.set(t, (counter.get(t) ?? 0) + 1);
+            }
+        }
+        return Array.from(counter.entries())
+            .map(([tag, count]) => ({ tag, count }))
+            .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+    }, [rabs]);
+
+    if (tagCounts.length === 0) return null;
+
+    return (
+        <div className="flex items-center gap-2 overflow-x-auto sm:flex-wrap whitespace-nowrap pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0 [scrollbar-width:thin]">
+            <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 shrink-0 w-[60px] sm:w-[64px]">🏷️ Tag</span>
+            <button
+                type="button"
+                onClick={() => onChange("")}
+                className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold rounded-full border-2 transition ${active === ""
+                    ? "bg-slate-700 text-white border-slate-700"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                    }`}
+            >
+                Semua
+            </button>
+            {tagCounts.map(({ tag, count }) => {
+                const isActive = active === tag;
+                return (
+                    <button
+                        key={tag}
+                        type="button"
+                        onClick={() => onChange(isActive ? "" : tag)}
+                        className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1.5 ${isActive
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-blue-700 border-blue-200 hover:border-blue-400"
+                            }`}
+                    >
+                        {tag}
+                        <span className={`text-[11px] font-mono px-1.5 rounded-full ${isActive ? "bg-white/30" : "bg-blue-50 text-blue-700"}`}>
+                            {count}
+                        </span>
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
 export default function RabListPage() {
+    return (
+        <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Memuat…</div>}>
+            <RabListPageInner />
+        </Suspense>
+    );
+}
+
+function RabListPageInner() {
+    const searchParams = useSearchParams();
+    const customerIdParam = searchParams.get("customerId");
+    const presetCustomerId = customerIdParam ? Number(customerIdParam) : null;
+
+    // Fetch customer dari URL param (untuk auto-buka create modal)
+    const { data: prefillCustomer } = useQuery({
+        queryKey: ["customer", presetCustomerId],
+        queryFn: () => getCustomer(presetCustomerId!),
+        enabled: !!presetCustomerId,
+    });
     const qc = useQueryClient();
     const [showCreate, setShowCreate] = useState(false);
-    const [form, setForm] = useState({
+    const [form, setForm] = useState<{
+        title: string;
+        projectName: string;
+        location: string;
+        periodStart: string;
+        periodEnd: string;
+        brand: Brand;
+        customer: Customer | null;
+        tags: string[];
+    }>({
         title: "",
         projectName: "",
         location: "",
         periodStart: "",
         periodEnd: "",
+        brand: "EXINDO",
+        customer: null,
+        tags: [],
     });
+    const [showCustomerPicker, setShowCustomerPicker] = useState(false);
+
+    // Saat ada ?customerId=X di URL → auto-buka create modal dengan customer prefilled
+    useEffect(() => {
+        if (prefillCustomer) {
+            setForm((f) => ({ ...f, customer: prefillCustomer }));
+            setShowCreate(true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [prefillCustomer]);
+
     const [downloadingId, setDownloadingId] = useState<number | null>(null);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<EventStatus | "ALL">("ALL");
+    const [brandFilter, setBrandFilter] = useState<Brand | "">("");
+    const [tagFilter, setTagFilter] = useState<string>("");
     const [viewMode, setViewMode] = useState<ViewMode>("card");
 
     // Persist viewMode di localStorage
@@ -262,7 +373,7 @@ export default function RabListPage() {
             toast.success(`RAB ${rab.code} berhasil dibuat`);
             qc.invalidateQueries({ queryKey: ["rab-list"] });
             setShowCreate(false);
-            setForm({ title: "", projectName: "", location: "", periodStart: "", periodEnd: "" });
+            setForm({ title: "", projectName: "", location: "", periodStart: "", periodEnd: "", brand: form.brand, customer: null, tags: [] });
             window.location.href = `/rab/${rab.id}`;
         },
         onError: (err: any) => toast.error(err?.response?.data?.message || "Gagal buat RAB"),
@@ -332,6 +443,10 @@ export default function RabListPage() {
         }
     };
 
+    const handleRemoveImage = (rab: RabPlan) => {
+        if (confirm(`Hapus foto RAB ${rab.code}?`)) removeImageMut.mutate(rab.id);
+    };
+
     const handleDownloadXlsx = async (rab: RabPlan) => {
         try {
             setDownloadingId(rab.id);
@@ -358,6 +473,9 @@ export default function RabListPage() {
             location: form.location.trim() || undefined,
             periodStart: form.periodStart || undefined,
             periodEnd: form.periodEnd || undefined,
+            brand: form.brand,
+            customerId: form.customer?.id ?? null,
+            tags: form.tags,
         });
     };
 
@@ -379,8 +497,16 @@ export default function RabListPage() {
         if (statusFilter !== "ALL") {
             list = list.filter((r) => getRabEventStatus(r) === statusFilter);
         }
+        if (brandFilter !== "") {
+            list = list.filter((r) => r.brand === brandFilter);
+        }
+        if (tagFilter) {
+            const tf = tagFilter.toLowerCase();
+            list = list.filter((r) => parseRabTags(r.tags).some((t) => t.toLowerCase() === tf));
+        }
         if (!q) return list;
         return list.filter((r) => {
+            const tagText = parseRabTags(r.tags).join(" ");
             const haystack = [
                 r.code,
                 r.title,
@@ -388,10 +514,11 @@ export default function RabListPage() {
                 r.location ?? "",
                 r.customer?.name ?? "",
                 r.customer?.companyName ?? "",
+                tagText,
             ].join(" ").toLowerCase();
             return haystack.includes(q);
         });
-    }, [rabs, search, statusFilter]);
+    }, [rabs, search, statusFilter, brandFilter, tagFilter]);
 
     const computeTotalRab = (rab: RabPlan) =>
         (rab.items ?? []).reduce((acc, it) => {
@@ -409,39 +536,39 @@ export default function RabListPage() {
         }, 0);
 
     return (
-        <div className="p-4 lg:p-6 max-w-7xl mx-auto">
-            {/* ─── Header — Lebih lega, bahasa sederhana ─── */}
-            <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
-                <div>
-                    <h1 className="text-3xl font-bold">📋 RAB — Anggaran Proyek</h1>
-                    <p className="text-base text-muted-foreground mt-1">
-                        Daftar perhitungan biaya untuk setiap proyek booth atau event.
+        <div className="p-3 sm:p-4 lg:p-6 max-w-7xl mx-auto">
+            {/* ─── Header — Mobile-first responsive ─── */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4 sm:mb-6">
+                <div className="min-w-0">
+                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">📋 RAB — Anggaran Proyek</h1>
+                    <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-0.5 sm:mt-1">
+                        Daftar perhitungan biaya tiap proyek booth/event.
                     </p>
                 </div>
                 <button
                     onClick={() => setShowCreate(true)}
-                    className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-3 rounded-lg hover:opacity-90 shadow-sm shrink-0 text-base font-semibold"
+                    className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 sm:px-5 sm:py-3 rounded-lg hover:opacity-90 shadow-sm w-full sm:w-auto shrink-0 text-sm sm:text-base font-semibold"
                 >
-                    <Plus className="h-5 w-5" />
+                    <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
                     Buat RAB Baru
                 </button>
             </div>
 
-            {/* ─── Search bar — input lebih besar ─── */}
-            <div className="mb-6 flex items-center gap-3 flex-wrap">
-                <div className="relative flex-1 min-w-[280px] max-w-xl">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+            {/* ─── Search bar ─── */}
+            <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3 flex-wrap">
+                <div className="relative flex-1 w-full sm:max-w-xl">
+                    <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground pointer-events-none" />
                     <input
                         type="search"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Cari RAB... (kode, judul, klien, atau lokasi)"
-                        className="w-full pl-12 pr-12 py-3 text-base rounded-lg border-2 border-border bg-background focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                        placeholder="Cari RAB... (kode, judul, klien, lokasi)"
+                        className="w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg border-2 border-border bg-background focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
                     />
                     {search && (
                         <button
                             onClick={() => setSearch("")}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-muted"
+                            className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-muted"
                             aria-label="Bersihkan pencarian"
                         >
                             <X className="h-4 w-4 text-muted-foreground" />
@@ -449,16 +576,64 @@ export default function RabListPage() {
                     )}
                 </div>
                 {search && (
-                    <span className="text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full">
-                        Ditemukan <strong>{filteredRabs.length}</strong> dari {rabs?.length ?? 0} RAB
+                    <span className="text-xs sm:text-sm text-muted-foreground bg-muted/50 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full">
+                        <strong>{filteredRabs.length}</strong>/{rabs?.length ?? 0} RAB
                     </span>
                 )}
             </div>
 
-            {/* ─── Filter Tab Status Event + View Mode Toggle ─── */}
-            <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-semibold text-slate-600 mr-1">Status:</span>
+            {/* ─── Panel Filter — Brand / Tag / Status digabung di 1 card ─── */}
+            <div className="mb-4 sm:mb-6 rounded-xl border border-slate-200 bg-slate-50/40 dark:bg-slate-900/20 dark:border-slate-800 p-2.5 sm:p-3 space-y-2">
+
+            {/* Brand row */}
+            <div className="flex items-center gap-2 overflow-x-auto sm:flex-wrap whitespace-nowrap pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0 [scrollbar-width:thin]">
+                <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 shrink-0 w-[60px] sm:w-[64px]">Brand</span>
+                <button
+                    type="button"
+                    onClick={() => setBrandFilter("")}
+                    className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold rounded-full border-2 transition ${brandFilter === ""
+                        ? "bg-slate-700 text-white border-slate-700"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                        }`}
+                >
+                    Semua
+                </button>
+                {ACTIVE_BRANDS.map((b) => {
+                    const meta = BRAND_META[b];
+                    const active = brandFilter === b;
+                    const count = (rabs ?? []).filter((r) => r.brand === b).length;
+                    return (
+                        <button
+                            key={b}
+                            type="button"
+                            onClick={() => setBrandFilter(b)}
+                            className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold rounded-full border-2 transition inline-flex items-center gap-1.5 ${active
+                                ? `${meta.bg} ${meta.text} ${meta.border}`
+                                : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                                }`}
+                        >
+                            <span>{meta.emoji}</span>
+                            {meta.short}
+                            <span className={`text-[11px] font-mono px-1.5 rounded-full ${active ? "bg-white/30" : "bg-slate-100"}`}>
+                                {count}
+                            </span>
+                        </button>
+                    );
+                })}
+                {(rabs ?? []).some((r) => !r.brand) && (
+                    <span className="text-xs text-amber-700 bg-amber-50 border border-amber-300 rounded-full px-2 py-0.5">
+                        ⚠ {(rabs ?? []).filter((r) => !r.brand).length} belum tag brand
+                    </span>
+                )}
+            </div>
+
+            {/* ─── Filter Tag (chip dari distinct tag) ─── */}
+            <RabTagFilterStrip rabs={rabs ?? []} active={tagFilter} onChange={setTagFilter} />
+
+            {/* ─── Filter Status Event + View Mode Toggle ─── */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                <div className="flex items-center gap-2 overflow-x-auto sm:flex-wrap whitespace-nowrap pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0 [scrollbar-width:thin] flex-1 min-w-0">
+                <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 shrink-0 w-[60px] sm:w-[64px]">Status</span>
                 <StatusTab
                     active={statusFilter === "ALL"}
                     onClick={() => setStatusFilter("ALL")}
@@ -499,7 +674,7 @@ export default function RabListPage() {
                 </div>
 
                 {/* View mode toggle (Card / List / Details) */}
-                <div className="inline-flex items-center gap-0.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <div className="inline-flex items-center gap-0.5 bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0 self-start sm:self-auto">
                     <ViewModeBtn
                         active={viewMode === "card"}
                         onClick={() => setViewMode("card")}
@@ -521,6 +696,8 @@ export default function RabListPage() {
                 </div>
             </div>
 
+            </div>{/* /Panel Filter */}
+
             <input
                 ref={fileInputRef}
                 type="file"
@@ -536,21 +713,21 @@ export default function RabListPage() {
                     <span className="text-sm">Memuat daftar RAB...</span>
                 </div>
             ) : !rabs || rabs.length === 0 ? (
-                <div className="border-2 border-dashed rounded-xl p-12 text-center">
-                    <div className="text-5xl mb-4">📋</div>
-                    <h3 className="text-xl font-semibold mb-2">Belum Ada RAB</h3>
-                    <p className="text-muted-foreground mb-4">
+                <div className="border-2 border-dashed rounded-xl p-6 sm:p-12 text-center">
+                    <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📋</div>
+                    <h3 className="text-lg sm:text-xl font-semibold mb-2">Belum Ada RAB</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
                         Klik tombol di atas untuk membuat RAB pertama Anda.
                     </p>
                     <button
                         onClick={() => setShowCreate(true)}
-                        className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg"
+                        className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm"
                     >
                         <Plus className="h-4 w-4" /> Buat RAB Pertama
                     </button>
                 </div>
             ) : filteredRabs.length === 0 ? (
-                <div className="border-2 border-dashed rounded-xl p-12 text-center">
+                <div className="border-2 border-dashed rounded-xl p-6 sm:p-12 text-center">
                     <Search className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
                     <h3 className="text-xl font-semibold mb-1">Tidak Ditemukan</h3>
                     <p className="text-muted-foreground">
@@ -569,6 +746,7 @@ export default function RabListPage() {
                     apiBase={apiBase}
                     onPreview={(id) => setPreviewId(id)}
                     onUpload={(id) => handleSelectImageFor(id)}
+                    onRemoveImage={handleRemoveImage}
                     onDuplicate={(id) => duplicateMut.mutate(id)}
                     onDelete={handleConfirmDelete}
                     onDownload={(rab) => handleDownloadXlsx(rab)}
@@ -581,6 +759,7 @@ export default function RabListPage() {
                 <RabDetailsView
                     rabs={filteredRabs}
                     onPreview={(id) => setPreviewId(id)}
+                    onRemoveImage={handleRemoveImage}
                     onDelete={handleConfirmDelete}
                     onDownload={(rab) => handleDownloadXlsx(rab)}
                     downloadingId={downloadingId}
@@ -595,6 +774,30 @@ export default function RabListPage() {
                         const selisih = totalRab - totalCost;
                         const margin = totalRab > 0 ? (selisih / totalRab) * 100 : 0;
                         const isUntung = selisih >= 0;
+                        // Pendapatan riil (DP + Pelunasan + Other) vs Cost = Saldo bersih
+                        const totalIncome =
+                            (parseFloat(rab.dpAmount as any) || 0) +
+                            (parseFloat(rab.pelunasan as any) || 0) +
+                            (parseFloat(rab.incomeOther as any) || 0);
+                        const saldoBersih = totalIncome - totalCost;
+                        const isSaldoUntung = saldoBersih >= 0;
+                        const saldoMargin = totalIncome > 0 ? (saldoBersih / totalIncome) * 100 : 0;
+                        // Status pembayaran (untuk konteks saldo bersih supaya minus gak salah dibaca)
+                        const dpVal = parseFloat(rab.dpAmount as any) || 0;
+                        const pelVal = parseFloat(rab.pelunasan as any) || 0;
+                        const otherVal = parseFloat(rab.incomeOther as any) || 0;
+                        const paymentStatus: { label: string; emoji: string; cls: string; hint: string } =
+                            totalIncome === 0
+                                ? { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-slate-100 text-slate-700 border-slate-300", hint: "Belum ada DP/pelunasan masuk" }
+                                : pelVal > 0 && dpVal > 0
+                                    ? { label: "Lunas (DP + Pelunasan)", emoji: "✅", cls: "bg-emerald-100 text-emerald-800 border-emerald-300", hint: "Sudah DP & pelunasan — saldo bersih = untung riil" }
+                                    : pelVal > 0
+                                        ? { label: "Lunas", emoji: "✅", cls: "bg-emerald-100 text-emerald-800 border-emerald-300", hint: "Pelunasan sudah masuk" }
+                                        : dpVal > 0
+                                            ? { label: "Baru DP — belum pelunasan", emoji: "🟡", cls: "bg-amber-100 text-amber-800 border-amber-300", hint: "Baru bayar DP. Saldo minus wajar — pelunasan belum masuk." }
+                                            : otherVal > 0
+                                                ? { label: "Income Lain saja", emoji: "ℹ️", cls: "bg-blue-100 text-blue-800 border-blue-300", hint: "Hanya ada income lain (bukan DP/pelunasan)" }
+                                                : { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-slate-100 text-slate-700 border-slate-300", hint: "Belum ada DP/pelunasan masuk" };
                         const eventStatus = getRabEventStatus(rab);
                         const statusMeta = STATUS_META[eventStatus];
                         const StatusIcon = statusMeta.icon;
@@ -609,9 +812,17 @@ export default function RabListPage() {
                                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${statusMeta.bar}`} />
                                 {/* Foto / Placeholder Foto */}
                                 {rab.imageUrl ? (
-                                    <button
+                                    <div
                                         onClick={() => setPreviewId(rab.id)}
-                                        className="relative aspect-[16/9] w-full bg-muted overflow-hidden hover:opacity-95 transition-opacity"
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" || e.key === " ") {
+                                                e.preventDefault();
+                                                setPreviewId(rab.id);
+                                            }
+                                        }}
+                                        className="relative aspect-[16/9] w-full bg-muted overflow-hidden hover:opacity-95 transition-opacity cursor-pointer group"
                                         title="Klik untuk lihat detail"
                                     >
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -620,16 +831,48 @@ export default function RabListPage() {
                                             alt={rab.title}
                                             className="w-full h-full object-cover"
                                         />
-                                        <span className="absolute top-2 left-2 bg-black/60 text-white text-xs font-mono px-2 py-1 rounded">
+                                        <span className="absolute top-2 left-2 bg-black/60 text-white text-xs font-mono px-2 py-1 rounded pointer-events-none">
                                             {rab.code}
                                         </span>
                                         <span
-                                            className={`absolute top-2 right-2 inline-flex items-center gap-1 ${statusMeta.bg} ${statusMeta.text} text-xs font-bold px-2.5 py-1 rounded-full border ${statusMeta.border} shadow-sm`}
+                                            className={`absolute top-2 right-2 inline-flex items-center gap-1 ${statusMeta.bg} ${statusMeta.text} text-xs font-bold px-2.5 py-1 rounded-full border ${statusMeta.border} shadow-sm pointer-events-none`}
                                         >
                                             <StatusIcon className="h-3.5 w-3.5" />
                                             {statusMeta.short}
                                         </span>
-                                    </button>
+                                        {/* Tombol Hapus Foto — overlay yang muncul saat hover */}
+                                        <div className="absolute inset-x-0 bottom-0 p-2 flex justify-end gap-2 bg-gradient-to-t from-black/60 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleSelectImageFor(rab.id);
+                                                }}
+                                                disabled={uploadingId === rab.id}
+                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white/90 text-slate-800 text-xs font-semibold hover:bg-white shadow-sm disabled:opacity-50"
+                                                title="Ganti foto"
+                                            >
+                                                {uploadingId === rab.id ? (
+                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                ) : (
+                                                    <ImageIcon className="h-3 w-3" />
+                                                )}
+                                                Ganti
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleRemoveImage(rab);
+                                                }}
+                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-600/90 text-white text-xs font-semibold hover:bg-red-700 shadow-sm"
+                                                title="Hapus foto"
+                                            >
+                                                <ImageOff className="h-3 w-3" />
+                                                Hapus Foto
+                                            </button>
+                                        </div>
+                                    </div>
                                 ) : (
                                     <button
                                         onClick={() => handleSelectImageFor(rab.id)}
@@ -658,10 +901,13 @@ export default function RabListPage() {
                                 )}
 
                                 {/* Body */}
-                                <div className="p-4 flex-1 flex flex-col">
+                                <div className="p-3 sm:p-4 flex-1 flex flex-col">
                                     {/* Judul + Untung/Rugi badge */}
                                     <div className="mb-3">
-                                        <h2 className="text-lg font-bold text-foreground leading-tight">
+                                        <div className="mb-1">
+                                            <BrandBadge brand={rab.brand} size="xs" />
+                                        </div>
+                                        <h2 className="text-base sm:text-lg font-bold text-foreground leading-tight break-words">
                                             {rab.title}
                                         </h2>
                                         {rab.projectName && (
@@ -675,45 +921,99 @@ export default function RabListPage() {
                                         )}
                                     </div>
 
-                                    {/* Untung/Rugi banner — paling visible */}
-                                    <div
-                                        className={`rounded-lg p-3 mb-3 border-2 ${
-                                            isUntung
-                                                ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800"
-                                                : "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800"
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2">
+                                    {/* Dua banner berdampingan: Selisih RAB (proyeksi) vs Saldo Bersih (riil dari pendapatan masuk) */}
+                                    <div className="grid grid-cols-2 gap-2 mb-3">
+                                        {/* Banner 1 — Margin proyeksi (RAB − Cost) */}
+                                        <div
+                                            className={`rounded-lg p-2.5 border-2 ${
+                                                isUntung
+                                                    ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800"
+                                                    : "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800"
+                                            }`}
+                                            title="Margin proyeksi: Total Perkiraan Biaya (RAB) − Total COST"
+                                        >
+                                            <div className="flex items-center gap-1 mb-1">
                                                 {isUntung ? (
-                                                    <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                                    <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                                                 ) : (
-                                                    <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+                                                    <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
                                                 )}
-                                                <span
-                                                    className={`text-sm font-semibold ${
-                                                        isUntung ? "text-green-800 dark:text-green-300" : "text-red-800 dark:text-red-300"
-                                                    }`}
-                                                >
-                                                    {isUntung ? "Untung" : "Rugi"}
+                                                <span className={`text-[11px] font-semibold uppercase tracking-wide ${
+                                                    isUntung ? "text-green-800 dark:text-green-300" : "text-red-800 dark:text-red-300"
+                                                }`}>
+                                                    Selisih RAB
                                                 </span>
                                             </div>
-                                            <div className="text-right">
-                                                <div
-                                                    className={`text-lg font-bold font-mono ${
-                                                        isUntung ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"
-                                                    }`}
-                                                >
-                                                    {fmtRp(Math.abs(selisih))}
-                                                </div>
-                                                <div
-                                                    className={`text-xs ${
-                                                        isUntung ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                                                    }`}
-                                                >
-                                                    {totalRab > 0 ? `${margin.toFixed(0)}% margin` : ""}
-                                                </div>
+                                            <div className={`text-sm sm:text-base font-bold font-mono leading-tight break-all ${
+                                                isUntung ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"
+                                            }`}>
+                                                {isUntung ? "+" : "−"}{fmtRp(Math.abs(selisih))}
                                             </div>
+                                            <div className={`text-[10px] mt-0.5 ${
+                                                isUntung ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                            }`}>
+                                                {totalRab > 0 ? `${margin.toFixed(0)}% margin proyeksi` : "—"}
+                                            </div>
+                                        </div>
+
+                                        {/* Banner 2 — Saldo Bersih (Pendapatan riil − Cost) */}
+                                        <div
+                                            className={`rounded-lg p-2.5 border-2 ${
+                                                totalIncome === 0
+                                                    ? "bg-slate-50 border-slate-200 dark:bg-slate-900/20 dark:border-slate-700"
+                                                    : isSaldoUntung
+                                                        ? "bg-emerald-50 border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-700"
+                                                        : "bg-amber-50 border-amber-300 dark:bg-amber-950/20 dark:border-amber-700"
+                                            }`}
+                                            title="Saldo bersih riil: Pendapatan masuk (DP + Pelunasan + Lain) − Total COST. Jika baru DP, bisa minus karena cost belum tertutup."
+                                        >
+                                            <div className="flex items-center gap-1 mb-1">
+                                                <span className="text-sm">💰</span>
+                                                <span className={`text-[11px] font-semibold uppercase tracking-wide ${
+                                                    totalIncome === 0
+                                                        ? "text-slate-600 dark:text-slate-400"
+                                                        : isSaldoUntung
+                                                            ? "text-emerald-800 dark:text-emerald-300"
+                                                            : "text-amber-800 dark:text-amber-300"
+                                                }`}>
+                                                    Saldo Bersih
+                                                </span>
+                                            </div>
+                                            {totalIncome === 0 ? (
+                                                <>
+                                                    <div className="text-base font-bold font-mono leading-tight text-slate-500 dark:text-slate-400">
+                                                        —
+                                                    </div>
+                                                    <div className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${paymentStatus.cls}`} title={paymentStatus.hint}>
+                                                        {paymentStatus.emoji} {paymentStatus.label}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className={`text-sm sm:text-base font-bold font-mono leading-tight break-all ${
+                                                        isSaldoUntung
+                                                            ? "text-emerald-700 dark:text-emerald-300"
+                                                            : "text-amber-700 dark:text-amber-300"
+                                                    }`}>
+                                                        {isSaldoUntung ? "+" : "−"}{fmtRp(Math.abs(saldoBersih))}
+                                                    </div>
+                                                    <div className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${paymentStatus.cls}`} title={paymentStatus.hint}>
+                                                        {paymentStatus.emoji} {paymentStatus.label}
+                                                    </div>
+                                                    <div className={`text-[10px] mt-1 ${
+                                                        isSaldoUntung
+                                                            ? "text-emerald-600 dark:text-emerald-400"
+                                                            : "text-amber-700 dark:text-amber-400"
+                                                    }`}>
+                                                        Income {fmtRp(totalIncome)}
+                                                        {pelVal === 0 && dpVal > 0 && (
+                                                            <span className="block italic mt-0.5 text-amber-600">
+                                                                ⚠ Minus karena pelunasan belum diterima
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
 
@@ -739,6 +1039,22 @@ export default function RabListPage() {
                                                 <span className="truncate">{rab.location}</span>
                                             </div>
                                         )}
+                                        {/* Tags — di atas Waktu Event */}
+                                        {parseRabTags(rab.tags).length > 0 && (
+                                            <div className="flex flex-wrap items-center gap-1">
+                                                {parseRabTags(rab.tags).map((t, i) => (
+                                                    <button
+                                                        key={`${t}-${i}`}
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setTagFilter(t); }}
+                                                        title={`Filter RAB dengan tag "${t}"`}
+                                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200 transition"
+                                                    >
+                                                        🏷️ {t}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                         {(rab.periodStart || rab.periodEnd) && (
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -755,7 +1071,7 @@ export default function RabListPage() {
                                     {/* Rincian harga — vertical list, mudah dibaca */}
                                     <div className="bg-muted/30 rounded-lg p-3 mb-4 space-y-1.5 text-sm">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-muted-foreground">Harga ke Klien</span>
+                                            <span className="text-muted-foreground">Harga Perkiraan</span>
                                             <span className="font-mono font-semibold">{fmtRp(totalRab)}</span>
                                         </div>
                                         <div className="flex items-center justify-between">
@@ -800,13 +1116,13 @@ export default function RabListPage() {
                                         </button>
                                     </div>
 
-                                    {/* Aksi tambahan — lebih kecil, di-grup */}
-                                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
-                                        <div className="flex items-center gap-1">
+                                    {/* Aksi tambahan — label hidden di mobile sangat kecil, tampil di sm+ */}
+                                    <div className="flex items-center justify-between gap-1 pt-2 border-t border-border/50 flex-wrap">
+                                        <div className="flex items-center gap-0.5 sm:gap-1">
                                             <button
                                                 onClick={() => handleSelectImageFor(rab.id)}
                                                 disabled={uploadingId === rab.id}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
+                                                className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
                                                 title={rab.imageUrl ? "Ganti foto" : "Upload foto"}
                                             >
                                                 {uploadingId === rab.id ? (
@@ -814,28 +1130,28 @@ export default function RabListPage() {
                                                 ) : (
                                                     <ImageIcon className="h-3 w-3" />
                                                 )}
-                                                <span>{rab.imageUrl ? "Ganti Foto" : "Upload Foto"}</span>
+                                                <span className="hidden xs:inline sm:inline">{rab.imageUrl ? "Ganti" : "Foto"}</span>
                                             </button>
                                             {rab.imageUrl && (
                                                 <button
-                                                    onClick={() => {
-                                                        if (confirm(`Hapus foto RAB ${rab.code}?`)) removeImageMut.mutate(rab.id);
-                                                    }}
-                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                                    onClick={() => handleRemoveImage(rab)}
+                                                    disabled={removeImageMut.isPending}
+                                                    className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
                                                     title="Hapus foto"
                                                 >
                                                     <ImageOff className="h-3 w-3" />
+                                                    <span className="hidden sm:inline">Hapus Foto</span>
                                                 </button>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-1">
+                                        <div className="flex items-center gap-0.5 sm:gap-1">
                                             <button
                                                 onClick={() => duplicateMut.mutate(rab.id)}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                                className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                                 title="Salin RAB ini sebagai RAB baru"
                                             >
                                                 <Copy className="h-3 w-3" />
-                                                <span>Salin</span>
+                                                <span className="hidden xs:inline sm:inline">Salin</span>
                                             </button>
                                             <button
                                                 onClick={() => {
@@ -843,11 +1159,11 @@ export default function RabListPage() {
                                                         deleteMut.mutate(rab.id);
                                                     }
                                                 }}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                                className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                                                 title="Hapus RAB"
                                             >
                                                 <Trash2 className="h-3 w-3" />
-                                                <span>Hapus</span>
+                                                <span className="hidden xs:inline sm:inline">Hapus</span>
                                             </button>
                                         </div>
                                     </div>
@@ -861,19 +1177,47 @@ export default function RabListPage() {
             {/* ─── Modal Buat RAB Baru — input lebih besar, label lebih jelas ─── */}
             {showCreate && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
                     onClick={() => setShowCreate(false)}
                 >
                     <form
                         onSubmit={handleSubmit}
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-background rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4"
+                        className="bg-background rounded-t-xl sm:rounded-xl shadow-2xl w-full max-w-md p-4 sm:p-6 space-y-3 sm:space-y-4 max-h-[90vh] sm:max-h-[85vh] overflow-y-auto"
                     >
                         <div>
                             <h2 className="text-xl font-bold">Buat RAB Baru</h2>
                             <p className="text-sm text-muted-foreground mt-1">
                                 Isi info dasar dulu — detail item bisa diisi nanti.
                             </p>
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-semibold block mb-1.5">
+                                Brand / Perusahaan <span className="text-red-500">*</span>
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {ACTIVE_BRANDS.map((b) => {
+                                    const meta = BRAND_META[b];
+                                    const active = form.brand === b;
+                                    return (
+                                        <button
+                                            key={b}
+                                            type="button"
+                                            onClick={() => setForm({ ...form, brand: b })}
+                                            className={`p-3 rounded-lg border-2 transition flex items-center gap-2 ${active
+                                                ? `${meta.bg} ${meta.border}`
+                                                : "bg-white border-slate-200 hover:border-slate-300"
+                                                }`}
+                                        >
+                                            <span className="text-2xl">{meta.emoji}</span>
+                                            <span className={`text-sm font-bold ${active ? meta.text : "text-slate-700"}`}>
+                                                {meta.short}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
 
                         <div>
@@ -893,7 +1237,7 @@ export default function RabListPage() {
 
                         <div>
                             <label className="text-sm font-semibold block mb-1.5">
-                                Nama Klien / Project
+                                Nama Project
                                 <span className="text-xs font-normal text-muted-foreground ml-1">(opsional)</span>
                             </label>
                             <input
@@ -901,8 +1245,56 @@ export default function RabListPage() {
                                 value={form.projectName}
                                 onChange={(e) => setForm({ ...form, projectName: e.target.value })}
                                 className="w-full border-2 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
-                                placeholder="PT JAPURA, dll"
+                                placeholder="Pameran Inacraft, dll"
                             />
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-semibold block mb-1.5">
+                                Klien / Pelanggan
+                                <span className="text-xs font-normal text-muted-foreground ml-1">(opsional, bisa diisi nanti)</span>
+                            </label>
+                            {form.customer ? (
+                                <div className="border-2 border-primary/40 bg-primary/5 rounded-lg p-3 flex items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5 text-sm font-semibold">
+                                            <UsersIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+                                            <span className="truncate">{form.customer.companyName || form.customer.name}</span>
+                                        </div>
+                                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                                            {form.customer.companyName && form.customer.name && <span>{form.customer.name}</span>}
+                                            {form.customer.companyPIC && <span> · PIC {form.customer.companyPIC}</span>}
+                                            {form.customer.phone && <span> · {form.customer.phone}</span>}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCustomerPicker(true)}
+                                            className="text-xs px-2 py-1 rounded border hover:bg-muted"
+                                        >
+                                            Ganti
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setForm({ ...form, customer: null })}
+                                            className="p-1 hover:bg-red-50 text-red-600 rounded"
+                                            title="Hapus pilihan"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCustomerPicker(true)}
+                                    className="w-full border-2 border-dashed rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:border-primary/50 hover:bg-primary/5 hover:text-primary inline-flex items-center justify-center gap-2 transition"
+                                >
+                                    <UsersIcon className="h-4 w-4" />
+                                    Pilih dari database / Tambah klien baru
+                                </button>
+                            )}
                         </div>
 
                         <div>
@@ -917,6 +1309,22 @@ export default function RabListPage() {
                                 className="w-full border-2 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
                                 placeholder="JIExpo Kemayoran, ICE BSD, dll"
                             />
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-semibold block mb-1.5 inline-flex items-center gap-1.5">
+                                <TagIcon className="h-3.5 w-3.5" />
+                                Tag / Kategori
+                                <span className="text-xs font-normal text-muted-foreground">(memudahkan pencarian)</span>
+                            </label>
+                            <TagChipInput
+                                value={form.tags}
+                                onChange={(tags) => setForm({ ...form, tags })}
+                                placeholder="Mis. Stand Standar 3x3, Pengadaan, Indoor…"
+                            />
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                                💡 Bisa pilih dari preset atau ketik baru. Tag dipakai untuk filter di daftar RAB.
+                            </p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -960,6 +1368,17 @@ export default function RabListPage() {
                 </div>
             )}
 
+            {/* Customer picker overlay (di atas modal create RAB) */}
+            {showCustomerPicker && (
+                <CustomerPickerModal
+                    onClose={() => setShowCustomerPicker(false)}
+                    onPick={(c) => {
+                        setForm((f) => ({ ...f, customer: c }));
+                        setShowCustomerPicker(false);
+                    }}
+                />
+            )}
+
             {/* Preview Modal */}
             {previewId !== null && (
                 <RabPreviewModal rabId={previewId} onClose={() => setPreviewId(null)} />
@@ -978,6 +1397,7 @@ interface ListViewProps {
     apiBase: string;
     onPreview: (id: number) => void;
     onUpload: (id: number) => void;
+    onRemoveImage: (rab: RabPlan) => void;
     onDuplicate: (id: number) => void;
     onDelete: (rab: RabPlan) => void;
     onDownload: (rab: RabPlan) => void;
@@ -992,6 +1412,7 @@ function RabListView({
     apiBase,
     onPreview,
     onUpload,
+    onRemoveImage,
     onDuplicate,
     onDelete,
     onDownload,
@@ -1011,6 +1432,20 @@ function RabListView({
                 const meta = STATUS_META[status];
                 const StatusIcon = meta.icon;
                 const days = daysFrom(rab, status);
+                const tags = parseRabTags(rab.tags);
+                // Saldo bersih (income riil - cost)
+                const totalIncome =
+                    (parseFloat(rab.dpAmount as any) || 0) +
+                    (parseFloat(rab.pelunasan as any) || 0) +
+                    (parseFloat(rab.incomeOther as any) || 0);
+                const saldoBersih = totalIncome - totalCost;
+                const dpV = parseFloat(rab.dpAmount as any) || 0;
+                const pelV = parseFloat(rab.pelunasan as any) || 0;
+                const payStatus =
+                    totalIncome === 0 ? { label: "Belum bayar", cls: "bg-slate-100 text-slate-600 border-slate-300" }
+                        : pelV > 0 ? { label: "Lunas", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" }
+                        : dpV > 0 ? { label: "Baru DP", cls: "bg-amber-100 text-amber-700 border-amber-300" }
+                        : { label: "Income lain", cls: "bg-blue-100 text-blue-700 border-blue-300" };
 
                 return (
                     <div
@@ -1041,6 +1476,7 @@ function RabListView({
                         <div className="flex-1 min-w-0 py-2.5 px-1 flex flex-col justify-center">
                             <div className="flex items-center gap-2 flex-wrap mb-0.5">
                                 <span className="font-mono text-xs text-muted-foreground">{rab.code}</span>
+                                <BrandBadge brand={rab.brand} size="xs" />
                                 <span
                                     className={`inline-flex items-center gap-1 ${meta.bg} ${meta.text} text-[10px] font-bold px-2 py-0.5 rounded-full border ${meta.border}`}
                                 >
@@ -1052,6 +1488,21 @@ function RabListView({
                                 )}
                             </div>
                             <h3 className="font-semibold text-base truncate">{rab.title}</h3>
+                            {tags.length > 0 && (
+                                <div className="flex flex-wrap items-center gap-1 mt-1">
+                                    {tags.slice(0, 4).map((t) => (
+                                        <span
+                                            key={t}
+                                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                                        >
+                                            🏷️ {t}
+                                        </span>
+                                    ))}
+                                    {tags.length > 4 && (
+                                        <span className="text-[10px] text-muted-foreground">+{tags.length - 4}</span>
+                                    )}
+                                </div>
+                            )}
                             <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
                                 {rab.customer && (
                                     <span className="inline-flex items-center gap-1 truncate">
@@ -1083,20 +1534,31 @@ function RabListView({
                             <div className="font-mono">{fmtRp(totalCost)}</div>
                         </div>
 
-                        {/* Untung/Rugi badge */}
-                        <div className="hidden sm:flex flex-col justify-center items-end px-3 min-w-[120px]">
-                            <div
-                                className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${isUntung
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : "bg-red-100 text-red-700"
-                                    }`}
-                            >
-                                {isUntung ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                                {isUntung ? "Untung" : "Rugi"}
+                        {/* Selisih + Saldo Bersih + Payment Status */}
+                        <div className="hidden sm:flex flex-col justify-center items-end px-3 min-w-[160px] gap-1">
+                            <div className="flex items-center gap-1.5">
+                                <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded ${isUntung ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                                    {isUntung ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                                    Selisih
+                                </span>
+                                <span className={`font-mono font-semibold text-xs ${isUntung ? "text-emerald-700" : "text-red-700"}`}>
+                                    {isUntung ? "+" : "−"}{fmtRp(Math.abs(selisih))}
+                                </span>
                             </div>
-                            <div className="font-mono font-semibold text-sm mt-0.5">
-                                {fmtRp(Math.abs(selisih))}
+                            <div className="flex items-center gap-1.5" title="Saldo Bersih: pendapatan riil masuk − total cost">
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                                    💰 Saldo
+                                </span>
+                                <span className={`font-mono text-xs ${
+                                    totalIncome === 0 ? "text-slate-400"
+                                        : saldoBersih >= 0 ? "text-emerald-700" : "text-amber-700"
+                                }`}>
+                                    {totalIncome === 0 ? "—" : `${saldoBersih >= 0 ? "+" : "−"}${fmtRp(Math.abs(saldoBersih))}`}
+                                </span>
                             </div>
+                            <span className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded border ${payStatus.cls}`}>
+                                {payStatus.label}
+                            </span>
                         </div>
 
                         {/* Action icons */}
@@ -1131,7 +1593,7 @@ function RabListView({
                                 onClick={() => onUpload(rab.id)}
                                 disabled={uploadingId === rab.id}
                                 className="p-2 rounded-md hover:bg-muted text-muted-foreground disabled:opacity-50 hidden md:inline-flex"
-                                title="Upload foto"
+                                title={rab.imageUrl ? "Ganti foto" : "Upload foto"}
                             >
                                 {uploadingId === rab.id ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1139,6 +1601,15 @@ function RabListView({
                                     <ImageIcon className="h-4 w-4" />
                                 )}
                             </button>
+                            {rab.imageUrl && (
+                                <button
+                                    onClick={() => onRemoveImage(rab)}
+                                    className="p-2 rounded-md hover:bg-red-50 text-red-500 hidden md:inline-flex"
+                                    title="Hapus foto"
+                                >
+                                    <ImageOff className="h-4 w-4" />
+                                </button>
+                            )}
                             <button
                                 onClick={() => onDuplicate(rab.id)}
                                 className="p-2 rounded-md hover:bg-muted text-muted-foreground hidden md:inline-flex"
@@ -1166,12 +1637,13 @@ function RabListView({
  * Cocok untuk audit cepat & bandingkan banyak RAB.
  * ══════════════════════════════════════════════════════════════════════ */
 
-type SortKey = "code" | "title" | "customer" | "period" | "status" | "totalRab" | "totalCost" | "selisih";
+type SortKey = "code" | "title" | "customer" | "period" | "status" | "totalRab" | "totalCost" | "selisih" | "saldo";
 type SortDir = "asc" | "desc";
 
 interface DetailsViewProps {
     rabs: RabPlan[];
     onPreview: (id: number) => void;
+    onRemoveImage: (rab: RabPlan) => void;
     onDelete: (rab: RabPlan) => void;
     onDownload: (rab: RabPlan) => void;
     downloadingId: number | null;
@@ -1182,6 +1654,7 @@ interface DetailsViewProps {
 function RabDetailsView({
     rabs,
     onPreview,
+    onRemoveImage,
     onDelete,
     onDownload,
     downloadingId,
@@ -1221,6 +1694,13 @@ function RabDetailsView({
                     const sb = computeTotalRab(b) - computeTotalCost(b);
                     return (sa - sb) * dir;
                 }
+                case "saldo": {
+                    const incA = (parseFloat(a.dpAmount as any) || 0) + (parseFloat(a.pelunasan as any) || 0) + (parseFloat(a.incomeOther as any) || 0);
+                    const incB = (parseFloat(b.dpAmount as any) || 0) + (parseFloat(b.pelunasan as any) || 0) + (parseFloat(b.incomeOther as any) || 0);
+                    const sa = incA - computeTotalCost(a);
+                    const sb = incB - computeTotalCost(b);
+                    return (sa - sb) * dir;
+                }
             }
         });
         return copy;
@@ -1247,9 +1727,11 @@ function RabDetailsView({
                             <Th onClick={() => toggleSort("code")}>
                                 Kode<SortIndicator k="code" />
                             </Th>
+                            <th className="px-3 py-2.5 text-left font-semibold">Brand</th>
                             <Th onClick={() => toggleSort("title")}>
                                 Judul<SortIndicator k="title" />
                             </Th>
+                            <th className="px-3 py-2.5 text-left font-semibold">Tag</th>
                             <Th onClick={() => toggleSort("customer")}>
                                 Klien<SortIndicator k="customer" />
                             </Th>
@@ -1266,7 +1748,10 @@ function RabDetailsView({
                                 Total Cost<SortIndicator k="totalCost" />
                             </Th>
                             <Th onClick={() => toggleSort("selisih")} align="right">
-                                Margin<SortIndicator k="selisih" />
+                                Selisih<SortIndicator k="selisih" />
+                            </Th>
+                            <Th onClick={() => toggleSort("saldo")} align="right">
+                                Saldo Bersih<SortIndicator k="saldo" />
                             </Th>
                             <th className="px-3 py-2.5 text-center w-[120px]">Aksi</th>
                         </tr>
@@ -1280,12 +1765,23 @@ function RabDetailsView({
                             const status = getRabEventStatus(rab);
                             const meta = STATUS_META[status];
                             const StatusIcon = meta.icon;
+                            const rowTags = parseRabTags(rab.tags);
+                            const rowIncome = (parseFloat(rab.dpAmount as any) || 0) + (parseFloat(rab.pelunasan as any) || 0) + (parseFloat(rab.incomeOther as any) || 0);
+                            const rowSaldo = rowIncome - totalCost;
+                            const rowDp = parseFloat(rab.dpAmount as any) || 0;
+                            const rowPel = parseFloat(rab.pelunasan as any) || 0;
+                            const payLabel =
+                                rowIncome === 0 ? null
+                                    : rowPel > 0 ? "Lunas"
+                                    : rowDp > 0 ? "Baru DP"
+                                    : "Lain";
                             return (
                                 <tr
                                     key={rab.id}
                                     className="border-t border-slate-100 hover:bg-blue-50/30"
                                 >
                                     <td className="px-3 py-2.5 font-mono text-xs text-slate-500">{rab.code}</td>
+                                    <td className="px-3 py-2.5"><BrandBadge brand={rab.brand} size="xs" /></td>
                                     <td className="px-3 py-2.5 max-w-[280px]">
                                         <Link
                                             href={`/rab/${rab.id}`}
@@ -1298,6 +1794,22 @@ function RabDetailsView({
                                                 <MapPin className="h-3 w-3 inline mr-0.5" />
                                                 {rab.location}
                                             </span>
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-2.5 max-w-[180px]">
+                                        {rowTags.length === 0 ? (
+                                            <span className="text-muted-foreground italic text-xs">—</span>
+                                        ) : (
+                                            <div className="flex flex-wrap gap-0.5">
+                                                {rowTags.slice(0, 3).map((t) => (
+                                                    <span key={t} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                                        {t}
+                                                    </span>
+                                                ))}
+                                                {rowTags.length > 3 && (
+                                                    <span className="text-[10px] text-muted-foreground self-center">+{rowTags.length - 3}</span>
+                                                )}
+                                            </div>
                                         )}
                                     </td>
                                     <td className="px-3 py-2.5 text-xs">
@@ -1348,6 +1860,26 @@ function RabDetailsView({
                                         {isUntung ? "+" : "−"}
                                         {fmtRp(Math.abs(selisih))}
                                     </td>
+                                    <td className="px-3 py-2.5 text-right">
+                                        {rowIncome === 0 ? (
+                                            <div className="text-xs text-muted-foreground italic">Belum bayar</div>
+                                        ) : (
+                                            <>
+                                                <div className={`font-mono text-xs font-bold ${rowSaldo >= 0 ? "text-emerald-700" : "text-amber-700"}`}>
+                                                    {rowSaldo >= 0 ? "+" : "−"}{fmtRp(Math.abs(rowSaldo))}
+                                                </div>
+                                                {payLabel && (
+                                                    <div className={`text-[9px] font-semibold mt-0.5 ${
+                                                        payLabel === "Lunas" ? "text-emerald-600"
+                                                            : payLabel === "Baru DP" ? "text-amber-600"
+                                                            : "text-blue-600"
+                                                    }`}>
+                                                        {payLabel === "Lunas" ? "✅" : payLabel === "Baru DP" ? "🟡" : "ℹ️"} {payLabel}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </td>
                                     <td className="px-3 py-2.5">
                                         <div className="flex items-center justify-center gap-0.5">
                                             <button
@@ -1376,10 +1908,19 @@ function RabDetailsView({
                                                     <FileSpreadsheet className="h-3.5 w-3.5" />
                                                 )}
                                             </button>
+                                            {rab.imageUrl && (
+                                                <button
+                                                    onClick={() => onRemoveImage(rab)}
+                                                    className="p-1.5 rounded hover:bg-red-50 text-red-500"
+                                                    title="Hapus foto"
+                                                >
+                                                    <ImageOff className="h-3.5 w-3.5" />
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => onDelete(rab)}
                                                 className="p-1.5 rounded hover:bg-red-50 text-red-600"
-                                                title="Hapus"
+                                                title="Hapus RAB"
                                             >
                                                 <Trash2 className="h-3.5 w-3.5" />
                                             </button>

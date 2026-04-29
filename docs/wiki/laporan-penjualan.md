@@ -231,4 +231,4 @@ Klik **📄 Export PDF** untuk laporan ringkas dalam format tabel, siap dicetak 
 
 *Dokumentasi PosPro — Laporan Penjualan | Terakhir diperbarui: April 2026*
 
-**© 2026 Muhammad Faisal. All rights reserved.**
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**

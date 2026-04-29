@@ -188,3 +188,9 @@ Klien chat WA: "Mau cetak banner 3×1 m, 2 lembar, file desain saya kasih"
 - [Mesin Cetak Paper](./mesin-cetak.md) — antrian cetak setelah proof di-approve
 - [Cashflow](./cashflow.md) — income otomatis saat INVOICED
 - [Customers](./crm-convert.md) — link customer ke order
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

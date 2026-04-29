@@ -1,3 +1,4 @@
+import type { EventBrand } from '@prisma/client';
 import { RabItemInput } from './rab-item.dto';
 
 export interface CreateRabDto {
@@ -7,10 +8,12 @@ export interface CreateRabDto {
     periodStart?: string | Date;
     periodEnd?: string | Date;
     customerId?: number | null;
+    brand?: EventBrand | null;
     dpAmount?: number;
     pelunasan?: number;
     incomeOther?: number;
     notes?: string;
+    tags?: string[];
     items?: RabItemInput[];
 }
 

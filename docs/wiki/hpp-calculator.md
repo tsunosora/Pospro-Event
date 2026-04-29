@@ -71,3 +71,9 @@ Untuk booth custom dengan beberapa ukuran (3×3, 3×4, 4×6 dll) dalam satu hitu
 - [Suppliers](./suppliers.md) — sumber harga material
 - [RAB Event](./rab-event.md) — gunakan output kalkulator sebagai baseline
 - [Penawaran](./penawaran-event.md) — saran harga jual
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

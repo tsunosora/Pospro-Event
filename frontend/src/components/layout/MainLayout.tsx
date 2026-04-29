@@ -34,7 +34,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     const isCetakPage = pathname.startsWith("/cetak");
     const isPublicProductPage = pathname.startsWith("/p/");
     const isDesignerPortal = pathname.startsWith("/so-designer");
-    const isKioskPage = pathname.startsWith("/gudang/ambil");
+    const isKioskPage = pathname.startsWith("/gudang/ambil") || pathname.startsWith("/gudang/stok");
     const isSharePage = pathname.startsWith("/share/");
     const isPublicPage = pathname.startsWith("/public/");
 

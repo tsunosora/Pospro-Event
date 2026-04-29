@@ -1,5 +1,27 @@
 import { Injectable } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
+
+/**
+ * Convert public upload URL (mis. "/uploads/abc.png") jadi data URI base64
+ * agar Puppeteer bisa embed image ke PDF tanpa server lookup.
+ */
+function imageToDataUri(url: string | null | undefined): string | null {
+    if (!url) return null;
+    if (url.startsWith('data:')) return url;
+    if (!url.startsWith('/uploads/')) return url; // assume external URL
+    try {
+        const filePath = path.resolve(process.cwd(), 'public', url.replace(/^\//, ''));
+        if (!fs.existsSync(filePath)) return null;
+        const ext = path.extname(filePath).slice(1).toLowerCase() || 'png';
+        const mime = ext === 'jpg' ? 'jpeg' : ext;
+        const buf = fs.readFileSync(filePath);
+        return `data:image/${mime};base64,${buf.toString('base64')}`;
+    } catch {
+        return null;
+    }
+}
 
 export interface QuotationRenderItem {
     no: number;
@@ -8,6 +30,14 @@ export interface QuotationRenderItem {
     quantity: string;       // formatted
     price: string;          // Rp formatted
     subtotal: string;       // Rp formatted
+    categoryName?: string | null;
+}
+
+export interface QuotationItemGroup {
+    categoryName: string | null;     // null = "Lainnya" / tanpa kategori
+    items: QuotationRenderItem[];
+    subtotalNum: number;
+    subtotalFormatted: string;
 }
 
 export interface QuotationRenderContext {
@@ -18,12 +48,32 @@ export interface QuotationRenderContext {
         phone: string;
         email: string;
         logoUrl: string | null;
+        letterheadUrl: string | null;     // kop surat full-page background image
         directorName: string;
+        npwp?: string | null;
     };
+    // Penandatangan surat (marketing/sales). Kalau null → fallback director brand
+    signedBy: {
+        name: string;
+        position: string | null;
+        signatureUrl: string | null;
+        stampUrl: string | null;
+    };
+    // Custom text per brand (override default ketentuan)
+    brandTexts: {
+        disclaimer: string | null;          // "# Harga belum termasuk..." (penawaran)
+        paymentTerms: string | null;        // "Sedangkan system pembayaran..." (penawaran)
+        closing: string | null;             // "Demikian penawaran..." (penawaran)
+        invoiceClosing: string | null;      // "Nb: Jika terjadi pembatalan..." (invoice)
+    };
+    // Grouped items (untuk render per-kategori dengan header tebal)
+    itemGroups: QuotationItemGroup[];
     // Dokumen
     doc: {
         number: string;
         variant: 'SEWA' | 'PENGADAAN_BOOTH';
+        variantCode: string | null;            // kode dari QuotationVariantConfig (kalau ada)
+        templateKey: 'sewa' | 'pengadaan-booth';
         variantLabel: string;
         subject: string;         // "Penawaran Sewa Perlengkapan Event" dst.
         dateFormatted: string;   // "24 April 2026"
@@ -31,6 +81,16 @@ export interface QuotationRenderContext {
         validUntilFormatted: string | null;
         isRevision: boolean;
         revisionNumber: number;
+        // Invoice-specific (kalau type=INVOICE)
+        isInvoice: boolean;
+        invoicePart: string | null;          // "DP" | "PELUNASAN" | "FULL"
+        invoicePartLabel: string | null;     // "INVOICE — DOWN PAYMENT" / dst
+        amountToPayFormatted: string | null; // jumlah ditagihkan
+        amountToPayTerbilang: string | null;
+        dueDateFormatted: string | null;
+        // Display mode untuk item table
+        itemDisplayMode: 'detailed' | 'category-summary';   // default 'detailed'
+        isCategorySummary: boolean;          // kalau true → hide harga per item, hanya subtotal kategori
     };
     // Klien
     client: {
@@ -153,6 +213,18 @@ export function terbilangRupiah(n: number | string): string {
     return (txt.charAt(0).toUpperCase() + txt.slice(1) + ' rupiah').replace(/\s+/g, ' ');
 }
 
+function buildInvoicePartLabel(part: string | null | undefined): string {
+    if (part === 'DP') return 'INVOICE — DOWN PAYMENT';
+    if (part === 'PELUNASAN') return 'INVOICE — PELUNASAN';
+    if (part === 'FULL') return 'INVOICE';
+    return 'INVOICE';
+}
+
+function buildInvoiceSubject(part: string | null | undefined, variantLabel: string): string {
+    const base = buildInvoicePartLabel(part);
+    return `${base} — ${variantLabel}`;
+}
+
 @Injectable()
 export class QuotationContextBuilder {
     constructor(private prisma: PrismaService) { }
@@ -163,13 +235,30 @@ export class QuotationContextBuilder {
             include: {
                 items: { orderBy: { orderIndex: 'asc' } },
                 customer: true,
+                signedByWorker: {
+                    select: {
+                        id: true, name: true, position: true,
+                        signatureImageUrl: true, stampImageUrl: true,
+                    },
+                },
             },
         });
         if (!quotation) throw new Error(`Penawaran id=${quotationId} tidak ditemukan`);
 
         const settings = await this.prisma.storeSettings.findFirst();
 
-        const bankIds = (quotation.bankAccountIds ?? '')
+        // Brand-aware: kalau quotation punya brand, ambil header dari BrandSettings.
+        // Fallback ke StoreSettings (legacy/generic).
+        const brandSettings = quotation.brand
+            ? await this.prisma.brandSettings.findUnique({ where: { brand: quotation.brand } })
+            : null;
+
+        // Bank accounts: prioritas quotation.bankAccountIds → brand.bankAccountIds → empty
+        const bankIdsRaw =
+            (quotation.bankAccountIds && quotation.bankAccountIds.trim())
+                ? quotation.bankAccountIds
+                : (brandSettings?.bankAccountIds ?? '');
+        const bankIds = bankIdsRaw
             .split(',')
             .map((s) => parseInt(s.trim(), 10))
             .filter((n) => !Number.isNaN(n));
@@ -177,10 +266,27 @@ export class QuotationContextBuilder {
             ? await this.prisma.bankAccount.findMany({ where: { id: { in: bankIds } } })
             : [];
 
-        const variantLabel =
-            quotation.quotationVariant === 'PENGADAAN_BOOTH'
+        // Resolve variant label/subject/templateKey:
+        //   1. Kalau ada quotation.variantCode → load config dari QuotationVariantConfig
+        //   2. Fallback ke enum quotation.quotationVariant (legacy / built-in)
+        const variantConfig = quotation.variantCode
+            ? await this.prisma.quotationVariantConfig.findUnique({ where: { code: quotation.variantCode } })
+            : null;
+
+        let variantLabel: string;
+        let templateKey: 'sewa' | 'pengadaan-booth';
+        let subjectText: string;
+        if (variantConfig) {
+            variantLabel = variantConfig.label;
+            templateKey = (variantConfig.templateKey === 'sewa' ? 'sewa' : 'pengadaan-booth');
+            subjectText = variantConfig.subject?.trim() || `Penawaran ${variantConfig.label}`;
+        } else {
+            variantLabel = quotation.quotationVariant === 'PENGADAAN_BOOTH'
                 ? 'Pengadaan Booth Special Design'
                 : 'Sewa Perlengkapan Event';
+            templateKey = quotation.quotationVariant === 'PENGADAAN_BOOTH' ? 'pengadaan-booth' : 'sewa';
+            subjectText = `Penawaran ${variantLabel}`;
+        }
 
         const items: QuotationRenderItem[] = quotation.items.map((it, idx) => ({
             no: idx + 1,
@@ -189,7 +295,52 @@ export class QuotationContextBuilder {
             quantity: formatQty(it.quantity.toString(), it.unit),
             price: formatRp(it.price.toString()),
             subtotal: formatRp(Number(it.quantity) * Number(it.price)),
+            categoryName: it.categoryName ?? null,
         }));
+
+        // Group items by categoryName.
+        // PENTING: kalau item tidak punya categoryName, OTOMATIS inherit kategori dari item SEBELUMNYA
+        // (asumsi user lupa atau sengaja kosongkan karena ingin gabung ke grup atasnya).
+        // Hanya item paling pertama yang tanpa kategori jadi __UNCATEGORIZED__.
+        const groupMap = new Map<string, { items: QuotationRenderItem[]; subtotalNum: number }>();
+        const categoryOrder: string[] = [];
+        let runningNo = 0;
+        let lastCategory: string | null = null;
+        for (let i = 0; i < quotation.items.length; i++) {
+            const it = quotation.items[i];
+            // Resolve effective category: explicit categoryName, atau inherit dari sebelumnya
+            const effectiveCategory = it.categoryName ?? lastCategory;
+            const catKey = effectiveCategory ?? '__UNCATEGORIZED__';
+            if (!groupMap.has(catKey)) {
+                categoryOrder.push(catKey);
+                groupMap.set(catKey, { items: [], subtotalNum: 0 });
+            }
+            const group = groupMap.get(catKey)!;
+            runningNo += 1;
+            group.items.push({
+                no: runningNo,
+                description: it.description,
+                unit: it.unit ?? '',
+                quantity: formatQty(it.quantity.toString(), it.unit),
+                price: formatRp(it.price.toString()),
+                subtotal: formatRp(Number(it.quantity) * Number(it.price)),
+                categoryName: effectiveCategory,
+            });
+            group.subtotalNum += Number(it.quantity) * Number(it.price);
+            // Update lastCategory hanya kalau item ini PUNYA categoryName eksplisit
+            if (it.categoryName) {
+                lastCategory = it.categoryName;
+            }
+        }
+        const itemGroups: QuotationItemGroup[] = categoryOrder.map((key) => {
+            const g = groupMap.get(key)!;
+            return {
+                categoryName: key === '__UNCATEGORIZED__' ? null : key,
+                items: g.items,
+                subtotalNum: g.subtotalNum,
+                subtotalFormatted: formatRp(g.subtotalNum),
+            };
+        });
 
         const subtotalNum = Number(quotation.subtotal);
         const totalNum = Number(quotation.total);
@@ -199,23 +350,69 @@ export class QuotationContextBuilder {
 
         return {
             company: {
-                name: settings?.storeName ?? '',
-                address: settings?.storeAddress ?? '',
-                phone: settings?.storePhone ?? '',
-                email: settings?.companyEmail ?? '',
-                logoUrl: settings?.logoImageUrl ?? null,
-                directorName: settings?.directorName ?? '',
+                name: brandSettings?.companyName ?? settings?.storeName ?? '',
+                address: brandSettings?.address ?? settings?.storeAddress ?? '',
+                phone: brandSettings?.phone ?? settings?.storePhone ?? '',
+                email: brandSettings?.email ?? settings?.companyEmail ?? '',
+                logoUrl: imageToDataUri(brandSettings?.logoImageUrl ?? settings?.logoImageUrl ?? null),
+                letterheadUrl: imageToDataUri(brandSettings?.letterheadImageUrl ?? null),
+                directorName: brandSettings?.directorName ?? settings?.directorName ?? '',
+                npwp: brandSettings?.npwp ?? null,
             },
+            signedBy: {
+                // Kalau quotation punya signedByWorker → pakai itu (marketing yang handle)
+                // Kalau tidak → fallback ke directorName brand
+                name: quotation.signedByWorker?.name
+                    ?? brandSettings?.directorName
+                    ?? settings?.directorName
+                    ?? '',
+                position: quotation.signedByWorker?.position ?? null,
+                signatureUrl: imageToDataUri(quotation.signedByWorker?.signatureImageUrl ?? null),
+                // Stempel: prioritas worker → brand fallback
+                stampUrl: imageToDataUri(
+                    quotation.signedByWorker?.stampImageUrl
+                    ?? brandSettings?.stampImageUrl
+                    ?? null
+                ),
+            },
+            brandTexts: {
+                disclaimer: brandSettings?.quotationDisclaimer ?? null,
+                paymentTerms: brandSettings?.quotationPaymentTerms ?? null,
+                closing: brandSettings?.quotationClosing ?? null,
+                invoiceClosing: brandSettings?.invoiceClosingText ?? null,
+            },
+            itemGroups,
             doc: {
                 number: quotation.invoiceNumber,
                 variant: quotation.quotationVariant ?? 'SEWA',
+                variantCode: quotation.variantCode,
+                templateKey,
                 variantLabel,
-                subject: `Penawaran ${variantLabel}`,
+                subject: quotation.type === 'INVOICE'
+                    ? buildInvoiceSubject(quotation.invoicePart, variantLabel)
+                    : subjectText,
                 dateFormatted: formatDateId(quotation.date),
-                city: (settings?.storeAddress?.split(',').pop()?.trim()) || 'Semarang',
+                city: quotation.signCity?.trim()
+                    || (brandSettings?.address?.split(',').pop()?.trim())
+                    || (settings?.storeAddress?.split(',').pop()?.trim())
+                    || 'Semarang',
                 validUntilFormatted: quotation.validUntil ? formatDateId(quotation.validUntil) : null,
                 isRevision: quotation.revisionNumber > 0,
                 revisionNumber: quotation.revisionNumber,
+                isInvoice: quotation.type === 'INVOICE',
+                invoicePart: quotation.invoicePart,
+                invoicePartLabel: quotation.invoicePart
+                    ? buildInvoicePartLabel(quotation.invoicePart)
+                    : null,
+                amountToPayFormatted: quotation.amountToPay !== null && quotation.amountToPay !== undefined
+                    ? formatRp(Number(quotation.amountToPay))
+                    : null,
+                amountToPayTerbilang: quotation.amountToPay !== null && quotation.amountToPay !== undefined
+                    ? terbilangRupiah(Number(quotation.amountToPay))
+                    : null,
+                dueDateFormatted: quotation.dueDate ? formatDateId(quotation.dueDate) : null,
+                itemDisplayMode: (quotation.itemDisplayMode === 'category-summary' ? 'category-summary' : 'detailed'),
+                isCategorySummary: quotation.itemDisplayMode === 'category-summary',
             },
             client: {
                 name: quotation.clientName,

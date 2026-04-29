@@ -58,6 +58,11 @@ export class RabController {
         return this.service.create(dto);
     }
 
+    @Get('tags')
+    listTags() {
+        return this.service.getAllTags();
+    }
+
     @Get()
     findAll() {
         return this.service.findAll();

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
     ArrowLeft, Save, User, Phone, Building2, Tag,
-    Calendar, MapPin, AlignLeft, Layers, Globe,
+    Calendar, MapPin, AlignLeft, Layers, Globe, UserCog,
 } from "lucide-react";
 import {
     createLead,
@@ -16,6 +16,8 @@ import {
     type LeadLevel,
     type LeadSource,
 } from "@/lib/api/crm";
+import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
+import { getWorkers, MARKETER_POSITIONS, getPositionMeta } from "@/lib/api/workers";
 
 const LEVELS: { value: LeadLevel; label: string; emoji: string; cls: string }[] = [
     { value: "HOT", label: "Hot", emoji: "🔥", cls: "bg-red-50 text-red-700 border-red-300 hover:bg-red-100" },
@@ -45,13 +47,37 @@ export default function NewLeadPage() {
         queryKey: ["crm-distinct", "productCategory"],
         queryFn: () => getDistinctValues("productCategory"),
     });
+    // Marketing yang available — filter Worker dengan posisi MARKETING/SALES
+    const { data: marketers } = useQuery({
+        queryKey: ["workers", "marketers"],
+        queryFn: () => getWorkers(false, { positions: [...MARKETER_POSITIONS] }),
+    });
 
+    // Default brand: ambil last-used dari localStorage
+    const [defaultBrand] = useState<Brand>(() => {
+        try {
+            const v = localStorage.getItem("pospro:lead:lastBrand");
+            if (v === "EXINDO" || v === "XPOSER") return v;
+        } catch { /* ignore */ }
+        return "EXINDO";
+    });
+    // Default marketing handler: ambil last-used dari localStorage
+    const [defaultMarketerId] = useState<number | "">(() => {
+        try {
+            const v = localStorage.getItem("pospro:lead:lastMarketerId");
+            const n = v ? Number(v) : NaN;
+            return Number.isFinite(n) && n > 0 ? n : "";
+        } catch { /* ignore */ }
+        return "";
+    });
     const [form, setForm] = useState({
         name: "",
         phone: "",
         organization: "",
         productCategory: "",
         city: "",
+        brand: defaultBrand as Brand,
+        assignedWorkerId: defaultMarketerId as number | "",
         level: "" as LeadLevel | "",
         source: "WHATSAPP" as LeadSource,
         sourceDetail: "",
@@ -71,6 +97,8 @@ export default function NewLeadPage() {
                 organization: form.organization || null,
                 productCategory: form.productCategory || null,
                 city: form.city || null,
+                brand: form.brand,
+                assignedWorkerId: form.assignedWorkerId === "" ? null : form.assignedWorkerId,
                 level: form.level || null,
                 source: form.source,
                 sourceDetail: form.sourceDetail || null,
@@ -82,6 +110,13 @@ export default function NewLeadPage() {
                 labelIds: form.labelIds,
             }),
         onSuccess: (lead) => {
+            // Ingat brand & marketing last-used untuk default lead berikutnya
+            try {
+                localStorage.setItem("pospro:lead:lastBrand", form.brand);
+                if (form.assignedWorkerId !== "") {
+                    localStorage.setItem("pospro:lead:lastMarketerId", String(form.assignedWorkerId));
+                }
+            } catch { /* ignore */ }
             router.push(`/crm/board?focus=${lead.id}`);
         },
     });
@@ -124,6 +159,111 @@ export default function NewLeadPage() {
                 }}
                 className="px-4 sm:px-0 py-4 space-y-6"
             >
+                {/* ── Section: Brand ── */}
+                <Section
+                    title="Brand / Perusahaan"
+                    desc="Lead ini akan masuk ke surat penawaran brand mana?"
+                    icon={<Building2 className="h-4 w-4" />}
+                >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {ACTIVE_BRANDS.map((b) => {
+                            const meta = BRAND_META[b];
+                            const active = form.brand === b;
+                            return (
+                                <button
+                                    key={b}
+                                    type="button"
+                                    onClick={() => set("brand", b)}
+                                    className={`p-4 rounded-xl border-2 transition flex items-center gap-3 text-left ${active
+                                        ? `${meta.bg} ${meta.border} shadow-sm`
+                                        : "bg-white border-slate-200 hover:border-slate-300"
+                                        }`}
+                                >
+                                    <span className={`text-3xl`}>{meta.emoji}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className={`font-bold ${active ? meta.text : "text-slate-800"}`}>
+                                            {meta.short}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground truncate">{meta.label}</div>
+                                    </div>
+                                    {active && <span className={`${meta.text} font-bold`}>✓</span>}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </Section>
+
+                {/* ── Section: Marketing Handler ── */}
+                <Section
+                    title="Marketing Handler"
+                    desc="Siapa yang menghandle lead ini di awal? (tim marketing/sales)"
+                    icon={<UserCog className="h-4 w-4" />}
+                >
+                    {(marketers ?? []).length === 0 ? (
+                        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                            ⚠️ Belum ada karyawan dengan posisi <b>Marketing</b> atau <b>Sales</b>.
+                            Tambahkan dulu di <Link href="/workers" className="underline font-medium">halaman Karyawan</Link>.
+                        </div>
+                    ) : (
+                        <Field label="Pilih Marketing" hint="Bisa diisi nanti / dipindah ke marketing lain">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => set("assignedWorkerId", "")}
+                                    className={`flex items-center gap-3 p-2.5 rounded-lg border-2 transition text-left ${form.assignedWorkerId === ""
+                                        ? "border-slate-400 bg-slate-100"
+                                        : "border-slate-200 bg-white hover:border-slate-300"
+                                        }`}
+                                >
+                                    <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+                                        ?
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-semibold text-slate-700">Belum di-assign</div>
+                                        <div className="text-[11px] text-muted-foreground">Bisa diisi nanti</div>
+                                    </div>
+                                    {form.assignedWorkerId === "" && <span className="text-slate-700 font-bold">✓</span>}
+                                </button>
+                                {(marketers ?? []).map((w) => {
+                                    const active = form.assignedWorkerId === w.id;
+                                    const meta = getPositionMeta(w.position);
+                                    return (
+                                        <button
+                                            key={w.id}
+                                            type="button"
+                                            onClick={() => set("assignedWorkerId", w.id)}
+                                            className={`flex items-center gap-3 p-2.5 rounded-lg border-2 transition text-left ${active
+                                                ? "border-primary bg-primary/5 shadow-sm"
+                                                : "border-slate-200 bg-white hover:border-slate-300"
+                                                }`}
+                                        >
+                                            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0 overflow-hidden">
+                                                {w.photoUrl ? (
+                                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                                    <img src={w.photoUrl} alt={w.name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <span className="text-sm font-bold">
+                                                        {w.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className={`text-sm font-semibold truncate ${active ? "text-primary" : "text-slate-800"}`}>
+                                                    {w.name}
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                                                    {meta?.emoji} {meta?.label ?? w.position ?? "—"}
+                                                </div>
+                                            </div>
+                                            {active && <span className="text-primary font-bold">✓</span>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </Field>
+                    )}
+                </Section>
+
                 {/* ── Section: Info Kontak ── */}
                 <Section
                     title="Info Kontak"

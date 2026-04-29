@@ -61,4 +61,31 @@ export class DocumentNumberService {
         });
         return counter.lastSeq;
     }
+
+    /** List semua counter (untuk display & manual edit di settings UI). */
+    async listCounters(filter: { docType?: string; year?: number } = {}) {
+        return this.prisma.documentNumberCounter.findMany({
+            where: {
+                ...(filter.docType ? { docType: filter.docType } : {}),
+                ...(filter.year ? { year: filter.year } : {}),
+            },
+            orderBy: [{ year: 'desc' }, { docType: 'asc' }, { kode: 'asc' }],
+        });
+    }
+
+    /**
+     * Set / reset value lastSeq counter manual.
+     * Berguna untuk:
+     * - Reset ke 0 di awal tahun (sudah otomatis sebenarnya, tapi kalau perlu)
+     * - Skip ke nomor tertentu (mis. mau mulai dari 100 setelah migrasi)
+     * - Koreksi kalau ada salah hitung
+     */
+    async setCounter(docType: string, kode: string, year: number, lastSeq: number) {
+        if (lastSeq < 0) throw new Error('lastSeq tidak boleh negatif');
+        return this.prisma.documentNumberCounter.upsert({
+            where: { docType_kode_year: { docType, kode, year } },
+            create: { docType, kode, year, lastSeq },
+            update: { lastSeq },
+        });
+    }
 }

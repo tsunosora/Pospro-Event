@@ -46,6 +46,64 @@ export class RabService {
         }
     }
 
+    /**
+     * Sinkron InventoryAcquisition dengan RabItem.isInventory.
+     * Untuk setiap RabItem dengan isInventory=true:
+     *   - upsert acquisition (create kalau belum ada, update kalau sudah)
+     *   - status PENDING (belum di-stok) — kecuali sudah STORED, biarkan
+     * Untuk RabItem.isInventory=false:
+     *   - kalau ada acquisition existing yang belum STORED, hapus
+     *   - kalau status STORED, biarkan (sudah masuk stok, gak boleh hilangkan)
+     */
+    private async syncInventoryAcquisitions(rabPlanId: number) {
+        const items = await this.prisma.rabItem.findMany({
+            where: { rabPlanId },
+            include: { inventoryAcquisition: true },
+        });
+
+        for (const it of items) {
+            const totalCost = Number(it.quantityCost) * Number(it.priceCost);
+
+            if (it.isInventory) {
+                // Upsert acquisition
+                if (it.inventoryAcquisition) {
+                    // Skip kalau sudah STORED — angka snapshot saat di-stok itu yang valid
+                    if (it.inventoryAcquisition.status === 'STORED') continue;
+                    await this.prisma.inventoryAcquisition.update({
+                        where: { id: it.inventoryAcquisition.id },
+                        data: {
+                            description: it.description,
+                            quantity: it.quantityCost,
+                            unit: it.unit,
+                            unitCost: it.priceCost,
+                            totalCost: new (require('@prisma/client').Prisma.Decimal)(totalCost),
+                        },
+                    });
+                } else {
+                    await this.prisma.inventoryAcquisition.create({
+                        data: {
+                            rabPlanId,
+                            rabItemId: it.id,
+                            description: it.description,
+                            quantity: it.quantityCost,
+                            unit: it.unit,
+                            unitCost: it.priceCost,
+                            totalCost: new (require('@prisma/client').Prisma.Decimal)(totalCost),
+                            status: 'PENDING',
+                        },
+                    });
+                }
+            } else {
+                // Item tidak lagi inventaris → hapus acquisition kalau belum STORED
+                if (it.inventoryAcquisition && it.inventoryAcquisition.status !== 'STORED') {
+                    await this.prisma.inventoryAcquisition.delete({
+                        where: { id: it.inventoryAcquisition.id },
+                    });
+                }
+            }
+        }
+    }
+
     private async nextCode(year: number): Promise<string> {
         const seq = await this.docNumberService.nextSequence('RAB', 'RAB', year);
         return `RAB-${year}-${seq.toString().padStart(4, '0')}`;
@@ -65,10 +123,12 @@ export class RabService {
                 periodStart: dto.periodStart ? new Date(dto.periodStart) : null,
                 periodEnd: dto.periodEnd ? new Date(dto.periodEnd) : null,
                 customerId: dto.customerId ?? null,
+                brand: dto.brand ?? null,
                 dpAmount: dec(dto.dpAmount),
                 pelunasan: dec(dto.pelunasan),
                 incomeOther: dec(dto.incomeOther),
                 notes: dto.notes,
+                tags: dto.tags && dto.tags.length > 0 ? JSON.stringify(dto.tags.map(t => t.trim()).filter(Boolean)) : null,
                 items: {
                     create: (dto.items ?? []).map((it, idx) => ({
                         categoryId: it.categoryId,
@@ -81,13 +141,44 @@ export class RabService {
                         orderIndex: it.orderIndex ?? idx,
                         productVariantId: it.productVariantId ?? null,
                         notes: it.notes,
+                        isInventory: it.isInventory ?? false,
                     })),
                 },
             },
             include: { items: { include: { category: true } }, customer: true },
         });
         await this.persistLooseItems(dto.items);
+        await this.syncInventoryAcquisitions(created.id);
         return created;
+    }
+
+    /**
+     * Return distinct tags (from semua RabPlan.tags JSON), sorted by frequency desc.
+     * Untuk autocomplete saat user input tag baru.
+     */
+    async getAllTags(): Promise<{ tag: string; count: number }[]> {
+        const rabs = await this.prisma.rabPlan.findMany({
+            where: { tags: { not: null } },
+            select: { tags: true },
+        });
+        const counter = new Map<string, number>();
+        for (const r of rabs) {
+            if (!r.tags) continue;
+            try {
+                const arr = JSON.parse(r.tags);
+                if (Array.isArray(arr)) {
+                    for (const t of arr) {
+                        if (typeof t === 'string' && t.trim()) {
+                            const k = t.trim();
+                            counter.set(k, (counter.get(k) ?? 0) + 1);
+                        }
+                    }
+                }
+            } catch { /* skip invalid */ }
+        }
+        return Array.from(counter.entries())
+            .map(([tag, count]) => ({ tag, count }))
+            .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
     }
 
     findAll() {
@@ -136,10 +227,14 @@ export class RabService {
                         ? { periodEnd: dto.periodEnd ? new Date(dto.periodEnd) : null }
                         : {}),
                     ...(dto.customerId !== undefined ? { customerId: dto.customerId } : {}),
+                    ...(dto.brand !== undefined ? { brand: dto.brand } : {}),
                     ...(dto.dpAmount !== undefined ? { dpAmount: dec(dto.dpAmount) } : {}),
                     ...(dto.pelunasan !== undefined ? { pelunasan: dec(dto.pelunasan) } : {}),
                     ...(dto.incomeOther !== undefined ? { incomeOther: dec(dto.incomeOther) } : {}),
                     ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+                    ...(dto.tags !== undefined
+                        ? { tags: dto.tags.length > 0 ? JSON.stringify(dto.tags.map(t => t.trim()).filter(Boolean)) : null }
+                        : {}),
                     ...(dto.items !== undefined
                         ? {
                             items: {
@@ -154,6 +249,7 @@ export class RabService {
                                     orderIndex: it.orderIndex ?? idx,
                                     productVariantId: it.productVariantId ?? null,
                                     notes: it.notes,
+                                    isInventory: it.isInventory ?? false,
                                 })),
                             },
                         }
@@ -172,6 +268,7 @@ export class RabService {
             });
         });
         await this.persistLooseItems(dto.items);
+        await this.syncInventoryAcquisitions(id);
         return result;
     }
 
@@ -189,23 +286,33 @@ export class RabService {
             totals.set(cat.id, { subtotalRab: 0, subtotalCost: 0, count: 0 });
         }
 
+        let totalCostInventory = 0;  // cost dari item yang ditandai inventaris
+        let countInventory = 0;
         for (const it of rab.items as any[]) {
             const cid = it.categoryId as number;
             const qRab = Number(it.quantity);
             const qCost = Number(it.quantityCost ?? it.quantity);
             const r = Number(it.priceRab);
             const c = Number(it.priceCost);
+            const itemCost = qCost * c;
             const slot = totals.get(cid);
             if (slot) {
                 slot.subtotalRab += qRab * r;
-                slot.subtotalCost += qCost * c;
+                slot.subtotalCost += itemCost;
                 slot.count += 1;
+            }
+            if (it.isInventory) {
+                totalCostInventory += itemCost;
+                countInventory += 1;
             }
         }
 
         const totalRab = Array.from(totals.values()).reduce((s, c) => s + c.subtotalRab, 0);
         const totalCost = Array.from(totals.values()).reduce((s, c) => s + c.subtotalCost, 0);
         const totalSelisih = totalRab - totalCost;
+        // Cost operasional = cost total minus inventaris (barang aset perusahaan)
+        const costOperational = totalCost - totalCostInventory;
+        const operationalProfit = totalRab - costOperational;
 
         const totalIncome =
             Number(rab.dpAmount) + Number(rab.pelunasan) + Number(rab.incomeOther);
@@ -232,6 +339,10 @@ export class RabService {
                 totalRab,
                 totalCost,
                 totalSelisih,
+                costInventory: totalCostInventory,
+                costOperational,
+                operationalProfit,
+                inventoryCount: countInventory,
             },
             income: {
                 dpAmount: Number(rab.dpAmount),
@@ -323,6 +434,7 @@ export class RabService {
             price: it.priceRab,
             orderIndex: idx,
             productVariantId: it.productVariantId,
+            categoryName: it.category?.name ?? null, // snapshot kategori untuk grouping di PDF
         }));
 
         const subtotal = items.reduce((s, it) => s + Number(it.quantity) * Number(it.price), 0);
@@ -336,6 +448,7 @@ export class RabService {
                 quotationVariant: params.quotationVariant,
                 revisionNumber: 0,
                 rabPlanId: rab.id,
+                brand: rab.brand,
 
                 customerId: rab.customerId,
                 clientName: params.clientName ?? rab.customer?.companyPIC ?? rab.customer?.name ?? rab.title,
@@ -465,14 +578,14 @@ export class RabService {
             throw new BadRequestException('RAB ini belum punya item');
         }
 
-        // Cek apakah sudah pernah di-generate
+        // Cek apakah sudah pernah di-generate (cek total semua entry RAB ini, INCOME + EXPENSE)
         if (skipExisting) {
             const existing = await this.prisma.cashflow.count({
-                where: { rabPlanId, type: 'EXPENSE' },
+                where: { rabPlanId },
             });
             if (existing > 0) {
                 throw new BadRequestException(
-                    `RAB ini sudah pernah di-generate (${existing} entry expense ada). Hapus dulu di Cashflow kalau mau regenerate.`,
+                    `RAB ini sudah pernah di-generate (${existing} entry cashflow ada). Hapus dulu di Cashflow kalau mau regenerate.`,
                 );
             }
         }
@@ -504,28 +617,54 @@ export class RabService {
         const noteSuffix = ` (auto dari RAB ${rab.code})`;
 
         await this.prisma.$transaction(async (tx) => {
+            // ── INCOME: DP, Pelunasan, IncomeOther dari RAB ──
+            const dpAmount = parseFloat(rab.dpAmount.toString()) || 0;
+            const pelunasan = parseFloat(rab.pelunasan.toString()) || 0;
+            const incomeOther = parseFloat(rab.incomeOther.toString()) || 0;
+            const incomes: Array<{ category: string; amount: number; note: string }> = [];
+            if (dpAmount > 0) incomes.push({ category: 'DP Project', amount: dpAmount, note: `DP ${rab.title}${noteSuffix}` });
+            if (pelunasan > 0) incomes.push({ category: 'Pelunasan Project', amount: pelunasan, note: `Pelunasan ${rab.title}${noteSuffix}` });
+            if (incomeOther > 0) incomes.push({ category: 'Income Lain Project', amount: incomeOther, note: `Income lain ${rab.title}${noteSuffix}` });
+            for (const inc of incomes) {
+                const entry = await tx.cashflow.create({
+                    data: {
+                        type: 'INCOME',
+                        category: inc.category,
+                        amount: new Prisma.Decimal(inc.amount),
+                        note: inc.note,
+                        rabPlanId,
+                        eventId: resolvedEventId ?? undefined,
+                        userId: opts.userId ?? undefined,
+                        excludeFromShift: true,
+                    },
+                });
+                created.push({ id: entry.id, amount: inc.amount, category: inc.category });
+            }
+
             if (mode === 'category') {
-                // Group by RAB category, sum
-                const byCat = new Map<string, { name: string; total: number; count: number }>();
+                // Group by RAB category, sum — split inventaris vs non
+                const byCat = new Map<string, { name: string; total: number; count: number; isInventory: boolean }>();
                 for (const it of rab.items) {
                     const subtotal = parseFloat(it.priceCost.toString()) * parseFloat(it.quantityCost.toString());
                     if (subtotal <= 0) continue;
-                    const cur = byCat.get(it.category.name) ?? { name: it.category.name, total: 0, count: 0 };
+                    const key = it.isInventory ? '__INVENTARIS__' : it.category.name;
+                    const name = it.isInventory ? 'Pengadaan Inventaris' : it.category.name;
+                    const cur = byCat.get(key) ?? { name, total: 0, count: 0, isInventory: !!it.isInventory };
                     cur.total += subtotal;
                     cur.count += 1;
-                    byCat.set(it.category.name, cur);
+                    byCat.set(key, cur);
                 }
                 for (const [, v] of byCat) {
                     const entry = await tx.cashflow.create({
                         data: {
                             type: 'EXPENSE',
-                            category: mapCategory(v.name),
+                            category: v.isInventory ? 'Pengadaan Inventaris' : mapCategory(v.name),
                             amount: new Prisma.Decimal(v.total),
-                            note: `${v.name} — ${v.count} item${noteSuffix}`,
+                            note: `${v.isInventory ? '📦 ' : ''}${v.name} — ${v.count} item${noteSuffix}`,
                             rabPlanId,
                             eventId: resolvedEventId ?? undefined,
                             userId: opts.userId ?? undefined,
-                            excludeFromShift: true, // RAB-generated entries jangan masuk laporan shift kasir
+                            excludeFromShift: true,
                         },
                     });
                     created.push({ id: entry.id, amount: v.total, category: v.name });
@@ -538,10 +677,11 @@ export class RabService {
                     const noteParts = [it.description];
                     if (it.unit) noteParts.push(`${it.quantityCost} ${it.unit}`);
                     if (it.notes) noteParts.push(it.notes);
+                    if (it.isInventory) noteParts.unshift('📦 INVENTARIS');
                     const entry = await tx.cashflow.create({
                         data: {
                             type: 'EXPENSE',
-                            category: mapCategory(it.category.name),
+                            category: it.isInventory ? 'Pengadaan Inventaris' : mapCategory(it.category.name),
                             amount: new Prisma.Decimal(subtotal),
                             note: `${noteParts.join(' · ')}${noteSuffix}`,
                             rabPlanId,
@@ -550,7 +690,7 @@ export class RabService {
                             excludeFromShift: true,
                         },
                     });
-                    created.push({ id: entry.id, amount: subtotal, category: it.category.name });
+                    created.push({ id: entry.id, amount: subtotal, category: it.isInventory ? 'Pengadaan Inventaris' : it.category.name });
                 }
             }
         });

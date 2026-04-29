@@ -267,4 +267,4 @@ Ketika klien menyetujui penawaran Anda:
 
 *Dokumentasi PosPro — Invoice & Penawaran Harga | Terakhir diperbarui: April 2026*
 
-**© 2026 Muhammad Faisal. All rights reserved.**
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**

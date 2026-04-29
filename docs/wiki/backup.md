@@ -44,7 +44,7 @@ Pospro Event mem-backup **semua data** yang Anda input. Dikelompokkan jadi beber
 | **Printing & Antrian** | Job cetak paper |
 | **Sales Order & Designer** | Surat order ke designer |
 
-> **Versi backup saat ini: 2.4** (sudah include data CRM + Crew Team + Event Crew Assignment yang baru ditambah).
+> **Versi backup saat ini: 2.6** ⭐ — sudah include semua tabel & field-level additions terbaru (Brand Settings, Quotation Variants, Inventory Acquisition, Worker fullName, Variant description/notes/defaultWarehouseId, RabPlan tags).
 
 ## Cara Backup (Bikin Foto Kopi)
 
@@ -117,12 +117,25 @@ Setiap file backup punya **versi** yang menunjukkan struktur datanya:
 | 2.1 | 2026 awal | Tambah CRM Pipeline |
 | 2.2 | 2026 Q1 | Tambah RAB Loose Items |
 | 2.3 | 2026 April | Tambah link Cashflow ke Event/RAB |
-| **2.4** ⭐ | **2026 April** | **Tambah CrewTeam + EventCrewAssignment** |
+| 2.4 | 2026 April | Tambah CrewTeam + EventCrewAssignment |
+| 2.5 | 2026 April | Tambah BrandSettings, QuotationVariantConfig, InventoryAcquisition |
+| **2.6** ⭐ | **2026 April** | **Field-level additions: Worker.fullName, ProductVariant.description/notes/defaultWarehouseId, RabPlan.tags, Lead.assignedWorkerId** |
+
+### 🆕 Apa Saja yang Otomatis Ter-backup di v2.6?
+
+Selain semua tabel di grup yang kelihatan, **field-level baru** ini juga ikut backup tanpa perlu setting tambahan:
+
+- **Worker.fullName** — nama lengkap karyawan (selain nama panggilan)
+- **ProductVariant.description** — keterangan/spesifikasi varian
+- **ProductVariant.notes** — catatan internal varian
+- **ProductVariant.defaultWarehouseId** — gudang lokasi utama varian
+- **RabPlan.tags** — multi-tag JSON ("Stand Standar 3x3", "Indoor", dll)
+- **Lead.assignedWorkerId** — marketing yang menghandle lead
 
 ### ⚠️ Bisa Restore Versi Lama?
 
-- ✅ Restore backup **2.0/2.1/2.2/2.3** ke aplikasi 2.4 → **OK**, data lama tidak rusak (tabel baru dilewati)
-- ❌ Restore backup **2.4** ke aplikasi versi lama → **TIDAK BISA**, tabel baru tidak dikenali
+- ✅ Restore backup **2.0–2.5** ke aplikasi 2.6 → **OK**, field baru jadi `null` di data lama (default Prisma)
+- ❌ Restore backup **2.6** ke aplikasi versi lama → **TIDAK BISA**, tabel/field baru tidak dikenali
 
 **Saran**: Setelah upgrade aplikasi, **buat backup baru** secepatnya supaya selalu pakai format terbaru.
 
@@ -180,3 +193,9 @@ Kalau Anda mau **otomatis** (tanpa harus klik manual tiap minggu), bisa setup au
 
 - [Panduan Deployment](./deployment.md) — setup auto-backup via Rclone
 - [Alur Bisnis Event](./alur-bisnis.md) — gambaran besar Pospro Event
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

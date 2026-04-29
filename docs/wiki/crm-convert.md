@@ -56,3 +56,9 @@ Jika perlu unlink (mis. salah convert), edit `Lead.convertedCustomerId = null` &
 
 - [Penawaran Booth/Event](/penawaran-event)
 - [RAB Event](/rab-event)
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

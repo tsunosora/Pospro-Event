@@ -196,3 +196,9 @@ Hal-hal yang **belum ada** tapi rencananya akan ditambah:
 - [RAB Event](./rab-event.md) — sumber data ekspense project (manual entry ke cashflow)
 - [Penawaran Booth/Event](./penawaran-event.md) — sumber DP/pelunasan klien
 - [Surat Order Designer](./sales-order.md) — alur lini Digital Printing yang auto-cashflow
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

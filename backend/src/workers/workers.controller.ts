@@ -110,6 +110,44 @@ export class WorkersController {
         return this.svc.restore(id);
     }
 
+    @Post(':id/upload-signature')
+    @UseInterceptors(FileInterceptor('image', {
+        storage: photoStorage,
+        fileFilter: photoFilter,
+        limits: { fileSize: 5 * 1024 * 1024 },
+    }))
+    async uploadSignature(
+        @Param('id', ParseIntPipe) id: number,
+        @UploadedFile() file?: Express.Multer.File,
+    ) {
+        if (!file) throw new BadRequestException('File tanda tangan wajib diupload');
+        return this.svc.update(id, { signatureImageUrl: `/uploads/${file.filename}` });
+    }
+
+    @Delete(':id/signature')
+    removeSignature(@Param('id', ParseIntPipe) id: number) {
+        return this.svc.update(id, { signatureImageUrl: null });
+    }
+
+    @Post(':id/upload-stamp')
+    @UseInterceptors(FileInterceptor('image', {
+        storage: photoStorage,
+        fileFilter: photoFilter,
+        limits: { fileSize: 5 * 1024 * 1024 },
+    }))
+    async uploadStamp(
+        @Param('id', ParseIntPipe) id: number,
+        @UploadedFile() file?: Express.Multer.File,
+    ) {
+        if (!file) throw new BadRequestException('File stempel wajib diupload');
+        return this.svc.update(id, { stampImageUrl: `/uploads/${file.filename}` });
+    }
+
+    @Delete(':id/stamp')
+    removeStamp(@Param('id', ParseIntPipe) id: number) {
+        return this.svc.update(id, { stampImageUrl: null });
+    }
+
     @Delete(':id')
     remove(@Param('id', ParseIntPipe) id: number) {
         return this.svc.remove(id);

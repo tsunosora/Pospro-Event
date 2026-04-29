@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -11,10 +12,19 @@ import {
   Plus,
   UserCog,
   Users,
+  Calculator,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
+import {
+  PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
+} from "recharts";
 import { cn } from "@/lib/utils";
 import {
   getEventDashboard,
@@ -22,6 +32,8 @@ import {
   type EventRecord,
   type EventStatus,
 } from "@/lib/api/events";
+import { getRabList, type RabPlan } from "@/lib/api/rab";
+import { BRAND_META, type Brand } from "@/lib/api/brands";
 
 dayjs.locale("id");
 
@@ -67,6 +79,12 @@ export default function DashboardPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["events-dashboard"],
     queryFn: getEventDashboard,
+    refetchInterval: 60_000,
+  });
+
+  const { data: rabs } = useQuery({
+    queryKey: ["dashboard-rab-list"],
+    queryFn: getRabList,
     refetchInterval: 60_000,
   });
 
@@ -142,6 +160,9 @@ export default function DashboardPage() {
       </div>
 
       <WithdrawalsCard withdrawals={data.recentWithdrawals} />
+
+      {/* ─── Diagram RAB & Pipeline Project ─────────────────────────────── */}
+      <RabDashboardSection rabs={rabs ?? []} />
     </div>
   );
 }
@@ -610,3 +631,404 @@ function EmptyHint({
     </div>
   );
 }
+
+// ─── RAB DASHBOARD SECTION ────────────────────────────────────────────────
+// Diagram & KPI dari RAB list — owner-focused metrics
+
+type EventStatusGroup = "ONGOING" | "UPCOMING" | "FINISHED" | "NO_DATE";
+
+function getRabEventStatus(rab: RabPlan): EventStatusGroup {
+  const start = rab.periodStart ? new Date(rab.periodStart) : null;
+  const end = rab.periodEnd ? new Date(rab.periodEnd) : null;
+  const now = new Date();
+  if (!start && !end) return "NO_DATE";
+  if (start && start > now) return "UPCOMING";
+  if (end && end < now) return "FINISHED";
+  if (start && (!end || end >= now)) return "ONGOING";
+  return "NO_DATE";
+}
+
+function fmtRp(v: number) {
+  if (!Number.isFinite(v)) return "Rp 0";
+  return `Rp ${Math.round(v).toLocaleString("id-ID")}`;
+}
+
+function fmtShortRp(v: number) {
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "−" : "";
+  if (abs >= 1_000_000_000) return `${sign}Rp ${(abs / 1_000_000_000).toFixed(1)}M`;
+  if (abs >= 1_000_000) return `${sign}Rp ${(abs / 1_000_000).toFixed(1)}jt`;
+  if (abs >= 1_000) return `${sign}Rp ${(abs / 1_000).toFixed(0)}rb`;
+  return `${sign}Rp ${abs.toLocaleString("id-ID")}`;
+}
+
+function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
+  // ── Compute aggregates ─────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    if (rabs.length === 0) return null;
+
+    let totalRabValue = 0;
+    let totalCost = 0;
+    let totalIncome = 0;
+    let activeRabCount = 0;            // RAB yang status ONGOING/UPCOMING (pipeline aktif)
+    const statusCounts: Record<EventStatusGroup, number> = {
+      ONGOING: 0, UPCOMING: 0, FINISHED: 0, NO_DATE: 0,
+    };
+    const brandValue: Record<string, { count: number; value: number; cost: number }> = {};
+    const rabsWithMetrics: Array<{
+      id: number;
+      code: string;
+      title: string;
+      customer: string | null;
+      brand: Brand | null;
+      totalRab: number;
+      totalCost: number;
+      selisih: number;
+      saldoBersih: number;
+      income: number;
+      status: EventStatusGroup;
+    }> = [];
+
+    for (const r of rabs) {
+      let rabSum = 0;
+      let costSum = 0;
+      for (const it of (r.items ?? [])) {
+        const q = typeof it.quantity === "string" ? parseFloat(it.quantity) : it.quantity;
+        const qCost = it.quantityCost !== undefined && it.quantityCost !== null
+          ? (typeof it.quantityCost === "string" ? parseFloat(it.quantityCost) : it.quantityCost)
+          : q;
+        const pRab = typeof it.priceRab === "string" ? parseFloat(it.priceRab) : it.priceRab;
+        const pCost = typeof it.priceCost === "string" ? parseFloat(it.priceCost) : it.priceCost;
+        rabSum += (q || 0) * (pRab || 0);
+        costSum += (qCost || 0) * (pCost || 0);
+      }
+      const dp = parseFloat(r.dpAmount as any) || 0;
+      const pel = parseFloat(r.pelunasan as any) || 0;
+      const other = parseFloat(r.incomeOther as any) || 0;
+      const incomeSum = dp + pel + other;
+      const status = getRabEventStatus(r);
+
+      totalRabValue += rabSum;
+      totalCost += costSum;
+      totalIncome += incomeSum;
+      statusCounts[status] += 1;
+      if (status === "ONGOING" || status === "UPCOMING") activeRabCount += 1;
+
+      const brandKey = r.brand ?? "OTHER";
+      if (!brandValue[brandKey]) brandValue[brandKey] = { count: 0, value: 0, cost: 0 };
+      brandValue[brandKey].count += 1;
+      brandValue[brandKey].value += rabSum;
+      brandValue[brandKey].cost += costSum;
+
+      rabsWithMetrics.push({
+        id: r.id,
+        code: r.code,
+        title: r.title,
+        customer: r.customer?.companyName ?? r.customer?.name ?? null,
+        brand: r.brand,
+        totalRab: rabSum,
+        totalCost: costSum,
+        selisih: rabSum - costSum,
+        saldoBersih: incomeSum - costSum,
+        income: incomeSum,
+        status,
+      });
+    }
+
+    const totalSelisih = totalRabValue - totalCost;
+    const totalSaldoBersih = totalIncome - totalCost;
+    const avgMargin = totalRabValue > 0 ? (totalSelisih / totalRabValue) * 100 : 0;
+
+    // Top 5 by margin selisih
+    const topByMargin = [...rabsWithMetrics]
+      .sort((a, b) => b.selisih - a.selisih)
+      .slice(0, 5);
+
+    return {
+      totalCount: rabs.length,
+      activeRabCount,
+      totalRabValue,
+      totalCost,
+      totalIncome,
+      totalSelisih,
+      totalSaldoBersih,
+      avgMargin,
+      statusCounts,
+      brandValue,
+      topByMargin,
+    };
+  }, [rabs]);
+
+  if (rabs.length === 0) {
+    return (
+      <div className="glass rounded-xl p-6 text-center">
+        <Calculator className="w-10 h-10 mx-auto mb-2 text-muted-foreground/40" />
+        <h3 className="text-base font-semibold mb-1">Belum Ada RAB</h3>
+        <p className="text-sm text-muted-foreground mb-3">
+          Diagram pipeline project akan muncul di sini setelah ada RAB pertama.
+        </p>
+        <Link
+          href="/rab"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90"
+        >
+          <Plus className="w-4 h-4" /> Buat RAB
+        </Link>
+      </div>
+    );
+  }
+
+  if (!stats) return null;
+
+  // Pie data for status distribution
+  const statusData = [
+    { name: "Berjalan", value: stats.statusCounts.ONGOING, color: "#10b981" },
+    { name: "Akan Datang", value: stats.statusCounts.UPCOMING, color: "#3b82f6" },
+    { name: "Selesai", value: stats.statusCounts.FINISHED, color: "#64748b" },
+    { name: "Tanpa Tanggal", value: stats.statusCounts.NO_DATE, color: "#f59e0b" },
+  ].filter((d) => d.value > 0);
+
+  // Brand bar data
+  const brandData = Object.entries(stats.brandValue).map(([brand, v]) => ({
+    name: brand === "OTHER" ? "Tanpa Brand" : (BRAND_META[brand as Brand]?.short ?? brand),
+    value: v.value,
+    cost: v.cost,
+    selisih: v.value - v.cost,
+    count: v.count,
+  })).sort((a, b) => b.value - a.value);
+
+  const isHealthy = stats.totalSaldoBersih >= 0;
+
+  return (
+    <div className="space-y-4">
+      {/* Section header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+          <Calculator className="w-5 h-5 text-primary" />
+          Diagram RAB & Pipeline Project
+        </h2>
+        <Link
+          href="/rab"
+          className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+        >
+          Lihat semua RAB →
+        </Link>
+      </div>
+
+      {/* KPI Cards — 4 angka utama yang harus dilihat owner */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <RabKpiCard
+          label="Pipeline Aktif"
+          value={`${stats.activeRabCount} RAB`}
+          subtext={`dari total ${stats.totalCount}`}
+          icon={Calculator}
+          color="primary"
+        />
+        <RabKpiCard
+          label="Total Nilai Pipeline"
+          value={fmtShortRp(stats.totalRabValue)}
+          subtext={`Cost ${fmtShortRp(stats.totalCost)}`}
+          icon={Wallet}
+          color="blue"
+        />
+        <RabKpiCard
+          label="Margin Proyeksi"
+          value={`${stats.avgMargin.toFixed(1)}%`}
+          subtext={fmtShortRp(stats.totalSelisih)}
+          icon={stats.totalSelisih >= 0 ? TrendingUp : TrendingDown}
+          color={stats.totalSelisih >= 0 ? "emerald" : "red"}
+        />
+        <RabKpiCard
+          label="Saldo Bersih (Riil)"
+          value={fmtShortRp(stats.totalSaldoBersih)}
+          subtext={isHealthy ? "✅ Income menutupi cost" : "⚠ Pelunasan belum masuk"}
+          icon={Wallet}
+          color={isHealthy ? "emerald" : "amber"}
+        />
+      </div>
+
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Pie chart: status distribution */}
+        <div className="glass rounded-xl p-4 sm:p-5">
+          <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5">
+            🎯 Distribusi RAB by Status Event
+          </h3>
+          <p className="text-[11px] text-muted-foreground mb-2">
+            Pipeline health — berapa banyak project di tiap fase
+          </p>
+          {statusData.length === 0 ? (
+            <div className="h-[220px] flex items-center justify-center text-xs text-muted-foreground">
+              Belum ada data
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={statusData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={75}
+                  innerRadius={40}
+                  paddingAngle={2}
+                  label={(entry: any) => `${entry.name}: ${entry.value}`}
+                  labelLine={false}
+                  fontSize={10}
+                >
+                  {statusData.map((d, i) => (
+                    <Cell key={i} fill={d.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip
+                  formatter={(v: any) => [`${v} RAB`, "Jumlah"]}
+                  contentStyle={{ borderRadius: "8px", fontSize: 12 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Bar chart: brand comparison */}
+        <div className="glass rounded-xl p-4 sm:p-5">
+          <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5">
+            🏢 Perbandingan Nilai per Brand
+          </h3>
+          <p className="text-[11px] text-muted-foreground mb-2">
+            Total nilai RAB & cost per brand (Exindo / Xposer)
+          </p>
+          {brandData.length === 0 ? (
+            <div className="h-[220px] flex items-center justify-center text-xs text-muted-foreground">
+              Belum ada data
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={brandData} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" opacity={0.4} />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => fmtShortRp(v)}
+                />
+                <RechartsTooltip
+                  formatter={(v: any, n: any) => [fmtRp(Number(v)), n === "value" ? "Total RAB" : n === "cost" ? "Cost" : "Selisih"]}
+                  contentStyle={{ borderRadius: "8px", fontSize: 12 }}
+                />
+                <Legend wrapperStyle={{ fontSize: 11 }} iconSize={10} />
+                <Bar dataKey="value" name="Total RAB" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="cost" name="Cost" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="selisih" name="Selisih" fill="#10b981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* Top 5 RAB by margin */}
+      <div className="glass rounded-xl p-4 sm:p-5">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h3 className="text-sm font-bold flex items-center gap-1.5">
+              🏆 Top 5 Project — Margin Terbesar
+            </h3>
+            <p className="text-[11px] text-muted-foreground">
+              RAB dengan profit proyeksi tertinggi
+            </p>
+          </div>
+        </div>
+        {stats.topByMargin.length === 0 ? (
+          <div className="text-center py-6 text-xs text-muted-foreground">Belum ada data</div>
+        ) : (
+          <div className="space-y-2">
+            {stats.topByMargin.map((r, i) => {
+              const isUntung = r.selisih >= 0;
+              const margin = r.totalRab > 0 ? (r.selisih / r.totalRab) * 100 : 0;
+              const widthPct = stats.topByMargin[0].selisih > 0
+                ? Math.max(8, (r.selisih / stats.topByMargin[0].selisih) * 100)
+                : 8;
+              return (
+                <Link
+                  key={r.id}
+                  href={`/rab/${r.id}`}
+                  className="block rounded-lg border bg-card hover:bg-muted/30 hover:border-primary/40 transition p-2.5"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center justify-center">
+                        #{i + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-semibold truncate">{r.title}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {r.code}
+                          {r.customer ? ` · ${r.customer}` : ""}
+                          {r.brand ? ` · ${BRAND_META[r.brand]?.short ?? r.brand}` : ""}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className={`text-xs sm:text-sm font-bold font-mono ${isUntung ? "text-emerald-600" : "text-red-600"}`}>
+                        {isUntung ? "+" : "−"}{fmtShortRp(Math.abs(r.selisih))}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {margin.toFixed(0)}% margin
+                      </div>
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${isUntung ? "bg-emerald-500" : "bg-red-500"} transition-all`}
+                      style={{ width: `${widthPct}%` }}
+                    />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Hint footer */}
+      <div className="text-[10px] text-muted-foreground italic text-center">
+        💡 Diagram update otomatis tiap 60 detik. Klik RAB di top 5 untuk buka detail.
+      </div>
+    </div>
+  );
+}
+
+function RabKpiCard({
+  label, value, subtext, icon: Icon, color,
+}: {
+  label: string;
+  value: string;
+  subtext: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: "primary" | "blue" | "emerald" | "amber" | "red";
+}) {
+  const colorMap: Record<string, string> = {
+    primary: "bg-primary/15 text-primary border-primary/30",
+    blue: "bg-blue-500/15 text-blue-600 border-blue-300/40",
+    emerald: "bg-emerald-500/15 text-emerald-600 border-emerald-300/40",
+    amber: "bg-amber-500/15 text-amber-600 border-amber-300/40",
+    red: "bg-red-500/15 text-red-600 border-red-300/40",
+  };
+  return (
+    <div className="glass rounded-xl p-3 sm:p-4">
+      <div className={cn("inline-flex p-1.5 rounded-lg border", colorMap[color])}>
+        <Icon className="w-4 h-4" />
+      </div>
+      <p className="mt-2 text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+        {label}
+      </p>
+      <p className="text-base sm:text-xl font-bold text-foreground mt-0.5 tabular-nums break-words">
+        {value}
+      </p>
+      <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 truncate">{subtext}</p>
+    </div>
+  );
+}
+
+

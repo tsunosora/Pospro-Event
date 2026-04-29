@@ -213,3 +213,9 @@ pm2 restart all
 | Cloudflare Tunnel 502 | Cek PM2: `pm2 status` — pastikan `api` & `web` online |
 | Login berhasil tapi 401 di API | Cek `NEXT_PUBLIC_API_URL` di frontend `.env.local`, rebuild |
 | MySQL `Too many connections` | Tambah `connection_limit` di DATABASE_URL: `?connection_limit=20` |
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

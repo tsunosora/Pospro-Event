@@ -80,3 +80,9 @@ Klik **Approve** → auto-bikin `StockMovement` tipe `OPNAME_ADJUST` dengan refe
 
 - [Antrian Produksi](./produksi.md) — sumber pemotongan stok via BOM
 - [Laporan Stok](./laporan-stok.md) — tracking semua mutasi stok
+
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+[Lihat lisensi lengkap →](./license)

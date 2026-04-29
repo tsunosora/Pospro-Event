@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pospro Event — Frontend
 
-## Getting Started
+Frontend Next.js 16 + React 19 + Tailwind v4 untuk aplikasi **Pospro Event** (manajemen vendor booth & event).
 
-First, run the development server:
+**By Muhammad Faishal Abdul Hakim**
+
+---
+
+## 🧱 Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **UI**: React 19 + Tailwind CSS v4
+- **State**: Zustand (cart, UI), TanStack Query (server state)
+- **Drag-Drop**: @dnd-kit (Kanban CRM, Event Timeline)
+- **Charts**: Recharts (cashflow, dashboard)
+- **Forms**: React Hook Form
+- **Icons**: lucide-react
+- **Date**: dayjs (locale ID)
+
+---
+
+## 🚀 Quick Setup
 
 ```bash
+# 1. Install deps
+npm install
+
+# 2. Setup .env.local
+cp .env.example .env.local
+# Edit NEXT_PUBLIC_API_URL=http://localhost:3001
+
+# 3. Run dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# → http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📦 Build Production
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+npm run start
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📂 Struktur Routes
 
-## Learn More
+```
+src/app/
+├── page.tsx              Dashboard utama (Event + RAB diagram)
+├── login/                Login
+├── crm/                  CRM module
+│   ├── board/           Pipeline Kanban
+│   ├── leads/           Lead detail & list
+│   └── performance/     Performance metrics
+├── customers/[id]/       Customer detail (Penawaran tab, dll)
+├── rab/                  RAB module
+│   └── [id]/            RAB detail (multi-tag, dual qty, inventaris)
+├── penawaran/            Quotation list & detail
+├── invoices/             Invoice management
+├── pos/                  Order Booth/Event (Sewa/Operasional/Pinjam/RAB/Penawaran)
+├── inventory/            Manajemen Stok (lokasi gudang per varian)
+├── gudang/
+│   ├── ambil/           Kiosk pinjam (PIN-gated)
+│   ├── stok/            Kiosk stok lapangan tukang ⭐ NEW
+│   └── peminjaman/      Riwayat peminjaman
+├── events/               Event timeline (Gantt) + detail
+├── cashflow/             Arus kas
+├── reports/              Laporan (sales, profit, stock, dll)
+├── settings/             Konfigurasi (brand, gudang, worker, PIN, dll)
+└── opname/[token]/       Stock opname (token-based public)
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 🎨 Komponen Reusable
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/components/
+├── CustomerPickerModal.tsx     Pilih/tambah customer (RAB + Penawaran + POS)
+├── TagChipInput.tsx            Multi-tag dengan autocomplete (RAB)
+├── BrandBadge.tsx              Badge brand mini
+├── CameraCaptureModal.tsx      Photo capture (mobile-friendly)
+├── crm/                        CRM components (LeadCard, StageColumn, dll)
+└── layout/                     Sidebar, Header, MainLayout
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 📄 Lisensi
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**Copyright © 2026 Muhammad Faishal Abdul Hakim**
+**All rights reserved.**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Proprietary software untuk operasional internal **CV. Exindo Pratama** & **CV. Xposer Event**. Lihat [`../LICENSE`](../LICENSE) untuk detail.
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**

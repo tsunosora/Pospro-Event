@@ -69,7 +69,7 @@ Crew ambil barang dari gudang via link PIN publik. **Wajib upload foto** saat pi
 Untuk lini digital printing: order cetak banner/poster → kirim ke designer via WA → designer upload proof → approve → cetak. Convert ke transaksi POS saat klien bayar.
 
 ### 💾 Backup & Restore
-Export ZIP semua data (CRM + RAB + Penawaran + Stok + Crew + dll) dalam 1 klik. Restore juga 1 klik. Versi backup saat ini **2.4**.
+Export ZIP semua data (CRM + RAB + Penawaran + Stok + Crew + dll) dalam 1 klik. Restore juga 1 klik. Versi backup saat ini **2.6**.
 
 ### 📚 Dokumentasi Lengkap
 Wiki VitePress yang bisa diakses online untuk training tim.
@@ -204,8 +204,9 @@ Semua dokumentasi ada di folder [`docs/wiki/`](./docs/wiki/):
 - [Peta Cuan Lokasi](./docs/wiki/peta-cuan.md)
 
 ### ⚙️ Teknis
-- [Backup & Restore](./docs/wiki/backup.md) ⭐ versi 2.4
+- [Backup & Restore](./docs/wiki/backup.md) ⭐ versi 2.6
 - [Panduan Deployment](./docs/wiki/deployment.md)
+- [Lisensi & Hak Cipta](./docs/wiki/license.md) 📄
 
 ---
 
@@ -220,6 +221,16 @@ Semua dokumentasi ada di folder [`docs/wiki/`](./docs/wiki/):
 
 ## 📄 Lisensi
 
-**© 2026 Muhammad Faishal Abdul Hakim**
+**Copyright © 2026 Muhammad Faishal Abdul Hakim**
+**All rights reserved.**
 
-Aplikasi internal untuk operasional vendor booth & event. Tidak didistribusikan untuk umum.
+Aplikasi proprietary untuk operasional internal **CV. Exindo Pratama** dan **CV. Xposer Event**. Tidak didistribusikan untuk umum.
+
+Lihat detail lengkap di:
+- [`LICENSE`](./LICENSE) — versi resmi (legal text)
+- [Lisensi Wiki](./docs/wiki/license.md) — versi user-friendly bahasa Indonesia
+
+---
+
+**© 2026 Muhammad Faishal Abdul Hakim · Pospro Event · All rights reserved.**
+Contact: muhamadfaisal288@gmail.com

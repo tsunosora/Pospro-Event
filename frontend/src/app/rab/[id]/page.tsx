@@ -12,12 +12,12 @@ import {
     getBoothVariants,
     saveRabAsProduct,
     generateCashflowFromRab,
+    parseRabTags,
     type RabItem,
     type BoothVariant,
 } from "@/lib/api/rab";
 import { getRabCategories, type RabCategory } from "@/lib/api/rab-categories";
 import { getRabLooseItemSuggestions, type RabLooseItem } from "@/lib/api/rab-loose-items";
-import { getCustomers } from "@/lib/api/customers";
 import { getCategories, getUnits } from "@/lib/api/products";
 import {
     ArrowLeft,
@@ -40,6 +40,11 @@ import {
     Calculator,
 } from "lucide-react";
 import MultiplierCalculator, { type CalcResult } from "../MultiplierCalculator";
+import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
+import { BrandBadge } from "@/components/BrandBadge";
+import InventoryAcquisitionsSection from "./InventoryAcquisitionsSection";
+import { CustomerPickerModal } from "@/components/CustomerPickerModal";
+import { TagChipInput } from "@/components/TagChipInput";
 
 const toast = {
     success: (msg: string) => alert(msg),
@@ -100,6 +105,8 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
     const [items, setItems] = useState<LocalItem[]>([]);
     const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
     const [customerId, setCustomerId] = useState<number | null>(null);
+    const [brand, setBrand] = useState<Brand | null>(null);
+    const [tags, setTags] = useState<string[]>([]);
 
     const [showPicker, setShowPicker] = useState<number | null>(null);
     const [showCustomerPicker, setShowCustomerPicker] = useState(false);
@@ -124,6 +131,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
         setTitle(rab.title || "");
         setProjectName(rab.projectName || "");
         setLocation(rab.location || "");
+        setBrand(rab.brand);
         setPeriodStart(rab.periodStart ? rab.periodStart.slice(0, 10) : "");
         setPeriodEnd(rab.periodEnd ? rab.periodEnd.slice(0, 10) : "");
         setNotes(rab.notes || "");
@@ -131,6 +139,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
         setPelunasan(parseFloat(rab.pelunasan as any) || 0);
         setIncomeOther(parseFloat(rab.incomeOther as any) || 0);
         setCustomerId(rab.customerId ?? null);
+        setTags(parseRabTags(rab.tags));
         setItems(
             (rab.items || []).map((it) => ({
                 ...it,
@@ -205,6 +214,18 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
         [categorySubtotals]
     );
     const totalSelisih = totalRab - totalCost;
+
+    // Hitung cost inventaris (item yang ditandai sebagai aset perusahaan)
+    const costInventory = useMemo(() =>
+        items.filter((it) => it.isInventory).reduce((acc, it) => {
+            const q = Number(it.quantityCost ?? it.quantity) || 0;
+            const p = Number(it.priceCost) || 0;
+            return acc + q * p;
+        }, 0)
+    , [items]);
+    const costOperational = totalCost - costInventory;
+    const operationalProfit = totalRab - costOperational;
+    const inventoryItemCount = items.filter((it) => it.isInventory).length;
 
     const totalIncome = (dpAmount || 0) + (pelunasan || 0) + (incomeOther || 0);
     const saldo = totalIncome - totalCost;
@@ -313,6 +334,8 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                 periodEnd: periodEnd || undefined,
                 notes: notes.trim() || undefined,
                 customerId: customerId,
+                brand: brand,
+                tags,
                 dpAmount,
                 pelunasan,
                 incomeOther,
@@ -331,6 +354,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                         !it.productVariantId &&
                         !!it.description?.trim() &&
                         (it.saveAsLoose ?? true),
+                    isInventory: it.isInventory ?? false,
                 })),
             }),
         onSuccess: () => {
@@ -456,6 +480,37 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                 </div>
             </div>
 
+            {/* Brand picker — pilih CV mana surat penawaran akan pakai */}
+            <div className="border-2 rounded-lg p-3 bg-slate-50 flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-semibold text-slate-700">Brand:</span>
+                {ACTIVE_BRANDS.map((b) => {
+                    const meta = BRAND_META[b];
+                    const active = brand === b;
+                    return (
+                        <button
+                            key={b}
+                            type="button"
+                            onClick={() => setBrand(b)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 text-sm font-semibold transition ${active
+                                ? `${meta.bg} ${meta.text} ${meta.border}`
+                                : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                                }`}
+                        >
+                            <span>{meta.emoji}</span>
+                            {meta.short}
+                        </button>
+                    );
+                })}
+                {brand === null && (
+                    <span className="text-xs text-amber-700 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
+                        ⚠ Belum di-tag — pilih agar surat penawaran pakai header benar
+                    </span>
+                )}
+                <span className="text-[11px] text-muted-foreground ml-auto">
+                    Brand menentukan header & nomor seri surat penawaran.
+                </span>
+            </div>
+
             {/* Meta */}
             <div className="border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 <Field label="Judul">
@@ -536,6 +591,19 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                 </Field>
             </div>
 
+            {/* Tag — full width below header form */}
+            <div className="border rounded-lg p-3 bg-blue-50/30">
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5 inline-flex items-center gap-1.5">
+                    🏷️ Tag / Kategori RAB
+                    <span className="text-[10px] font-normal italic">(memudahkan filter & pencarian — mis. "Stand Standar 3x3", "Pengadaan", "Indoor")</span>
+                </label>
+                <TagChipInput
+                    value={tags}
+                    onChange={setTags}
+                    placeholder="Tambah tag (Enter / koma)…"
+                />
+            </div>
+
             {/* Kategori items */}
             <div className="space-y-3">
                 {visibleCategories.map((cat) => {
@@ -602,17 +670,45 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                         return (
                                             <div
                                                 key={it._key}
-                                                className="bg-white border-2 border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 transition"
+                                                className={
+                                                    "border-2 rounded-xl overflow-hidden transition " +
+                                                    (it.isInventory
+                                                        ? "bg-violet-50/40 border-violet-300 hover:border-violet-400 ring-1 ring-violet-200"
+                                                        : "bg-white border-slate-200 hover:border-slate-300")
+                                                }
                                             >
                                                 {/* Header: nomor + uraian + hapus */}
-                                                <div className="flex items-start gap-2 p-3 border-b bg-white">
-                                                    <span className="shrink-0 w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-xs font-bold flex items-center justify-center mt-1">
+                                                <div className={"flex items-start gap-2 p-3 border-b " + (it.isInventory ? "bg-violet-50/60" : "bg-white")}>
+                                                    <span className={"shrink-0 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center mt-1 " + (it.isInventory ? "bg-violet-200 text-violet-800" : "bg-slate-100 text-slate-600")}>
                                                         {idx + 1}
                                                     </span>
                                                     <div className="flex-1 min-w-0">
-                                                        <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
-                                                            Uraian Item
-                                                        </label>
+                                                        <div className="flex items-center justify-between gap-2 mb-1">
+                                                            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                                                Uraian Item
+                                                            </label>
+                                                            {/* Toggle Inventaris — prominent di header item */}
+                                                            <label
+                                                                className={
+                                                                    "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold border cursor-pointer transition select-none " +
+                                                                    (it.isInventory
+                                                                        ? "border-violet-400 bg-violet-200 text-violet-900 hover:bg-violet-300"
+                                                                        : "border-violet-200 bg-white text-violet-700 hover:bg-violet-50")
+                                                                }
+                                                                title={it.isInventory
+                                                                    ? "Item ini ditandai sebagai BARANG INVENTARIS (aset perusahaan, tidak dihitung sebagai cost murni event). Klik untuk batal."
+                                                                    : "Centang kalau item ini barang inventaris (aset perusahaan, mis. booth, alat, perabot)"
+                                                                }
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={!!it.isInventory}
+                                                                    onChange={(e) => updateItem(it._key, { isInventory: e.target.checked })}
+                                                                    className="h-3.5 w-3.5 accent-violet-600"
+                                                                />
+                                                                📦 Barang Inventaris
+                                                            </label>
+                                                        </div>
                                                         <UraianAutocomplete
                                                             value={it.description}
                                                             onChange={(v) =>
@@ -707,7 +803,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                             <div className="flex items-center gap-1.5">
                                                                 <span className="w-2 h-2 rounded-full bg-blue-500" />
                                                                 <span className="text-xs font-bold text-blue-800 uppercase tracking-wide">
-                                                                    Untuk Klien (RAB)
+                                                                    Total Perkiraan Biaya
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -943,21 +1039,63 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                 <div className="space-y-3">
                     <h3 className="font-semibold text-sm">Ringkasan</h3>
                     <div className="flex items-center justify-between text-sm">
-                        <span>Total RAB (Harga Klien)</span>
+                        <span>Total Perkiraan Biaya</span>
                         <span className="font-mono">{fmtRp(totalRab)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Total COST (Biaya Riil)</span>
-                        <span className="font-mono text-muted-foreground">{fmtRp(totalCost)}</span>
-                    </div>
-                    <div
-                        className={`flex items-center justify-between text-sm font-semibold ${
-                            totalSelisih >= 0 ? "text-green-600" : "text-red-600"
-                        }`}
-                    >
-                        <span>Selisih (Margin)</span>
-                        <span className="font-mono">{fmtRp(totalSelisih)}</span>
-                    </div>
+                    {inventoryItemCount > 0 ? (
+                        <>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">Cost Operasional</span>
+                                <span className="font-mono text-muted-foreground">{fmtRp(costOperational)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-violet-700 inline-flex items-center gap-1">
+                                    📦 Cost Inventaris
+                                    <span className="text-[10px] text-muted-foreground">({inventoryItemCount} item)</span>
+                                </span>
+                                <span className="font-mono text-violet-700">{fmtRp(costInventory)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm border-t pt-2">
+                                <span className="text-muted-foreground">Total COST</span>
+                                <span className="font-mono text-muted-foreground">{fmtRp(totalCost)}</span>
+                            </div>
+                            <div
+                                className={`flex items-center justify-between text-base font-bold border-t pt-2 ${
+                                    operationalProfit >= 0 ? "text-green-700" : "text-red-700"
+                                }`}
+                            >
+                                <span>💰 Untung Operasional</span>
+                                <span className="font-mono">{fmtRp(operationalProfit)}</span>
+                            </div>
+                            <div
+                                className={`flex items-center justify-between text-xs font-medium ${
+                                    totalSelisih >= 0 ? "text-green-600" : "text-red-600"
+                                }`}
+                                title="Margin total termasuk cost inventaris"
+                            >
+                                <span>📊 Margin Bersih (incl inventaris)</span>
+                                <span className="font-mono">{fmtRp(totalSelisih)}</span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground italic bg-violet-50 p-2 rounded border border-violet-100">
+                                💡 Untung Operasional lebih representatif untuk evaluasi event ini, karena cost inventaris jadi aset perusahaan (bisa dipakai event berikutnya).
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">Total COST (Biaya Riil)</span>
+                                <span className="font-mono text-muted-foreground">{fmtRp(totalCost)}</span>
+                            </div>
+                            <div
+                                className={`flex items-center justify-between text-sm font-semibold ${
+                                    totalSelisih >= 0 ? "text-green-600" : "text-red-600"
+                                }`}
+                            >
+                                <span>Selisih (Margin)</span>
+                                <span className="font-mono">{fmtRp(totalSelisih)}</span>
+                            </div>
+                        </>
+                    )}
                     <div
                         className={`flex items-center justify-between pt-2 border-t text-base font-bold ${
                             saldo >= 0 ? "text-green-600" : "text-red-600"
@@ -977,13 +1115,16 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                 </div>
             )}
 
+            {/* Pengadaan Inventaris — track items tagged isInventory */}
+            {!isNaN(id) && <InventoryAcquisitionsSection rabPlanId={id} />}
+
             {/* Modal generate penawaran */}
             {showGenModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-background rounded-lg shadow-xl w-full max-w-lg p-6 space-y-4">
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
+                    <div className="bg-background rounded-t-lg sm:rounded-lg shadow-xl w-full max-w-lg p-4 sm:p-6 space-y-4 max-h-[92vh] overflow-y-auto">
                         <h2 className="text-lg font-semibold">Generate Penawaran dari RAB</h2>
                         <p className="text-xs text-muted-foreground">
-                            Hanya kolom <b>Harga RAB</b> yang disalin ke penawaran. Harga COST tetap internal.
+                            Hanya kolom <b>Harga Perkiraan</b> yang disalin ke penawaran. Harga COST tetap internal.
                         </p>
 
                         <div>
@@ -1001,6 +1142,29 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                 <option value="SEWA">Sewa Perlengkapan Event</option>
                                 <option value="PENGADAAN_BOOTH">Pengadaan Booth Special Design</option>
                             </select>
+                        </div>
+
+                        {/* Pick dari database pelanggan — auto-fill semua field klien di bawah */}
+                        <div className="rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 p-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-semibold text-primary inline-flex items-center gap-1.5">
+                                        <Users className="h-3.5 w-3.5" />
+                                        Auto-isi dari Data Pelanggan
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                                        Klik untuk pilih klien terdaftar atau tambah baru — semua kolom di bawah akan terisi otomatis
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCustomerPicker(true)}
+                                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90"
+                                >
+                                    <Search className="h-3.5 w-3.5" />
+                                    Pilih Klien
+                                </button>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -1630,99 +1794,6 @@ function ProductPickerModal({
     );
 }
 
-type CustomerLite = {
-    id: number;
-    name: string;
-    companyName?: string | null;
-    companyPIC?: string | null;
-    phone?: string | null;
-    email?: string | null;
-    address?: string | null;
-};
-
-function CustomerPickerModal({
-    onClose,
-    onPick,
-}: {
-    onClose: () => void;
-    onPick: (c: CustomerLite) => void;
-}) {
-    const [query, setQuery] = useState("");
-
-    const { data: customers, isLoading } = useQuery({
-        queryKey: ["customers-all"],
-        queryFn: getCustomers,
-    });
-
-    const filtered = useMemo<CustomerLite[]>(() => {
-        const list = (customers as CustomerLite[] | undefined) ?? [];
-        const q = query.trim().toLowerCase();
-        if (!q) return list;
-        return list.filter((c) => {
-            const hay = `${c.name ?? ""} ${c.companyName ?? ""} ${c.companyPIC ?? ""} ${c.phone ?? ""} ${c.email ?? ""}`.toLowerCase();
-            return hay.includes(q);
-        });
-    }, [customers, query]);
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-background rounded-lg shadow-xl w-full max-w-xl max-h-[80vh] flex flex-col">
-                <div className="p-4 border-b flex items-center justify-between">
-                    <h2 className="text-base font-semibold">Pilih Klien</h2>
-                    <button onClick={onClose} className="p-1 hover:bg-muted rounded">
-                        <X className="h-4 w-4" />
-                    </button>
-                </div>
-                <div className="p-4 border-b">
-                    <div className="relative">
-                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <input
-                            type="text"
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Cari nama / perusahaan / telepon…"
-                            className="w-full border rounded-md pl-8 pr-3 py-2 text-sm"
-                            autoFocus
-                        />
-                    </div>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                    {isLoading ? (
-                        <div className="p-8 flex justify-center">
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                        </div>
-                    ) : filtered.length === 0 ? (
-                        <div className="p-8 text-center text-sm text-muted-foreground">
-                            {(customers as any[] | undefined)?.length === 0
-                                ? "Belum ada customer. Tambah dulu di halaman Data Pelanggan."
-                                : "Tidak ada yang cocok."}
-                        </div>
-                    ) : (
-                        <ul className="divide-y">
-                            {filtered.map((c) => (
-                                <li key={c.id}>
-                                    <button
-                                        onClick={() => onPick(c)}
-                                        className="w-full text-left p-3 hover:bg-muted/50"
-                                    >
-                                        <div className="font-medium text-sm">
-                                            {c.companyName || c.name}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground mt-0.5">
-                                            {c.companyName && c.name && <span>{c.name}</span>}
-                                            {c.companyPIC && <span> · PIC {c.companyPIC}</span>}
-                                            {c.phone && <span> · {c.phone}</span>}
-                                        </div>
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
@@ -1821,7 +1892,7 @@ function SaveAsProductModal({
                 <div className="p-4 overflow-y-auto space-y-3">
                     <div className="bg-muted/30 border rounded p-2 text-xs grid grid-cols-2 gap-2">
                         <div>
-                            Total RAB (harga jual):
+                            Total Perkiraan Biaya:
                             <b className="font-mono ml-1">{fmtRp(totalRab)}</b>
                         </div>
                         <div>

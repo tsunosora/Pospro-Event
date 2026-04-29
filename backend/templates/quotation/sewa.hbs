@@ -4,165 +4,505 @@
 <meta charset="utf-8" />
 <title>Penawaran {{doc.number}}</title>
 <style>
-  @page { size: A4; margin: 15mm 18mm 18mm 18mm; }
+  /* STRATEGI:
+     - @page { margin: 0 } → paper full bleed, image fixed bisa full 210×297mm tanpa clip
+     - <table class="page-layout"> dengan <thead>/<tfoot> spacer → memberi margin atas/bawah PER PAGE
+       (CSS Paged Media: <thead> dan <tfoot> tabel otomatis ter-repeat saat tabel split antar halaman)
+     - .letterhead-bg position:fixed full A4 → repeat di setiap halaman saat print Chromium */
+  @page {
+    size: A4;
+    margin: 0;
+  }
   * { box-sizing: border-box; }
-  body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 11pt; color: #111; }
-  .header { display: flex; align-items: flex-start; gap: 12pt; border-bottom: 2pt solid #1a3b7c; padding-bottom: 8pt; }
-  .header .logo { width: 60pt; height: 60pt; object-fit: contain; }
-  .header .company-name { font-weight: 700; font-size: 16pt; color: #1a3b7c; letter-spacing: .5pt; }
-  .header .company-addr { font-size: 9.5pt; color: #333; margin-top: 2pt; line-height: 1.35; }
-  .doc-meta { margin-top: 14pt; display: flex; justify-content: space-between; align-items: flex-start; }
-  .doc-meta .nomor { font-size: 11pt; }
-  .doc-meta .nomor strong { display: inline-block; min-width: 50pt; }
-  .doc-meta .kota-tgl { text-align: right; }
-  .kepada { margin-top: 12pt; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 11pt;
+    color: #111;
+    line-height: 1.45;
+  }
+
+  /* Letterhead — full A4 paper, posisi 0,0 (karena @page margin = 0). Repeat di setiap page. */
+  {{#if company.letterheadUrl}}
+  .letterhead-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 210mm;
+    height: 297mm;
+    z-index: -1;
+    pointer-events: none;
+    user-select: none;
+  }
+  {{/if}}
+
+  /* Table layout untuk per-page header/footer spacer.
+     <thead> & <tfoot> di tabel akan AUTO-REPEAT di setiap halaman saat content overflow. */
+  table.page-layout {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table.page-layout > thead > tr > td.page-header-spacer {
+    height: {{#if company.letterheadUrl}}38mm{{else}}18mm{{/if}};
+    padding: 0;
+    border: 0;
+  }
+  table.page-layout > tfoot > tr > td.page-footer-spacer {
+    height: {{#if company.letterheadUrl}}45mm{{else}}22mm{{/if}};
+    padding: 0;
+    border: 0;
+  }
+  table.page-layout > tbody > tr > td.page-content {
+    padding: 0 22mm;
+    vertical-align: top;
+  }
+
+  /* Fallback header (kalau tidak ada letterhead) */
+  .fallback-header {
+    display: flex; align-items: flex-start; gap: 12pt;
+    border-bottom: 2pt solid #c8203a;
+    padding-bottom: 8pt;
+    margin-bottom: 14pt;
+  }
+  .fallback-header .logo { width: 60pt; height: 60pt; object-fit: contain; }
+  .fallback-header .company-name { font-weight: 700; font-size: 16pt; color: #c8203a; letter-spacing: .5pt; }
+  .fallback-header .company-addr { font-size: 9.5pt; color: #333; margin-top: 2pt; line-height: 1.35; }
+
+  .doc-meta { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10pt; }
+  .doc-meta .nomor { font-size: 11pt; line-height: 1.55; }
+  .doc-meta .nomor strong { display: inline-block; min-width: 65pt; }
+  .doc-meta .kota-tgl { text-align: right; font-size: 11pt; }
+
+  .kepada { margin-bottom: 8pt; line-height: 1.45; }
   .kepada .label { font-weight: 600; }
-  .perihal { margin-top: 8pt; font-weight: 700; text-decoration: underline; }
+
   .opening { margin-top: 10pt; text-align: justify; line-height: 1.5; }
-  .event-info { margin-top: 8pt; font-size: 10.5pt; }
-  .event-info td { padding: 1pt 4pt 1pt 0; vertical-align: top; }
-  .event-info td:first-child { width: 90pt; color: #555; }
-  table.items { width: 100%; border-collapse: collapse; margin-top: 12pt; font-size: 10.5pt; }
-  table.items th, table.items td { border: 1pt solid #666; padding: 4pt 6pt; }
-  table.items thead { background: #1a3b7c; color: #fff; }
+
+  table.items {
+    width: 100%; border-collapse: collapse;
+    margin-top: 12pt; font-size: 10.5pt;
+  }
+  table.items th, table.items td { border: 0.75pt solid #999; padding: 4pt 6pt; }
+  table.items thead { background: #c8203a; color: #fff; }
   table.items th { font-weight: 600; text-align: center; }
   table.items td.num { text-align: center; width: 28pt; }
   table.items td.qty { text-align: right; white-space: nowrap; }
   table.items td.rp { text-align: right; white-space: nowrap; }
+  /* Header kategori — baris tebal warna untuk grouping */
+  table.items tr.cat-header td {
+    background: #fde2e6;
+    font-weight: 700;
+    color: #8a1729;
+    text-transform: uppercase;
+    font-size: 10pt;
+    letter-spacing: .3pt;
+  }
+  table.items tr.cat-subtotal td {
+    background: #fff8f9;
+    font-weight: 600;
+    font-style: italic;
+    font-size: 10pt;
+  }
   table.items tfoot td { font-weight: 600; }
   table.items tfoot td.label { text-align: right; }
   .grand-total td { background: #f1f5fb; }
+
   .terbilang { margin-top: 8pt; font-style: italic; font-size: 10.5pt; }
-  .terms { margin-top: 12pt; }
-  .terms h4 { font-size: 11pt; margin: 0 0 4pt 0; color: #1a3b7c; }
-  .terms ol { padding-left: 18pt; margin: 0; line-height: 1.5; font-size: 10pt; }
-  .bank-list { margin-top: 6pt; font-size: 10pt; }
+
+  /* Custom text section — rapikan dengan section header & spacing konsisten */
+  .text-section { margin-top: 12pt; }
+  .text-section .section-title {
+    font-weight: 700;
+    font-size: 11pt;
+    color: #c8203a;
+    margin-bottom: 4pt;
+    border-bottom: 0.5pt solid #c8203a;
+    padding-bottom: 2pt;
+  }
+  .text-body {
+    line-height: 1.55;
+    text-align: justify;
+    font-size: 10.5pt;
+    white-space: pre-line;
+    margin: 0;
+  }
+  .text-body.disclaimer { font-size: 10pt; color: #333; }
+
+  .bank-list { margin-top: 4pt; font-size: 10pt; padding-left: 18pt; }
   .bank-list li { margin-bottom: 2pt; }
-  .signature { margin-top: 24pt; display: flex; justify-content: flex-end; }
-  .signature .block { text-align: center; min-width: 180pt; }
-  .signature .role { margin-bottom: 60pt; }
-  .signature .director { font-weight: 700; text-decoration: underline; }
-  .footer-note { margin-top: 18pt; font-size: 9pt; color: #555; border-top: 1pt dashed #999; padding-top: 6pt; }
+
+  .closing-section { margin-top: 12pt; }
+  .closing-text {
+    line-height: 1.55;
+    text-align: justify;
+    font-size: 10.5pt;
+    white-space: pre-line;
+  }
+
+  .signature { margin-top: 22pt; display: flex; justify-content: flex-end; page-break-inside: avoid; }
+  .signature .block {
+    text-align: center;
+    min-width: 220pt;
+    position: relative;
+  }
+  .signature .role { line-height: 1.4; margin-bottom: 4pt; }
+  .signature .sign-area {
+    position: relative;
+    height: 80pt;
+    margin-top: 4pt;
+    margin-bottom: 4pt;
+  }
+  .signature .sign-image {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    max-height: 80pt;
+    max-width: 180pt;
+    z-index: 2;
+  }
+  .signature .stamp-image {
+    position: absolute;
+    top: 8pt;
+    left: 50%;
+    transform: translateX(-72%);
+    max-height: 80pt;
+    max-width: 110pt;
+    opacity: 0.85;          /* stempel sedikit transparan biar nama tetap kebaca */
+    z-index: 1;
+    mix-blend-mode: multiply; /* warna stempel menyatu dengan kertas */
+  }
+  .signature .director {
+    font-weight: 700;
+    text-decoration: underline;
+  }
+  .signature .position-label {
+    font-size: 10pt;
+    color: #444;
+    margin-top: 2pt;
+  }
+
+  /* Jaga jarak bawah agar text tidak mepet ke footer kop surat */
+  .closing-section { margin-top: 16pt; margin-bottom: 16pt; }
+  .end-spacer { height: 36pt; }
+  .text-section { margin-bottom: 8pt; }
+  .signature { padding-bottom: 12pt; }
+
+  /* Hindari pemotongan section di antara halaman */
+  .text-section, table.items thead, table.items tfoot { page-break-inside: avoid; }
+
   .badge-rev { display: inline-block; background: #d93737; color: #fff; padding: 1pt 6pt; border-radius: 3pt; font-size: 9pt; margin-left: 6pt; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  {{#if company.logoUrl}}<img class="logo" src="{{company.logoUrl}}" />{{/if}}
-  <div>
-    <div class="company-name">{{company.name}}</div>
-    <div class="company-addr">
-      {{company.address}}<br/>
-      {{#if company.phone}}Telp: {{company.phone}}{{/if}}{{#if company.email}} &bull; {{company.email}}{{/if}}
-    </div>
-  </div>
-</div>
+{{#if company.letterheadUrl}}
+<img class="letterhead-bg" src="{{company.letterheadUrl}}" alt="" />
+{{/if}}
 
-<div class="doc-meta">
-  <div class="nomor">
-    <div><strong>Nomor</strong>: {{doc.number}}{{#if doc.isRevision}}<span class="badge-rev">Rev. {{doc.revisionNumber}}</span>{{/if}}</div>
-    <div><strong>Lampiran</strong>: 1 (satu) berkas</div>
-    <div><strong>Perihal</strong>: {{doc.subject}}</div>
-  </div>
-  <div class="kota-tgl">
-    {{doc.city}}, {{doc.dateFormatted}}
-  </div>
-</div>
-
-<div class="kepada">
-  <div class="label">Kepada Yth.,</div>
-  <div>{{client.name}}</div>
-  {{#if client.company}}<div><strong>{{client.company}}</strong></div>{{/if}}
-  {{#if client.address}}<div>{{client.address}}</div>{{/if}}
-  <div>di Tempat</div>
-</div>
-
-<p class="opening">
-  Dengan hormat,<br/>
-  Bersama surat ini kami {{company.name}} mengajukan penawaran harga <strong>{{doc.variantLabel}}</strong>
-  {{#if project.name}}untuk acara <strong>{{project.name}}</strong>{{/if}}
-  {{#if project.location}} di <strong>{{project.location}}</strong>{{/if}}
-  {{#if project.dateRange}} pada tanggal <strong>{{project.dateRange}}</strong>{{/if}}.
-  Adapun rincian penawaran kami adalah sebagai berikut:
-</p>
-
-<table class="items">
+<table class="page-layout">
   <thead>
-    <tr>
-      <th style="width:28pt">No</th>
-      <th>Uraian</th>
-      <th style="width:72pt">Qty</th>
-      <th style="width:90pt">Harga Satuan</th>
-      <th style="width:100pt">Jumlah</th>
-    </tr>
+    <tr><td class="page-header-spacer"></td></tr>
   </thead>
-  <tbody>
-    {{#each items}}
-    <tr>
-      <td class="num">{{this.no}}</td>
-      <td>{{this.description}}</td>
-      <td class="qty">{{this.quantity}}</td>
-      <td class="rp">{{this.price}}</td>
-      <td class="rp">{{this.subtotal}}</td>
-    </tr>
-    {{/each}}
-  </tbody>
   <tfoot>
-    <tr>
-      <td colspan="4" class="label">Subtotal</td>
-      <td class="rp">{{totals.subtotal}}</td>
-    </tr>
-    {{#if totals.discount}}
-    <tr>
-      <td colspan="4" class="label">Diskon</td>
-      <td class="rp">({{totals.discount}})</td>
-    </tr>
-    {{/if}}
-    <tr>
-      <td colspan="4" class="label">PPN {{totals.taxRate}}%</td>
-      <td class="rp">{{totals.taxAmount}}</td>
-    </tr>
-    <tr class="grand-total">
-      <td colspan="4" class="label">Grand Total</td>
-      <td class="rp">{{totals.total}}</td>
-    </tr>
+    <tr><td class="page-footer-spacer"></td></tr>
   </tfoot>
+  <tbody>
+    <tr><td class="page-content">
+
+<div class="content">
+
+    {{#unless company.letterheadUrl}}
+    <div class="fallback-header">
+      {{#if company.logoUrl}}<img class="logo" src="{{company.logoUrl}}" />{{/if}}
+      <div>
+        <div class="company-name">{{company.name}}</div>
+        <div class="company-addr">
+          {{company.address}}<br/>
+          {{#if company.phone}}Telp: {{company.phone}}{{/if}}{{#if company.email}} &bull; {{company.email}}{{/if}}
+        </div>
+      </div>
+    </div>
+    {{/unless}}
+
+    {{#if doc.isInvoice}}
+    <div style="text-align:center; padding:8pt 0; margin-bottom: 6pt; border-bottom: 2pt solid #c8203a;">
+      <div style="font-size: 18pt; font-weight: 800; color: #c8203a; letter-spacing: 1pt;">{{doc.invoicePartLabel}}</div>
+    </div>
+    {{/if}}
+
+    <div class="doc-meta">
+      <div class="nomor">
+        <div><strong>{{#if doc.isInvoice}}No. Invoice{{else}}Nomor{{/if}}</strong>: {{doc.number}}{{#if doc.isRevision}}<span class="badge-rev">Rev. {{doc.revisionNumber}}</span>{{/if}}</div>
+        {{#unless doc.isInvoice}}<div><strong>Lampiran</strong>: 1 (satu) berkas</div>{{/unless}}
+        <div><strong>Perihal</strong>: <u><strong>{{doc.subject}}</strong></u></div>
+        {{#if doc.dueDateFormatted}}
+        <div><strong>Jatuh Tempo</strong>: <span style="color:#c8203a; font-weight:700">{{doc.dueDateFormatted}}</span></div>
+        {{/if}}
+      </div>
+      <div class="kota-tgl">
+        {{doc.city}}, {{doc.dateFormatted}}
+      </div>
+    </div>
+
+    <div class="kepada">
+      <div class="label">Kepada Yth.,</div>
+      <div>{{client.name}}</div>
+      {{#if client.company}}<div><strong>{{client.company}}</strong></div>{{/if}}
+      {{#if client.address}}<div>{{client.address}}</div>{{/if}}
+      <div>di Tempat</div>
+    </div>
+
+    {{#if doc.isInvoice}}
+    <p class="opening">
+      Dengan hormat,<br/>
+      Bersama invoice ini kami <strong>{{company.name}}</strong> menagihkan pembayaran
+      {{#eq doc.invoicePart "DP"}}<strong>uang muka (DP)</strong>{{/eq}}
+      {{#eq doc.invoicePart "PELUNASAN"}}<strong>pelunasan</strong>{{/eq}}
+      atas <strong>{{doc.variantLabel}}</strong>
+      {{#if project.name}} untuk acara <strong>{{project.name}}</strong>{{/if}}
+      {{#if project.location}} di <strong>{{project.location}}</strong>{{/if}}
+      {{#if project.dateRange}} pada tanggal <strong>{{project.dateRange}}</strong>{{/if}}.
+      Berikut rincian tagihan:
+    </p>
+    {{else}}
+    <p class="opening">
+      Dengan hormat,<br/>
+      Bersama surat ini kami <strong>{{company.name}}</strong> mengajukan penawaran harga <strong>{{doc.variantLabel}}</strong>
+      {{#if project.name}} untuk acara <strong>{{project.name}}</strong>{{/if}}
+      {{#if project.location}} di <strong>{{project.location}}</strong>{{/if}}
+      {{#if project.dateRange}} pada tanggal <strong>{{project.dateRange}}</strong>{{/if}}.
+      Adapun rincian penawaran kami adalah sebagai berikut:
+    </p>
+    {{/if}}
+
+    {{#if doc.isCategorySummary}}
+    {{!-- ============================================================
+         MODE: CATEGORY SUMMARY — Hide harga & qty per item, hanya total per kategori
+         ============================================================ --}}
+    <table class="items">
+      <thead>
+        <tr>
+          <th style="width:28pt">No</th>
+          <th>Uraian</th>
+          <th style="width:140pt">Jumlah</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each itemGroups}}
+          {{#if this.categoryName}}
+          <tr class="cat-header">
+            <td colspan="3">{{this.categoryName}}</td>
+          </tr>
+          {{/if}}
+          {{#each this.items}}
+          <tr>
+            <td class="num">{{this.no}}</td>
+            <td>
+              {{this.description}}
+              {{#if this.unit}}<span style="color:#666; font-size:9.5pt;"> · {{this.quantity}}</span>{{/if}}
+            </td>
+            <td></td>
+          </tr>
+          {{/each}}
+          {{#if this.categoryName}}
+          <tr class="cat-subtotal">
+            <td colspan="2" style="text-align:right; font-weight:700;">Subtotal {{this.categoryName}}</td>
+            <td class="rp" style="font-weight:700;">{{this.subtotalFormatted}}</td>
+          </tr>
+          {{else}}
+          {{!-- Items uncategorized: tampilkan subtotal tanpa label kategori --}}
+          <tr class="cat-subtotal">
+            <td colspan="2" style="text-align:right; font-weight:700;">Subtotal</td>
+            <td class="rp" style="font-weight:700;">{{this.subtotalFormatted}}</td>
+          </tr>
+          {{/if}}
+        {{/each}}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" class="label">Subtotal Keseluruhan</td>
+          <td class="rp">{{totals.subtotal}}</td>
+        </tr>
+        {{#if totals.discount}}
+        <tr>
+          <td colspan="2" class="label">Diskon</td>
+          <td class="rp">({{totals.discount}})</td>
+        </tr>
+        {{/if}}
+        {{#if totals.taxRate}}
+        <tr>
+          <td colspan="2" class="label">PPN {{totals.taxRate}}%</td>
+          <td class="rp">{{totals.taxAmount}}</td>
+        </tr>
+        {{/if}}
+        <tr class="grand-total">
+          <td colspan="2" class="label">Grand Total</td>
+          <td class="rp">{{totals.total}}</td>
+        </tr>
+      </tfoot>
+    </table>
+    {{else}}
+    {{!-- ============================================================
+         MODE: DETAILED (default) — Tabel lengkap dengan qty, harga satuan, jumlah per item
+         ============================================================ --}}
+    <table class="items">
+      <thead>
+        <tr>
+          <th style="width:28pt">No</th>
+          <th>Uraian</th>
+          <th style="width:72pt">Qty</th>
+          <th style="width:90pt">Harga Satuan</th>
+          <th style="width:100pt">Jumlah</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each itemGroups}}
+          {{#if this.categoryName}}
+          <tr class="cat-header">
+            <td colspan="5">{{this.categoryName}}</td>
+          </tr>
+          {{/if}}
+          {{#each this.items}}
+          <tr>
+            <td class="num">{{this.no}}</td>
+            <td>{{this.description}}</td>
+            <td class="qty">{{this.quantity}}</td>
+            <td class="rp">{{this.price}}</td>
+            <td class="rp">{{this.subtotal}}</td>
+          </tr>
+          {{/each}}
+          {{#if this.categoryName}}
+          <tr class="cat-subtotal">
+            <td colspan="4" style="text-align:right">Subtotal {{this.categoryName}}</td>
+            <td class="rp">{{this.subtotalFormatted}}</td>
+          </tr>
+          {{/if}}
+        {{/each}}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="4" class="label">Subtotal</td>
+          <td class="rp">{{totals.subtotal}}</td>
+        </tr>
+        {{#if totals.discount}}
+        <tr>
+          <td colspan="4" class="label">Diskon</td>
+          <td class="rp">({{totals.discount}})</td>
+        </tr>
+        {{/if}}
+        {{#if totals.taxRate}}
+        <tr>
+          <td colspan="4" class="label">PPN {{totals.taxRate}}%</td>
+          <td class="rp">{{totals.taxAmount}}</td>
+        </tr>
+        {{/if}}
+        <tr class="grand-total">
+          <td colspan="4" class="label">Grand Total</td>
+          <td class="rp">{{totals.total}}</td>
+        </tr>
+      </tfoot>
+    </table>
+    {{/if}}
+
+    <div class="terbilang">Terbilang: <strong>{{totals.totalTerbilang}}</strong></div>
+
+    {{#if doc.isInvoice}}
+    {{#if doc.amountToPayFormatted}}
+    <div style="margin-top: 14pt; padding: 12pt 16pt; background: #fde2e6; border: 2pt solid #c8203a; border-radius: 6pt;">
+      <div style="font-size: 10pt; font-weight: 700; color: #8a1729; text-transform: uppercase; letter-spacing: .5pt; margin-bottom: 4pt;">
+        {{#eq doc.invoicePart "DP"}}JUMLAH YANG DITAGIH (DP){{/eq}}
+        {{#eq doc.invoicePart "PELUNASAN"}}JUMLAH YANG DITAGIH (PELUNASAN){{/eq}}
+        {{#eq doc.invoicePart "FULL"}}JUMLAH YANG DITAGIH{{/eq}}
+      </div>
+      <div style="font-size: 22pt; font-weight: 800; color: #c8203a; font-family: 'Calibri',sans-serif;">{{doc.amountToPayFormatted}}</div>
+      <div style="font-size: 10pt; font-style: italic; color: #444; margin-top: 4pt;">
+        Terbilang: <strong>{{doc.amountToPayTerbilang}}</strong>
+      </div>
+    </div>
+    {{/if}}
+    {{/if}}
+
+    {{#if doc.isInvoice}}
+    {{!-- ============= INVOICE FOOTER (rekening + Nb) ============= --}}
+    {{#if payment.banks.length}}
+    <div class="text-section" style="margin-top: 14pt;">
+      <div style="font-size: 11pt; margin-bottom: 4pt;">Pembayaran dapat di transfer melalui rekening berikut:</div>
+      {{#each payment.banks}}
+      {{#unless @first}}
+      <div style="font-size: 10.5pt; font-style: italic; margin: 6pt 0;">atau</div>
+      {{/unless}}
+      <table style="font-size: 10.5pt; border-collapse: collapse;">
+        <tr><td style="padding: 1pt 4pt 1pt 0; vertical-align: top; width: 100pt;">Nama Bank</td><td style="padding: 1pt 0; vertical-align: top;">: {{this.bankName}}</td></tr>
+        <tr><td style="padding: 1pt 4pt 1pt 0; vertical-align: top;">Atas nama</td><td style="padding: 1pt 0; vertical-align: top;">: {{this.accountOwner}}</td></tr>
+        <tr><td style="padding: 1pt 4pt 1pt 0; vertical-align: top;">No. Rekening</td><td style="padding: 1pt 0; vertical-align: top;">: <strong>{{this.accountNumber}}</strong></td></tr>
+      </table>
+      {{/each}}
+    </div>
+    {{/if}}
+
+    {{#if brandTexts.invoiceClosing}}
+    <div class="text-section" style="margin-top: 12pt;">
+      <div style="font-style: italic; font-weight: 700; text-decoration: underline; margin-bottom: 3pt;">Nb :</div>
+      <div class="text-body" style="white-space: pre-line; font-style: italic; font-weight: 600;">{{brandTexts.invoiceClosing}}</div>
+    </div>
+    {{/if}}
+    {{else}}
+    {{!-- ============= QUOTATION FOOTER (text panjang sistem pembayaran) ============= --}}
+    {{#if brandTexts.disclaimer}}
+    <div class="text-section">
+      <div class="section-title">Catatan Harga</div>
+      <div class="text-body disclaimer">{{brandTexts.disclaimer}}</div>
+    </div>
+    {{/if}}
+
+    {{#if brandTexts.paymentTerms}}
+    <div class="text-section">
+      <div class="section-title">Sistem Pembayaran</div>
+      <div class="text-body">{{brandTexts.paymentTerms}}</div>
+    </div>
+    {{/if}}
+
+    {{#if payment.banks.length}}
+    <div class="text-section">
+      <div class="section-title">Pembayaran Transfer Ke</div>
+      <ul class="bank-list">
+        {{#each payment.banks}}
+        <li>Bank <strong>{{this.bankName}}</strong> — No. Rek. <strong>{{this.accountNumber}}</strong> a.n. {{this.accountOwner}}</li>
+        {{/each}}
+      </ul>
+    </div>
+    {{/if}}
+
+    <div class="closing-section">
+      <div class="closing-text">{{#if brandTexts.closing}}{{brandTexts.closing}}{{else}}Demikian penawaran ini kami sampaikan. Atas perhatian dan kerjasamanya kami ucapkan terima kasih.{{/if}}</div>
+    </div>
+    {{/if}}
+
+    <div class="signature">
+      <div class="block">
+        <div class="role">Hormat kami,<br/><strong>{{company.name}}</strong></div>
+        <div class="sign-area">
+          {{#if signedBy.stampUrl}}
+          <img class="stamp-image" src="{{signedBy.stampUrl}}" alt="Stempel" />
+          {{/if}}
+          {{#if signedBy.signatureUrl}}
+          <img class="sign-image" src="{{signedBy.signatureUrl}}" alt="Tanda Tangan" />
+          {{/if}}
+        </div>
+        <div class="director">{{signedBy.name}}</div>
+        <div class="position-label">{{#if signedBy.position}}{{signedBy.position}}{{else}}Marketing{{/if}}</div>
+      </div>
+    </div>
+
+    <div class="end-spacer"></div>
+
+</div><!-- /.content -->
+
+    </td></tr>
+  </tbody>
 </table>
-
-<div class="terbilang">Terbilang: <strong>{{totals.totalTerbilang}}</strong></div>
-
-<div class="terms">
-  <h4>Syarat &amp; Ketentuan</h4>
-  <ol>
-    <li>Penawaran berlaku hingga {{#if doc.validUntilFormatted}}{{doc.validUntilFormatted}}{{else}}14 hari sejak tanggal penawaran{{/if}}.</li>
-    <li>Harga sudah termasuk PPN {{totals.taxRate}}%.</li>
-    <li>Pembayaran: DP {{payment.dpPercent}}% ({{payment.dpAmount}}) sebelum pemasangan, pelunasan {{payment.pelunasan}} setelah acara selesai.</li>
-    <li>Harga belum termasuk biaya transportasi ke luar kota (apabila ada).</li>
-    {{#if notes}}<li>{{notes}}</li>{{/if}}
-  </ol>
-
-  {{#if payment.banks.length}}
-  <h4 style="margin-top:10pt">Pembayaran Transfer Ke:</h4>
-  <ul class="bank-list">
-    {{#each payment.banks}}
-    <li>Bank <strong>{{this.bankName}}</strong> — No. Rek. <strong>{{this.accountNumber}}</strong> a.n. {{this.accountOwner}}</li>
-    {{/each}}
-  </ul>
-  {{/if}}
-</div>
-
-<div class="signature">
-  <div class="block">
-    <div class="role">Hormat kami,<br/>{{company.name}}</div>
-    <div class="director">{{company.directorName}}</div>
-    <div>Direktur</div>
-  </div>
-</div>
-
-<div class="footer-note">
-  Demikian penawaran ini kami sampaikan. Atas perhatian dan kerjasamanya kami ucapkan terima kasih.
-</div>
 
 </body>
 </html>

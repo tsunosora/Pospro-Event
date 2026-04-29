@@ -15,8 +15,12 @@ export default defineConfig({
 
     nav: [
       { text: 'Mulai di Sini', link: '/alur-bisnis' },
-      { text: 'Wiki Lengkap', link: '/' },
-      { text: 'v1.0', items: [{ text: 'Lihat Daftar Isi', link: '/#daftar-isi-wiki' }] },
+      { text: 'Wiki Lengkap', link: '/README' },
+      { text: 'v1.1', items: [
+        { text: 'Lihat Daftar Isi', link: '/README' },
+        { text: 'Backup v2.6', link: '/backup' },
+        { text: 'Lisensi', link: '/license' },
+      ] },
     ],
 
     sidebar: [
@@ -72,8 +76,16 @@ export default defineConfig({
       {
         text: '⚙️ Pengaturan & Teknis',
         items: [
+          { text: '📲 Install sebagai App (PWA)', link: '/install-app' },
           { text: '💾 Backup & Restore', link: '/backup' },
+          { text: '🔔 Notifikasi', link: '/notifications' },
           { text: '🚀 Panduan Deployment', link: '/deployment' },
+        ]
+      },
+      {
+        text: '📄 Lisensi & Tentang',
+        items: [
+          { text: 'Lisensi & Hak Cipta', link: '/license' },
         ]
       }
     ],
@@ -104,9 +116,13 @@ export default defineConfig({
     },
 
     footer: {
-      message: 'Pospro Event — Aplikasi Manajemen CRM, Penawaran, RAB, Booth & Event',
-      copyright: '© 2026 Muhammad Faishal Abdul Hakim'
+      message: 'Released under proprietary license — by <strong>Muhammad Faishal Abdul Hakim</strong>',
+      copyright: 'Copyright © 2026 Muhammad Faishal Abdul Hakim · All rights reserved.'
     },
+
+    socialLinks: [
+      { icon: 'mail', link: 'mailto:muhamadfaisal288@gmail.com' }
+    ],
 
     lastUpdated: {
       text: 'Terakhir diperbarui',
