@@ -93,6 +93,7 @@ function PosInner() {
 
     const [mode, setMode] = useState<OrderMode>(initialMode);
     const [search, setSearch] = useState("");
+    const [categoryId, setCategoryId] = useState<number | "all">("all");
     const [cart, setCart] = useState<CartItem[]>([]);
 
     const { data: products = [], isLoading } = useQuery({
@@ -125,6 +126,8 @@ function PosInner() {
             imageUrl: string | null;
             unit: string | null;
             warehouseName: string | null;
+            categoryId: number | null;
+            categoryName: string | null;
         }> = [];
         for (const p of (products as any[])) {
             for (const v of p.variants ?? []) {
@@ -140,21 +143,50 @@ function PosInner() {
                     imageUrl: v.variantImageUrl ?? p.imageUrl,
                     unit: p.unit?.name ?? null,
                     warehouseName: v.defaultWarehouse?.name ?? null,
+                    categoryId: p.category?.id ?? null,
+                    categoryName: p.category?.name ?? null,
                 });
             }
         }
         return items;
     }, [products]);
 
+    // Build category list dengan count items per kategori
+    const categories = useMemo(() => {
+        const counter = new Map<number, { id: number; name: string; count: number }>();
+        for (const v of flatVariants) {
+            if (v.categoryId && v.categoryName) {
+                const existing = counter.get(v.categoryId);
+                if (existing) {
+                    existing.count += 1;
+                } else {
+                    counter.set(v.categoryId, { id: v.categoryId, name: v.categoryName, count: 1 });
+                }
+            }
+        }
+        return Array.from(counter.values()).sort((a, b) => b.count - a.count);
+    }, [flatVariants]);
+
+    const uncategorizedCount = useMemo(
+        () => flatVariants.filter((v) => !v.categoryId).length,
+        [flatVariants]
+    );
+
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
-        if (!q) return flatVariants.slice(0, 60);
-        return flatVariants
-            .filter((v) =>
-                `${v.productName} ${v.variantName ?? ""} ${v.sku}`.toLowerCase().includes(q)
-            )
-            .slice(0, 80);
-    }, [flatVariants, search]);
+        let list = flatVariants;
+        // Filter by category
+        if (categoryId !== "all") {
+            list = list.filter((v) => v.categoryId === categoryId);
+        }
+        // Filter by search
+        if (q) {
+            list = list.filter((v) =>
+                `${v.productName} ${v.variantName ?? ""} ${v.sku} ${v.categoryName ?? ""}`.toLowerCase().includes(q)
+            );
+        }
+        return list.slice(0, q ? 80 : 60);
+    }, [flatVariants, search, categoryId]);
 
     function addToCart(v: (typeof flatVariants)[0]) {
         setCart((c) => {
@@ -270,18 +302,59 @@ function PosInner() {
             <div className="flex-1 min-h-0 grid lg:grid-cols-[1fr_380px] overflow-hidden">
                 {/* Products picker */}
                 <div className="flex flex-col min-h-0 overflow-hidden border-r">
-                    <div className="p-3 border-b shrink-0">
+                    <div className="p-3 border-b shrink-0 space-y-2">
+                        {/* Search */}
                         <div className="relative">
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <input
                                 type="search"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Cari produk / SKU…"
+                                placeholder="Cari produk / SKU / kategori…"
                                 className="w-full pl-9 pr-3 py-2.5 text-sm border-2 rounded-lg"
                                 autoFocus
                             />
                         </div>
+                        {/* Category chips strip */}
+                        {categories.length > 0 && (
+                            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-3 px-3 [scrollbar-width:thin]">
+                                <button
+                                    onClick={() => setCategoryId("all")}
+                                    className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border-2 transition ${categoryId === "all"
+                                        ? "bg-primary text-primary-foreground border-primary"
+                                        : "bg-white text-foreground border-border hover:bg-muted"
+                                        }`}
+                                >
+                                    📂 Semua
+                                    <span className={`text-[10px] font-mono px-1 rounded-full ${categoryId === "all" ? "bg-white/30" : "bg-muted"}`}>
+                                        {flatVariants.length}
+                                    </span>
+                                </button>
+                                {categories.map((c) => {
+                                    const active = categoryId === c.id;
+                                    return (
+                                        <button
+                                            key={c.id}
+                                            onClick={() => setCategoryId(c.id)}
+                                            className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border-2 transition ${active
+                                                ? "bg-blue-600 text-white border-blue-700"
+                                                : "bg-white text-blue-700 border-blue-200 hover:bg-blue-50"
+                                                }`}
+                                        >
+                                            {c.name}
+                                            <span className={`text-[10px] font-mono px-1 rounded-full ${active ? "bg-white/30" : "bg-blue-50 text-blue-700"}`}>
+                                                {c.count}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                                {uncategorizedCount > 0 && (
+                                    <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                        Tanpa kategori: {uncategorizedCount}
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <div className="flex-1 min-h-0 overflow-y-auto p-3 [scrollbar-width:thin]">
                         {isLoading ? (
@@ -291,7 +364,19 @@ function PosInner() {
                             </div>
                         ) : filtered.length === 0 ? (
                             <div className="text-center py-12 text-muted-foreground text-sm">
-                                {search ? `Tidak ada hasil untuk "${search}"` : "Belum ada produk"}
+                                {search
+                                    ? `Tidak ada hasil untuk "${search}"`
+                                    : categoryId !== "all"
+                                        ? "Tidak ada produk di kategori ini"
+                                        : "Belum ada produk"}
+                                {(search || categoryId !== "all") && (
+                                    <button
+                                        onClick={() => { setSearch(""); setCategoryId("all"); }}
+                                        className="block mx-auto mt-2 text-xs text-primary hover:underline"
+                                    >
+                                        Reset filter
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -320,6 +405,11 @@ function PosInner() {
                                                 )}
                                             </div>
                                             <div className="text-[10px] text-muted-foreground truncate mt-0.5">{v.sku}</div>
+                                            {v.categoryName && categoryId === "all" && (
+                                                <div className="text-[9px] text-blue-700 truncate mt-0.5 font-medium">
+                                                    📂 {v.categoryName}
+                                                </div>
+                                            )}
                                             <div className="flex items-center justify-between mt-1">
                                                 <span className="text-[11px] font-bold text-primary">
                                                     Rp {v.price.toLocaleString("id-ID")}
