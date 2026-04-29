@@ -535,6 +535,18 @@ function RabListPageInner() {
             return acc + (q || 0) * (p || 0);
         }, 0);
 
+    /**
+     * Hitung jumlah item yang priceRab > 0 tapi priceCost = 0 → real cost belum diisi.
+     * Margin item-item ini terhitung 100% (palsu) — perlu indikator buat user.
+     */
+    const countMissingCostItems = (rab: RabPlan): number => {
+        return (rab.items ?? []).filter((it) => {
+            const pRab = typeof it.priceRab === "string" ? parseFloat(it.priceRab) : (it.priceRab ?? 0);
+            const pCost = typeof it.priceCost === "string" ? parseFloat(it.priceCost) : (it.priceCost ?? 0);
+            return (pRab || 0) > 0 && (pCost || 0) === 0;
+        }).length;
+    };
+
     return (
         <div className="p-3 sm:p-4 lg:p-6 max-w-7xl mx-auto">
             {/* ─── Header — Mobile-first responsive ─── */}
@@ -774,6 +786,11 @@ function RabListPageInner() {
                         const selisih = totalRab - totalCost;
                         const margin = totalRab > 0 ? (selisih / totalRab) * 100 : 0;
                         const isUntung = selisih >= 0;
+                        const missingCostCount = countMissingCostItems(rab);
+                        const totalItemCount = rab.items?.length ?? 0;
+                        // Margin "palsu" kalau totalCost = 0 (semua item belum ada real cost)
+                        const isMarginFake = totalCost === 0 && totalRab > 0;
+                        const hasMissingCost = missingCostCount > 0;
                         // Pendapatan riil (DP + Pelunasan + Other) vs Cost = Saldo bersih
                         const totalIncome =
                             (parseFloat(rab.dpAmount as any) || 0) +
@@ -926,33 +943,51 @@ function RabListPageInner() {
                                         {/* Banner 1 — Margin proyeksi (RAB − Cost) */}
                                         <div
                                             className={`rounded-lg p-2.5 border-2 ${
-                                                isUntung
-                                                    ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800"
-                                                    : "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800"
+                                                isMarginFake
+                                                    ? "bg-amber-50 border-amber-300 dark:bg-amber-950/20 dark:border-amber-800"
+                                                    : isUntung
+                                                        ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800"
+                                                        : "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800"
                                             }`}
-                                            title="Margin proyeksi: Total Perkiraan Biaya (RAB) − Total COST"
+                                            title={isMarginFake
+                                                ? "⚠ Margin 100% karena Real Cost belum diisi sama sekali. Update cost di detail RAB supaya margin akurat."
+                                                : "Margin proyeksi: Total Perkiraan Biaya (RAB) − Total COST"
+                                            }
                                         >
                                             <div className="flex items-center gap-1 mb-1">
-                                                {isUntung ? (
+                                                {isMarginFake ? (
+                                                    <span className="text-amber-600 dark:text-amber-400 text-base leading-none">⚠️</span>
+                                                ) : isUntung ? (
                                                     <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                                                 ) : (
                                                     <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
                                                 )}
                                                 <span className={`text-[11px] font-semibold uppercase tracking-wide ${
-                                                    isUntung ? "text-green-800 dark:text-green-300" : "text-red-800 dark:text-red-300"
+                                                    isMarginFake
+                                                        ? "text-amber-800 dark:text-amber-300"
+                                                        : isUntung ? "text-green-800 dark:text-green-300" : "text-red-800 dark:text-red-300"
                                                 }`}>
                                                     Selisih RAB
                                                 </span>
                                             </div>
                                             <div className={`text-sm sm:text-base font-bold font-mono leading-tight break-all ${
-                                                isUntung ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"
+                                                isMarginFake
+                                                    ? "text-amber-700 dark:text-amber-300"
+                                                    : isUntung ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"
                                             }`}>
                                                 {isUntung ? "+" : "−"}{fmtRp(Math.abs(selisih))}
                                             </div>
                                             <div className={`text-[10px] mt-0.5 ${
-                                                isUntung ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                                isMarginFake
+                                                    ? "text-amber-700 dark:text-amber-400 italic"
+                                                    : isUntung ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                                             }`}>
-                                                {totalRab > 0 ? `${margin.toFixed(0)}% margin proyeksi` : "—"}
+                                                {isMarginFake
+                                                    ? "⚠ Real Cost belum diisi"
+                                                    : hasMissingCost
+                                                        ? `${margin.toFixed(0)}% margin · ${missingCostCount}/${totalItemCount} item belum ada cost`
+                                                        : totalRab > 0 ? `${margin.toFixed(0)}% margin proyeksi` : "—"
+                                                }
                                             </div>
                                         </div>
 

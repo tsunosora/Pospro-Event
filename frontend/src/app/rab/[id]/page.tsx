@@ -230,6 +230,16 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
     const totalIncome = (dpAmount || 0) + (pelunasan || 0) + (incomeOther || 0);
     const saldo = totalIncome - totalCost;
 
+    // Item dengan priceRab > 0 tapi priceCost = 0 — Real Cost belum diisi
+    const missingCostCount = useMemo(() =>
+        items.filter((it) => {
+            const pRab = Number(it.priceRab) || 0;
+            const pCost = Number(it.priceCost) || 0;
+            return pRab > 0 && pCost === 0;
+        }).length
+    , [items]);
+    const isMarginFake = totalCost === 0 && totalRab > 0;
+
     // Handlers
     const addItem = (catId: number) => {
         setItems((prev) => [
@@ -904,7 +914,11 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                                             priceCost: parseFloat(e.target.value) || 0,
                                                                         })
                                                                     }
-                                                                    className="w-full border-2 border-amber-200 focus:border-amber-500 outline-none rounded px-2 py-1.5 text-right font-mono text-sm bg-white"
+                                                                    placeholder={Number(it.priceRab) > 0 ? "Belum diisi" : "0"}
+                                                                    className={`w-full border-2 outline-none rounded px-2 py-1.5 text-right font-mono text-sm bg-white ${Number(it.priceCost) === 0 && Number(it.priceRab) > 0
+                                                                        ? "border-amber-400 focus:border-amber-600 ring-1 ring-amber-200"
+                                                                        : "border-amber-200 focus:border-amber-500"
+                                                                        }`}
                                                                 />
                                                             </div>
                                                         </div>
@@ -916,6 +930,11 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                                 {fmtRp(subCost)}
                                                             </span>
                                                         </div>
+                                                        {Number(it.priceCost) === 0 && Number(it.priceRab) > 0 && (
+                                                            <div className="mt-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-1 italic">
+                                                                ⚠ Real Cost belum diisi — margin item ini terhitung 100%. Update saat sudah tahu modal aktualnya.
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -1038,6 +1057,35 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
 
                 <div className="space-y-3">
                     <h3 className="font-semibold text-sm">Ringkasan</h3>
+
+                    {/* Banner peringatan kalau real cost belum diisi */}
+                    {(isMarginFake || missingCostCount > 0) && (
+                        <div className={`rounded-md border-2 p-2.5 text-xs ${isMarginFake
+                            ? "bg-amber-50 border-amber-300 text-amber-900"
+                            : "bg-blue-50 border-blue-200 text-blue-900"
+                            }`}>
+                            {isMarginFake ? (
+                                <>
+                                    <div className="font-bold inline-flex items-center gap-1.5">
+                                        ⚠️ Real Cost belum diisi sama sekali
+                                    </div>
+                                    <p className="text-[11px] mt-1">
+                                        Margin tampil 100% karena <b>Total COST = Rp 0</b>. Ini bukan untung beneran — kamu belum input harga modal item-item. Isi kolom <b>"Harga COST"</b> di tiap item supaya margin akurat.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="font-semibold inline-flex items-center gap-1.5">
+                                        💡 {missingCostCount} dari {items.length} item belum ada Real Cost
+                                    </div>
+                                    <p className="text-[11px] mt-0.5">
+                                        Margin sebagian item dihitung 100% karena cost belum diisi. Margin total <b>kemungkinan over-estimate</b> sampai cost lengkap.
+                                    </p>
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-between text-sm">
                         <span>Total Perkiraan Biaya</span>
                         <span className="font-mono">{fmtRp(totalRab)}</span>

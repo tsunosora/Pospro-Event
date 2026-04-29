@@ -687,6 +687,9 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
       saldoBersih: number;
       income: number;
       status: EventStatusGroup;
+      missingCostCount: number;
+      totalItemCount: number;
+      isMarginFake: boolean;
     }> = [];
 
     for (const r of rabs) {
@@ -720,6 +723,13 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
       brandValue[brandKey].value += rabSum;
       brandValue[brandKey].cost += costSum;
 
+      // Item dengan priceRab > 0 tapi priceCost = 0 → real cost belum diisi
+      const missingCostCount = (r.items ?? []).filter((it) => {
+        const pRabN = typeof it.priceRab === "string" ? parseFloat(it.priceRab) : (it.priceRab ?? 0);
+        const pCostN = typeof it.priceCost === "string" ? parseFloat(it.priceCost) : (it.priceCost ?? 0);
+        return (pRabN || 0) > 0 && (pCostN || 0) === 0;
+      }).length;
+
       rabsWithMetrics.push({
         id: r.id,
         code: r.code,
@@ -732,6 +742,9 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
         saldoBersih: incomeSum - costSum,
         income: incomeSum,
         status,
+        missingCostCount,
+        totalItemCount: r.items?.length ?? 0,
+        isMarginFake: costSum === 0 && rabSum > 0,
       });
     }
 
@@ -739,10 +752,15 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
     const totalSaldoBersih = totalIncome - totalCost;
     const avgMargin = totalRabValue > 0 ? (totalSelisih / totalRabValue) * 100 : 0;
 
-    // Top 5 by margin selisih
+    // Top 5 by margin selisih — hanya RAB yang real cost-nya sudah lengkap
+    // (kalau ada item belum cost, margin-nya over-estimate jadi unfair compare)
     const topByMargin = [...rabsWithMetrics]
+      .filter((r) => !r.isMarginFake) // exclude RAB yang totalCost=0 (margin palsu)
       .sort((a, b) => b.selisih - a.selisih)
       .slice(0, 5);
+
+    // Hitung RAB yang punya item missing cost — buat warning di section header
+    const rabWithMissingCost = rabsWithMetrics.filter((r) => r.missingCostCount > 0).length;
 
     return {
       totalCount: rabs.length,
@@ -756,6 +774,7 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
       statusCounts,
       brandValue,
       topByMargin,
+      rabWithMissingCost,
     };
   }, [rabs]);
 
@@ -935,11 +954,24 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
             </h3>
             <p className="text-[11px] text-muted-foreground">
               RAB dengan profit proyeksi tertinggi
+              <span className="text-amber-600"> · RAB tanpa real cost di-exclude</span>
             </p>
           </div>
         </div>
+
+        {/* Warning kalau ada RAB dengan missing cost */}
+        {stats.rabWithMissingCost > 0 && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800 mb-2">
+            ⚠️ <b>{stats.rabWithMissingCost} RAB</b> punya item dengan Real Cost belum diisi — margin angkanya kemungkinan over-estimate. Update di detail RAB supaya akurat.
+          </div>
+        )}
+
         {stats.topByMargin.length === 0 ? (
-          <div className="text-center py-6 text-xs text-muted-foreground">Belum ada data</div>
+          <div className="text-center py-6 text-xs text-muted-foreground">
+            Belum ada RAB dengan Real Cost lengkap.
+            <br />
+            <span className="text-[10px] italic">Isi kolom &quot;Harga COST&quot; di tiap item RAB supaya muncul di leaderboard ini.</span>
+          </div>
         ) : (
           <div className="space-y-2">
             {stats.topByMargin.map((r, i) => {
@@ -960,7 +992,17 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
                         #{i + 1}
                       </span>
                       <div className="min-w-0">
-                        <div className="text-xs sm:text-sm font-semibold truncate">{r.title}</div>
+                        <div className="text-xs sm:text-sm font-semibold truncate inline-flex items-center gap-1">
+                          {r.title}
+                          {r.missingCostCount > 0 && (
+                            <span
+                              title={`${r.missingCostCount} item belum ada Real Cost — margin partial estimate`}
+                              className="shrink-0 text-[9px] px-1 py-0 rounded bg-amber-100 text-amber-700 border border-amber-300 font-medium"
+                            >
+                              ⚠ {r.missingCostCount}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-muted-foreground truncate">
                           {r.code}
                           {r.customer ? ` · ${r.customer}` : ""}

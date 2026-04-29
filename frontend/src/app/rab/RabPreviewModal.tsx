@@ -209,6 +209,36 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                             </InfoCard>
                         </div>
 
+                        {/* Banner: Real Cost belum diisi */}
+                        {(() => {
+                            const itemsWithMissingCost = rab.items.filter((it) => {
+                                const pRab = Number(it.priceRab) || 0;
+                                const pCost = Number(it.priceCost) || 0;
+                                return pRab > 0 && pCost === 0;
+                            }).length;
+                            const isAllMissing = summary.totals.totalCost === 0 && summary.totals.totalRab > 0;
+                            if (isAllMissing) {
+                                return (
+                                    <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 text-sm">
+                                        <div className="font-bold text-amber-900 inline-flex items-center gap-1.5">
+                                            ⚠️ Real Cost Belum Diisi Sama Sekali
+                                        </div>
+                                        <p className="text-xs text-amber-800 mt-1">
+                                            Margin tampil 100% karena Total COST = Rp 0. <b>Bukan untung beneran</b> — owner perlu input harga modal di tiap item RAB supaya margin akurat.
+                                        </p>
+                                    </div>
+                                );
+                            }
+                            if (itemsWithMissingCost > 0) {
+                                return (
+                                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-xs text-blue-900">
+                                        💡 <b>{itemsWithMissingCost} dari {rab.items.length} item</b> belum ada Real Cost. Margin total kemungkinan over-estimate sampai cost lengkap.
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
+
                         {/* Summary Stats */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                             <StatBox
@@ -229,8 +259,14 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                 label="Selisih (Proyeksi)"
                                 value={fmtRp(summary.totals.totalSelisih)}
                                 icon={<TrendingUp className="h-4 w-4" />}
-                                valueClass={summary.totals.totalSelisih >= 0 ? "text-green-600" : "text-red-600"}
-                                hint={summary.totals.totalRab > 0 ? `Margin ${margin.toFixed(1)}%` : "—"}
+                                valueClass={summary.totals.totalCost === 0 && summary.totals.totalRab > 0 ? "text-amber-600" : summary.totals.totalSelisih >= 0 ? "text-green-600" : "text-red-600"}
+                                hint={
+                                    summary.totals.totalCost === 0 && summary.totals.totalRab > 0
+                                        ? "⚠ Real Cost belum diisi"
+                                        : summary.totals.totalRab > 0
+                                            ? `Margin ${margin.toFixed(1)}%`
+                                            : "—"
+                                }
                             />
                             {/* Saldo Bersih dengan payment status badge */}
                             <div className="rounded-lg border border-border p-3 bg-background flex flex-col">
