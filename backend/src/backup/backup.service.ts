@@ -13,7 +13,14 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.6 (current) — Field-level additions otomatis ikut backup:
+// v2.7 (current) — Fitur RAB → Cashflow auto-sync & laporan lengkap:
+//   - RabPlan.imageUrl (foto sketsa/desain project)
+//   - RabPlan.reportCompletedAt, reportCompletedBy (status laporan lengkap admin)
+//   - RabPlan.customerId (link ke pelanggan untuk reuse data)
+//   - Cashflow.rabPlanId, eventId, excludeFromShift (auto-sync dari RAB + isolate dari shift POS)
+//   - Cashflow auto-generated entries di-tag rabPlanId — saat restore, link tetap utuh
+//   - Hidden preset tags (localStorage browser, TIDAK ikut backup karena per-device)
+// v2.6 — Field-level additions:
 //   - Worker.fullName (nama lengkap untuk audit)
 //   - ProductVariant.description, notes (keterangan & catatan varian)
 //   - ProductVariant.defaultWarehouseId (lokasi gudang utama varian)
@@ -49,6 +56,7 @@ export const BACKUP_GROUPS = {
     },
     transactions: {
         label: 'Transaksi & Penjualan',
+        // cashflow: include field rabPlanId/eventId/excludeFromShift (auto-sync dari RAB)
         tables: ['transaction', 'transactionItem', 'cashflow', 'cashflowChangeRequest', 'transactionEditRequest'],
     },
     invoices: {
@@ -86,6 +94,7 @@ export const BACKUP_GROUPS = {
     },
     rab: {
         label: 'RAB & Penomoran',
+        // rabPlan: include imageUrl, tags, reportCompletedAt/By, customerId (link CRM)
         // inventoryAcquisition: tracking item RAB ber-tag inventaris (snapshot saat dibeli)
         tables: ['rabCategory', 'rabPlan', 'rabItem', 'rabLooseItem', 'inventoryAcquisition', 'documentNumberCounter'],
     },
@@ -190,7 +199,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.6',
+                version: '2.7',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,
