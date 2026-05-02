@@ -398,6 +398,19 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
         onError: (err: any) => toast.error(err?.response?.data?.message || "Gagal simpan"),
     });
 
+    // Ctrl+S / Cmd+S → trigger Simpan RAB (override default browser "save page")
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+                e.preventDefault();
+                if (!saveMut.isPending) saveMut.mutate();
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [saveMut.isPending]);
+
     const genMut = useMutation({
         mutationFn: () => generateQuotationFromRab(id, genForm),
         onSuccess: (quo: any) => {
@@ -1524,7 +1537,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                 />
             )}
 
-            {/* FAB tambah cepat — tetap di pojok layar saat scroll */}
+            {/* FAB tambah cepat + simpan — tetap di pojok layar saat scroll */}
             <FabAddItem
                 categories={visibleCategories}
                 lastUsedCatId={lastUsedCatId}
@@ -1536,6 +1549,8 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                         el?.scrollIntoView({ behavior: "smooth", block: "end" });
                     });
                 }}
+                onSave={() => saveMut.mutate()}
+                isSaving={saveMut.isPending}
             />
         </div>
     );
@@ -1545,10 +1560,14 @@ function FabAddItem({
     categories,
     lastUsedCatId,
     onAdd,
+    onSave,
+    isSaving,
 }: {
     categories: { id: number; name: string }[];
     lastUsedCatId: number | null;
     onAdd: (catId: number) => void;
+    onSave?: () => void;
+    isSaving?: boolean;
 }) {
     const [open, setOpen] = useState(false);
     if (categories.length === 0) return null;
@@ -1585,25 +1604,45 @@ function FabAddItem({
                         ))}
                     </div>
                 )}
-                {/* Tombol utama: split — klik kiri tambah ke last category, klik kanan buka menu */}
-                <div className="flex items-stretch shadow-2xl rounded-full overflow-hidden">
-                    <button
-                        onClick={() => onAdd(lastCat.id)}
-                        title={`Tambah item ke ${lastCat.name}`}
-                        className="flex items-center gap-2 pl-5 pr-4 py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm"
-                    >
-                        <Plus className="h-5 w-5" />
-                        <span className="hidden sm:inline">Tambah Item</span>
-                    </button>
-                    <button
-                        onClick={() => setOpen((v) => !v)}
-                        title="Pilih kategori lain"
-                        className="px-3 py-3.5 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white border-l border-blue-500"
-                    >
-                        <ChevronDown
-                            className={`h-5 w-5 transition-transform ${open ? "rotate-180" : ""}`}
-                        />
-                    </button>
+                {/* Row tombol: [Save] + [Add | ▾] */}
+                <div className="flex items-center gap-2">
+                    {/* Save FAB (icon-only) — di kiri tombol Tambah */}
+                    {onSave && (
+                        <button
+                            onClick={onSave}
+                            disabled={isSaving}
+                            title="Simpan RAB (Ctrl+S)"
+                            aria-label="Simpan RAB (Ctrl+S)"
+                            className="w-12 h-12 rounded-full shadow-2xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {isSaving ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                                <Save className="h-5 w-5" />
+                            )}
+                        </button>
+                    )}
+                    {/* Tombol utama: split — klik kiri tambah ke last category, klik kanan buka menu */}
+                    <div className="flex items-stretch shadow-2xl rounded-full overflow-hidden">
+                        <button
+                            onClick={() => onAdd(lastCat.id)}
+                            title={`Tambah item ke ${lastCat.name}`}
+                            aria-label={`Tambah item ke ${lastCat.name}`}
+                            className="flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white"
+                        >
+                            <Plus className="h-5 w-5" />
+                        </button>
+                        <button
+                            onClick={() => setOpen((v) => !v)}
+                            title="Pilih kategori lain"
+                            aria-label="Pilih kategori lain"
+                            className="px-2 h-12 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white border-l border-blue-500 flex items-center justify-center"
+                        >
+                            <ChevronDown
+                                className={`h-5 w-5 transition-transform ${open ? "rotate-180" : ""}`}
+                            />
+                        </button>
+                    </div>
                 </div>
                 {/* Hint kecil di atas tombol — kategori terakhir */}
                 {!open && (
@@ -1744,11 +1783,19 @@ function UraianAutocomplete({
                     } else if (e.key === "ArrowUp") {
                         e.preventDefault();
                         setHighlight((h) => Math.max(h - 1, 0));
-                    } else if (e.key === "Enter") {
+                    } else if (e.key === "Enter" || e.key === "Tab") {
+                        // Tab juga commit pilihan supaya user bisa lanjut ke field berikutnya tanpa Shift
                         e.preventDefault();
                         pickAt(highlight);
                     } else if (e.key === "Escape") {
                         setOpen(false);
+                    } else if (/^[1-9]$/.test(e.key) && (e.altKey || e.ctrlKey)) {
+                        // Quick-pick: Alt+1..9 atau Ctrl+1..9 → langsung pilih item ke-N
+                        const idx = parseInt(e.key, 10) - 1;
+                        if (idx < matches.length) {
+                            e.preventDefault();
+                            pickAt(idx);
+                        }
                     }
                 }}
                 placeholder="Uraian item…"
@@ -1765,9 +1812,17 @@ function UraianAutocomplete({
                         width: Math.max(rect!.width, 280),
                         zIndex: 60,
                     }}
-                    className="bg-background border rounded-md shadow-lg max-h-64 overflow-y-auto"
+                    className="bg-background border rounded-md shadow-lg max-h-72 overflow-y-auto"
                 >
                     {matches.map((m, i) => {
+                        const shortcutBadge = i < 9 ? (
+                            <kbd
+                                className="hidden sm:inline-flex items-center justify-center w-5 h-5 rounded border border-border bg-muted text-[10px] font-mono font-semibold text-muted-foreground shrink-0"
+                                title={`Alt+${i + 1} untuk pilih cepat`}
+                            >
+                                {i + 1}
+                            </kbd>
+                        ) : null;
                         if (m.kind === "variant") {
                             const v = m.data;
                             return (
@@ -1780,6 +1835,7 @@ function UraianAutocomplete({
                                         i === highlight ? "bg-muted" : "hover:bg-muted/50"
                                     }`}
                                 >
+                                    {shortcutBadge}
                                     <div className="min-w-0 flex-1">
                                         <div className="font-medium truncate">
                                             {v.product.name}
@@ -1809,6 +1865,7 @@ function UraianAutocomplete({
                                     i === highlight ? "bg-muted" : "hover:bg-muted/50"
                                 }`}
                             >
+                                {shortcutBadge}
                                 <div className="min-w-0 flex-1">
                                     <div className="font-medium truncate">{li.description}</div>
                                     <div className="text-[10px] text-muted-foreground flex gap-2">
@@ -1823,6 +1880,25 @@ function UraianAutocomplete({
                             </button>
                         );
                     })}
+                    <div className="sticky bottom-0 px-2 py-1.5 border-t bg-muted/40 text-[10px] text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="inline-flex items-center gap-1">
+                            <kbd className="px-1 rounded border bg-background font-mono">↵</kbd>
+                            <kbd className="px-1 rounded border bg-background font-mono">Tab</kbd>
+                            pilih
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                            <kbd className="px-1 rounded border bg-background font-mono">↑↓</kbd>
+                            navigasi
+                        </span>
+                        <span className="hidden sm:inline-flex items-center gap-1">
+                            <kbd className="px-1 rounded border bg-background font-mono">Alt+1-9</kbd>
+                            pilih cepat
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                            <kbd className="px-1 rounded border bg-background font-mono">Esc</kbd>
+                            tutup
+                        </span>
+                    </div>
                 </div>
             )}
         </>

@@ -5,12 +5,16 @@ export const getCashflows = async (
     endDate?: string,
     eventId?: number,
     rabPlanId?: number,
+    page?: number,
+    limit?: number,
 ) => {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     if (eventId) params.append('eventId', String(eventId));
     if (rabPlanId) params.append('rabPlanId', String(rabPlanId));
+    if (page) params.append('page', String(page));
+    if (limit) params.append('limit', String(limit));
     return (await api.get(`/cashflow?${params.toString()}`)).data;
 };
 

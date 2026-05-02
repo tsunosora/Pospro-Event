@@ -693,17 +693,26 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
     }> = [];
 
     for (const r of rabs) {
-      let rabSum = 0;
-      let costSum = 0;
-      for (const it of (r.items ?? [])) {
-        const q = typeof it.quantity === "string" ? parseFloat(it.quantity) : it.quantity;
-        const qCost = it.quantityCost !== undefined && it.quantityCost !== null
-          ? (typeof it.quantityCost === "string" ? parseFloat(it.quantityCost) : it.quantityCost)
-          : q;
-        const pRab = typeof it.priceRab === "string" ? parseFloat(it.priceRab) : it.priceRab;
-        const pCost = typeof it.priceCost === "string" ? parseFloat(it.priceCost) : it.priceCost;
-        rabSum += (q || 0) * (pRab || 0);
-        costSum += (qCost || 0) * (pCost || 0);
+      // Backend GET /rab sekarang return aggregate fields — pakai langsung, hemat compute & RAM.
+      // Fallback ke perhitungan manual via items[] (untuk backward compat kalau response model lama).
+      let rabSum = typeof r.totalRab === "number" ? r.totalRab : 0;
+      let costSum = typeof r.totalCost === "number" ? r.totalCost : 0;
+      let missingCostCount = typeof r.missingCostItemCount === "number" ? r.missingCostItemCount : 0;
+      let itemCount = typeof r.itemCount === "number" ? r.itemCount : 0;
+      const hasAggregates = typeof r.totalRab === "number";
+      if (!hasAggregates) {
+        for (const it of (r.items ?? [])) {
+          const q = typeof it.quantity === "string" ? parseFloat(it.quantity) : it.quantity;
+          const qCost = it.quantityCost !== undefined && it.quantityCost !== null
+            ? (typeof it.quantityCost === "string" ? parseFloat(it.quantityCost) : it.quantityCost)
+            : q;
+          const pRab = typeof it.priceRab === "string" ? parseFloat(it.priceRab) : it.priceRab;
+          const pCost = typeof it.priceCost === "string" ? parseFloat(it.priceCost) : it.priceCost;
+          rabSum += (q || 0) * (pRab || 0);
+          costSum += (qCost || 0) * (pCost || 0);
+          if ((pRab || 0) > 0 && (pCost || 0) === 0) missingCostCount += 1;
+        }
+        itemCount = (r.items ?? []).length;
       }
       const dp = parseFloat(r.dpAmount as any) || 0;
       const pel = parseFloat(r.pelunasan as any) || 0;
@@ -723,13 +732,6 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
       brandValue[brandKey].value += rabSum;
       brandValue[brandKey].cost += costSum;
 
-      // Item dengan priceRab > 0 tapi priceCost = 0 → real cost belum diisi
-      const missingCostCount = (r.items ?? []).filter((it) => {
-        const pRabN = typeof it.priceRab === "string" ? parseFloat(it.priceRab) : (it.priceRab ?? 0);
-        const pCostN = typeof it.priceCost === "string" ? parseFloat(it.priceCost) : (it.priceCost ?? 0);
-        return (pRabN || 0) > 0 && (pCostN || 0) === 0;
-      }).length;
-
       rabsWithMetrics.push({
         id: r.id,
         code: r.code,
@@ -743,7 +745,7 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
         income: incomeSum,
         status,
         missingCostCount,
-        totalItemCount: r.items?.length ?? 0,
+        totalItemCount: itemCount,
         isMarginFake: costSum === 0 && rabSum > 0,
       });
     }

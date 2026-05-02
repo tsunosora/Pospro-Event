@@ -639,13 +639,22 @@ function CashflowPageInner() {
     // Filter
     const [filterType, setFilterType] = useState<'ALL' | 'INCOME' | 'EXPENSE'>('ALL');
 
+    // Pagination — limit 100 per page (default). Reset ke page 1 saat filter berubah.
+    const PAGE_SIZE = 100;
+    const [currentPage, setCurrentPage] = useState(1);
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [startDate, endDate, filterEventId, filterRabPlanId]);
+
     const { data, isLoading } = useQuery({
-        queryKey: ['cashflows', startDate, endDate, filterEventId, filterRabPlanId],
+        queryKey: ['cashflows', startDate, endDate, filterEventId, filterRabPlanId, currentPage, PAGE_SIZE],
         queryFn: () => getCashflows(
             startDate,
             endDate,
             filterEventId === "" ? undefined : Number(filterEventId),
             filterRabPlanId === "" ? undefined : Number(filterRabPlanId),
+            currentPage,
+            PAGE_SIZE,
         ),
     });
 
@@ -1254,6 +1263,39 @@ function CashflowPageInner() {
                         ))
                     )}
                 </div>
+                {/* Pagination controls */}
+                {data?.pagination && data.pagination.totalPages > 1 && (
+                    <div className="px-4 sm:px-6 py-3 border-t border-border flex items-center justify-between gap-2 flex-wrap text-sm">
+                        <div className="text-xs text-muted-foreground">
+                            Halaman <b>{data.pagination.page}</b> dari <b>{data.pagination.totalPages}</b>
+                            <span className="hidden sm:inline">
+                                {" "}· Total <b>{data.pagination.totalCount}</b> entri
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setCurrentPage(1)}
+                                disabled={currentPage === 1}
+                                className="px-2 py-1 rounded-md border border-input text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50"
+                            >« Awal</button>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="px-2 py-1 rounded-md border border-input text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50"
+                            >‹ Prev</button>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(data.pagination.totalPages, p + 1))}
+                                disabled={currentPage >= data.pagination.totalPages}
+                                className="px-2 py-1 rounded-md border border-input text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50"
+                            >Next ›</button>
+                            <button
+                                onClick={() => setCurrentPage(data.pagination.totalPages)}
+                                disabled={currentPage >= data.pagination.totalPages}
+                                className="px-2 py-1 rounded-md border border-input text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted/50"
+                            >Akhir »</button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Add entry dialog */}

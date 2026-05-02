@@ -218,16 +218,68 @@ export class RabService {
         return { tag: target, updatedCount };
     }
 
-    findAll() {
-        return this.prisma.rabPlan.findMany({
+    /**
+     * List RAB ringan — TANPA array items (yang bisa puluhan-ratusan baris per RAB).
+     * Sebagai gantinya, return aggregate fields:
+     *   totalRab            = Σ(quantity × priceRab)
+     *   totalCost           = Σ(coalesce(quantityCost, quantity) × priceCost)
+     *   itemCount           = COUNT items
+     *   missingCostItemCount = COUNT items dimana priceRab>0 & priceCost=0
+     *
+     * Optimasi: 1 query rabPlan + 1 query aggregate raw SQL → konstan, tidak peduli jumlah RAB.
+     * Sebelumnya: include items array — payload bisa 5-15 MB untuk 200 RAB.
+     */
+    async findAll() {
+        const rabs = await this.prisma.rabPlan.findMany({
             orderBy: { createdAt: 'desc' },
-            include: {
-                customer: true,
-                items: {
-                    select: { id: true, categoryId: true, quantity: true, quantityCost: true, priceRab: true, priceCost: true },
-                },
-            },
+            include: { customer: true },
         });
+
+        if (rabs.length === 0) return [];
+
+        // Single raw query — hitung agregat untuk SEMUA rab_items sekaligus
+        const aggregates = await this.prisma.$queryRaw<Array<{
+            rab_plan_id: number;
+            total_rab: string | number | null;
+            total_cost: string | number | null;
+            item_count: bigint | number;
+            missing_cost_count: bigint | number;
+        }>>`
+            SELECT
+                rab_plan_id,
+                SUM(quantity * price_rab) AS total_rab,
+                SUM(COALESCE(quantity_cost, quantity) * price_cost) AS total_cost,
+                COUNT(*) AS item_count,
+                SUM(CASE WHEN price_rab > 0 AND price_cost = 0 THEN 1 ELSE 0 END) AS missing_cost_count
+            FROM rab_items
+            GROUP BY rab_plan_id
+        `;
+
+        const aggMap = new Map<number, {
+            totalRab: number;
+            totalCost: number;
+            itemCount: number;
+            missingCostItemCount: number;
+        }>();
+        for (const a of aggregates) {
+            aggMap.set(a.rab_plan_id, {
+                totalRab: Number(a.total_rab ?? 0),
+                totalCost: Number(a.total_cost ?? 0),
+                itemCount: Number(a.item_count ?? 0),
+                missingCostItemCount: Number(a.missing_cost_count ?? 0),
+            });
+        }
+
+        return rabs.map((r) => ({
+            ...r,
+            ...(aggMap.get(r.id) ?? {
+                totalRab: 0,
+                totalCost: 0,
+                itemCount: 0,
+                missingCostItemCount: 0,
+            }),
+            items: [], // tetap return array kosong supaya kompatibel dengan caller lama
+        }));
     }
 
     async findOne(id: number) {

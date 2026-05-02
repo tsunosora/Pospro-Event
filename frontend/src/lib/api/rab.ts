@@ -48,6 +48,11 @@ export interface RabPlan {
     updatedAt: string;
     items: RabItem[];
     customer?: { id: number; name: string; companyName: string | null } | null;
+    // Aggregate fields — populated oleh GET /rab (list view), undefined di GET /rab/:id (detail)
+    totalRab?: number;
+    totalCost?: number;
+    itemCount?: number;
+    missingCostItemCount?: number;
 }
 
 export function parseRabTags(raw: string | null | undefined): string[] {

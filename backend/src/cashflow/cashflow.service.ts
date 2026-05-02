@@ -18,7 +18,22 @@ export class CashflowService {
         });
     }
 
-    async findAll(startDate?: string, endDate?: string, eventId?: number, rabPlanId?: number) {
+    /**
+     * List + summary cashflow.
+     * Optimasi:
+     *  - Summary dihitung via Prisma `groupBy` (1 SQL aggregate, tidak fetch row data)
+     *    → drastis kurangi payload + memory dibanding fetch ulang semua row buat di-loop
+     *  - Pagination opsional via page/limit (default: ALL — backward compat)
+     *    Saat limit di-set, response include pagination meta.
+     */
+    async findAll(
+        startDate?: string,
+        endDate?: string,
+        eventId?: number,
+        rabPlanId?: number,
+        page?: number,
+        limit?: number,
+    ) {
         const where: Prisma.CashflowWhereInput = {};
         if (startDate || endDate) {
             where.date = {};
@@ -32,10 +47,17 @@ export class CashflowService {
         if (eventId) where.eventId = eventId;
         if (rabPlanId) where.rabPlanId = rabPlanId;
 
-        const [list, allForSummary] = await Promise.all([
+        // Pagination params — kalau di-set keduanya, aktif. Default: tanpa pagination (return semua).
+        const usePagination = typeof page === 'number' && typeof limit === 'number' && limit > 0;
+        const skip = usePagination ? Math.max(0, (page! - 1) * limit!) : undefined;
+        const take = usePagination ? limit : undefined;
+
+        const [list, summaryRows, totalCount] = await Promise.all([
             this.prisma.cashflow.findMany({
                 where,
                 orderBy: { date: 'desc' },
+                skip,
+                take,
                 include: {
                     user: { select: { email: true, name: true } },
                     bankAccount: { select: { bankName: true, accountNumber: true } },
@@ -43,21 +65,37 @@ export class CashflowService {
                     rabPlan: { select: { id: true, code: true, title: true } },
                 },
             }),
-            this.prisma.cashflow.findMany({ where }),
+            // groupBy by type → 1 row per type, hanya field amount (sum) — jauh lebih ringan
+            this.prisma.cashflow.groupBy({
+                by: ['type'],
+                where,
+                _sum: { amount: true },
+            }),
+            // Total count untuk pagination meta — cuma kalau pagination aktif
+            usePagination ? this.prisma.cashflow.count({ where }) : Promise.resolve(0),
         ]);
 
         let totalIncome = 0;
         let totalExpense = 0;
-        for (const cf of allForSummary) {
-            const amount = parseFloat(cf.amount.toString());
-            if (cf.type === CashflowType.INCOME) totalIncome += amount;
-            else totalExpense += amount;
+        for (const row of summaryRows) {
+            const sum = row._sum.amount ? parseFloat(row._sum.amount.toString()) : 0;
+            if (row.type === CashflowType.INCOME) totalIncome += sum;
+            else totalExpense += sum;
         }
 
-        return {
+        const result: any = {
             list,
             summary: { totalIncome, totalExpense, balance: totalIncome - totalExpense },
         };
+        if (usePagination) {
+            result.pagination = {
+                page: page!,
+                limit: limit!,
+                totalCount,
+                totalPages: Math.ceil(totalCount / limit!),
+            };
+        }
+        return result;
     }
 
     async getMonthlyTrend() {

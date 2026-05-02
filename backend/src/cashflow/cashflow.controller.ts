@@ -22,12 +22,16 @@ export class CashflowController {
         @Query('endDate') endDate?: string,
         @Query('eventId') eventId?: string,
         @Query('rabPlanId') rabPlanId?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
     ) {
         return this.cashflowService.findAll(
             startDate,
             endDate,
             eventId ? Number(eventId) : undefined,
             rabPlanId ? Number(rabPlanId) : undefined,
+            page ? Number(page) : undefined,
+            limit ? Number(limit) : undefined,
         );
     }
 

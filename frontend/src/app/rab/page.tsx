@@ -553,26 +553,33 @@ function RabListPageInner() {
         });
     }, [rabs, search, statusFilter, brandFilter, tagFilter, dateRange]);
 
-    const computeTotalRab = (rab: RabPlan) =>
-        (rab.items ?? []).reduce((acc, it) => {
+    // Backend list (GET /rab) sekarang return aggregate fields — pakai langsung, hemat compute & RAM.
+    // Fallback ke perhitungan manual kalau aggregate undefined (mis. dari getRab single detail).
+    const computeTotalRab = (rab: RabPlan) => {
+        if (typeof rab.totalRab === "number") return rab.totalRab;
+        return (rab.items ?? []).reduce((acc, it) => {
             const q = typeof it.quantity === "string" ? parseFloat(it.quantity) : it.quantity;
             const p = typeof it.priceRab === "string" ? parseFloat(it.priceRab) : it.priceRab;
             return acc + (q || 0) * (p || 0);
         }, 0);
+    };
 
-    const computeTotalCost = (rab: RabPlan) =>
-        (rab.items ?? []).reduce((acc, it) => {
+    const computeTotalCost = (rab: RabPlan) => {
+        if (typeof rab.totalCost === "number") return rab.totalCost;
+        return (rab.items ?? []).reduce((acc, it) => {
             const qSrc = it.quantityCost ?? it.quantity;
             const q = typeof qSrc === "string" ? parseFloat(qSrc) : qSrc;
             const p = typeof it.priceCost === "string" ? parseFloat(it.priceCost) : it.priceCost;
             return acc + (q || 0) * (p || 0);
         }, 0);
+    };
 
     /**
      * Hitung jumlah item yang priceRab > 0 tapi priceCost = 0 → real cost belum diisi.
      * Margin item-item ini terhitung 100% (palsu) — perlu indikator buat user.
      */
     const countMissingCostItems = (rab: RabPlan): number => {
+        if (typeof rab.missingCostItemCount === "number") return rab.missingCostItemCount;
         return (rab.items ?? []).filter((it) => {
             const pRab = typeof it.priceRab === "string" ? parseFloat(it.priceRab) : (it.priceRab ?? 0);
             const pCost = typeof it.priceCost === "string" ? parseFloat(it.priceCost) : (it.priceCost ?? 0);
@@ -867,7 +874,7 @@ function RabListPageInner() {
                         const margin = totalRab > 0 ? (selisih / totalRab) * 100 : 0;
                         const isUntung = selisih >= 0;
                         const missingCostCount = countMissingCostItems(rab);
-                        const totalItemCount = rab.items?.length ?? 0;
+                        const totalItemCount = rab.itemCount ?? rab.items?.length ?? 0;
                         // Margin "palsu" kalau totalCost = 0 (semua item belum ada real cost)
                         const isMarginFake = totalCost === 0 && totalRab > 0;
                         const hasMissingCost = missingCostCount > 0;

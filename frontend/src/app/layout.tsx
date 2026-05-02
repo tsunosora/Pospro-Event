@@ -63,6 +63,21 @@ export default function RootLayout({
       <head>
         {/* Manifest link — public/manifest.webmanifest (Next.js metadata.manifest dihindari karena konflik dengan public file) */}
         <link rel="manifest" href="/manifest.webmanifest" />
+        {/* Disable mouse-wheel increment/decrement pada input number — blur saat scroll, biar value gak berubah tak sengaja */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                document.addEventListener('wheel', function(e) {
+                  var el = document.activeElement;
+                  if (el && el.tagName === 'INPUT' && (el.type === 'number' || el.inputMode === 'numeric' || el.inputMode === 'decimal')) {
+                    el.blur();
+                  }
+                }, { passive: true });
+              })();
+            `,
+          }}
+        />
         {/* Service worker registration — production only (dev mode pakai HMR, SW bikin stale cache) */}
         <script
           dangerouslySetInnerHTML={{

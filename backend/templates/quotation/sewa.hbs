@@ -106,6 +106,10 @@
   }
   table.items tfoot td { font-weight: 600; }
   table.items tfoot td.label { text-align: right; }
+  /* Grand total block — tampil sekali di akhir tabel (BUKAN tfoot supaya tidak ter-repeat per halaman) */
+  table.items tbody.grand-totals td { font-weight: 600; }
+  table.items tbody.grand-totals td.label { text-align: right; }
+  table.items tbody.grand-totals { page-break-inside: avoid; }
   .grand-total td { background: #f1f5fb; }
 
   .terbilang { margin-top: 8pt; font-style: italic; font-size: 10.5pt; }
@@ -190,7 +194,7 @@
   .signature { padding-bottom: 12pt; }
 
   /* Hindari pemotongan section di antara halaman */
-  .text-section, table.items thead, table.items tfoot { page-break-inside: avoid; }
+  .text-section, table.items thead, table.items tbody.grand-totals { page-break-inside: avoid; }
 
   .badge-rev { display: inline-block; background: #d93737; color: #fff; padding: 1pt 6pt; border-radius: 3pt; font-size: 9pt; margin-left: 6pt; }
 </style>
@@ -320,7 +324,7 @@
           {{/if}}
         {{/each}}
       </tbody>
-      <tfoot>
+      <tbody class="grand-totals">
         <tr>
           <td colspan="2" class="label">Subtotal Keseluruhan</td>
           <td class="rp">{{totals.subtotal}}</td>
@@ -341,7 +345,7 @@
           <td colspan="2" class="label">Grand Total</td>
           <td class="rp">{{totals.total}}</td>
         </tr>
-      </tfoot>
+      </tbody>
     </table>
     {{else}}
     {{!-- ============================================================
@@ -381,7 +385,7 @@
           {{/if}}
         {{/each}}
       </tbody>
-      <tfoot>
+      <tbody class="grand-totals">
         <tr>
           <td colspan="4" class="label">Subtotal</td>
           <td class="rp">{{totals.subtotal}}</td>
@@ -402,7 +406,7 @@
           <td colspan="4" class="label">Grand Total</td>
           <td class="rp">{{totals.total}}</td>
         </tr>
-      </tfoot>
+      </tbody>
     </table>
     {{/if}}
 

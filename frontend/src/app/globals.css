@@ -231,3 +231,14 @@
   from { opacity: 0; transform: scale(0.9) translateY(16px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
+/* Hide native number input spin buttons (panah atas-bawah) — UX lebih bersih,
+   sekaligus tidak ada UI yang nyaranin scroll-to-change yang sudah di-disable global. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
