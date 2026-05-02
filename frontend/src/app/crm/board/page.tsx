@@ -13,11 +13,12 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import Link from "next/link";
-import { getBoard, listLabels, reorderLead, type BoardData, type Lead } from "@/lib/api/crm";
+import { getBoard, listLabels, reorderLead, LEAD_STATUS_META, LEAD_STATUS_ORDER, type BoardData, type Lead, type LeadStatus } from "@/lib/api/crm";
 import { StageColumn } from "@/components/crm/StageColumn";
 import { LeadCard } from "@/components/crm/LeadCard";
 import { LeadDrawer } from "@/components/crm/LeadDrawer";
 import { Plus, Upload, RefreshCw, Search, X } from "lucide-react";
+import { DateRangeFilter, presetToRange, type DateRange } from "@/components/DateRangeFilter";
 
 export default function CrmBoardPage() {
     const qc = useQueryClient();
@@ -28,6 +29,17 @@ export default function CrmBoardPage() {
     const [search, setSearch] = useState("");
     const [workerFilter, setWorkerFilter] = useState<number | "">("");
     const [labelFilter, setLabelFilter] = useState<number | "">("");
+    /** Multi-select status filter — Set kosong = tampil semua. Set berisi = whitelist. */
+    const [statusFilter, setStatusFilter] = useState<Set<LeadStatus>>(new Set());
+    const [statusOpen, setStatusOpen] = useState(false);
+    /**
+     * Date filter — bisa filter berdasarkan 1 dari 3 field tanggal:
+     *  - leadCameAt: kapan lead masuk pipeline (default — paling umum dipakai)
+     *  - eventDate: kapan event berlangsung (untuk track persiapan)
+     *  - followUpDate: kapan follow-up direncanakan
+     */
+    const [dateField, setDateField] = useState<"leadCameAt" | "eventDate" | "followUpDate">("leadCameAt");
+    const [dateRange, setDateRange] = useState<DateRange>({ preset: "ALL" });
 
     const { data, isLoading, refetch, isFetching } = useQuery({
         queryKey: ["crm-board"],
@@ -64,26 +76,39 @@ export default function CrmBoardPage() {
         return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
     }, [leadsByStageRaw]);
 
-    const filtersActive = !!search || workerFilter !== "" || labelFilter !== "";
+    const filtersActive = !!search || workerFilter !== "" || labelFilter !== "" || dateRange.preset !== "ALL" || statusFilter.size > 0;
 
     const leadsByStage = useMemo(() => {
         if (!filtersActive) return leadsByStageRaw;
         const q = search.trim().toLowerCase();
+        const { from: dateFrom, to: dateTo } = presetToRange(dateRange.preset, {
+            from: dateRange.fromDate, to: dateRange.toDate,
+        });
         const out: Record<number, Lead[]> = {};
         for (const sid in leadsByStageRaw) {
             out[sid] = leadsByStageRaw[sid].filter((l) => {
                 if (workerFilter !== "" && l.assignedWorkerId !== workerFilter) return false;
                 if (labelFilter !== "" && !l.labels?.some((x) => x.label.id === labelFilter)) return false;
+                if (statusFilter.size > 0 && !statusFilter.has(l.status)) return false;
                 if (q) {
                     const hay = [l.name, l.phone, l.organization, l.productCategory, l.orderDescription, l.notes]
                         .filter(Boolean).join(" ").toLowerCase();
                     if (!hay.includes(q)) return false;
                 }
+                // Date filter — apply hanya kalau range aktif (ALL → from/to null → skip)
+                if (dateFrom || dateTo) {
+                    const sourceIso = l[dateField];
+                    if (!sourceIso) return false; // lead tanpa tanggal di-exclude saat filter aktif
+                    const d = new Date(sourceIso);
+                    if (Number.isNaN(d.getTime())) return false;
+                    if (dateFrom && d < dateFrom) return false;
+                    if (dateTo && d > dateTo) return false;
+                }
                 return true;
             });
         }
         return out;
-    }, [leadsByStageRaw, search, workerFilter, labelFilter, filtersActive]);
+    }, [leadsByStageRaw, search, workerFilter, labelFilter, statusFilter, dateField, dateRange, filtersActive]);
 
     const allLeads = useMemo(() => {
         const arr: Lead[] = [];
@@ -223,9 +248,91 @@ export default function CrmBoardPage() {
                         <option key={l.id} value={l.id}>{l.name}</option>
                     ))}
                 </select>
+                {/* Multi-select Status filter — popover dengan checkbox per status */}
+                <div className="relative">
+                    <button
+                        type="button"
+                        onClick={() => setStatusOpen(o => !o)}
+                        className="text-xs sm:text-sm rounded-md border border-border bg-background py-1.5 px-2 hover:bg-muted/40 flex items-center gap-1"
+                        title="Filter status lead"
+                    >
+                        {statusFilter.size === 0
+                            ? "Semua status"
+                            : `${statusFilter.size} status`}
+                        <span className="text-muted-foreground">▾</span>
+                    </button>
+                    {statusOpen && (
+                        <>
+                            <div className="fixed inset-0 z-30" onClick={() => setStatusOpen(false)} />
+                            <div className="absolute z-40 mt-1 left-0 w-60 rounded-lg border border-input bg-card shadow-lg max-h-80 overflow-y-auto">
+                                <div className="p-2 border-b border-border flex items-center justify-between gap-2">
+                                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Filter Status</span>
+                                    {statusFilter.size > 0 && (
+                                        <button
+                                            onClick={() => setStatusFilter(new Set())}
+                                            className="text-[10px] text-blue-600 hover:underline"
+                                        >
+                                            Reset
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="py-1">
+                                    {LEAD_STATUS_ORDER.map(s => {
+                                        const m = LEAD_STATUS_META[s];
+                                        const checked = statusFilter.has(s);
+                                        return (
+                                            <label
+                                                key={s}
+                                                className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/60 cursor-pointer text-xs"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={() => {
+                                                        setStatusFilter(prev => {
+                                                            const next = new Set(prev);
+                                                            if (next.has(s)) next.delete(s);
+                                                            else next.add(s);
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    className="h-3.5 w-3.5 accent-primary"
+                                                />
+                                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${m.bg} ${m.text} border ${m.border}`}>
+                                                    {m.emoji} {m.label}
+                                                </span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+                {/* Date field selector + range filter */}
+                <div className="flex items-center gap-1 border-l border-border pl-2 ml-1">
+                    <select
+                        value={dateField}
+                        onChange={(e) => setDateField(e.target.value as any)}
+                        className="text-xs rounded-md border border-border bg-background py-1.5 px-2"
+                        title="Pilih tanggal yang difilter"
+                    >
+                        <option value="leadCameAt">📥 Lead Masuk</option>
+                        <option value="eventDate">🎪 Event Date</option>
+                        <option value="followUpDate">📞 Follow-Up</option>
+                    </select>
+                    <DateRangeFilter value={dateRange} onChange={setDateRange} label="" />
+                </div>
                 {filtersActive && (
                     <button
-                        onClick={() => { setSearch(""); setWorkerFilter(""); setLabelFilter(""); }}
+                        onClick={() => {
+                            setSearch("");
+                            setWorkerFilter("");
+                            setLabelFilter("");
+                            setStatusFilter(new Set());
+                            setDateRange({ preset: "ALL" });
+                            setDateField("leadCameAt");
+                        }}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
                     >
                         <X className="h-3 w-3" />

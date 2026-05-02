@@ -430,7 +430,12 @@ export class QuotationsService {
                 : custom;
             return this.prisma.invoice.update({
                 where: { id },
-                data: { invoiceNumber: finalNumber },
+                data: {
+                    invoiceNumber: finalNumber,
+                    // Saat nomor resmi di-assign, penawaran dianggap sudah issued/sent ke klien.
+                    // Hanya update status kalau masih DRAFT — supaya gak override status manual lain (ACCEPTED/REJECTED/dll).
+                    ...(inv.status === InvoiceStatus.DRAFT ? { status: InvoiceStatus.SENT } : {}),
+                },
                 include: { items: true },
             });
         }
@@ -464,7 +469,12 @@ export class QuotationsService {
 
         return this.prisma.invoice.update({
             where: { id },
-            data: { invoiceNumber: finalNumber },
+            data: {
+                invoiceNumber: finalNumber,
+                // Auto-promote DRAFT → SENT saat nomor resmi di-assign.
+                // Status lain (ACCEPTED/REJECTED/EXPIRED/CANCELLED) tidak di-override.
+                ...(inv.status === InvoiceStatus.DRAFT ? { status: InvoiceStatus.SENT } : {}),
+            },
             include: { items: true },
         });
     }
@@ -588,5 +598,28 @@ export class QuotationsService {
             }
         }
         return this.prisma.invoice.delete({ where: { id } });
+    }
+
+    /**
+     * One-time backfill — promote semua penawaran lama yang sudah punya nomor resmi
+     * tapi status-nya masih DRAFT, jadi SENT.
+     *
+     * Kondisi target row:
+     *  - type = QUOTATION
+     *  - status = DRAFT
+     *  - invoiceNumber TIDAK diawali "DRAFT-" (artinya nomor resmi sudah di-assign)
+     *
+     * Status lain (ACCEPTED/REJECTED/EXPIRED/CANCELLED) tidak disentuh.
+     */
+    async backfillQuotationStatus(): Promise<{ updated: number }> {
+        const result = await this.prisma.invoice.updateMany({
+            where: {
+                type: InvoiceType.QUOTATION,
+                status: InvoiceStatus.DRAFT,
+                NOT: { invoiceNumber: { startsWith: DRAFT_NUMBER_PREFIX } },
+            },
+            data: { status: InvoiceStatus.SENT },
+        });
+        return { updated: result.count };
     }
 }

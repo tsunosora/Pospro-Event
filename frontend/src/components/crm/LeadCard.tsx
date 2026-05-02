@@ -4,7 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Building2, CalendarClock, CalendarDays, GripVertical, PartyPopper, User } from "lucide-react";
 import dayjs from "dayjs";
-import type { Lead } from "@/lib/api/crm";
+import { LEAD_STATUS_META, type Lead } from "@/lib/api/crm";
 import { LevelBadge } from "./LevelBadge";
 import { WaButton } from "./WaButton";
 
@@ -103,6 +103,23 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
                     <span className="truncate">{lead.assignedWorker.name}</span>
                 </div>
             )}
+
+            {/* Status badge — selalu tampil supaya owner cepat lihat fase lead */}
+            {(() => {
+                const meta = LEAD_STATUS_META[lead.status];
+                if (!meta) return null;
+                return (
+                    <div className="flex items-center">
+                        <span
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${meta.bg} ${meta.text} border ${meta.border}`}
+                            title={`Status: ${meta.label}`}
+                        >
+                            <span>{meta.emoji}</span>
+                            {meta.label}
+                        </span>
+                    </div>
+                );
+            })()}
 
             {labels.length > 0 && (
                 <div className="flex flex-wrap gap-1">

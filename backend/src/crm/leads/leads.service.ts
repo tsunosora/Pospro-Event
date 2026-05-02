@@ -499,7 +499,7 @@ export class LeadsService {
     }
 
     /** Untuk autocomplete: return nilai unik dari kolom tertentu yang sudah pernah dipakai. */
-    async distinctValues(field: 'city' | 'productCategory'): Promise<string[]> {
+    async distinctValues(field: 'city' | 'productCategory' | 'sourceDetail'): Promise<string[]> {
         const rows = await this.prisma.lead.findMany({
             where: { [field]: { not: null } },
             select: { [field]: true },

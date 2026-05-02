@@ -12,6 +12,7 @@ import "dayjs/locale/id";
 import {
     getQuotations, createQuotation, deleteQuotation,
     assignQuotationNumber, reviseQuotation, downloadQuotationExport,
+    backfillQuotationStatus,
     type Quotation, type QuotationVariant,
 } from "@/lib/api/quotations";
 import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
@@ -153,6 +154,26 @@ function PenawaranListPageInner() {
         },
     });
 
+    /** One-time admin backfill — fix penawaran lama yang status-nya masih DRAFT padahal sudah punya nomor resmi. */
+    const backfillStatusMut = useMutation({
+        mutationFn: backfillQuotationStatus,
+        onSuccess: (res) => {
+            qc.invalidateQueries({ queryKey: ["quotations"] });
+            alert(`✅ Backfill selesai. ${res.updated} penawaran lama di-promote dari DRAFT → SENT.`);
+        },
+        onError: (e: any) => {
+            alert(`❌ Gagal: ${e?.response?.data?.message || e?.message || "Unknown"}`);
+        },
+    });
+
+    const handleBackfillStatus = () => {
+        if (!confirm(
+            "Promote semua penawaran yang sudah punya nomor resmi tapi status masih DRAFT → SENT?\n\n" +
+            "Operasi ini aman dijalankan berkali-kali (idempotent). Status lain (ACCEPTED/REJECTED/CANCELLED/EXPIRED) tidak disentuh."
+        )) return;
+        backfillStatusMut.mutate();
+    };
+
     const handleExport = async (id: number, format: "pdf" | "docx", invoiceNumber: string) => {
         try {
             const blob = await downloadQuotationExport(id, format);
@@ -216,12 +237,22 @@ function PenawaranListPageInner() {
                         Kelola dokumen Penawaran Sewa Perlengkapan Event &amp; Pengadaan Booth Special Design
                     </p>
                 </div>
-                <button
-                    onClick={() => setShowCreate(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
-                >
-                    <Plus className="w-4 h-4" /> Buat Penawaran
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                        onClick={handleBackfillStatus}
+                        disabled={backfillStatusMut.isPending}
+                        title="Fix data lama: penawaran yang sudah punya nomor resmi tapi status masih DRAFT → ubah ke SENT"
+                        className="flex items-center gap-2 px-3 py-2 border-2 border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                        {backfillStatusMut.isPending ? "Memproses..." : "🔧 Fix Status Lama"}
+                    </button>
+                    <button
+                        onClick={() => setShowCreate(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                    >
+                        <Plus className="w-4 h-4" /> Buat Penawaran
+                    </button>
+                </div>
             </div>
 
             {/* Search bar */}

@@ -137,6 +137,10 @@ export const createQuotationFromCustomer = async (customerId: number, variant: Q
 export const deleteQuotation = async (id: number) =>
     (await api.delete(`/quotations/${id}`)).data;
 
+/** One-time backfill — fix semua quotation lama yang sudah punya nomor resmi tapi status masih DRAFT */
+export const backfillQuotationStatus = async (): Promise<{ updated: number }> =>
+    (await api.post(`/quotations/backfill-status`)).data;
+
 export const getQuotationExportUrl = (id: number, format: 'pdf' | 'docx') => {
     const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     return `${base}/quotations/${id}/export/${format}`;

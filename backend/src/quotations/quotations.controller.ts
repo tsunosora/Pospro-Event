@@ -39,6 +39,12 @@ export class QuotationsController {
         return this.service.create(dto);
     }
 
+    /** One-time admin tool: promote semua quotation lama dengan nomor resmi tapi status DRAFT → SENT */
+    @Post('backfill-status')
+    backfillStatus() {
+        return this.service.backfillQuotationStatus();
+    }
+
     @Get()
     findAll(
         @Query('variant') variant?: QuotationVariant,

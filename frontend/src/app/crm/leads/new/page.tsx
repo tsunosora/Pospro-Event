@@ -1,20 +1,41 @@
 "use client";
 
-import { cloneElement, isValidElement, useState, type ReactElement } from "react";
+import { cloneElement, isValidElement, useEffect, useState, type ReactElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
     ArrowLeft, Save, User, Phone, Building2, Tag,
-    Calendar, MapPin, AlignLeft, Layers, Globe, UserCog,
+    Calendar, MapPin, AlignLeft, Layers, Globe, UserCog, Plus, X,
 } from "lucide-react";
+
+/** Format custom source preset — disimpan di localStorage. */
+type CustomSource = { name: string; emoji: string };
+const CUSTOM_SOURCES_KEY = "pospro:lead:customSources";
+
+function loadCustomSources(): CustomSource[] {
+    try {
+        const raw = localStorage.getItem(CUSTOM_SOURCES_KEY);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return [];
+        return arr.filter((x: any) => x && typeof x.name === "string" && x.name.trim());
+    } catch { return []; }
+}
+
+function saveCustomSources(list: CustomSource[]) {
+    try { localStorage.setItem(CUSTOM_SOURCES_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+}
 import {
     createLead,
     listStages,
     listLabels,
     getDistinctValues,
+    LEAD_STATUS_META,
+    LEAD_STATUS_ORDER,
     type LeadLevel,
     type LeadSource,
+    type LeadStatus,
 } from "@/lib/api/crm";
 import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
 import { getWorkers, MARKETER_POSITIONS, getPositionMeta } from "@/lib/api/workers";
@@ -27,12 +48,17 @@ const LEVELS: { value: LeadLevel; label: string; emoji: string; cls: string }[] 
 ];
 
 const SOURCES: { value: LeadSource; label: string; emoji: string }[] = [
-    { value: "META_ADS", label: "META Ads", emoji: "📱" },
-    { value: "WHATSAPP", label: "WhatsApp", emoji: "💬" },
-    { value: "WEBSITE", label: "Website", emoji: "🌐" },
-    { value: "REFERRAL", label: "Referral", emoji: "👥" },
-    { value: "WALK_IN", label: "Walk-in", emoji: "🚶" },
-    { value: "OTHER", label: "Lainnya", emoji: "📌" },
+    { value: "META_ADS",      label: "Meta Ads",      emoji: "📱" },
+    { value: "INSTAGRAM_ADS", label: "Instagram Ads", emoji: "📸" },
+    { value: "FACEBOOK_ADS",  label: "Facebook Ads",  emoji: "👤" },
+    { value: "TIKTOK",        label: "TikTok",        emoji: "🎵" },
+    { value: "LINKEDIN",      label: "LinkedIn",      emoji: "💼" },
+    { value: "WHATSAPP",      label: "WhatsApp",      emoji: "💬" },
+    { value: "WEBSITE",       label: "Website",       emoji: "🌐" },
+    { value: "REFERRAL",      label: "Referral",      emoji: "👥" },
+    { value: "WALK_IN",       label: "Walk-in",       emoji: "🚶" },
+    { value: "EXHIBITION",    label: "Pameran",       emoji: "🎪" },
+    { value: "OTHER",         label: "Lainnya",       emoji: "📌" },
 ];
 
 export default function NewLeadPage() {
@@ -47,6 +73,50 @@ export default function NewLeadPage() {
         queryKey: ["crm-distinct", "productCategory"],
         queryFn: () => getDistinctValues("productCategory"),
     });
+    // Source detail options — value-value sourceDetail yang sudah pernah dipakai (autocomplete)
+    const { data: sourceDetailOptions } = useQuery({
+        queryKey: ["crm-distinct", "sourceDetail"],
+        queryFn: () => getDistinctValues("sourceDetail" as any),
+    });
+
+    // Custom sources — preset user-defined disimpan di localStorage (per-browser).
+    // Dipakai sebagai shortcut: pilih custom → otomatis set source=OTHER + sourceDetail=name.
+    const [customSources, setCustomSources] = useState<CustomSource[]>([]);
+    const [showAddCustomSource, setShowAddCustomSource] = useState(false);
+    const [newCustomName, setNewCustomName] = useState("");
+    const [newCustomEmoji, setNewCustomEmoji] = useState("📌");
+
+    useEffect(() => {
+        setCustomSources(loadCustomSources());
+    }, []);
+
+    const addCustomSource = () => {
+        const name = newCustomName.trim();
+        if (!name) return;
+        if (customSources.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+            alert(`Sumber "${name}" sudah ada.`);
+            return;
+        }
+        const next = [...customSources, { name, emoji: newCustomEmoji.trim() || "📌" }];
+        setCustomSources(next);
+        saveCustomSources(next);
+        setNewCustomName("");
+        setNewCustomEmoji("📌");
+        setShowAddCustomSource(false);
+        // Auto-pilih sumber custom yang baru ditambah
+        set("source", "OTHER");
+        set("sourceDetail", name);
+    };
+
+    const removeCustomSource = (name: string) => {
+        const next = customSources.filter(s => s.name !== name);
+        setCustomSources(next);
+        saveCustomSources(next);
+        // Kalau yang kepilih adalah custom source itu, reset
+        if (form.source === "OTHER" && form.sourceDetail === name) {
+            set("sourceDetail", "");
+        }
+    };
     // Marketing yang available — filter Worker dengan posisi MARKETING/SALES
     const { data: marketers } = useQuery({
         queryKey: ["workers", "marketers"],
@@ -79,6 +149,7 @@ export default function NewLeadPage() {
         brand: defaultBrand as Brand,
         assignedWorkerId: defaultMarketerId as number | "",
         level: "" as LeadLevel | "",
+        status: "NEW" as LeadStatus,
         source: "WHATSAPP" as LeadSource,
         sourceDetail: "",
         stageId: 0,
@@ -100,6 +171,7 @@ export default function NewLeadPage() {
                 brand: form.brand,
                 assignedWorkerId: form.assignedWorkerId === "" ? null : form.assignedWorkerId,
                 level: form.level || null,
+                status: form.status,
                 source: form.source,
                 sourceDetail: form.sourceDetail || null,
                 stageId: form.stageId || (stages?.[0]?.id ?? 0),
@@ -384,15 +456,34 @@ export default function NewLeadPage() {
                         </div>
                     </Field>
 
-                    <Field label="Sumber Lead">
+                    <Field label="Status Awal" hint="Default 'Baru'. Pilih lain kalau lead sudah pernah dichat sebelum di-input ke sistem.">
+                        <select
+                            value={form.status}
+                            onChange={(e) => set("status", e.target.value as LeadStatus)}
+                            className="form-input"
+                        >
+                            {LEAD_STATUS_ORDER.map((s) => {
+                                const m = LEAD_STATUS_META[s];
+                                return <option key={s} value={s}>{m.emoji} {m.label}</option>;
+                            })}
+                        </select>
+                    </Field>
+
+                    <Field label="Sumber Lead" hint="Built-in 11 channel + sumber custom yang Anda tambahkan sendiri (tersimpan di browser).">
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             {SOURCES.map((s) => {
-                                const active = form.source === s.value;
+                                const active = form.source === s.value && (s.value !== "OTHER" || !form.sourceDetail);
                                 return (
                                     <button
                                         key={s.value}
                                         type="button"
-                                        onClick={() => set("source", s.value)}
+                                        onClick={() => {
+                                            set("source", s.value);
+                                            // Saat pilih built-in source (selain OTHER), clear sourceDetail kalau custom-source-shortcut
+                                            if (s.value !== "OTHER" && customSources.some(c => c.name === form.sourceDetail)) {
+                                                set("sourceDetail", "");
+                                            }
+                                        }}
                                         className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-md border text-sm font-medium transition ${
                                             active
                                                 ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/30"
@@ -404,18 +495,114 @@ export default function NewLeadPage() {
                                     </button>
                                 );
                             })}
+                            {/* Custom sources — disimpan di localStorage */}
+                            {customSources.map((c) => {
+                                const active = form.source === "OTHER" && form.sourceDetail === c.name;
+                                return (
+                                    <div key={c.name} className="relative group">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                set("source", "OTHER");
+                                                set("sourceDetail", c.name);
+                                            }}
+                                            className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md border text-sm font-medium transition ${
+                                                active
+                                                    ? "border-violet-500 bg-violet-50 text-violet-700 ring-2 ring-violet-300"
+                                                    : "border-violet-200 bg-violet-50/40 hover:bg-violet-50 text-violet-700"
+                                            }`}
+                                            title={`Custom: ${c.name}`}
+                                        >
+                                            <span>{c.emoji}</span>
+                                            <span className="truncate">{c.name}</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (confirm(`Hapus sumber custom "${c.name}"?`)) removeCustomSource(c.name);
+                                            }}
+                                            title="Hapus sumber custom ini"
+                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                            {/* Tombol tambah sumber custom */}
+                            <button
+                                type="button"
+                                onClick={() => setShowAddCustomSource(v => !v)}
+                                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-md border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 text-sm font-medium text-muted-foreground hover:text-primary transition"
+                            >
+                                <Plus className="h-4 w-4" />
+                                <span>Tambah Custom</span>
+                            </button>
                         </div>
+                        {/* Form add custom source */}
+                        {showAddCustomSource && (
+                            <div className="mt-2 p-3 rounded-lg border border-violet-200 bg-violet-50/40 space-y-2">
+                                <div className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">
+                                    Tambah Sumber Custom
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="text"
+                                        value={newCustomEmoji}
+                                        onChange={(e) => setNewCustomEmoji(e.target.value.slice(0, 4))}
+                                        placeholder="📌"
+                                        maxLength={4}
+                                        className="w-14 px-2 py-1.5 text-center text-base border border-input rounded-md bg-background"
+                                        title="Emoji"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={newCustomName}
+                                        onChange={(e) => setNewCustomName(e.target.value.slice(0, 50))}
+                                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomSource(); } }}
+                                        placeholder='Nama sumber, mis. "Pameran Inacraft", "TikTok Live"'
+                                        maxLength={50}
+                                        className="flex-1 px-2 py-1.5 text-sm border border-input rounded-md bg-background"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={addCustomSource}
+                                        disabled={!newCustomName.trim()}
+                                        className="px-3 py-1.5 rounded-md bg-violet-600 text-white text-xs font-medium hover:bg-violet-700 disabled:opacity-50"
+                                    >
+                                        Simpan
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowAddCustomSource(false); setNewCustomName(""); }}
+                                        className="px-2 py-1.5 rounded-md border border-input bg-background text-xs hover:bg-muted"
+                                    >
+                                        Batal
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                    Sumber custom disimpan di browser ini saja. Saat dipilih, otomatis set kategori &quot;Lainnya&quot; dengan detail nama tersebut.
+                                </p>
+                            </div>
+                        )}
                     </Field>
 
-                    <Field label="Detail Sumber" hint="Catatan tambahan tentang sumber (opsional)">
+                    <Field label="Detail Sumber" hint='Spesifikasi sumber — bisa pakai sumber custom (mis. "Pameran Inacraft 2026", "TikTok Live Shopping"). Saran muncul dari history lead.'>
                         <InputWithIcon icon={<Globe className="h-4 w-4" />}>
                             <input
                                 value={form.sourceDetail}
                                 onChange={(e) => set("sourceDetail", e.target.value)}
                                 className="form-input"
-                                placeholder='Mis. "META ads — Halo Exindo, kebutuhan booth"'
+                                placeholder='Mis. "Pameran Inacraft 2026", "TikTok @username"'
+                                list="lead-source-detail-options"
                             />
                         </InputWithIcon>
+                        <datalist id="lead-source-detail-options">
+                            {sourceDetailOptions?.map((v) => (
+                                <option key={v} value={v} />
+                            ))}
+                        </datalist>
                     </Field>
                 </Section>
 

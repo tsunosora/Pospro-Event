@@ -12,8 +12,14 @@ import {
     updateLead,
     uploadLeadImage,
     waLink,
+    LEAD_STATUS_META,
+    LEAD_STATUS_ORDER,
+    LEAD_SOURCE_META,
+    LEAD_SOURCE_ORDER,
     type Lead,
     type LeadActivity,
+    type LeadSource,
+    type LeadStatus,
 } from "@/lib/api/crm";
 import { LevelBadge } from "./LevelBadge";
 import { WaButton } from "./WaButton";
@@ -28,14 +34,8 @@ const LEAD_LEVELS: Array<{ value: "" | "HOT" | "WARM" | "COLD" | "UNQUALIFIED"; 
     { value: "UNQUALIFIED", label: "⚫ UNQUALIFIED" },
 ];
 
-const LEAD_SOURCES: Array<{ value: "META_ADS" | "WHATSAPP" | "WEBSITE" | "REFERRAL" | "WALK_IN" | "OTHER"; label: string }> = [
-    { value: "META_ADS", label: "Meta Ads" },
-    { value: "WHATSAPP", label: "WhatsApp" },
-    { value: "WEBSITE", label: "Website" },
-    { value: "REFERRAL", label: "Referral" },
-    { value: "WALK_IN", label: "Walk In" },
-    { value: "OTHER", label: "Lainnya" },
-];
+// Note: LEAD_SOURCES sekarang ambil dari LEAD_SOURCE_META + LEAD_SOURCE_ORDER (lib/api/crm.ts)
+// supaya konsisten dengan list di /crm/leads/new — single source of truth.
 
 /** Convert ISO datetime ke format "YYYY-MM-DD" untuk <input type="date">. */
 function toDateInput(iso: string | null | undefined): string {
@@ -78,7 +78,8 @@ export function LeadDrawer({
         productCategory: string;
         city: string;
         level: "" | "HOT" | "WARM" | "COLD" | "UNQUALIFIED";
-        source: "META_ADS" | "WHATSAPP" | "WEBSITE" | "REFERRAL" | "WALK_IN" | "OTHER";
+        status: LeadStatus;
+        source: LeadSource;
         sourceDetail: string;
         followUpDate: string;
         eventDate: string;
@@ -89,7 +90,7 @@ export function LeadDrawer({
         notes: string;
     }>({
         name: "", phone: "", organization: "", productCategory: "", city: "",
-        level: "", source: "OTHER", sourceDetail: "",
+        level: "", status: "NEW", source: "OTHER", sourceDetail: "",
         followUpDate: "", eventDate: "", eventLocation: "",
         orderDescription: "", projectValueEst: "", greetingTemplate: "", notes: "",
     });
@@ -135,6 +136,7 @@ export function LeadDrawer({
             productCategory: lead.productCategory ?? "",
             city: lead.city ?? "",
             level: (lead.level ?? "") as any,
+            status: lead.status,
             source: lead.source,
             sourceDetail: lead.sourceDetail ?? "",
             followUpDate: toDateInput(lead.followUpDate),
@@ -156,6 +158,7 @@ export function LeadDrawer({
             productCategory: editForm.productCategory.trim() || null,
             city: editForm.city.trim() || null,
             level: (editForm.level || null) as any,
+            status: editForm.status,
             source: editForm.source,
             sourceDetail: editForm.sourceDetail.trim() || null,
             followUpDate: editForm.followUpDate ? new Date(editForm.followUpDate).toISOString() : null,
@@ -393,6 +396,20 @@ export function LeadDrawer({
 
                         {!editMode ? (
                             <>
+                                {(() => {
+                                    const m = LEAD_STATUS_META[lead.status];
+                                    if (!m) return null;
+                                    return (
+                                        <div>
+                                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">Status</div>
+                                            <span
+                                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold ${m.bg} ${m.text} border ${m.border}`}
+                                            >
+                                                {m.emoji} {m.label}
+                                            </span>
+                                        </div>
+                                    );
+                                })()}
                                 <Field label="Nomor HP" value={lead.phone} />
                                 <Field label="Organization" value={lead.organization} icon={<Building2 className="h-3 w-3" />} />
                                 <Field label="Product Category" value={lead.productCategory} />
@@ -414,6 +431,19 @@ export function LeadDrawer({
                                 <EditField label="Organization" value={editForm.organization} onChange={v => setEditForm(f => ({ ...f, organization: v }))} />
                                 <EditField label="Product Category" value={editForm.productCategory} onChange={v => setEditForm(f => ({ ...f, productCategory: v }))} />
                                 <EditField label="Kota" value={editForm.city} onChange={v => setEditForm(f => ({ ...f, city: v }))} />
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-medium text-muted-foreground">Status Lead</label>
+                                    <select
+                                        value={editForm.status}
+                                        onChange={(e) => setEditForm(f => ({ ...f, status: e.target.value as LeadStatus }))}
+                                        className="w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background"
+                                    >
+                                        {LEAD_STATUS_ORDER.map(s => {
+                                            const m = LEAD_STATUS_META[s];
+                                            return <option key={s} value={s}>{m.emoji} {m.label}</option>;
+                                        })}
+                                    </select>
+                                </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-medium text-muted-foreground">Level</label>
@@ -429,10 +459,13 @@ export function LeadDrawer({
                                         <label className="text-[10px] font-medium text-muted-foreground">Source</label>
                                         <select
                                             value={editForm.source}
-                                            onChange={(e) => setEditForm(f => ({ ...f, source: e.target.value as any }))}
+                                            onChange={(e) => setEditForm(f => ({ ...f, source: e.target.value as LeadSource }))}
                                             className="w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background"
                                         >
-                                            {LEAD_SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                            {LEAD_SOURCE_ORDER.map(s => {
+                                                const m = LEAD_SOURCE_META[s];
+                                                return <option key={s} value={s}>{m.emoji} {m.label}</option>;
+                                            })}
                                         </select>
                                     </div>
                                 </div>
@@ -507,6 +540,40 @@ export function LeadDrawer({
                                 pending={updateMut.isPending}
                             />
                         </div>
+
+                        {/* Quick status change — pakai select biar gak nambah tombol per-status */}
+                        {lead && (
+                            <div className="space-y-1 border-t border-border pt-3">
+                                <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Ubah Status Lead
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <span
+                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${LEAD_STATUS_META[lead.status]?.bg} ${LEAD_STATUS_META[lead.status]?.text} border ${LEAD_STATUS_META[lead.status]?.border}`}
+                                    >
+                                        {LEAD_STATUS_META[lead.status]?.emoji} {LEAD_STATUS_META[lead.status]?.label}
+                                    </span>
+                                    <span className="text-muted-foreground text-xs">→</span>
+                                    <select
+                                        disabled={updateMut.isPending}
+                                        value=""
+                                        onChange={(e) => {
+                                            const newStatus = e.target.value as LeadStatus;
+                                            if (newStatus && newStatus !== lead.status) {
+                                                updateMut.mutate({ status: newStatus });
+                                            }
+                                        }}
+                                        className="flex-1 px-2 py-1.5 text-xs border border-input rounded-md bg-background disabled:opacity-50"
+                                    >
+                                        <option value="">— Pilih status baru —</option>
+                                        {LEAD_STATUS_ORDER.filter(s => s !== lead.status).map(s => {
+                                            const m = LEAD_STATUS_META[s];
+                                            return <option key={s} value={s}>{m.emoji} {m.label}</option>;
+                                        })}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="space-y-1.5">
                             <textarea

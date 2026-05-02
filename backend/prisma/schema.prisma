@@ -1358,12 +1358,17 @@ enum LeadLevel {
 }
 
 enum LeadSource {
-  META_ADS
-  WHATSAPP
-  WEBSITE
-  REFERRAL
-  WALK_IN
-  OTHER
+  META_ADS         // Meta Ads (gabungan FB+IG dari Meta Business)
+  INSTAGRAM_ADS    // Instagram Ads spesifik
+  FACEBOOK_ADS     // Facebook Ads spesifik
+  TIKTOK           // TikTok / TikTok Ads / Live Shopping
+  LINKEDIN         // LinkedIn (B2B)
+  WHATSAPP         // WhatsApp langsung
+  WEBSITE          // Form website
+  REFERRAL         // Referensi/rekomendasi
+  WALK_IN          // Datang langsung ke kantor/toko
+  EXHIBITION       // Pameran / Trade Expo / Booth event
+  OTHER            // Lainnya — pakai sourceDetail untuk specifics
 }
 
 enum LeadStatus {
@@ -1371,8 +1376,12 @@ enum LeadStatus {
   CONTACTED
   RESPONDED
   NO_RESPONSE
-  WAITING
-  IN_PROGRESS
+  WAITING            // menunggu (umum)
+  WAITING_DECISION   // menunggu keputusan klien (setelah penawaran/proposal)
+  PROPOSAL_SENT      // penawaran/SPH/quotation sudah dikirim
+  NEGOTIATION        // sedang negosiasi (harga, scope, term)
+  IN_PROGRESS        // sedang dikerjakan
+  ON_HOLD            // di-pause sementara (klien minta tunggu, dll)
   CLOSED_DEAL
   CLOSED_LOST
 }

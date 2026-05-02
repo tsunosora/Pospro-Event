@@ -2,10 +2,58 @@ import api from './client';
 import type { Brand } from './brands';
 
 export type LeadLevel = 'HOT' | 'WARM' | 'COLD' | 'UNQUALIFIED';
-export type LeadSource = 'META_ADS' | 'WHATSAPP' | 'WEBSITE' | 'REFERRAL' | 'WALK_IN' | 'OTHER';
+export type LeadSource =
+    | 'META_ADS' | 'INSTAGRAM_ADS' | 'FACEBOOK_ADS' | 'TIKTOK' | 'LINKEDIN'
+    | 'WHATSAPP' | 'WEBSITE' | 'REFERRAL' | 'WALK_IN' | 'EXHIBITION' | 'OTHER';
+
+/** Visual metadata untuk LeadSource — emoji + label Indonesia. */
+export const LEAD_SOURCE_META: Record<LeadSource, { emoji: string; label: string }> = {
+    META_ADS:      { emoji: "📱", label: "Meta Ads" },
+    INSTAGRAM_ADS: { emoji: "📸", label: "Instagram Ads" },
+    FACEBOOK_ADS:  { emoji: "👤", label: "Facebook Ads" },
+    TIKTOK:        { emoji: "🎵", label: "TikTok" },
+    LINKEDIN:      { emoji: "💼", label: "LinkedIn" },
+    WHATSAPP:      { emoji: "💬", label: "WhatsApp" },
+    WEBSITE:       { emoji: "🌐", label: "Website" },
+    REFERRAL:      { emoji: "👥", label: "Referral" },
+    WALK_IN:       { emoji: "🚶", label: "Walk-in" },
+    EXHIBITION:    { emoji: "🎪", label: "Pameran" },
+    OTHER:         { emoji: "📌", label: "Lainnya" },
+};
+
+export const LEAD_SOURCE_ORDER: LeadSource[] = [
+    "META_ADS", "INSTAGRAM_ADS", "FACEBOOK_ADS", "TIKTOK", "LINKEDIN",
+    "WHATSAPP", "WEBSITE", "REFERRAL", "WALK_IN", "EXHIBITION", "OTHER",
+];
 export type LeadStatus =
     | 'NEW' | 'CONTACTED' | 'RESPONDED' | 'NO_RESPONSE'
-    | 'WAITING' | 'IN_PROGRESS' | 'CLOSED_DEAL' | 'CLOSED_LOST';
+    | 'WAITING' | 'WAITING_DECISION' | 'PROPOSAL_SENT' | 'NEGOTIATION'
+    | 'IN_PROGRESS' | 'ON_HOLD'
+    | 'CLOSED_DEAL' | 'CLOSED_LOST';
+
+/** Metadata visual untuk LeadStatus — emoji, label Indonesia, dan warna badge. */
+export const LEAD_STATUS_META: Record<LeadStatus, { emoji: string; label: string; bg: string; text: string; border: string }> = {
+    NEW:               { emoji: "✨", label: "Baru",                bg: "bg-slate-50",   text: "text-slate-700",   border: "border-slate-200" },
+    CONTACTED:         { emoji: "📤", label: "Dihubungi",           bg: "bg-blue-50",    text: "text-blue-700",    border: "border-blue-200" },
+    RESPONDED:         { emoji: "💬", label: "Merespon",            bg: "bg-cyan-50",    text: "text-cyan-700",    border: "border-cyan-200" },
+    NO_RESPONSE:       { emoji: "🔇", label: "Tidak Merespon",      bg: "bg-gray-100",   text: "text-gray-600",    border: "border-gray-300" },
+    WAITING:           { emoji: "⏳", label: "Menunggu",            bg: "bg-amber-50",   text: "text-amber-700",   border: "border-amber-200" },
+    WAITING_DECISION:  { emoji: "🤔", label: "Menunggu Keputusan",  bg: "bg-yellow-50",  text: "text-yellow-700",  border: "border-yellow-300" },
+    PROPOSAL_SENT:     { emoji: "📄", label: "Penawaran Terkirim",  bg: "bg-indigo-50",  text: "text-indigo-700",  border: "border-indigo-200" },
+    NEGOTIATION:       { emoji: "🤝", label: "Negosiasi",           bg: "bg-purple-50",  text: "text-purple-700",  border: "border-purple-200" },
+    IN_PROGRESS:       { emoji: "⚙️", label: "Sedang Dikerjakan",   bg: "bg-orange-50",  text: "text-orange-700",  border: "border-orange-200" },
+    ON_HOLD:           { emoji: "⏸️", label: "Di-Pause",            bg: "bg-stone-100",  text: "text-stone-700",   border: "border-stone-300" },
+    CLOSED_DEAL:       { emoji: "🏆", label: "Deal",                bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-300" },
+    CLOSED_LOST:       { emoji: "❌", label: "Lost",                bg: "bg-red-50",     text: "text-red-700",     border: "border-red-200" },
+};
+
+/** Order display untuk select / dropdown — sesuai progression alami pipeline. */
+export const LEAD_STATUS_ORDER: LeadStatus[] = [
+    "NEW", "CONTACTED", "RESPONDED", "NO_RESPONSE",
+    "PROPOSAL_SENT", "WAITING_DECISION", "NEGOTIATION", "WAITING",
+    "IN_PROGRESS", "ON_HOLD",
+    "CLOSED_DEAL", "CLOSED_LOST",
+];
 
 export interface LeadStage {
     id: number;

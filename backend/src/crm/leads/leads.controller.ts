@@ -86,7 +86,7 @@ export class LeadsController {
 
     @Get('distinct/:field')
     distinct(@Param('field') field: string) {
-        if (field !== 'city' && field !== 'productCategory') {
+        if (field !== 'city' && field !== 'productCategory' && field !== 'sourceDetail') {
             return [];
         }
         return this.svc.distinctValues(field);
