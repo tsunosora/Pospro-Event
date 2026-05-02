@@ -57,6 +57,7 @@ export interface Lead {
     eventDate: string | null;
     eventLocation: string | null;
     notes: string | null;
+    imageUrl: string | null;
     leadCameAt: string;
     lastContactedAt: string | null;
     convertedCustomerId: number | null;
@@ -180,6 +181,19 @@ export const deleteLead = async (id: number): Promise<{ ok: true }> =>
 
 export const reorderLead = async (input: { leadId: number; newStageId: number; newOrderIndex: number }): Promise<Lead> =>
     (await api.post('/crm/leads/reorder', input)).data;
+
+/** Upload foto referensi lead. Max 5 MB. Returns lead ringkas dengan imageUrl baru. */
+export const uploadLeadImage = async (leadId: number, file: File): Promise<{ id: number; name: string | null; imageUrl: string | null }> => {
+    const fd = new FormData();
+    fd.append('image', file);
+    return (await api.post(`/crm/leads/${leadId}/upload-image`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+};
+
+/** Hapus foto lead. */
+export const removeLeadImage = async (leadId: number): Promise<{ id: number; name: string | null; imageUrl: string | null }> =>
+    (await api.delete(`/crm/leads/${leadId}/image`)).data;
 
 export const addActivity = async (leadId: number, input: { kind: string; text?: string; workerId?: number | null; meta?: any }): Promise<LeadActivity> =>
     (await api.post(`/crm/leads/${leadId}/activities`, input)).data;

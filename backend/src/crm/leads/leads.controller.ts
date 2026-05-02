@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     Body,
     Controller,
     Delete,
@@ -8,10 +9,32 @@ import {
     Patch,
     Post,
     Query,
+    UploadedFile,
     UseGuards,
+    UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { LeadsService } from './leads.service';
+import { compressImage } from '../../common/utils/compress-image.util';
+
+const leadImageStorage = diskStorage({
+    destination: './public/uploads',
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const ext = extname(file.originalname);
+        cb(null, `lead-${uniqueSuffix}${ext}`);
+    },
+});
+
+const leadImageFilter = (req: any, file: any, cb: any) => {
+    if (!file.originalname.toLowerCase().match(/\.(jpg|jpeg|jfif|png|gif|webp)$/)) {
+        return cb(new BadRequestException('Only image files are allowed!'), false);
+    }
+    cb(null, true);
+};
 import type {
     ActivityInput,
     ConvertInput,
@@ -100,6 +123,29 @@ export class LeadsController {
 
     @Delete('leads/:id')
     remove(@Param('id', ParseIntPipe) id: number) { return this.svc.remove(id); }
+
+    /** Upload foto referensi/sketsa untuk sebuah lead. Max 5 MB. */
+    @Post('leads/:id/upload-image')
+    @UseInterceptors(FileInterceptor('image', {
+        storage: leadImageStorage,
+        fileFilter: leadImageFilter,
+        limits: { fileSize: 5 * 1024 * 1024 },
+    }))
+    async uploadImage(
+        @Param('id', ParseIntPipe) id: number,
+        @UploadedFile() file?: Express.Multer.File,
+    ) {
+        if (!file) throw new BadRequestException('File gambar wajib diupload');
+        await compressImage(file.path);
+        const imageUrl = `/uploads/${file.filename}`;
+        return this.svc.setImage(id, imageUrl);
+    }
+
+    /** Hapus foto lead. */
+    @Delete('leads/:id/image')
+    async removeImage(@Param('id', ParseIntPipe) id: number) {
+        return this.svc.setImage(id, null);
+    }
 
     @Post('leads/reorder')
     reorder(@Body() body: ReorderInput) { return this.svc.reorder(body); }

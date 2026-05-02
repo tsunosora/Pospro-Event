@@ -1424,6 +1424,7 @@ model Lead {
   eventLocation       String?    @map("event_location") @db.VarChar(200)
   city                String?    @db.VarChar(100)
   notes               String?    @db.Text
+  imageUrl            String?    @map("image_url") @db.Text  // Foto referensi/sketsa project lead (single image)
   leadCameAt          DateTime   @default(now()) @map("lead_came_at")
   lastContactedAt     DateTime?  @map("last_contacted_at")
   convertedCustomerId Int?       @unique @map("converted_customer_id")

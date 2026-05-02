@@ -13,7 +13,12 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.7 (current) — Fitur RAB → Cashflow auto-sync & laporan lengkap:
+// v2.8 (current) — CRM Pipeline enhancements:
+//   - Lead.imageUrl (foto referensi/sketsa project per-lead, ditampilkan di drawer detail)
+//   - CRM pipeline card sekarang display date (leadCameAt + followUpDate + eventDate)
+//     → semua field tersebut sudah ada, cuma perlu dipastikan ikut backup (sudah ✓)
+//   - Lead edit form lengkap di drawer (semua field editable kecuali stage/status/worker)
+// v2.7 — Fitur RAB → Cashflow auto-sync & laporan lengkap:
 //   - RabPlan.imageUrl (foto sketsa/desain project)
 //   - RabPlan.reportCompletedAt, reportCompletedBy (status laporan lengkap admin)
 //   - RabPlan.customerId (link ke pelanggan untuk reuse data)
@@ -100,6 +105,7 @@ export const BACKUP_GROUPS = {
     },
     crm: {
         label: 'CRM / Pipeline Lead',
+        // lead: include imageUrl (foto referensi project), eventDate, followUpDate, projectValueEst, dll
         tables: ['leadStage', 'leadLabel', 'lead', 'leadLabelOnLead', 'leadActivity'],
     },
     printing: {
@@ -199,7 +205,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.7',
+                version: '2.8',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,

@@ -297,6 +297,16 @@ export class LeadsService {
         return { ok: true };
     }
 
+    /** Set / clear image URL untuk lead — dipakai oleh upload-image & remove-image endpoint. */
+    async setImage(id: number, imageUrl: string | null) {
+        const lead = await this.prisma.lead.update({
+            where: { id },
+            data: { imageUrl },
+            select: { id: true, name: true, imageUrl: true },
+        });
+        return lead;
+    }
+
     /** Drag-drop reorder antar / dalam kolom kanban. */
     async reorder({ leadId, newStageId, newOrderIndex }: ReorderInput) {
         const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
