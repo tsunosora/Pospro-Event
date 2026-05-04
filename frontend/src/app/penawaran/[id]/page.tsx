@@ -112,6 +112,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [attachmentCount, setAttachmentCount] = useState<number>(1);
     const [customAttachmentText, setCustomAttachmentText] = useState<string>("");
     const [language, setLanguage] = useState<'id' | 'en'>('id');
+    /** Toggle mata uang USD — kalau true, label Rp diganti USD. Marketing input nilai USD manual. */
+    const [useUsdCurrency, setUseUsdCurrency] = useState<boolean>(false);
 
     // Bank accounts dari /settings/bank-accounts
     // Brand settings — untuk button "Salin dari Brand" di custom text section
@@ -217,6 +219,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setAttachmentCount(Number((data as any).attachmentCount) || 1);
         setCustomAttachmentText((data as any).customAttachmentText ?? "");
         setLanguage((data as any).language === 'en' ? 'en' : 'id');
+        setUseUsdCurrency(Boolean((data as any).useUsdCurrency));
         setItems(keyed(data.items ?? []));
     }, [data]);
 
@@ -439,6 +442,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             attachmentCount: attachmentCount && attachmentCount > 0 ? Math.floor(attachmentCount) : null,
             customAttachmentText: customAttachmentText.trim() || null,
             language,
+            useUsdCurrency,
             brand,
             items: items.map((it, idx) => ({
                 description: it.description,
@@ -1227,6 +1231,34 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         <p className="text-[10px] text-muted-foreground mt-1.5">
                             Auto-translate label header (Nomor → Number, Lampiran → Attachment, dll), terbilang (English number-to-words), dan teks default brand (kalau ada versi English di pengaturan).
                         </p>
+
+                        {/* Toggle mata uang USD — cuma ganti label Rp → USD di PDF. TANPA konversi. */}
+                        <div className="mt-2 pt-2 border-t border-blue-200">
+                            <button
+                                type="button"
+                                onClick={() => setUseUsdCurrency((v) => !v)}
+                                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border-2 transition ${useUsdCurrency
+                                    ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                                    : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
+                                    }`}
+                            >
+                                <span className="flex items-center gap-2 font-medium text-sm">
+                                    {useUsdCurrency ? "💵" : "💴"} Mata Uang USD
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${useUsdCurrency ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-600"
+                                        }`}>
+                                        {useUsdCurrency ? "AKTIF" : "OFF"}
+                                    </span>
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                    {useUsdCurrency ? "Klik untuk pakai Rp" : "Klik untuk aktifkan USD"}
+                                </span>
+                            </button>
+                            <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">
+                                {useUsdCurrency
+                                    ? "✅ Label Rp diganti USD di PDF. ⚠️ TIDAK ada konversi kurs — input nilai harga di field uraian sudah dalam USD (mis. tulis 5000 untuk USD 5,000.00)."
+                                    : "Default pakai Rp. Aktifkan kalau penawaran ini buat klien internasional & kamu mau input harga langsung dalam USD."}
+                            </p>
+                        </div>
                     </div>
                     <div>
                         <label className="text-xs font-medium block mb-1">

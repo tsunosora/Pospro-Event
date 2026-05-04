@@ -69,6 +69,7 @@ export interface Quotation {
     amountToPay?: string | null;            // Decimal serialized
     itemDisplayMode?: 'detailed' | 'category-summary' | null; // tampilan item di PDF/DOCX
     language?: 'id' | 'en';                                   // bahasa surat
+    useUsdCurrency?: boolean;                                 // Toggle USD label (no conversion)
     customOpeningText?: string | null;
     customDisclaimer?: string | null;
     customPaymentTerms?: string | null;

@@ -52,6 +52,7 @@ export interface CreateQuotationDto {
     attachmentCount?: number | null;     // Jumlah lampiran (default 1 di template)
     customAttachmentText?: string | null; // Teks bebas untuk lampiran
     language?: 'id' | 'en';                // Bahasa surat (default 'id')
+    useUsdCurrency?: boolean;              // Toggle: kalau true, label Rp diganti USD (TANPA konversi).
 
     // Angka
     taxRate?: number;

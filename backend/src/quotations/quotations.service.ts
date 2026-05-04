@@ -129,6 +129,7 @@ export class QuotationsService {
                 attachmentCount: dto.attachmentCount && dto.attachmentCount > 0 ? Math.floor(dto.attachmentCount) : null,
                 customAttachmentText: dto.customAttachmentText?.trim() || null,
                 language: dto.language === 'en' ? 'en' : 'id',
+                useUsdCurrency: Boolean(dto.useUsdCurrency),
 
                 taxRate: toDecimal(taxRate),
                 discount: toDecimal(discount),
@@ -279,6 +280,9 @@ export class QuotationsService {
                         : {}),
                     ...(dto.customAttachmentText !== undefined ? { customAttachmentText: dto.customAttachmentText?.trim() || null } : {}),
                     ...(dto.language !== undefined ? { language: dto.language === 'en' ? 'en' : 'id' } : {}),
+                    ...(dto.useUsdCurrency !== undefined
+                        ? { useUsdCurrency: Boolean(dto.useUsdCurrency) }
+                        : {}),
                     ...(recomputed ?? {}),
                     ...(dto.items !== undefined
                         ? {

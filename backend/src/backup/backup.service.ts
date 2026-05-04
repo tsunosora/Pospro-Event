@@ -13,7 +13,16 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.12 (current) — Quotation customization extensive + Multi-language (ID/EN):
+// v2.13 (current) — Multi-event + USD currency toggle + drag-and-drop ordering:
+//   - Invoice.additionalEvents (JSON) — array event tambahan `[{name, location, dateStart, dateEnd}]`
+//     untuk satu penawaran yang cover banyak event dengan tanggal beda
+//   - Invoice.useUsdCurrency (Boolean default false) — toggle label Rp → USD di PDF
+//     (TANPA konversi kurs, marketing input nilai USD manual ke field harga)
+//   - InvoiceItem.orderIndex sekarang fully utilized via drag-and-drop UI di /penawaran/[id]
+//     (sudah ada di schema sejak awal, perubahan hanya UX)
+//   - English i18n labels diperbaiki: formal business English (Sincerely yours, In words, dst)
+//   - Tanggal & nominal otomatis pakai locale en-US saat language='en' (mis. "21 June 2026")
+// v2.12 — Quotation customization extensive + Multi-language (ID/EN):
 //   - Invoice.language ('id' | 'en') — bahasa surat per quotation
 //   - Invoice custom text fields: customOpeningText, customDisclaimer, customPaymentTerms, customClosing
 //   - Invoice prepend/append: disclaimerPrepend/Append, paymentTermsPrepend/Append, closingPrepend/Append
@@ -242,7 +251,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.12',
+                version: '2.13',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,

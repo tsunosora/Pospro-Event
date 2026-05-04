@@ -225,8 +225,17 @@ function buildEventsList(quotation: any, lang: 'id' | 'en' = 'id'): Array<{
     return result;
 }
 
-function formatRp(n: number | string): string {
+/**
+ * Format jumlah uang.
+ * - Default (Rp): "Rp 5.000.000" (no decimal, format id-ID)
+ * - useUsd=true: "USD 5,000.00" (en-US format, dua digit desimal). TANPA konversi kurs —
+ *   marketing input nilai USD manual di field harga. Toggle ini cuma ganti label.
+ */
+function formatRp(n: number | string, useUsd: boolean = false): string {
     const num = Number(n || 0);
+    if (useUsd) {
+        return 'USD ' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     return 'Rp ' + num.toLocaleString('id-ID', { maximumFractionDigits: 0 });
 }
 
@@ -331,11 +340,28 @@ function numberToWordsEnglish(n: number): string {
     return numberToWordsEnglish(t) + ' trillion' + (r ? ' ' + numberToWordsEnglish(r) : '');
 }
 
-export function rupiahInWords(n: number | string, lang: 'id' | 'en'): string {
+/**
+ * Convert nominal jadi terbilang.
+ * - useUsd=true: pakai "US Dollars" + handle cents (TANPA konversi — angka diasumsikan sudah USD)
+ * - else: pakai "Rupiah" (id) atau angka English + " rupiah" (en tanpa USD toggle)
+ */
+export function rupiahInWords(n: number | string, lang: 'id' | 'en', useUsd: boolean = false): string {
     const num = Number(n || 0);
+    if (useUsd) {
+        // Angka diasumsikan sudah dalam USD (input langsung oleh user).
+        const whole = Math.floor(num);
+        const cents = Math.round((num - whole) * 100);
+        const wordsWhole = numberToWordsEnglish(whole);
+        const dollarPart = `${wordsWhole} US dollar${whole !== 1 ? 's' : ''}`;
+        if (cents > 0) {
+            const wordsCents = numberToWordsEnglish(cents);
+            return toTitleCase(`${dollarPart} and ${wordsCents} cent${cents !== 1 ? 's' : ''}`);
+        }
+        return toTitleCase(dollarPart);
+    }
     if (lang === 'en') {
+        // English tanpa USD toggle — pakai angka English + "rupiah"
         const w = numberToWordsEnglish(Math.floor(num));
-        // Title case juga untuk versi English (kecuali bagian setelah hyphen, mis. "Twenty-five")
         return toTitleCase(w + ' rupiah');
     }
     return terbilangRupiah(num);
@@ -588,6 +614,9 @@ export class QuotationContextBuilder {
         // Tentukan bahasa dokumen di sini (sebelumnya di bawah) — supaya bisa dipakai
         // resolve variant label & subject yang juga language-aware.
         const lang: 'id' | 'en' = quotation.language === 'en' ? 'en' : 'id';
+        // Toggle mata uang USD — kalau true, label Rp diganti USD (tanpa konversi).
+        // Marketing input nilai USD manual ke field harga.
+        const useUsd: boolean = Boolean((quotation as any).useUsdCurrency);
 
         // Resolve variant label/subject/templateKey:
         //   1. Kalau ada quotation.variantCode → load config dari QuotationVariantConfig
@@ -623,8 +652,8 @@ export class QuotationContextBuilder {
             description: it.description,
             unit: it.unit ?? '',
             quantity: formatQty(it.quantity.toString(), it.unit),
-            price: formatRp(it.price.toString()),
-            subtotal: formatRp(Number(it.quantity) * Number(it.price)),
+            price: formatRp(it.price.toString(), useUsd),
+            subtotal: formatRp(Number(it.quantity) * Number(it.price), useUsd),
             categoryName: it.categoryName ?? null,
         }));
 
@@ -651,8 +680,8 @@ export class QuotationContextBuilder {
                 description: it.description,
                 unit: it.unit ?? '',
                 quantity: formatQty(it.quantity.toString(), it.unit),
-                price: formatRp(it.price.toString()),
-                subtotal: formatRp(Number(it.quantity) * Number(it.price)),
+                price: formatRp(it.price.toString(), useUsd),
+                subtotal: formatRp(Number(it.quantity) * Number(it.price), useUsd),
                 categoryName: effectiveCategory,
             });
             group.nextNo += 1;
@@ -668,7 +697,7 @@ export class QuotationContextBuilder {
                 categoryName: key === '__UNCATEGORIZED__' ? null : key,
                 items: g.items,
                 subtotalNum: g.subtotalNum,
-                subtotalFormatted: formatRp(g.subtotalNum),
+                subtotalFormatted: formatRp(g.subtotalNum, useUsd),
             };
         });
 
@@ -805,10 +834,10 @@ export class QuotationContextBuilder {
                     ? buildInvoicePartLabel(quotation.invoicePart, lang)
                     : null,
                 amountToPayFormatted: quotation.amountToPay !== null && quotation.amountToPay !== undefined
-                    ? formatRp(Number(quotation.amountToPay))
+                    ? formatRp(Number(quotation.amountToPay), useUsd)
                     : null,
                 amountToPayTerbilang: quotation.amountToPay !== null && quotation.amountToPay !== undefined
-                    ? rupiahInWords(Number(quotation.amountToPay), lang)
+                    ? rupiahInWords(Number(quotation.amountToPay), lang, useUsd)
                     : null,
                 dueDateFormatted: quotation.dueDate ? formatDateId(quotation.dueDate, lang) : null,
                 itemDisplayMode: (quotation.itemDisplayMode === 'category-summary' ? 'category-summary' : 'detailed'),
@@ -832,17 +861,17 @@ export class QuotationContextBuilder {
             hasMultipleEvents: buildEventsList(quotation, lang).length > 1,
             items,
             totals: {
-                subtotal: formatRp(subtotalNum),
+                subtotal: formatRp(subtotalNum, useUsd),
                 taxRate: Number(quotation.taxRate).toString(),
-                taxAmount: formatRp(Number(quotation.taxAmount)),
-                discount: formatRp(Number(quotation.discount)),
-                total: formatRp(totalNum),
-                totalTerbilang: rupiahInWords(totalNum, lang),
+                taxAmount: formatRp(Number(quotation.taxAmount), useUsd),
+                discount: formatRp(Number(quotation.discount), useUsd),
+                total: formatRp(totalNum, useUsd),
+                totalTerbilang: rupiahInWords(totalNum, lang, useUsd),
             },
             payment: {
                 dpPercent: dpPercentNum.toString(),
-                dpAmount: formatRp(dpAmount),
-                pelunasan: formatRp(pelunasan),
+                dpAmount: formatRp(dpAmount, useUsd),
+                pelunasan: formatRp(pelunasan, useUsd),
                 banks: banks.map((b) => ({
                     bankName: b.bankName,
                     accountNumber: b.accountNumber,

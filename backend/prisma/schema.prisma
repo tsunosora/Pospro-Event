@@ -509,6 +509,9 @@ model Invoice {
   attachmentCount    Int?              @map("attachment_count")                // Jumlah lampiran (mis. 1, 2, 3). Null = default 1.
   customAttachmentText String?         @map("custom_attachment_text") @db.Text // Override teks lampiran (mis. "Brosur produk, Foto referensi"). Null = pakai "{N} ({terbilang}) berkas".
   language           String            @default("id") @map("language") @db.VarChar(5) // "id" (default) atau "en"
+  // Toggle mata uang USD — kalau true, label Rp diganti USD di semua nominal (TANPA konversi kurs).
+  // Marketing input nilai USD manual ke field harga. Default false = pakai Rp.
+  useUsdCurrency     Boolean           @default(false) @map("use_usd_currency")
   createdAt     DateTime?     @default(now()) @map("created_at")
   updatedAt     DateTime?     @default(now()) @updatedAt @map("updated_at")
 
