@@ -418,7 +418,17 @@ function PenawaranListPageInner() {
                                         )}
                                     </td>
                                     <td className="px-3 py-2">
-                                        <BrandBadge brand={q.brand} size="xs" />
+                                        <div className="flex items-center gap-1">
+                                            <BrandBadge brand={q.brand} size="xs" />
+                                            {q.language === 'en' && (
+                                                <span
+                                                    className="text-[10px] px-1 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-300 font-bold"
+                                                    title="Surat dalam Bahasa Inggris"
+                                                >
+                                                    🇬🇧 EN
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-3 py-2">
                                         {(() => {

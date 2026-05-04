@@ -481,6 +481,9 @@ model Invoice {
   eventLocation     String?           @map("event_location") @db.VarChar(200)
   eventDateStart    DateTime?         @map("event_date_start")
   eventDateEnd      DateTime?         @map("event_date_end")
+  // Multi-event support: array `[{name, location, dateStart, dateEnd}]` untuk event tambahan.
+  // Event utama tetap pakai field projectName/eventLocation/eventDateStart/eventDateEnd di atas.
+  additionalEvents  Json?             @map("additional_events")
   bankAccountIds    String?           @map("bank_account_ids") @db.VarChar(200) // CSV id bank yang dicantumkan di penawaran
   dpPercent         Decimal           @default(50) @map("dp_percent") @db.Decimal(5, 2)
   rabPlanId         Int?              @map("rab_plan_id")
@@ -505,6 +508,7 @@ model Invoice {
   closingAppend         String?        @map("closing_append") @db.Text
   attachmentCount    Int?              @map("attachment_count")                // Jumlah lampiran (mis. 1, 2, 3). Null = default 1.
   customAttachmentText String?         @map("custom_attachment_text") @db.Text // Override teks lampiran (mis. "Brosur produk, Foto referensi"). Null = pakai "{N} ({terbilang}) berkas".
+  language           String            @default("id") @map("language") @db.VarChar(5) // "id" (default) atau "en"
   createdAt     DateTime?     @default(now()) @map("created_at")
   updatedAt     DateTime?     @default(now()) @updatedAt @map("updated_at")
 
@@ -1678,6 +1682,12 @@ model BrandSettings {
   quotationClosing     String?    @map("quotation_closing") @db.Text   // "Demikian penawaran kerjasama kami..."
   invoiceClosingText   String?    @map("invoice_closing_text") @db.Text // "Nb: Jika terjadi pembatalan..." khusus untuk invoice (bukan penawaran)
   openingTemplate      String?    @map("opening_template") @db.Text     // Template paragraf "Dengan hormat..." — bisa di-copy ke quotation
+  // English versions — dipakai kalau quotation.language = 'en'
+  quotationDisclaimerEn   String? @map("quotation_disclaimer_en") @db.Text
+  quotationPaymentTermsEn String? @map("quotation_payment_terms_en") @db.Text
+  quotationClosingEn      String? @map("quotation_closing_en") @db.Text
+  invoiceClosingTextEn    String? @map("invoice_closing_text_en") @db.Text
+  openingTemplateEn       String? @map("opening_template_en") @db.Text
   themeColor           String?    @map("theme_color") @db.VarChar(20) // Hex color untuk PDF header & accent (mis. "#1e40af"). Null = pakai default per brand.
   isActive             Boolean    @default(true) @map("is_active")
   createdAt            DateTime   @default(now()) @map("created_at")

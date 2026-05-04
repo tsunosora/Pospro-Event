@@ -16,11 +16,18 @@ export interface CreateQuotationDto {
     clientPhone?: string;
     clientEmail?: string;
 
-    // Detail event/project
+    // Detail event/project — event UTAMA
     projectName?: string;
     eventLocation?: string;
     eventDateStart?: string | Date;   // ISO
     eventDateEnd?: string | Date;
+    // Event TAMBAHAN — kalau penawaran cover banyak event dengan tanggal beda
+    additionalEvents?: Array<{
+        name?: string | null;
+        location?: string | null;
+        dateStart?: string | Date | null;
+        dateEnd?: string | Date | null;
+    }> | null;
 
     // Penawaran terms
     date?: string | Date;
@@ -43,7 +50,8 @@ export interface CreateQuotationDto {
     closingPrepend?: string | null;
     closingAppend?: string | null;
     attachmentCount?: number | null;     // Jumlah lampiran (default 1 di template)
-    customAttachmentText?: string | null; // Teks bebas untuk lampiran (override "{N} ({terbilang}) berkas")
+    customAttachmentText?: string | null; // Teks bebas untuk lampiran
+    language?: 'id' | 'en';                // Bahasa surat (default 'id')
 
     // Angka
     taxRate?: number;

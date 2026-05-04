@@ -124,6 +124,13 @@ function BrandForm({
     const [quotationClosing, setQuotationClosing] = useState(initial?.quotationClosing ?? DEFAULT_CLOSING);
     const [invoiceClosingText, setInvoiceClosingText] = useState(initial?.invoiceClosingText ?? DEFAULT_INVOICE_CLOSING);
     const [openingTemplate, setOpeningTemplate] = useState(initial?.openingTemplate ?? "");
+    // English versions
+    const [quotationDisclaimerEn, setQuotationDisclaimerEn] = useState(initial?.quotationDisclaimerEn ?? "");
+    const [quotationPaymentTermsEn, setQuotationPaymentTermsEn] = useState(initial?.quotationPaymentTermsEn ?? "");
+    const [quotationClosingEn, setQuotationClosingEn] = useState(initial?.quotationClosingEn ?? "");
+    const [invoiceClosingTextEn, setInvoiceClosingTextEn] = useState(initial?.invoiceClosingTextEn ?? "");
+    const [openingTemplateEn, setOpeningTemplateEn] = useState(initial?.openingTemplateEn ?? "");
+    const [textLang, setTextLang] = useState<'id' | 'en'>('id');
     const [themeColor, setThemeColor] = useState<string>(initial?.themeColor ?? (brand === "EXINDO" ? "#1e40af" : brand === "XPOSER" ? "#0d9488" : "#c8203a"));
     const [isActive, setIsActive] = useState(initial?.isActive ?? true);
 
@@ -147,6 +154,11 @@ function BrandForm({
         setQuotationClosing(initial?.quotationClosing ?? DEFAULT_CLOSING);
         setInvoiceClosingText(initial?.invoiceClosingText ?? DEFAULT_INVOICE_CLOSING);
         setOpeningTemplate(initial?.openingTemplate ?? "");
+        setQuotationDisclaimerEn(initial?.quotationDisclaimerEn ?? "");
+        setQuotationPaymentTermsEn(initial?.quotationPaymentTermsEn ?? "");
+        setQuotationClosingEn(initial?.quotationClosingEn ?? "");
+        setInvoiceClosingTextEn(initial?.invoiceClosingTextEn ?? "");
+        setOpeningTemplateEn(initial?.openingTemplateEn ?? "");
         setThemeColor(initial?.themeColor ?? (brand === "EXINDO" ? "#1e40af" : brand === "XPOSER" ? "#0d9488" : "#c8203a"));
         setIsActive(initial?.isActive ?? true);
     }, [initial, brand]);
@@ -163,6 +175,11 @@ function BrandForm({
             quotationDisclaimer, quotationPaymentTerms, quotationClosing,
             invoiceClosingText,
             openingTemplate: openingTemplate.trim() || null,
+            quotationDisclaimerEn: quotationDisclaimerEn.trim() || null,
+            quotationPaymentTermsEn: quotationPaymentTermsEn.trim() || null,
+            quotationClosingEn: quotationClosingEn.trim() || null,
+            invoiceClosingTextEn: invoiceClosingTextEn.trim() || null,
+            openingTemplateEn: openingTemplateEn.trim() || null,
             themeColor: themeColor.trim() || null,
             isActive,
         }),
@@ -518,47 +535,118 @@ function BrandForm({
                     Bagian text di bawah ini dipakai otomatis di surat penawaran brand <b>{meta.short}</b>. Boleh edit sesuai kebutuhan.
                 </p>
 
+                {/* Language tab — switch ID/EN */}
+                <div className="flex gap-1 border-b border-slate-200 -mb-3">
+                    {([
+                        { value: 'id' as const, label: '🇮🇩 Bahasa Indonesia' },
+                        { value: 'en' as const, label: '🇬🇧 English' },
+                    ]).map((opt) => (
+                        <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setTextLang(opt.value)}
+                            className={`px-3 py-2 text-xs font-medium border-b-2 -mb-px transition ${textLang === opt.value
+                                ? "border-blue-600 text-blue-700"
+                                : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                    <span className="ml-auto text-[10px] text-muted-foreground self-center">
+                        {textLang === 'en' ? "Untuk client international" : "Default text"}
+                    </span>
+                </div>
+
                 <Field
-                    label="📋 Template Pembuka Surat (Opsional)"
-                    hint='Template paragraf "Dengan hormat..." yang bisa di-Salin ke per-quotation dengan satu klik. Kosongkan kalau tidak perlu template.'
+                    label={textLang === 'en' ? "📋 Opening Letter Template (Optional)" : "📋 Template Pembuka Surat (Opsional)"}
+                    hint='Template paragraf yang bisa di-Salin ke per-quotation dengan satu klik. Kosongkan kalau tidak perlu template.'
                 >
-                    <textarea
-                        value={openingTemplate}
-                        onChange={(e) => setOpeningTemplate(e.target.value)}
-                        rows={4}
-                        placeholder='Mis: "Dengan hormat, Bersama surat ini kami CV. Xposer Event mengajukan penawaran harga Sewa Perlengkapan Event untuk acara {EVENT} di {LOKASI} pada tanggal {TANGGAL}. Adapun rincian penawaran kami adalah sebagai berikut:"'
-                        className="form-input text-xs min-h-[90px]"
-                    />
+                    {textLang === 'id' ? (
+                        <textarea
+                            value={openingTemplate}
+                            onChange={(e) => setOpeningTemplate(e.target.value)}
+                            rows={4}
+                            placeholder='Mis: "Dengan hormat, Bersama surat ini kami CV. Xposer Event mengajukan penawaran harga Sewa Perlengkapan Event untuk acara {EVENT} di {LOKASI} pada tanggal {TANGGAL}. Adapun rincian penawaran kami adalah sebagai berikut:"'
+                            className="form-input text-xs min-h-[90px]"
+                        />
+                    ) : (
+                        <textarea
+                            value={openingTemplateEn}
+                            onChange={(e) => setOpeningTemplateEn(e.target.value)}
+                            rows={4}
+                            placeholder='E.g.: "Dear Sir/Madam, Through this letter, we CV. Xposer Event are pleased to submit our quotation for Event Equipment Rental for the {EVENT} event at {LOCATION} on {DATE}. The details are as follows:"'
+                            className="form-input text-xs min-h-[90px]"
+                        />
+                    )}
                 </Field>
 
-                <Field label="📝 Catatan Harga / Disclaimer" hint="Daftar yang tidak termasuk dalam harga, dll. Pakai # di awal kalau mau bullet-style.">
-                    <textarea
-                        value={quotationDisclaimer}
-                        onChange={(e) => setQuotationDisclaimer(e.target.value)}
-                        rows={5}
-                        className="form-input font-mono text-xs min-h-[120px]"
-                        placeholder={DEFAULT_DISCLAIMER}
-                    />
+                <Field
+                    label={textLang === 'en' ? "📝 Price Notes / Disclaimer" : "📝 Catatan Harga / Disclaimer"}
+                    hint="Daftar yang tidak termasuk dalam harga, dll. Pakai # di awal kalau mau bullet-style."
+                >
+                    {textLang === 'id' ? (
+                        <textarea
+                            value={quotationDisclaimer}
+                            onChange={(e) => setQuotationDisclaimer(e.target.value)}
+                            rows={5}
+                            className="form-input font-mono text-xs min-h-[120px]"
+                            placeholder={DEFAULT_DISCLAIMER}
+                        />
+                    ) : (
+                        <textarea
+                            value={quotationDisclaimerEn}
+                            onChange={(e) => setQuotationDisclaimerEn(e.target.value)}
+                            rows={5}
+                            className="form-input font-mono text-xs min-h-[120px]"
+                            placeholder='# Prices exclude: management fee, deposits, insurance, electrical/water installation, etc.\n# Booth must be purchased as a complete set, not separately.'
+                        />
+                    )}
                 </Field>
 
-                <Field label="💳 Sistem Pembayaran" hint="Term of payment, pasang/bongkar, dll.">
-                    <textarea
-                        value={quotationPaymentTerms}
-                        onChange={(e) => setQuotationPaymentTerms(e.target.value)}
-                        rows={5}
-                        className="form-input text-xs min-h-[120px]"
-                        placeholder={DEFAULT_PAYMENT_TERMS}
-                    />
+                <Field
+                    label={textLang === 'en' ? "💳 Payment Terms" : "💳 Sistem Pembayaran"}
+                    hint="Term of payment, pasang/bongkar, dll."
+                >
+                    {textLang === 'id' ? (
+                        <textarea
+                            value={quotationPaymentTerms}
+                            onChange={(e) => setQuotationPaymentTerms(e.target.value)}
+                            rows={5}
+                            className="form-input text-xs min-h-[120px]"
+                            placeholder={DEFAULT_PAYMENT_TERMS}
+                        />
+                    ) : (
+                        <textarea
+                            value={quotationPaymentTermsEn}
+                            onChange={(e) => setQuotationPaymentTermsEn(e.target.value)}
+                            rows={5}
+                            className="form-input text-xs min-h-[120px]"
+                            placeholder="Payment terms: 50% down payment upon contract signing, 50% balance upon booth delivery..."
+                        />
+                    )}
                 </Field>
 
-                <Field label="🤝 Penutup Surat" hint="Kalimat penutup yang muncul sebelum tanda tangan.">
-                    <textarea
-                        value={quotationClosing}
-                        onChange={(e) => setQuotationClosing(e.target.value)}
-                        rows={3}
-                        className="form-input text-xs min-h-[80px]"
-                        placeholder={DEFAULT_CLOSING}
-                    />
+                <Field
+                    label={textLang === 'en' ? "🤝 Closing" : "🤝 Penutup Surat"}
+                    hint="Kalimat penutup yang muncul sebelum tanda tangan."
+                >
+                    {textLang === 'id' ? (
+                        <textarea
+                            value={quotationClosing}
+                            onChange={(e) => setQuotationClosing(e.target.value)}
+                            rows={3}
+                            className="form-input text-xs min-h-[80px]"
+                            placeholder={DEFAULT_CLOSING}
+                        />
+                    ) : (
+                        <textarea
+                            value={quotationClosingEn}
+                            onChange={(e) => setQuotationClosingEn(e.target.value)}
+                            rows={3}
+                            className="form-input text-xs min-h-[80px]"
+                            placeholder="Thus we submit our quotation. We appreciate your attention and cooperation. Thank you."
+                        />
+                    )}
                 </Field>
 
                 <div className="flex justify-between gap-2 pt-2 border-t">
@@ -589,14 +677,27 @@ function BrandForm({
                     Bagian rekening bank otomatis dari <b>Bank Default Brand</b> di atas.
                 </p>
 
-                <Field label="📑 Catatan Invoice (Nb)" hint='Catatan/syarat khusus invoice. Boleh kasih awalan "#" untuk bullet style. Akan tampil setelah list rekening transfer di PDF invoice.'>
-                    <textarea
-                        value={invoiceClosingText}
-                        onChange={(e) => setInvoiceClosingText(e.target.value)}
-                        rows={3}
-                        className="form-input text-xs min-h-[80px]"
-                        placeholder={DEFAULT_INVOICE_CLOSING}
-                    />
+                <Field
+                    label={textLang === 'en' ? "📑 Invoice Note" : "📑 Catatan Invoice (Nb)"}
+                    hint='Catatan/syarat khusus invoice. Akan tampil setelah list rekening transfer di PDF invoice.'
+                >
+                    {textLang === 'id' ? (
+                        <textarea
+                            value={invoiceClosingText}
+                            onChange={(e) => setInvoiceClosingText(e.target.value)}
+                            rows={3}
+                            className="form-input text-xs min-h-[80px]"
+                            placeholder={DEFAULT_INVOICE_CLOSING}
+                        />
+                    ) : (
+                        <textarea
+                            value={invoiceClosingTextEn}
+                            onChange={(e) => setInvoiceClosingTextEn(e.target.value)}
+                            rows={3}
+                            className="form-input text-xs min-h-[80px]"
+                            placeholder="If cancellation occurs after payment is received, payment is non-refundable..."
+                        />
+                    )}
                 </Field>
 
                 <div className="flex justify-end gap-2 pt-2 border-t">

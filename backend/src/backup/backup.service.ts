@@ -13,7 +13,17 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.11 (current) — Approval flow + Adjustments (tunjangan/potongan) + Audit log:
+// v2.12 (current) — Quotation customization extensive + Multi-language (ID/EN):
+//   - Invoice.language ('id' | 'en') — bahasa surat per quotation
+//   - Invoice custom text fields: customOpeningText, customDisclaimer, customPaymentTerms, customClosing
+//   - Invoice prepend/append: disclaimerPrepend/Append, paymentTermsPrepend/Append, closingPrepend/Append
+//   - Invoice attachmentCount + customAttachmentText (lampiran custom)
+//   - BrandSettings.themeColor (hex untuk PDF accent color per brand)
+//   - BrandSettings.openingTemplate + 5 English versions (quotationDisclaimerEn, paymentTermsEn, closingEn, invoiceClosingTextEn, openingTemplateEn)
+//   - Event.dailyWageRate, overtimeRatePerHour, dailyWageRatePic, overtimeRatePerHourPic — wage override per event (PIC tier vs Member)
+//   - Worker.defaultCityKey, defaultDivisionKey — preset wage matrix di PIC dropdown
+//   - WageRate (city + division → daily/overtime rate) — master tarif kota+divisi
+// v2.11 — Approval flow + Adjustments (tunjangan/potongan) + Audit log:
 //   - Attendance.approvalStatus, approvedAt, approvedById, rejectionReason — workflow PENDING/APPROVED/REJECTED
 //   - New table: PayrollAdjustment (BONUS/ALLOWANCE/DEDUCTION/ADVANCE per worker per tanggal)
 //   - New table: AttendanceAuditLog (history CREATE/UPDATE/DELETE/APPROVE/REJECT dengan oldData/newData snapshot)
@@ -232,7 +242,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.11',
+                version: '2.12',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,

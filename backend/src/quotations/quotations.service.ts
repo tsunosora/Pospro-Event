@@ -21,6 +21,23 @@ function toDecimal(v: number | string | undefined | null, fallback = '0'): Prism
     return new Prisma.Decimal(v as any);
 }
 
+/** Normalize additional events sebelum disimpan ke kolom JSON. Tanggal jadi ISO string, field kosong jadi null. */
+function sanitizeAdditionalEvents(
+    input: CreateQuotationDto['additionalEvents'] | undefined | null,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+    if (!input || !Array.isArray(input) || input.length === 0) return Prisma.JsonNull;
+    const cleaned = input
+        .map((e) => ({
+            name: (e?.name ?? '').toString().trim() || null,
+            location: (e?.location ?? '').toString().trim() || null,
+            dateStart: e?.dateStart ? new Date(e.dateStart).toISOString() : null,
+            dateEnd: e?.dateEnd ? new Date(e.dateEnd).toISOString() : null,
+        }))
+        .filter((e) => e.name || e.location || e.dateStart || e.dateEnd);
+    if (cleaned.length === 0) return Prisma.JsonNull;
+    return cleaned as unknown as Prisma.InputJsonValue;
+}
+
 function calcTotals(items: QuotationItemInput[], taxRate: number, discount: number) {
     const subtotal = items.reduce((sum, it) => {
         const q = Number(it.quantity ?? 0);
@@ -91,6 +108,7 @@ export class QuotationsService {
                 eventLocation: dto.eventLocation,
                 eventDateStart: dto.eventDateStart ? new Date(dto.eventDateStart) : null,
                 eventDateEnd: dto.eventDateEnd ? new Date(dto.eventDateEnd) : null,
+                additionalEvents: sanitizeAdditionalEvents(dto.additionalEvents),
 
                 date: dto.date ? new Date(dto.date) : new Date(),
                 signCity: dto.signCity?.trim() || null,
@@ -110,6 +128,7 @@ export class QuotationsService {
                 closingAppend: dto.closingAppend?.trim() || null,
                 attachmentCount: dto.attachmentCount && dto.attachmentCount > 0 ? Math.floor(dto.attachmentCount) : null,
                 customAttachmentText: dto.customAttachmentText?.trim() || null,
+                language: dto.language === 'en' ? 'en' : 'id',
 
                 taxRate: toDecimal(taxRate),
                 discount: toDecimal(discount),
@@ -228,6 +247,9 @@ export class QuotationsService {
                     ...(dto.eventDateEnd !== undefined
                         ? { eventDateEnd: dto.eventDateEnd ? new Date(dto.eventDateEnd) : null }
                         : {}),
+                    ...(dto.additionalEvents !== undefined
+                        ? { additionalEvents: sanitizeAdditionalEvents(dto.additionalEvents) }
+                        : {}),
                     ...(dto.date !== undefined ? { date: new Date(dto.date as any) } : {}),
                     ...(dto.signCity !== undefined ? { signCity: dto.signCity?.trim() || null } : {}),
                     ...(dto.validUntil !== undefined
@@ -256,6 +278,7 @@ export class QuotationsService {
                         ? { attachmentCount: dto.attachmentCount && dto.attachmentCount > 0 ? Math.floor(dto.attachmentCount) : null }
                         : {}),
                     ...(dto.customAttachmentText !== undefined ? { customAttachmentText: dto.customAttachmentText?.trim() || null } : {}),
+                    ...(dto.language !== undefined ? { language: dto.language === 'en' ? 'en' : 'id' } : {}),
                     ...(recomputed ?? {}),
                     ...(dto.items !== undefined
                         ? {
@@ -381,6 +404,7 @@ export class QuotationsService {
                 eventLocation: quotation.eventLocation,
                 eventDateStart: quotation.eventDateStart,
                 eventDateEnd: quotation.eventDateEnd,
+                additionalEvents: (quotation.additionalEvents ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
 
                 date: now,
                 dueDate,
@@ -549,6 +573,7 @@ export class QuotationsService {
                 eventLocation: source.eventLocation,
                 eventDateStart: source.eventDateStart,
                 eventDateEnd: source.eventDateEnd,
+                additionalEvents: (source.additionalEvents ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
 
                 date: new Date(),
                 validUntil: source.validUntil,

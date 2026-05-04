@@ -44,6 +44,12 @@ export interface Quotation {
     eventLocation: string | null;
     eventDateStart: string | null;
     eventDateEnd: string | null;
+    additionalEvents: Array<{
+        name: string | null;
+        location: string | null;
+        dateStart: string | null;
+        dateEnd: string | null;
+    }> | null;
     date: string;
     signCity: string | null;
     validUntil: string | null;
@@ -62,6 +68,19 @@ export interface Quotation {
     invoicePart?: string | null;            // "DP" | "PELUNASAN" | "FULL" (untuk type=INVOICE)
     amountToPay?: string | null;            // Decimal serialized
     itemDisplayMode?: 'detailed' | 'category-summary' | null; // tampilan item di PDF/DOCX
+    language?: 'id' | 'en';                                   // bahasa surat
+    customOpeningText?: string | null;
+    customDisclaimer?: string | null;
+    customPaymentTerms?: string | null;
+    customClosing?: string | null;
+    disclaimerPrepend?: string | null;
+    disclaimerAppend?: string | null;
+    paymentTermsPrepend?: string | null;
+    paymentTermsAppend?: string | null;
+    closingPrepend?: string | null;
+    closingAppend?: string | null;
+    attachmentCount?: number | null;
+    customAttachmentText?: string | null;
     parent?: { id: number; invoiceNumber: string; revisionNumber: number } | null;
     children?: Array<{ id: number; invoiceNumber: string; revisionNumber: number }>;
 }
@@ -82,6 +101,12 @@ export interface CreateQuotationInput {
     eventLocation?: string;
     eventDateStart?: string;
     eventDateEnd?: string;
+    additionalEvents?: Array<{
+        name?: string | null;
+        location?: string | null;
+        dateStart?: string | null;
+        dateEnd?: string | null;
+    }> | null;
     date?: string;
     signCity?: string | null;
     validUntil?: string;

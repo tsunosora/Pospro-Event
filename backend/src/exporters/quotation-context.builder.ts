@@ -41,6 +41,10 @@ export interface QuotationItemGroup {
 }
 
 export interface QuotationRenderContext {
+    // Language: 'id' atau 'en' — controlling i18n labels
+    language: 'id' | 'en';
+    // i18n labels — dipakai di template untuk static UI text
+    i18n: Record<string, string>;
     // Identitas perusahaan
     company: {
         name: string;
@@ -111,12 +115,19 @@ export interface QuotationRenderContext {
         phone: string;
         email: string;
     };
-    // Event/proyek
+    // Event/proyek (event UTAMA)
     project: {
         name: string;
         location: string;
         dateRange: string;
     };
+    // Multi-event: index 0 = event utama, sisanya additional events
+    events: Array<{
+        name: string;
+        location: string;
+        dateRange: string;
+    }>;
+    hasMultipleEvents: boolean;
     // Items & totals
     items: QuotationRenderItem[];
     totals: {
@@ -141,22 +152,77 @@ const MONTH_ID = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ];
+const MONTH_EN = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+];
 
-function formatDateId(d: Date | null | undefined): string {
+function monthName(idx: number, lang: 'id' | 'en' = 'id'): string {
+    return (lang === 'en' ? MONTH_EN : MONTH_ID)[idx];
+}
+
+function formatDateId(d: Date | null | undefined, lang: 'id' | 'en' = 'id'): string {
     if (!d) return '-';
     const date = new Date(d);
+    if (lang === 'en') {
+        // Format English: "21 June 2026" — day month year (international/British style for business)
+        return `${date.getDate()} ${MONTH_EN[date.getMonth()]} ${date.getFullYear()}`;
+    }
     return `${date.getDate()} ${MONTH_ID[date.getMonth()]} ${date.getFullYear()}`;
 }
 
-function formatDateRange(start: Date | null, end: Date | null): string {
+function formatDateRange(start: Date | null, end: Date | null, lang: 'id' | 'en' = 'id'): string {
     if (!start) return '-';
     const s = new Date(start);
     const e = end ? new Date(end) : null;
-    if (!e || s.toDateString() === e.toDateString()) return formatDateId(s);
+    if (!e || s.toDateString() === e.toDateString()) return formatDateId(s, lang);
     if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) {
-        return `${s.getDate()}-${e.getDate()} ${MONTH_ID[s.getMonth()]} ${s.getFullYear()}`;
+        return `${s.getDate()}-${e.getDate()} ${monthName(s.getMonth(), lang)} ${s.getFullYear()}`;
     }
-    return `${formatDateId(s)} - ${formatDateId(e)}`;
+    return `${formatDateId(s, lang)} - ${formatDateId(e, lang)}`;
+}
+
+/**
+ * Build daftar events untuk multi-event quotation.
+ * Index 0 = event UTAMA (dari kolom projectName/eventLocation/eventDateStart/eventDateEnd).
+ * Sisanya dari kolom JSON `additionalEvents`.
+ * Skip entri yang benar-benar kosong (tidak ada nama/lokasi/tanggal).
+ */
+function buildEventsList(quotation: any, lang: 'id' | 'en' = 'id'): Array<{
+    name: string;
+    location: string;
+    dateRange: string;
+}> {
+    const result: Array<{ name: string; location: string; dateRange: string }> = [];
+    // Event utama
+    const mainName = (quotation.projectName ?? '').toString().trim();
+    const mainLoc = (quotation.eventLocation ?? '').toString().trim();
+    const mainStart = quotation.eventDateStart ?? null;
+    const mainEnd = quotation.eventDateEnd ?? null;
+    if (mainName || mainLoc || mainStart || mainEnd) {
+        result.push({
+            name: mainName,
+            location: mainLoc,
+            dateRange: formatDateRange(mainStart, mainEnd, lang),
+        });
+    }
+    // Event tambahan (JSON column)
+    const extras = quotation.additionalEvents;
+    if (Array.isArray(extras)) {
+        for (const e of extras) {
+            const n = (e?.name ?? '').toString().trim();
+            const l = (e?.location ?? '').toString().trim();
+            const ds = e?.dateStart ? new Date(e.dateStart) : null;
+            const de = e?.dateEnd ? new Date(e.dateEnd) : null;
+            if (!n && !l && !ds && !de) continue;
+            result.push({
+                name: n,
+                location: l,
+                dateRange: formatDateRange(ds, de, lang),
+            });
+        }
+    }
+    return result;
 }
 
 function formatRp(n: number | string): string {
@@ -218,11 +284,178 @@ function terbilang(n: number): string {
     return terbilang(t) + ' triliun' + (r ? ' ' + terbilang(r) : '');
 }
 
+/** Title Case: tiap kata huruf depannya kapital. Contoh: "dua juta lima ratus ribu" → "Dua Juta Lima Ratus Ribu". */
+function toTitleCase(s: string): string {
+    return s.replace(/\s+/g, ' ').trim().split(' ').map((w) =>
+        w.length === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)
+    ).join(' ');
+}
+
 export function terbilangRupiah(n: number | string): string {
     const num = Number(n || 0);
     const txt = terbilang(num);
-    return (txt.charAt(0).toUpperCase() + txt.slice(1) + ' rupiah').replace(/\s+/g, ' ');
+    return toTitleCase(txt + ' rupiah');
 }
+
+// ─── English number-to-words ──────────────────────────────────────────
+const EN_ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+    'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const EN_TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+function numberToWordsEnglish(n: number): string {
+    if (n < 0) return 'negative ' + numberToWordsEnglish(-n);
+    if (n === 0) return 'zero';
+    if (n < 20) return EN_ONES[n];
+    if (n < 100) {
+        const t = Math.floor(n / 10), o = n % 10;
+        return EN_TENS[t] + (o ? '-' + EN_ONES[o] : '');
+    }
+    if (n < 1000) {
+        const h = Math.floor(n / 100), r = n % 100;
+        return EN_ONES[h] + ' hundred' + (r ? ' ' + numberToWordsEnglish(r) : '');
+    }
+    if (n < 1_000_000) {
+        const t = Math.floor(n / 1000), r = n % 1000;
+        return numberToWordsEnglish(t) + ' thousand' + (r ? ' ' + numberToWordsEnglish(r) : '');
+    }
+    if (n < 1_000_000_000) {
+        const m = Math.floor(n / 1_000_000), r = n % 1_000_000;
+        return numberToWordsEnglish(m) + ' million' + (r ? ' ' + numberToWordsEnglish(r) : '');
+    }
+    if (n < 1_000_000_000_000) {
+        const b = Math.floor(n / 1_000_000_000), r = n % 1_000_000_000;
+        return numberToWordsEnglish(b) + ' billion' + (r ? ' ' + numberToWordsEnglish(r) : '');
+    }
+    const t = Math.floor(n / 1_000_000_000_000);
+    const r = n % 1_000_000_000_000;
+    return numberToWordsEnglish(t) + ' trillion' + (r ? ' ' + numberToWordsEnglish(r) : '');
+}
+
+export function rupiahInWords(n: number | string, lang: 'id' | 'en'): string {
+    const num = Number(n || 0);
+    if (lang === 'en') {
+        const w = numberToWordsEnglish(Math.floor(num));
+        // Title case juga untuk versi English (kecuali bagian setelah hyphen, mis. "Twenty-five")
+        return toTitleCase(w + ' rupiah');
+    }
+    return terbilangRupiah(num);
+}
+
+// ─── i18n labels per language ─────────────────────────────────────────
+export const I18N: Record<'id' | 'en', Record<string, string>> = {
+    id: {
+        // Header
+        kepada: 'Kepada Yth.',
+        diTempat: 'di Tempat',
+        nomor: 'Nomor',
+        noInvoice: 'No. Invoice',
+        lampiran: 'Lampiran',
+        perihal: 'Perihal',
+        // Doc title
+        suratPenawaran: 'SURAT PENAWARAN',
+        invoice: 'INVOICE',
+        revisi: 'Rev.',
+        // Opening
+        denganHormat: 'Dengan hormat,',
+        bersamaSurat: 'Bersama surat ini kami',
+        mengajukanPenawaran: 'mengajukan penawaran harga',
+        bersamaInvoice: 'Bersama invoice ini kami',
+        menagihkanPembayaran: 'menagihkan pembayaran',
+        uangMuka: 'uang muka (DP)',
+        pelunasan: 'pelunasan',
+        atas: 'atas',
+        untukAcara: 'untuk acara',
+        di: 'di',
+        padaTanggal: 'pada tanggal',
+        rincianPenawaran: 'Adapun rincian penawaran kami adalah sebagai berikut:',
+        rincianTagihan: 'Berikut rincian tagihan:',
+        // Table
+        no: 'No',
+        uraian: 'Uraian',
+        qty: 'Qty',
+        hargaSatuan: 'Harga Satuan',
+        jumlah: 'Jumlah',
+        subtotal: 'Subtotal',
+        subtotalKeseluruhan: 'Subtotal Keseluruhan',
+        diskon: 'Diskon',
+        ppn: 'PPN',
+        grandTotal: 'Grand Total',
+        terbilang: 'Terbilang',
+        // Sections
+        catatanHarga: 'Catatan Harga',
+        sistemPembayaran: 'Sistem Pembayaran',
+        ketentuan: 'Ketentuan',
+        // Closing
+        demikian: 'Demikian',
+        atasPerhatian: 'Atas perhatian dan kerjasamanya kami ucapkan terima kasih.',
+        // Sign
+        hormatKami: 'Hormat kami,',
+        // Invoice
+        jatuhTempo: 'Jatuh Tempo',
+        totalTagihan: 'TOTAL YANG HARUS DIBAYAR',
+        validUntil: 'Berlaku sampai',
+        // Misc
+        sayLabel: 'Terbilang',
+        attachmentSuffix: 'berkas',
+        tanggal: 'Tanggal',
+    },
+    en: {
+        // Header
+        kepada: 'To',
+        diTempat: 'At the recipient’s address',
+        nomor: 'Number',
+        noInvoice: 'Invoice No.',
+        lampiran: 'Attachment',
+        perihal: 'Subject',
+        // Doc title
+        suratPenawaran: 'QUOTATION',
+        invoice: 'INVOICE',
+        revisi: 'Rev.',
+        // Opening — formal business English
+        denganHormat: 'Dear Sir/Madam,',
+        bersamaSurat: 'We at',
+        mengajukanPenawaran: 'are pleased to submit our quotation for',
+        bersamaInvoice: 'We at',
+        menagihkanPembayaran: 'hereby issue this invoice for the',
+        uangMuka: 'down payment',
+        pelunasan: 'final payment',
+        atas: 'of',
+        untukAcara: 'for',
+        di: 'held at',
+        padaTanggal: 'on',
+        rincianPenawaran: 'The details of our quotation are as follows:',
+        rincianTagihan: 'The details of this invoice are as follows:',
+        // Table
+        no: 'No.',
+        uraian: 'Description',
+        qty: 'Qty',
+        hargaSatuan: 'Unit Price',
+        jumlah: 'Amount',
+        subtotal: 'Subtotal',
+        subtotalKeseluruhan: 'Total Subtotal',
+        diskon: 'Discount',
+        ppn: 'VAT',
+        grandTotal: 'Grand Total',
+        terbilang: 'In words',
+        // Sections
+        catatanHarga: 'Pricing Notes',
+        sistemPembayaran: 'Payment Terms',
+        ketentuan: 'Terms & Conditions',
+        // Closing
+        demikian: 'Thank you for your kind attention.',
+        atasPerhatian: 'We appreciate your kind attention and look forward to your favourable response.',
+        // Sign
+        hormatKami: 'Sincerely yours,',
+        // Invoice
+        jatuhTempo: 'Due Date',
+        totalTagihan: 'TOTAL AMOUNT DUE',
+        validUntil: 'Valid Until',
+        // Misc
+        sayLabel: 'In words',
+        attachmentSuffix: 'document(s)',
+        tanggal: 'Date',
+    },
+};
 
 /** Default theme color per brand. Dipakai kalau BrandSettings.themeColor null. */
 const DEFAULT_BRAND_COLOR: Record<string, string> = {
@@ -282,23 +515,32 @@ export function resolveTheme(brandThemeColor: string | null | undefined, brand: 
     };
 }
 
-/** Format jumlah lampiran ke "1 (satu) berkas" / "2 (dua) berkas" / dll. */
-function formatAttachmentLabel(count: number): string {
+/** Format jumlah lampiran. Indonesian: "1 (satu) berkas". English: "1 (one) document(s)". */
+function formatAttachmentLabel(count: number, lang: 'id' | 'en' = 'id'): string {
     const safe = Math.max(1, Math.floor(count));
+    if (lang === 'en') {
+        const word = safe <= 19 ? EN_ONES[safe] : numberToWordsEnglish(safe);
+        return `${safe} (${word}) document${safe > 1 ? 's' : ''}`;
+    }
     const words = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh'];
     const word = safe <= 10 ? words[safe] : terbilang(safe).trim();
     return `${safe} (${word}) berkas`;
 }
 
-function buildInvoicePartLabel(part: string | null | undefined): string {
+function buildInvoicePartLabel(part: string | null | undefined, lang: 'id' | 'en' = 'id'): string {
+    if (lang === 'en') {
+        if (part === 'DP') return 'INVOICE — DOWN PAYMENT';
+        if (part === 'PELUNASAN') return 'INVOICE — FINAL PAYMENT';
+        return 'INVOICE';
+    }
     if (part === 'DP') return 'INVOICE — DOWN PAYMENT';
     if (part === 'PELUNASAN') return 'INVOICE — PELUNASAN';
     if (part === 'FULL') return 'INVOICE';
     return 'INVOICE';
 }
 
-function buildInvoiceSubject(part: string | null | undefined, variantLabel: string): string {
-    const base = buildInvoicePartLabel(part);
+function buildInvoiceSubject(part: string | null | undefined, variantLabel: string, lang: 'id' | 'en' = 'id'): string {
+    const base = buildInvoicePartLabel(part, lang);
     return `${base} — ${variantLabel}`;
 }
 
@@ -343,6 +585,10 @@ export class QuotationContextBuilder {
             ? await this.prisma.bankAccount.findMany({ where: { id: { in: bankIds } } })
             : [];
 
+        // Tentukan bahasa dokumen di sini (sebelumnya di bawah) — supaya bisa dipakai
+        // resolve variant label & subject yang juga language-aware.
+        const lang: 'id' | 'en' = quotation.language === 'en' ? 'en' : 'id';
+
         // Resolve variant label/subject/templateKey:
         //   1. Kalau ada quotation.variantCode → load config dari QuotationVariantConfig
         //   2. Fallback ke enum quotation.quotationVariant (legacy / built-in)
@@ -356,13 +602,20 @@ export class QuotationContextBuilder {
         if (variantConfig) {
             variantLabel = variantConfig.label;
             templateKey = (variantConfig.templateKey === 'sewa' ? 'sewa' : 'pengadaan-booth');
-            subjectText = variantConfig.subject?.trim() || `Penawaran ${variantConfig.label}`;
+            const subjectPrefix = lang === 'en' ? 'Quotation for' : 'Penawaran';
+            subjectText = variantConfig.subject?.trim() || `${subjectPrefix} ${variantConfig.label}`;
         } else {
-            variantLabel = quotation.quotationVariant === 'PENGADAAN_BOOTH'
-                ? 'Pengadaan Booth Special Design'
-                : 'Sewa Perlengkapan Event';
+            if (lang === 'en') {
+                variantLabel = quotation.quotationVariant === 'PENGADAAN_BOOTH'
+                    ? 'Custom Booth Design & Build'
+                    : 'Event Equipment Rental';
+            } else {
+                variantLabel = quotation.quotationVariant === 'PENGADAAN_BOOTH'
+                    ? 'Pengadaan Booth Special Design'
+                    : 'Sewa Perlengkapan Event';
+            }
             templateKey = quotation.quotationVariant === 'PENGADAAN_BOOTH' ? 'pengadaan-booth' : 'sewa';
-            subjectText = `Penawaran ${variantLabel}`;
+            subjectText = lang === 'en' ? `Quotation for ${variantLabel}` : `Penawaran ${variantLabel}`;
         }
 
         const items: QuotationRenderItem[] = quotation.items.map((it, idx) => ({
@@ -379,9 +632,8 @@ export class QuotationContextBuilder {
         // PENTING: kalau item tidak punya categoryName, OTOMATIS inherit kategori dari item SEBELUMNYA
         // (asumsi user lupa atau sengaja kosongkan karena ingin gabung ke grup atasnya).
         // Hanya item paling pertama yang tanpa kategori jadi __UNCATEGORIZED__.
-        const groupMap = new Map<string, { items: QuotationRenderItem[]; subtotalNum: number }>();
+        const groupMap = new Map<string, { items: QuotationRenderItem[]; subtotalNum: number; nextNo: number }>();
         const categoryOrder: string[] = [];
-        let runningNo = 0;
         let lastCategory: string | null = null;
         for (let i = 0; i < quotation.items.length; i++) {
             const it = quotation.items[i];
@@ -390,12 +642,12 @@ export class QuotationContextBuilder {
             const catKey = effectiveCategory ?? '__UNCATEGORIZED__';
             if (!groupMap.has(catKey)) {
                 categoryOrder.push(catKey);
-                groupMap.set(catKey, { items: [], subtotalNum: 0 });
+                groupMap.set(catKey, { items: [], subtotalNum: 0, nextNo: 1 });
             }
             const group = groupMap.get(catKey)!;
-            runningNo += 1;
+            // Per-kategori numbering — restart dari 1 di setiap kategori
             group.items.push({
-                no: runningNo,
+                no: group.nextNo,
                 description: it.description,
                 unit: it.unit ?? '',
                 quantity: formatQty(it.quantity.toString(), it.unit),
@@ -403,6 +655,7 @@ export class QuotationContextBuilder {
                 subtotal: formatRp(Number(it.quantity) * Number(it.price)),
                 categoryName: effectiveCategory,
             });
+            group.nextNo += 1;
             group.subtotalNum += Number(it.quantity) * Number(it.price);
             // Update lastCategory hanya kalau item ini PUNYA categoryName eksplisit
             if (it.categoryName) {
@@ -425,7 +678,10 @@ export class QuotationContextBuilder {
         const dpAmount = (totalNum * dpPercentNum) / 100;
         const pelunasan = totalNum - dpAmount;
 
+        // (lang sudah resolved di atas, sebelum variantLabel/subject)
         return {
+            language: lang,
+            i18n: I18N[lang],
             company: {
                 name: brandSettings?.companyName ?? settings?.storeName ?? '',
                 address: brandSettings?.address ?? settings?.storeAddress ?? '',
@@ -459,9 +715,7 @@ export class QuotationContextBuilder {
             attachment: (() => {
                 const c = quotation.attachmentCount && quotation.attachmentCount > 0 ? quotation.attachmentCount : 1;
                 const customText = quotation.customAttachmentText?.trim();
-                // Kalau user set teks custom, pakai itu sebagai label utuh.
-                // Kalau tidak, generate "{N} ({terbilang}) berkas" otomatis.
-                const label = customText || formatAttachmentLabel(c);
+                const label = customText || formatAttachmentLabel(c, lang);
                 return { count: c, label };
             })(),
             brandTexts: (() => {
@@ -488,29 +742,43 @@ export class QuotationContextBuilder {
                     if (a) parts.push(a);
                     return parts.length > 0 ? parts.join('\n\n') : null;
                 };
+                // English versions kalau lang=en, fallback ke Indonesian kalau English kosong
+                const useEn = lang === 'en';
+                const disclaimerBase = useEn
+                    ? (brandSettings?.quotationDisclaimerEn || brandSettings?.quotationDisclaimer)
+                    : brandSettings?.quotationDisclaimer;
+                const paymentTermsBase = useEn
+                    ? (brandSettings?.quotationPaymentTermsEn || brandSettings?.quotationPaymentTerms)
+                    : brandSettings?.quotationPaymentTerms;
+                const closingBase = useEn
+                    ? (brandSettings?.quotationClosingEn || brandSettings?.quotationClosing)
+                    : brandSettings?.quotationClosing;
+                const invoiceClosingBase = useEn
+                    ? (brandSettings?.invoiceClosingTextEn || brandSettings?.invoiceClosingText)
+                    : brandSettings?.invoiceClosingText;
                 return {
                     disclaimer: combine(
                         quotation.customDisclaimer,
                         quotation.disclaimerPrepend,
-                        brandSettings?.quotationDisclaimer,
+                        disclaimerBase,
                         quotation.disclaimerAppend,
                     ),
                     paymentTerms: combine(
                         quotation.customPaymentTerms,
                         quotation.paymentTermsPrepend,
-                        brandSettings?.quotationPaymentTerms,
+                        paymentTermsBase,
                         quotation.paymentTermsAppend,
                     ),
                     closing: combine(
                         quotation.customClosing,
                         quotation.closingPrepend,
-                        brandSettings?.quotationClosing,
+                        closingBase,
                         quotation.closingAppend,
                     ),
                     invoiceClosing: combine(
                         quotation.customClosing,
                         quotation.closingPrepend,
-                        brandSettings?.invoiceClosingText,
+                        invoiceClosingBase,
                         quotation.closingAppend,
                     ),
                 };
@@ -523,28 +791,26 @@ export class QuotationContextBuilder {
                 templateKey,
                 variantLabel,
                 subject: quotation.type === 'INVOICE'
-                    ? buildInvoiceSubject(quotation.invoicePart, variantLabel)
+                    ? buildInvoiceSubject(quotation.invoicePart, variantLabel, lang)
                     : subjectText,
-                dateFormatted: formatDateId(quotation.date),
-                city: quotation.signCity?.trim()
-                    || (brandSettings?.address?.split(',').pop()?.trim())
-                    || (settings?.storeAddress?.split(',').pop()?.trim())
-                    || 'Semarang',
-                validUntilFormatted: quotation.validUntil ? formatDateId(quotation.validUntil) : null,
+                dateFormatted: formatDateId(quotation.date, lang),
+                // City — opsional. Kalau user kosongkan, tampilkan kosong (no fallback).
+                city: quotation.signCity?.trim() || '',
+                validUntilFormatted: quotation.validUntil ? formatDateId(quotation.validUntil, lang) : null,
                 isRevision: quotation.revisionNumber > 0,
                 revisionNumber: quotation.revisionNumber,
                 isInvoice: quotation.type === 'INVOICE',
                 invoicePart: quotation.invoicePart,
                 invoicePartLabel: quotation.invoicePart
-                    ? buildInvoicePartLabel(quotation.invoicePart)
+                    ? buildInvoicePartLabel(quotation.invoicePart, lang)
                     : null,
                 amountToPayFormatted: quotation.amountToPay !== null && quotation.amountToPay !== undefined
                     ? formatRp(Number(quotation.amountToPay))
                     : null,
                 amountToPayTerbilang: quotation.amountToPay !== null && quotation.amountToPay !== undefined
-                    ? terbilangRupiah(Number(quotation.amountToPay))
+                    ? rupiahInWords(Number(quotation.amountToPay), lang)
                     : null,
-                dueDateFormatted: quotation.dueDate ? formatDateId(quotation.dueDate) : null,
+                dueDateFormatted: quotation.dueDate ? formatDateId(quotation.dueDate, lang) : null,
                 itemDisplayMode: (quotation.itemDisplayMode === 'category-summary' ? 'category-summary' : 'detailed'),
                 isCategorySummary: quotation.itemDisplayMode === 'category-summary',
             },
@@ -558,8 +824,12 @@ export class QuotationContextBuilder {
             project: {
                 name: quotation.projectName ?? '',
                 location: quotation.eventLocation ?? '',
-                dateRange: formatDateRange(quotation.eventDateStart, quotation.eventDateEnd),
+                dateRange: formatDateRange(quotation.eventDateStart, quotation.eventDateEnd, lang),
             },
+            // Multi-event: array berisi event UTAMA (index 0) + event TAMBAHAN setelahnya.
+            // Template bisa loop {{#each events}} kalau mau tampilkan banyak event.
+            events: buildEventsList(quotation, lang),
+            hasMultipleEvents: buildEventsList(quotation, lang).length > 1,
             items,
             totals: {
                 subtotal: formatRp(subtotalNum),
@@ -567,7 +837,7 @@ export class QuotationContextBuilder {
                 taxAmount: formatRp(Number(quotation.taxAmount)),
                 discount: formatRp(Number(quotation.discount)),
                 total: formatRp(totalNum),
-                totalTerbilang: terbilangRupiah(totalNum),
+                totalTerbilang: rupiahInWords(totalNum, lang),
             },
             payment: {
                 dpPercent: dpPercentNum.toString(),

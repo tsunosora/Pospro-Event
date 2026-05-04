@@ -69,10 +69,11 @@
   .fallback-header .company-name { font-weight: 700; font-size: 16pt; color: {{theme.primary}}; letter-spacing: .5pt; }
   .fallback-header .company-addr { font-size: 9.5pt; color: #333; margin-top: 2pt; line-height: 1.35; }
 
-  .doc-meta { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10pt; }
+  .doc-meta { margin-bottom: 10pt; }
   .doc-meta .nomor { font-size: 11pt; line-height: 1.55; }
   .doc-meta .nomor strong { display: inline-block; min-width: 65pt; }
-  .doc-meta .kota-tgl { text-align: right; font-size: 11pt; }
+  .kota-tgl-top { font-size: 11pt; margin-bottom: 6pt; line-height: 1.55; }
+  .kota-tgl-top strong { display: inline-block; min-width: 65pt; }
 
   .kepada { margin-bottom: 8pt; line-height: 1.45; }
   .kepada .label { font-weight: 600; }
@@ -236,26 +237,27 @@
     </div>
     {{/if}}
 
+    {{!-- Kota & Tanggal di ATAS nomor, rata kiri. Kalau city kosong, tampilkan tanggal saja. --}}
+    <div class="kota-tgl-top">
+      <strong>{{i18n.tanggal}}</strong> : {{#if doc.city}}{{doc.city}}, {{/if}}{{doc.dateFormatted}}
+    </div>
     <div class="doc-meta">
       <div class="nomor">
-        <div><strong>{{#if doc.isInvoice}}No. Invoice{{else}}Nomor{{/if}}</strong>: {{doc.number}}{{#if doc.isRevision}}<span class="badge-rev">Rev. {{doc.revisionNumber}}</span>{{/if}}</div>
-        {{#unless doc.isInvoice}}<div style="white-space: pre-line;"><strong>Lampiran</strong>: {{attachment.label}}</div>{{/unless}}
-        <div><strong>Perihal</strong>: <u><strong>{{doc.subject}}</strong></u></div>
+        <div><strong>{{#if doc.isInvoice}}{{i18n.noInvoice}}{{else}}{{i18n.nomor}}{{/if}}</strong>: {{doc.number}}{{#if doc.isRevision}}<span class="badge-rev">Rev. {{doc.revisionNumber}}</span>{{/if}}</div>
+        {{#unless doc.isInvoice}}<div style="white-space: pre-line;"><strong>{{i18n.lampiran}}</strong>: {{attachment.label}}</div>{{/unless}}
+        <div><strong>{{i18n.perihal}}</strong>: <u><strong>{{doc.subject}}</strong></u></div>
         {{#if doc.dueDateFormatted}}
         <div><strong>Jatuh Tempo</strong>: <span style="color:{{theme.primary}}; font-weight:700">{{doc.dueDateFormatted}}</span></div>
         {{/if}}
       </div>
-      <div class="kota-tgl">
-        {{doc.city}}, {{doc.dateFormatted}}
-      </div>
     </div>
 
     <div class="kepada">
-      <div class="label">Kepada Yth.,</div>
-      <div>{{client.name}}</div>
+      <div class="label">{{i18n.kepada}}</div>
       {{#if client.company}}<div><strong>{{client.company}}</strong></div>{{/if}}
+      <div>{{client.name}}</div>
       {{#if client.address}}<div>{{client.address}}</div>{{/if}}
-      <div>di Tempat</div>
+      <div>{{i18n.diTempat}}</div>
     </div>
 
     {{#if customOpening}}
@@ -263,24 +265,20 @@
     <p class="opening" style="white-space: pre-line;">{{customOpening}}</p>
     {{else if doc.isInvoice}}
     <p class="opening">
-      Dengan hormat,<br/>
-      Bersama invoice ini kami <strong>{{company.name}}</strong> menagihkan pembayaran
-      {{#eq doc.invoicePart "DP"}}<strong>uang muka (DP)</strong>{{/eq}}
-      {{#eq doc.invoicePart "PELUNASAN"}}<strong>pelunasan</strong>{{/eq}}
-      atas <strong>{{doc.variantLabel}}</strong>
-      {{#if project.name}} untuk acara <strong>{{project.name}}</strong>{{/if}}
-      {{#if project.location}} di <strong>{{project.location}}</strong>{{/if}}
-      {{#if project.dateRange}} pada tanggal <strong>{{project.dateRange}}</strong>{{/if}}.
-      Berikut rincian tagihan:
+      {{i18n.denganHormat}}<br/>
+      {{i18n.bersamaInvoice}} <strong>{{company.name}}</strong> {{i18n.menagihkanPembayaran}}
+      {{#eq doc.invoicePart "DP"}}<strong>{{i18n.uangMuka}}</strong>{{/eq}}
+      {{#eq doc.invoicePart "PELUNASAN"}}<strong>{{i18n.pelunasan}}</strong>{{/eq}}
+      {{i18n.atas}} <strong>{{doc.variantLabel}}</strong>
+      {{#if hasMultipleEvents}} {{i18n.untukAcara}}{{#each events}} <strong>{{this.name}}</strong>{{#if this.location}} ({{this.location}}{{#if this.dateRange}}, {{this.dateRange}}{{/if}}){{else}}{{#if this.dateRange}} ({{this.dateRange}}){{/if}}{{/if}}{{#unless @last}};{{/unless}}{{/each}}.{{else}}{{#if project.name}} {{i18n.untukAcara}} <strong>{{project.name}}</strong>{{/if}}{{#if project.location}} {{i18n.di}} <strong>{{project.location}}</strong>{{/if}}{{#if project.dateRange}} {{i18n.padaTanggal}} <strong>{{project.dateRange}}</strong>{{/if}}.{{/if}}
+      {{i18n.rincianTagihan}}
     </p>
     {{else}}
     <p class="opening">
-      Dengan hormat,<br/>
-      Bersama surat ini kami <strong>{{company.name}}</strong> mengajukan penawaran harga <strong>{{doc.variantLabel}}</strong>
-      {{#if project.name}} untuk acara <strong>{{project.name}}</strong>{{/if}}
-      {{#if project.location}} di <strong>{{project.location}}</strong>{{/if}}
-      {{#if project.dateRange}} pada tanggal <strong>{{project.dateRange}}</strong>{{/if}}.
-      Adapun rincian penawaran kami adalah sebagai berikut:
+      {{i18n.denganHormat}}<br/>
+      {{i18n.bersamaSurat}} <strong>{{company.name}}</strong> {{i18n.mengajukanPenawaran}} <strong>{{doc.variantLabel}}</strong>
+      {{#if hasMultipleEvents}} {{i18n.untukAcara}}{{#each events}} <strong>{{this.name}}</strong>{{#if this.location}} ({{this.location}}{{#if this.dateRange}}, {{this.dateRange}}{{/if}}){{else}}{{#if this.dateRange}} ({{this.dateRange}}){{/if}}{{/if}}{{#unless @last}};{{/unless}}{{/each}}.{{else}}{{#if project.name}} {{i18n.untukAcara}} <strong>{{project.name}}</strong>{{/if}}{{#if project.location}} {{i18n.di}} <strong>{{project.location}}</strong>{{/if}}{{#if project.dateRange}} {{i18n.padaTanggal}} <strong>{{project.dateRange}}</strong>{{/if}}.{{/if}}
+      {{i18n.rincianPenawaran}}
     </p>
     {{/if}}
 
@@ -291,8 +289,8 @@
     <table class="items">
       <thead>
         <tr>
-          <th style="width:28pt">No</th>
-          <th>Uraian</th>
+          <th style="width:28pt">{{i18n.no}}</th>
+          <th>{{i18n.uraian}}</th>
           <th style="width:140pt">Jumlah</th>
         </tr>
       </thead>
@@ -329,23 +327,23 @@
       </tbody>
       <tbody class="grand-totals">
         <tr>
-          <td colspan="2" class="label">Subtotal Keseluruhan</td>
+          <td colspan="2" class="label">{{i18n.subtotalKeseluruhan}}</td>
           <td class="rp">{{totals.subtotal}}</td>
         </tr>
         {{#if totals.discount}}
         <tr>
-          <td colspan="2" class="label">Diskon</td>
+          <td colspan="2" class="label">{{i18n.diskon}}</td>
           <td class="rp">({{totals.discount}})</td>
         </tr>
         {{/if}}
         {{#if totals.taxRate}}
         <tr>
-          <td colspan="2" class="label">PPN {{totals.taxRate}}%</td>
+          <td colspan="2" class="label">{{i18n.ppn}} {{totals.taxRate}}%</td>
           <td class="rp">{{totals.taxAmount}}</td>
         </tr>
         {{/if}}
         <tr class="grand-total">
-          <td colspan="2" class="label">Grand Total</td>
+          <td colspan="2" class="label">{{i18n.grandTotal}}</td>
           <td class="rp">{{totals.total}}</td>
         </tr>
       </tbody>
@@ -357,11 +355,11 @@
     <table class="items">
       <thead>
         <tr>
-          <th style="width:28pt">No</th>
-          <th>Uraian</th>
-          <th style="width:72pt">Qty</th>
-          <th style="width:90pt">Harga Satuan</th>
-          <th style="width:100pt">Jumlah</th>
+          <th style="width:28pt">{{i18n.no}}</th>
+          <th>{{i18n.uraian}}</th>
+          <th style="width:72pt">{{i18n.qty}}</th>
+          <th style="width:90pt">{{i18n.hargaSatuan}}</th>
+          <th style="width:100pt">{{i18n.jumlah}}</th>
         </tr>
       </thead>
       <tbody>
@@ -395,25 +393,25 @@
         </tr>
         {{#if totals.discount}}
         <tr>
-          <td colspan="4" class="label">Diskon</td>
+          <td colspan="4" class="label">{{i18n.diskon}}</td>
           <td class="rp">({{totals.discount}})</td>
         </tr>
         {{/if}}
         {{#if totals.taxRate}}
         <tr>
-          <td colspan="4" class="label">PPN {{totals.taxRate}}%</td>
+          <td colspan="4" class="label">{{i18n.ppn}} {{totals.taxRate}}%</td>
           <td class="rp">{{totals.taxAmount}}</td>
         </tr>
         {{/if}}
         <tr class="grand-total">
-          <td colspan="4" class="label">Grand Total</td>
+          <td colspan="4" class="label">{{i18n.grandTotal}}</td>
           <td class="rp">{{totals.total}}</td>
         </tr>
       </tbody>
     </table>
     {{/if}}
 
-    <div class="terbilang">Terbilang: <strong>{{totals.totalTerbilang}}</strong></div>
+    <div class="terbilang">{{i18n.terbilang}}: <strong>{{totals.totalTerbilang}}</strong></div>
 
     {{#if doc.isInvoice}}
     {{#if doc.amountToPayFormatted}}
@@ -425,7 +423,7 @@
       </div>
       <div style="font-size: 22pt; font-weight: 800; color: {{theme.primary}}; font-family: 'Calibri',sans-serif;">{{doc.amountToPayFormatted}}</div>
       <div style="font-size: 10pt; font-style: italic; color: #444; margin-top: 4pt;">
-        Terbilang: <strong>{{doc.amountToPayTerbilang}}</strong>
+        {{i18n.terbilang}}: <strong>{{doc.amountToPayTerbilang}}</strong>
       </div>
     </div>
     {{/if}}
@@ -459,14 +457,14 @@
     {{!-- ============= QUOTATION FOOTER (text panjang sistem pembayaran) ============= --}}
     {{#if brandTexts.disclaimer}}
     <div class="text-section">
-      <div class="section-title">Catatan Harga</div>
+      <div class="section-title">{{i18n.catatanHarga}}</div>
       <div class="text-body disclaimer">{{brandTexts.disclaimer}}</div>
     </div>
     {{/if}}
 
     {{#if brandTexts.paymentTerms}}
     <div class="text-section">
-      <div class="section-title">Sistem Pembayaran</div>
+      <div class="section-title">{{i18n.sistemPembayaran}}</div>
       <div class="text-body">{{brandTexts.paymentTerms}}</div>
     </div>
     {{/if}}
@@ -489,7 +487,7 @@
 
     <div class="signature">
       <div class="block">
-        <div class="role">Hormat kami,<br/><strong>{{company.name}}</strong></div>
+        <div class="role">{{i18n.hormatKami}}<br/><strong>{{company.name}}</strong></div>
         <div class="sign-area">
           {{#if signedBy.stampUrl}}
           <img class="stamp-image" src="{{signedBy.stampUrl}}" alt="Stempel" />

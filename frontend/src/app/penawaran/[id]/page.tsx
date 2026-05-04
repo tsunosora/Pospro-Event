@@ -1,12 +1,20 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     ArrowLeft, Plus, Trash2, Save, Hash, GitBranch, FileDown, FileText, Loader2,
-    Eye, X, Download, Calculator,
+    Eye, X, Download, Calculator, Copy, GripVertical,
 } from "lucide-react";
+import {
+    DndContext, PointerSensor, useSensor, useSensors,
+    closestCenter, type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+    SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import QuotationItemCalculator, { type QuotationCalcResult } from "./QuotationItemCalculator";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
@@ -68,6 +76,13 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [eventLocation, setEventLocation] = useState("");
     const [eventDateStart, setEventDateStart] = useState("");
     const [eventDateEnd, setEventDateEnd] = useState("");
+    /** Event tambahan — kalau penawaran cover banyak event dengan tanggal beda. Event utama tetap di field di atas. */
+    const [additionalEvents, setAdditionalEvents] = useState<Array<{
+        name: string;
+        location: string;
+        dateStart: string;
+        dateEnd: string;
+    }>>([]);
     const [validUntil, setValidUntil] = useState("");
     const [docDate, setDocDate] = useState("");
     const [signCity, setSignCity] = useState("");
@@ -83,6 +98,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [items, setItems] = useState<ItemRow[]>([]);
     // Custom text per quotation (override brand defaults)
     const [customOpeningText, setCustomOpeningText] = useState<string>("");
+    // Full custom override — kalau diisi, REPLACE default brand (brand setting di-skip total).
+    const [customDisclaimer, setCustomDisclaimer] = useState<string>("");
+    const [customPaymentTerms, setCustomPaymentTerms] = useState<string>("");
+    const [customClosing, setCustomClosing] = useState<string>("");
     // Append/prepend per section — combine dengan brand default
     const [disclaimerPrepend, setDisclaimerPrepend] = useState<string>("");
     const [disclaimerAppend, setDisclaimerAppend] = useState<string>("");
@@ -92,6 +111,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [closingAppend, setClosingAppend] = useState<string>("");
     const [attachmentCount, setAttachmentCount] = useState<number>(1);
     const [customAttachmentText, setCustomAttachmentText] = useState<string>("");
+    const [language, setLanguage] = useState<'id' | 'en'>('id');
 
     // Bank accounts dari /settings/bank-accounts
     // Brand settings — untuk button "Salin dari Brand" di custom text section
@@ -160,6 +180,16 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setEventLocation(data.eventLocation ?? "");
         setEventDateStart(data.eventDateStart ? data.eventDateStart.slice(0, 10) : "");
         setEventDateEnd(data.eventDateEnd ? data.eventDateEnd.slice(0, 10) : "");
+        setAdditionalEvents(
+            Array.isArray(data.additionalEvents)
+                ? data.additionalEvents.map((e) => ({
+                      name: e?.name ?? "",
+                      location: e?.location ?? "",
+                      dateStart: e?.dateStart ? e.dateStart.slice(0, 10) : "",
+                      dateEnd: e?.dateEnd ? e.dateEnd.slice(0, 10) : "",
+                  }))
+                : [],
+        );
         setValidUntil(data.validUntil ? data.validUntil.slice(0, 10) : "");
         setDocDate(data.date ? data.date.slice(0, 10) : "");
         setSignCity(data.signCity ?? "");
@@ -175,6 +205,9 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         );
         setBankAccountIds(data.bankAccountIds ?? "");
         setCustomOpeningText((data as any).customOpeningText ?? "");
+        setCustomDisclaimer((data as any).customDisclaimer ?? "");
+        setCustomPaymentTerms((data as any).customPaymentTerms ?? "");
+        setCustomClosing((data as any).customClosing ?? "");
         setDisclaimerPrepend((data as any).disclaimerPrepend ?? "");
         setDisclaimerAppend((data as any).disclaimerAppend ?? "");
         setPaymentTermsPrepend((data as any).paymentTermsPrepend ?? "");
@@ -183,8 +216,45 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setClosingAppend((data as any).closingAppend ?? "");
         setAttachmentCount(Number((data as any).attachmentCount) || 1);
         setCustomAttachmentText((data as any).customAttachmentText ?? "");
+        setLanguage((data as any).language === 'en' ? 'en' : 'id');
         setItems(keyed(data.items ?? []));
     }, [data]);
+
+    /**
+     * Auto-prefill custom text dari brand settings saat field masih kosong.
+     * User bisa edit/hapus bagian tertentu tanpa nulis ulang dari nol.
+     * Pakai ref supaya tidak re-fill setelah user sengaja kosongin.
+     * Saat save, kalau isi sama persis dengan default brand → simpan null (tetap pakai brand default).
+     */
+    const prefilledRef = useRef<{ opening: boolean; disclaimer: boolean; payment: boolean; closing: boolean }>({
+        opening: false, disclaimer: false, payment: false, closing: false,
+    });
+    useEffect(() => {
+        if (!brandSettings) return;
+        const useEn = language === 'en';
+        const openingDef = useEn ? (brandSettings.openingTemplateEn || brandSettings.openingTemplate) : brandSettings.openingTemplate;
+        const disclaimerDef = useEn ? (brandSettings.quotationDisclaimerEn || brandSettings.quotationDisclaimer) : brandSettings.quotationDisclaimer;
+        const paymentDef = useEn ? (brandSettings.quotationPaymentTermsEn || brandSettings.quotationPaymentTerms) : brandSettings.quotationPaymentTerms;
+        const closingDef = useEn ? (brandSettings.quotationClosingEn || brandSettings.quotationClosing) : brandSettings.quotationClosing;
+
+        if (!prefilledRef.current.opening && !customOpeningText && openingDef) {
+            setCustomOpeningText(openingDef);
+            prefilledRef.current.opening = true;
+        }
+        if (!prefilledRef.current.disclaimer && !customDisclaimer && disclaimerDef) {
+            setCustomDisclaimer(disclaimerDef);
+            prefilledRef.current.disclaimer = true;
+        }
+        if (!prefilledRef.current.payment && !customPaymentTerms && paymentDef) {
+            setCustomPaymentTerms(paymentDef);
+            prefilledRef.current.payment = true;
+        }
+        if (!prefilledRef.current.closing && !customClosing && closingDef) {
+            setCustomClosing(closingDef);
+            prefilledRef.current.closing = true;
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [brandSettings, language]);
 
     const showErr = (label: string) => (err: any) =>
         alert(`${label}: ${err?.response?.data?.message || err?.message || "gagal"}`);
@@ -262,6 +332,35 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setItems(items.map((it) => (it._key === k ? { ...it, ...patch } : it)));
     const removeItem = (k: string) => setItems(items.filter((it) => it._key !== k));
 
+    /** dnd-kit sensor — drag setelah pointer bergeser 6px supaya gak konflik dengan klik input. */
+    const dndSensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    );
+
+    function handleDragEnd(e: DragEndEvent) {
+        const { active, over } = e;
+        if (!over || active.id === over.id) return;
+        const oldIdx = items.findIndex((it) => it._key === String(active.id));
+        const newIdx = items.findIndex((it) => it._key === String(over.id));
+        if (oldIdx < 0 || newIdx < 0) return;
+        setItems(arrayMove(items, oldIdx, newIdx));
+    }
+
+    /** Duplicate item — copy semua field, generate _key baru, sisip setelah item asal. */
+    const duplicateItem = (k: string) => {
+        const idx = items.findIndex((it) => it._key === k);
+        if (idx < 0) return;
+        const src = items[idx];
+        const copy: ItemRow = {
+            ...src,
+            id: undefined,  // server-side baru, gak inherit id lama
+            _key: `dup-${Date.now()}-${Math.random()}`,
+        };
+        const next = [...items];
+        next.splice(idx + 1, 0, copy);
+        setItems(next);
+    };
+
     const handleSave = () => {
         try {
             if (signedByWorkerId) localStorage.setItem("pospro:quotation:lastSignedBy", String(signedByWorkerId));
@@ -277,6 +376,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             eventLocation,
             eventDateStart: eventDateStart || undefined,
             eventDateEnd: eventDateEnd || undefined,
+            additionalEvents: additionalEvents
+                .map((e) => ({
+                    name: e.name.trim() || null,
+                    location: e.location.trim() || null,
+                    dateStart: e.dateStart || null,
+                    dateEnd: e.dateEnd || null,
+                }))
+                .filter((e) => e.name || e.location || e.dateStart || e.dateEnd),
             validUntil: validUntil || undefined,
             date: docDate || undefined,
             signCity: signCity.trim() || null,
@@ -288,7 +395,41 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             discount,
             dpPercent,
             notes,
-            customOpeningText: customOpeningText.trim() || null,
+            // Smart save: kalau isi sama persis dengan default brand → simpan null biar tetap "linked"
+            // ke brand (kalau brand setting di-update nanti, surat ini ikut update juga).
+            // Kalau user edit/hapus bagian → simpan sebagai custom override.
+            customOpeningText: (() => {
+                const useEn = language === 'en';
+                const def = useEn ? (brandSettings?.openingTemplateEn || brandSettings?.openingTemplate) : brandSettings?.openingTemplate;
+                const v = customOpeningText.trim();
+                if (!v) return null;
+                if (def && v === def.trim()) return null;
+                return v;
+            })(),
+            customDisclaimer: (() => {
+                const useEn = language === 'en';
+                const def = useEn ? (brandSettings?.quotationDisclaimerEn || brandSettings?.quotationDisclaimer) : brandSettings?.quotationDisclaimer;
+                const v = customDisclaimer.trim();
+                if (!v) return null;
+                if (def && v === def.trim()) return null;
+                return v;
+            })(),
+            customPaymentTerms: (() => {
+                const useEn = language === 'en';
+                const def = useEn ? (brandSettings?.quotationPaymentTermsEn || brandSettings?.quotationPaymentTerms) : brandSettings?.quotationPaymentTerms;
+                const v = customPaymentTerms.trim();
+                if (!v) return null;
+                if (def && v === def.trim()) return null;
+                return v;
+            })(),
+            customClosing: (() => {
+                const useEn = language === 'en';
+                const def = useEn ? (brandSettings?.quotationClosingEn || brandSettings?.quotationClosing) : brandSettings?.quotationClosing;
+                const v = customClosing.trim();
+                if (!v) return null;
+                if (def && v === def.trim()) return null;
+                return v;
+            })(),
             disclaimerPrepend: disclaimerPrepend.trim() || null,
             disclaimerAppend: disclaimerAppend.trim() || null,
             paymentTermsPrepend: paymentTermsPrepend.trim() || null,
@@ -297,6 +438,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             closingAppend: closingAppend.trim() || null,
             attachmentCount: attachmentCount && attachmentCount > 0 ? Math.floor(attachmentCount) : null,
             customAttachmentText: customAttachmentText.trim() || null,
+            language,
             brand,
             items: items.map((it, idx) => ({
                 description: it.description,
@@ -798,33 +940,138 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         <Field label="Tanggal Selesai" value={eventDateEnd} onChange={setEventDateEnd} type="date" />
                     </div>
                     <Field label="Berlaku Sampai" value={validUntil} onChange={setValidUntil} type="date" />
+
+                    {/* Multi-event: event tambahan dengan tanggal beda */}
+                    <div className="border-t border-dashed border-slate-300 pt-3 mt-2">
+                        <div className="flex items-center justify-between mb-2">
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-800">📅 Event Tambahan</h4>
+                                <p className="text-[10px] text-muted-foreground">
+                                    Kalau penawaran cover beberapa event dengan tanggal berbeda.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setAdditionalEvents([
+                                        ...additionalEvents,
+                                        { name: "", location: "", dateStart: "", dateEnd: "" },
+                                    ])
+                                }
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded font-medium"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Tambah Event
+                            </button>
+                        </div>
+
+                        {additionalEvents.length === 0 ? (
+                            <p className="text-[11px] text-slate-400 italic">Belum ada event tambahan.</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {additionalEvents.map((ev, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/60 relative"
+                                    >
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-[10px] font-bold text-slate-600">
+                                                Event #{idx + 2}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setAdditionalEvents(
+                                                        additionalEvents.filter((_, i) => i !== idx),
+                                                    )
+                                                }
+                                                className="text-red-600 hover:bg-red-50 p-0.5 rounded"
+                                                title="Hapus event"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Field
+                                                label="Nama Event"
+                                                value={ev.name}
+                                                onChange={(v) =>
+                                                    setAdditionalEvents(
+                                                        additionalEvents.map((e, i) =>
+                                                            i === idx ? { ...e, name: v } : e,
+                                                        ),
+                                                    )
+                                                }
+                                            />
+                                            <Field
+                                                label="Lokasi"
+                                                value={ev.location}
+                                                onChange={(v) =>
+                                                    setAdditionalEvents(
+                                                        additionalEvents.map((e, i) =>
+                                                            i === idx ? { ...e, location: v } : e,
+                                                        ),
+                                                    )
+                                                }
+                                            />
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <Field
+                                                    label="Tgl Mulai"
+                                                    type="date"
+                                                    value={ev.dateStart}
+                                                    onChange={(v) =>
+                                                        setAdditionalEvents(
+                                                            additionalEvents.map((e, i) =>
+                                                                i === idx ? { ...e, dateStart: v } : e,
+                                                            ),
+                                                        )
+                                                    }
+                                                />
+                                                <Field
+                                                    label="Tgl Selesai"
+                                                    type="date"
+                                                    value={ev.dateEnd}
+                                                    onChange={(v) =>
+                                                        setAdditionalEvents(
+                                                            additionalEvents.map((e, i) =>
+                                                                i === idx ? { ...e, dateEnd: v } : e,
+                                                            ),
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </section>
             </div>
 
-            {/* Header Surat — kota & tanggal yang muncul di pojok kanan-atas surat penawaran */}
+            {/* Header Surat — tanggal saja (kota opsional, ditambahkan via field di bawah kalau perlu) */}
             <section className="bg-white rounded-lg border p-4 mt-6">
                 <div className="mb-3">
-                    <h3 className="font-semibold">Header Surat (Kota & Tanggal Dibuat)</h3>
+                    <h3 className="font-semibold">Header Surat (Tanggal Dibuat)</h3>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                        💡 Format di surat: <code className="bg-slate-100 px-1 rounded">{signCity || "Semarang"}, {docDate ? new Date(docDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "—"}</code>
+                        💡 Format di surat: <code className="bg-slate-100 px-1 rounded">Tanggal : {signCity ? `${signCity}, ` : ""}{docDate ? new Date(docDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "—"}</code>
                     </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Field
-                        label="Lokasi (Kota Surat Dibuat)"
-                        value={signCity}
-                        onChange={setSignCity}
-                        placeholder="Semarang"
-                    />
                     <Field
                         label="Tanggal Surat"
                         value={docDate}
                         onChange={setDocDate}
                         type="date"
                     />
+                    <Field
+                        label="Lokasi/Kota (opsional)"
+                        value={signCity}
+                        onChange={setSignCity}
+                        placeholder="Kosongkan kalau tidak perlu"
+                    />
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-2">
-                    Kalau <b>Lokasi</b> dikosongkan, otomatis pakai kota dari alamat brand di <code className="bg-slate-100 px-1 rounded">/settings/brands</code>.
+                    💡 <b>Lokasi/Kota</b> opsional — kosongkan kalau tidak diperlukan. Yang muncul cuma tanggal saja.
                 </p>
             </section>
 
@@ -890,91 +1137,44 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 <table className="w-full text-sm">
                     <thead className="bg-gray-50 text-left text-gray-700">
                         <tr>
+                            <th className="w-6 px-1"></th>
                             <th className="px-2 py-1.5 w-40">Kategori</th>
                             <th className="px-2 py-1.5">Uraian</th>
                             <th className="px-2 py-1.5 w-24">Qty</th>
                             <th className="px-2 py-1.5 w-24">Satuan</th>
                             <th className="px-2 py-1.5 w-32">Harga Satuan</th>
                             <th className="px-2 py-1.5 w-32 text-right">Subtotal</th>
-                            <th className="w-8"></th>
+                            <th className="w-12 text-center text-[10px]">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {items.map((it) => {
-                            const sub = Number(it.quantity || 0) * Number(it.price || 0);
-                            return (
-                                <tr key={it._key} className="border-t">
-                                    <td className="px-2 py-1">
-                                        <input
-                                            list="quotation-category-list"
-                                            value={it.categoryName ?? ""}
-                                            onChange={(e) => updateItem(it._key, { categoryName: e.target.value || null })}
-                                            placeholder="(opsional)"
-                                            className="w-full border rounded px-2 py-1 text-xs"
+                    <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={items.map((i) => i._key)} strategy={verticalListSortingStrategy}>
+                            <tbody>
+                                {items.map((it) => {
+                                    const sub = Number(it.quantity || 0) * Number(it.price || 0);
+                                    return (
+                                        <SortableItemRow
+                                            key={it._key}
+                                            it={it}
+                                            sub={sub}
+                                            updateItem={updateItem}
+                                            duplicateItem={duplicateItem}
+                                            removeItem={removeItem}
+                                            setCalcOpenKey={setCalcOpenKey}
+                                            rp={rp}
                                         />
-                                    </td>
-                                    <td className="px-2 py-1">
-                                        <input
-                                            value={it.description}
-                                            onChange={(e) => updateItem(it._key, { description: e.target.value })}
-                                            className="w-full border rounded px-2 py-1"
-                                        />
-                                    </td>
-                                    <td className="px-2 py-1">
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            value={Number(it.quantity)}
-                                            onChange={(e) => updateItem(it._key, { quantity: parseFloat(e.target.value) || 0 })}
-                                            className="w-full border rounded px-2 py-1 text-right"
-                                        />
-                                    </td>
-                                    <td className="px-2 py-1">
-                                        <input
-                                            value={it.unit ?? ""}
-                                            onChange={(e) => updateItem(it._key, { unit: e.target.value })}
-                                            placeholder="unit/hari"
-                                            className="w-full border rounded px-2 py-1"
-                                        />
-                                    </td>
-                                    <td className="px-2 py-1">
-                                        <input
-                                            type="number"
-                                            value={Number(it.price)}
-                                            onChange={(e) => updateItem(it._key, { price: parseFloat(e.target.value) || 0 })}
-                                            className="w-full border rounded px-2 py-1 text-right"
-                                        />
-                                    </td>
-                                    <td className="px-2 py-1 text-right font-mono">{rp(sub)}</td>
-                                    <td className="px-2 py-1 text-center">
-                                        <div className="flex items-center justify-center gap-0.5">
-                                            <button
-                                                onClick={() => setCalcOpenKey(it._key)}
-                                                className="text-blue-600 hover:bg-blue-50 p-1 rounded"
-                                                title="Kalkulator: Unit × Hari × Jam × m²"
-                                            >
-                                                <Calculator className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => removeItem(it._key)}
-                                                className="text-red-600 hover:bg-red-50 p-1 rounded"
-                                                title="Hapus item"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        {items.length === 0 && (
-                            <tr>
-                                <td colSpan={6} className="text-center py-6 text-gray-400">
-                                    Belum ada item. Klik "Tambah Item".
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
+                                    );
+                                })}
+                                {items.length === 0 && (
+                                    <tr>
+                                        <td colSpan={8} className="text-center py-6 text-gray-400">
+                                            Belum ada item. Klik &quot;Tambah Item&quot;.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </SortableContext>
+                    </DndContext>
                 </table>
             </section>
 
@@ -997,6 +1197,35 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </h3>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
                             Override teks default per surat. Kosongkan untuk pakai default dari Pengaturan Brand.
+                        </p>
+                    </div>
+
+                    {/* Language selector — selalu tampil karena fundamental */}
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                        <label className="text-xs font-bold text-blue-800 block mb-1.5">
+                            🌐 Bahasa Surat
+                        </label>
+                        <div className="flex gap-2">
+                            {([
+                                { value: 'id' as const, label: '🇮🇩 Indonesia', desc: 'Bahasa default' },
+                                { value: 'en' as const, label: '🇬🇧 English', desc: 'For international clients' },
+                            ]).map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => setLanguage(opt.value)}
+                                    className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition ${language === opt.value
+                                        ? "border-blue-600 bg-white text-blue-700 ring-2 ring-blue-200"
+                                        : "border-slate-300 bg-white text-slate-700 hover:border-blue-400"
+                                        }`}
+                                >
+                                    <div className="font-bold">{opt.label}</div>
+                                    <div className="text-[10px] text-muted-foreground">{opt.desc}</div>
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1.5">
+                            Auto-translate label header (Nomor → Number, Lampiran → Attachment, dll), terbilang (English number-to-words), dan teks default brand (kalau ada versi English di pengaturan).
                         </p>
                     </div>
                     <div>
@@ -1050,16 +1279,22 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 Pembuka Surat &quot;Dengan hormat...&quot;
                                 <span className="text-[10px] text-muted-foreground font-normal ml-1">(full custom)</span>
                             </label>
-                            {brandSettings?.openingTemplate && (
-                                <button
-                                    type="button"
-                                    onClick={() => setCustomOpeningText(brandSettings.openingTemplate ?? "")}
-                                    className="text-[10px] px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100"
-                                    title="Salin template dari pengaturan brand"
-                                >
-                                    📋 Salin Template Brand
-                                </button>
-                            )}
+                            {(() => {
+                                const tmpl = language === 'en'
+                                    ? (brandSettings?.openingTemplateEn || brandSettings?.openingTemplate)
+                                    : brandSettings?.openingTemplate;
+                                if (!tmpl) return null;
+                                return (
+                                    <button
+                                        type="button"
+                                        onClick={() => setCustomOpeningText(tmpl)}
+                                        className="text-[10px] px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100"
+                                        title="Salin template dari pengaturan brand"
+                                    >
+                                        📋 Salin Template Brand ({language === 'en' ? 'EN' : 'ID'})
+                                    </button>
+                                );
+                            })()}
                         </div>
                         <textarea
                             value={customOpeningText}
@@ -1075,34 +1310,46 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </p>
                     </div>
 
-                    {/* Catatan Harga — append/prepend mode */}
+                    {/* Catatan Harga — custom override + append/prepend */}
                     <PrependAppendField
-                        title="📝 Catatan Harga / Disclaimer"
+                        title={language === 'en' ? "📝 Price Notes / Disclaimer" : "📝 Catatan Harga / Disclaimer"}
                         prepend={disclaimerPrepend}
                         append={disclaimerAppend}
                         onPrepend={setDisclaimerPrepend}
                         onAppend={setDisclaimerAppend}
-                        brandDefault={brandSettings?.quotationDisclaimer ?? null}
+                        custom={customDisclaimer}
+                        onCustom={setCustomDisclaimer}
+                        brandDefault={(language === 'en'
+                            ? (brandSettings?.quotationDisclaimerEn || brandSettings?.quotationDisclaimer)
+                            : brandSettings?.quotationDisclaimer) ?? null}
                     />
 
-                    {/* Sistem Pembayaran — append/prepend mode */}
+                    {/* Sistem Pembayaran — custom override + append/prepend */}
                     <PrependAppendField
-                        title="💳 Sistem Pembayaran"
+                        title={language === 'en' ? "💳 Payment Terms" : "💳 Sistem Pembayaran"}
                         prepend={paymentTermsPrepend}
                         append={paymentTermsAppend}
                         onPrepend={setPaymentTermsPrepend}
                         onAppend={setPaymentTermsAppend}
-                        brandDefault={brandSettings?.quotationPaymentTerms ?? null}
+                        custom={customPaymentTerms}
+                        onCustom={setCustomPaymentTerms}
+                        brandDefault={(language === 'en'
+                            ? (brandSettings?.quotationPaymentTermsEn || brandSettings?.quotationPaymentTerms)
+                            : brandSettings?.quotationPaymentTerms) ?? null}
                     />
 
-                    {/* Penutup Surat — append/prepend mode */}
+                    {/* Penutup Surat — custom override + append/prepend */}
                     <PrependAppendField
-                        title="✉️ Penutup Surat"
+                        title={language === 'en' ? "✉️ Closing" : "✉️ Penutup Surat"}
                         prepend={closingPrepend}
                         append={closingAppend}
                         onPrepend={setClosingPrepend}
                         onAppend={setClosingAppend}
-                        brandDefault={brandSettings?.quotationClosing ?? null}
+                        custom={customClosing}
+                        onCustom={setCustomClosing}
+                        brandDefault={(language === 'en'
+                            ? (brandSettings?.quotationClosingEn || brandSettings?.quotationClosing)
+                            : brandSettings?.quotationClosing) ?? null}
                     />
                 </section>
 
@@ -1124,15 +1371,25 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 </section>
             </div>
 
-            <div className="flex justify-end mt-6">
-                <button
-                    onClick={handleSave}
-                    disabled={saveMut.isPending}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium disabled:opacity-50"
-                >
-                    <Save className="w-4 h-4" /> {saveMut.isPending ? "Menyimpan..." : "Simpan Perubahan"}
-                </button>
-            </div>
+            {/* Spacer supaya konten terakhir tidak ketutup floating button */}
+            <div className="h-24" />
+
+            {/* Floating Save Button — selalu mengambang di kanan-bawah */}
+            <button
+                onClick={handleSave}
+                disabled={saveMut.isPending}
+                className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-semibold shadow-2xl shadow-blue-600/40 ring-4 ring-white/60 disabled:opacity-60 transition-transform hover:scale-105 active:scale-95"
+                title="Simpan Perubahan"
+            >
+                {saveMut.isPending ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                    <Save className="w-5 h-5" />
+                )}
+                <span className="hidden sm:inline">
+                    {saveMut.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+                </span>
+            </button>
 
             {/* ─── Generate Invoice Modal ─── */}
             {showInvoiceModal && (
@@ -1674,9 +1931,114 @@ function Row({ label, value }: { label: string; value: string }) {
     );
 }
 
+/** Row item draggable — drag handle di kolom kiri, isinya sama persis dengan tr lama. */
+function SortableItemRow({
+    it, sub, updateItem, duplicateItem, removeItem, setCalcOpenKey, rp,
+}: {
+    it: ItemRow;
+    sub: number;
+    updateItem: (k: string, patch: Partial<QuotationItem>) => void;
+    duplicateItem: (k: string) => void;
+    removeItem: (k: string) => void;
+    setCalcOpenKey: (k: string | null) => void;
+    rp: (v: string | number) => string;
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: it._key });
+    const style: CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        background: isDragging ? "rgb(239 246 255)" : undefined,
+    };
+    return (
+        <tr ref={setNodeRef} style={style} className="border-t">
+            <td className="px-1 py-1 text-center">
+                <button
+                    type="button"
+                    {...attributes}
+                    {...listeners}
+                    className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-700 p-1"
+                    title="Drag untuk mengurutkan"
+                    aria-label="Drag handle"
+                >
+                    <GripVertical className="w-4 h-4" />
+                </button>
+            </td>
+            <td className="px-2 py-1">
+                <input
+                    list="quotation-category-list"
+                    value={it.categoryName ?? ""}
+                    onChange={(e) => updateItem(it._key, { categoryName: e.target.value || null })}
+                    placeholder="(opsional)"
+                    className="w-full border rounded px-2 py-1 text-xs"
+                />
+            </td>
+            <td className="px-2 py-1">
+                <input
+                    value={it.description}
+                    onChange={(e) => updateItem(it._key, { description: e.target.value })}
+                    className="w-full border rounded px-2 py-1"
+                />
+            </td>
+            <td className="px-2 py-1">
+                <input
+                    type="number"
+                    step="0.01"
+                    value={Number(it.quantity)}
+                    onChange={(e) => updateItem(it._key, { quantity: parseFloat(e.target.value) || 0 })}
+                    className="w-full border rounded px-2 py-1 text-right"
+                />
+            </td>
+            <td className="px-2 py-1">
+                <input
+                    value={it.unit ?? ""}
+                    onChange={(e) => updateItem(it._key, { unit: e.target.value })}
+                    placeholder="unit/hari"
+                    className="w-full border rounded px-2 py-1"
+                />
+            </td>
+            <td className="px-2 py-1">
+                <input
+                    type="number"
+                    value={Number(it.price)}
+                    onChange={(e) => updateItem(it._key, { price: parseFloat(e.target.value) || 0 })}
+                    className="w-full border rounded px-2 py-1 text-right"
+                />
+            </td>
+            <td className="px-2 py-1 text-right font-mono">{rp(sub)}</td>
+            <td className="px-2 py-1 text-center">
+                <div className="flex items-center justify-center gap-0.5">
+                    <button
+                        onClick={() => setCalcOpenKey(it._key)}
+                        className="text-blue-600 hover:bg-blue-50 p-1 rounded"
+                        title="Kalkulator: Unit × Hari × Jam × m²"
+                    >
+                        <Calculator className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => duplicateItem(it._key)}
+                        className="text-emerald-600 hover:bg-emerald-50 p-1 rounded"
+                        title="Duplikat item"
+                    >
+                        <Copy className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => removeItem(it._key)}
+                        className="text-red-600 hover:bg-red-50 p-1 rounded"
+                        title="Hapus item"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                </div>
+            </td>
+        </tr>
+    );
+}
+
 /** Field section dengan 2 textarea (prepend/append) yang sandwich brand default text. */
 function PrependAppendField({
     title, prepend, append, onPrepend, onAppend, brandDefault,
+    custom, onCustom,
 }: {
     title: string;
     prepend: string;
@@ -1684,35 +2046,30 @@ function PrependAppendField({
     onPrepend: (v: string) => void;
     onAppend: (v: string) => void;
     brandDefault: string | null;
+    /** Custom full-override teks. Kalau diisi, REPLACE default brand + abaikan prepend/append. */
+    custom?: string;
+    onCustom?: (v: string) => void;
 }) {
     const [showDefault, setShowDefault] = useState(false);
+    // "Tambah teks di atas/bawah" disembunyikan default — dibuka kalau perlu.
+    // Auto-buka kalau sudah ada isinya supaya user gak kehilangan input lama.
+    const [showAddons, setShowAddons] = useState(() => Boolean(prepend || append));
+    const hasCustomOverride = Boolean(custom && custom.trim());
     return (
         <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/40 space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
                 <label className="text-xs font-bold text-slate-700">{title}</label>
-                {brandDefault && (
-                    <button
-                        type="button"
-                        onClick={() => setShowDefault((v) => !v)}
-                        className="text-[10px] text-blue-600 hover:underline"
-                    >
-                        {showDefault ? "▲ Sembunyikan" : "▼ Lihat default brand"}
-                    </button>
-                )}
-            </div>
-
-            {/* Prepend — di ATAS default brand */}
-            <div>
-                <label className="text-[10px] font-medium text-emerald-700 block mb-0.5">
-                    ⬆️ Tambah di ATAS default brand (opsional)
-                </label>
-                <textarea
-                    value={prepend}
-                    onChange={(e) => onPrepend(e.target.value)}
-                    rows={2}
-                    placeholder="Kosongkan kalau tidak perlu menambah text di atas. Mis: 'Note khusus event ini:'"
-                    className="w-full border rounded px-2 py-1.5 text-xs font-sans"
-                />
+                <div className="flex items-center gap-2">
+                    {brandDefault && (
+                        <button
+                            type="button"
+                            onClick={() => setShowDefault((v) => !v)}
+                            className="text-[10px] text-blue-600 hover:underline"
+                        >
+                            {showDefault ? "▲ Sembunyikan" : "▼ Lihat default brand"}
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Default brand preview (collapsible) */}
@@ -1723,23 +2080,118 @@ function PrependAppendField({
                 </div>
             )}
 
-            {/* Append — di BAWAH default brand */}
-            <div>
-                <label className="text-[10px] font-medium text-blue-700 block mb-0.5">
-                    ⬇️ Tambah di BAWAH default brand (opsional)
-                </label>
-                <textarea
-                    value={append}
-                    onChange={(e) => onAppend(e.target.value)}
-                    rows={2}
-                    placeholder="Kosongkan kalau tidak perlu. Mis: 'Untuk event ini, harga sudah include logistic loading dock.'"
-                    className="w-full border rounded px-2 py-1.5 text-xs font-sans"
-                />
-            </div>
+            {/* Custom full-override — kalau diisi REPLACE default brand total */}
+            {onCustom !== undefined && (
+                <div>
+                    <div className="flex items-center justify-between mb-0.5">
+                        <label className="text-[10px] font-medium text-purple-700 block">
+                            ✏️ Custom (override penuh — abaikan default brand)
+                        </label>
+                        {brandDefault && !hasCustomOverride && (
+                            <button
+                                type="button"
+                                onClick={() => onCustom(brandDefault)}
+                                className="text-[10px] text-blue-600 hover:underline"
+                                title="Salin default brand sebagai starting point"
+                            >
+                                📋 Salin dari brand
+                            </button>
+                        )}
+                        {hasCustomOverride && (
+                            <button
+                                type="button"
+                                onClick={() => onCustom("")}
+                                className="text-[10px] text-amber-700 hover:underline"
+                                title="Kosongkan untuk pakai default brand lagi"
+                            >
+                                ✕ Reset
+                            </button>
+                        )}
+                    </div>
+                    <textarea
+                        value={custom ?? ""}
+                        onChange={(e) => onCustom(e.target.value)}
+                        rows={hasCustomOverride ? 5 : 2}
+                        placeholder="Kosongkan untuk pakai default brand. Kalau diisi, REPLACE total — prepend/append di bawah juga di-skip."
+                        className={`w-full border rounded px-2 py-1.5 text-xs font-sans ${hasCustomOverride
+                            ? "border-purple-300 bg-purple-50/40 ring-1 ring-purple-200"
+                            : ""
+                            }`}
+                    />
+                    {hasCustomOverride && (
+                        <p className="text-[10px] text-purple-700 mt-1 font-medium">
+                            ⚠️ Custom aktif — default brand &amp; tambahan teks di-skip total.
+                        </p>
+                    )}
+                </div>
+            )}
 
-            <p className="text-[9px] text-muted-foreground italic">
-                Format final di PDF: [Atas] + [Default Brand] + [Bawah] (yang kosong di-skip).
-            </p>
+            {/* Toggle untuk menampilkan field "Tambah teks di atas/bawah" — disembunyikan default. Disable kalau custom aktif. */}
+            {hasCustomOverride ? (
+                <p className="text-[10px] text-slate-400 italic text-center py-1">
+                    Tambahan teks dinonaktifkan saat custom override aktif.
+                </p>
+            ) : !showAddons ? (
+                <button
+                    type="button"
+                    onClick={() => setShowAddons(true)}
+                    className="w-full text-[11px] text-slate-600 hover:text-blue-700 hover:bg-blue-50 border border-dashed border-slate-300 hover:border-blue-300 rounded py-1.5 transition"
+                >
+                    ➕ Tambah teks di atas/bawah default brand (opsional)
+                </button>
+            ) : (
+                <>
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wide">
+                            Tambahan teks
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setShowAddons(false);
+                                onPrepend("");
+                                onAppend("");
+                            }}
+                            className="text-[10px] text-slate-500 hover:text-red-600 hover:underline"
+                            title="Sembunyikan & kosongkan kedua field"
+                        >
+                            ✕ Sembunyikan
+                        </button>
+                    </div>
+
+                    {/* Prepend — di ATAS default brand */}
+                    <div>
+                        <label className="text-[10px] font-medium text-emerald-700 block mb-0.5">
+                            ⬆️ Tambah di ATAS default brand
+                        </label>
+                        <textarea
+                            value={prepend}
+                            onChange={(e) => onPrepend(e.target.value)}
+                            rows={2}
+                            placeholder="Kosongkan kalau tidak perlu. Mis: 'Note khusus event ini:'"
+                            className="w-full border rounded px-2 py-1.5 text-xs font-sans"
+                        />
+                    </div>
+
+                    {/* Append — di BAWAH default brand */}
+                    <div>
+                        <label className="text-[10px] font-medium text-blue-700 block mb-0.5">
+                            ⬇️ Tambah di BAWAH default brand
+                        </label>
+                        <textarea
+                            value={append}
+                            onChange={(e) => onAppend(e.target.value)}
+                            rows={2}
+                            placeholder="Kosongkan kalau tidak perlu. Mis: 'Untuk event ini, harga sudah include logistic loading dock.'"
+                            className="w-full border rounded px-2 py-1.5 text-xs font-sans"
+                        />
+                    </div>
+
+                    <p className="text-[9px] text-muted-foreground italic">
+                        Format final di PDF: [Atas] + [Default Brand] + [Bawah] (yang kosong di-skip).
+                    </p>
+                </>
+            )}
         </div>
     );
 }
