@@ -13,7 +13,25 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.8 (current) — CRM Pipeline enhancements:
+// v2.11 (current) — Approval flow + Adjustments (tunjangan/potongan) + Audit log:
+//   - Attendance.approvalStatus, approvedAt, approvedById, rejectionReason — workflow PENDING/APPROVED/REJECTED
+//   - New table: PayrollAdjustment (BONUS/ALLOWANCE/DEDUCTION/ADVANCE per worker per tanggal)
+//   - New table: AttendanceAuditLog (history CREATE/UPDATE/DELETE/APPROVE/REJECT dengan oldData/newData snapshot)
+//   - Worker.defaultCityKey, defaultDivisionKey — auto-prefill di PIC dropdown
+// v2.10 — Payroll matrix Kota+Divisi + Event wage override:
+//   - New table: WageRate (city + division → dailyWageRate + overtimeRatePerHour)
+//   - Attendance.eventId, cityKey, divisionKey — wage context per row
+//   - Event.dailyWageRate, overtimeRatePerHour — project-level override
+//   - Wage resolution priority: Event > Matrix > Worker default
+// v2.9 — Payroll harian + absensi via PIC link + tim crew:
+//   - Worker.dailyWageRate, overtimeRatePerHour (Decimal) — gaji harian + tarif lembur per jam
+//   - Worker.isPic, picAccessToken, picPin — flag PIC + token unik + PIN security tambahan
+//   - Worker.teamId — link ke CrewTeam (member tim untuk filter PIC absensi)
+//   - Lead.status diperluas (WAITING_DECISION, PROPOSAL_SENT, NEGOTIATION, ON_HOLD)
+//   - Lead.source diperluas (INSTAGRAM_ADS, FACEBOOK_ADS, TIKTOK, LINKEDIN, EXHIBITION)
+//   - New table: Attendance (1 row per worker per tanggal, status FULL_DAY/HALF_DAY/ABSENT + overtimeHours)
+//   - Cashflow.bankAccountId, etc. — sudah include di v2.7, no perubahan baru
+// v2.8 — CRM Pipeline enhancements:
 //   - Lead.imageUrl (foto referensi/sketsa project per-lead, ditampilkan di drawer detail)
 //   - CRM pipeline card sekarang display date (leadCameAt + followUpDate + eventDate)
 //     → semua field tersebut sudah ada, cuma perlu dipastikan ikut backup (sudah ✓)
@@ -83,7 +101,12 @@ export const BACKUP_GROUPS = {
     },
     workers: {
         label: 'Petugas / Worker',
-        tables: ['worker'],
+        // worker: include payroll fields (dailyWageRate, overtimeRatePerHour, isPic, picAccessToken, teamId, defaultCityKey, defaultDivisionKey)
+        // attendance: data absensi (eventId, cityKey, divisionKey, approvalStatus untuk wage + approval flow)
+        // wageRate: master tarif kota+divisi
+        // payrollAdjustment: tunjangan/potongan/bonus/kasbon per worker
+        // attendanceAuditLog: history change attendance (CREATE/UPDATE/DELETE/APPROVE/REJECT)
+        tables: ['worker', 'attendance', 'wageRate', 'payrollAdjustment', 'attendanceAuditLog'],
     },
     warehouse: {
         label: 'Gudang & Lokasi',
@@ -155,6 +178,10 @@ const RESTORE_ORDER = [
     'stockOpnameSession', 'stockOpnameItem',
     'lead',                                     // → setelah leadStage, customer, worker
     'leadLabelOnLead', 'leadActivity',          // → setelah lead, leadLabel, worker
+    'wageRate',                                 // master tarif (no FK, restore kapan saja)
+    'attendance',                               // → setelah worker (FK ke worker via workerId & recordedByPicId, optional eventId)
+    'payrollAdjustment',                        // → setelah worker (FK ke worker)
+    'attendanceAuditLog',                       // → setelah attendance (FK optional ke attendance)
 ];
 
 // Path folder uploads gambar (3x up = backend root ketika dikompilasi ke dist/backup/)
@@ -205,7 +232,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.8',
+                version: '2.11',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,

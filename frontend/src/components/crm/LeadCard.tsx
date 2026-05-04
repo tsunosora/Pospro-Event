@@ -1,10 +1,14 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Building2, CalendarClock, CalendarDays, GripVertical, PartyPopper, User } from "lucide-react";
+import { Building2, CalendarClock, CalendarDays, ChevronDown, GripVertical, Loader2, PartyPopper, User } from "lucide-react";
 import dayjs from "dayjs";
-import { LEAD_STATUS_META, type Lead } from "@/lib/api/crm";
+import { LEAD_STATUS_META, updateLead, type Lead } from "@/lib/api/crm";
+import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
+import { getWorkers, MARKETER_POSITIONS, type Worker } from "@/lib/api/workers";
 import { LevelBadge } from "./LevelBadge";
 import { WaButton } from "./WaButton";
 
@@ -51,6 +55,7 @@ function eventDateColor(iso: string): { bg: string; text: string; border: string
 }
 
 export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }) {
+    const qc = useQueryClient();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: lead.id,
         data: { type: "lead", stageId: lead.stageId },
@@ -64,6 +69,40 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
 
     const display = lead.name?.trim() || `— ${lead.phoneNormalized.slice(-4)}`;
     const labels = lead.labels ?? [];
+
+    // Inline edit state — popover open per field
+    const [editing, setEditing] = useState<"marketing" | "brand" | null>(null);
+    const popoverRef = useRef<HTMLDivElement>(null);
+
+    // Click outside → close popover
+    useEffect(() => {
+        if (!editing) return;
+        const handler = (e: MouseEvent) => {
+            if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) setEditing(null);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [editing]);
+
+    // Fetch active marketers (cached) — only when popover open to avoid useless calls
+    const { data: marketers = [] } = useQuery<Worker[]>({
+        queryKey: ["workers", "marketers"],
+        queryFn: () => getWorkers(false, { positions: [...MARKETER_POSITIONS] }),
+        enabled: editing === "marketing",
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const updateMut = useMutation({
+        mutationFn: (data: Partial<Lead>) => updateLead(lead.id, data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["crm-board"] });
+            qc.invalidateQueries({ queryKey: ["crm-lead", lead.id] });
+            setEditing(null);
+        },
+        onError: (e: any) => alert(`❌ ${e?.response?.data?.message || e?.message || "Gagal update"}`),
+    });
+
+    const brandMeta = lead.brand ? BRAND_META[lead.brand] : null;
 
     return (
         <div
@@ -97,12 +136,94 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
                     <span className="truncate">{lead.organization}</span>
                 </div>
             )}
-            {lead.assignedWorker && (
-                <div className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
-                    <User className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{lead.assignedWorker.name}</span>
+            {/* Marketing & Brand chips — inline editable */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Marketing chip */}
+                <div className="relative">
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setEditing(editing === "marketing" ? null : "marketing"); }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                        title="Klik untuk ganti marketing"
+                    >
+                        <User className="h-2.5 w-2.5" />
+                        <span className="truncate max-w-[120px]">{lead.assignedWorker?.name ?? "— belum di-assign —"}</span>
+                        <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                    </button>
+                    {editing === "marketing" && (
+                        <div ref={popoverRef} className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border-2 border-border rounded-lg shadow-xl py-1 max-h-64 overflow-y-auto"
+                            onClick={(e) => e.stopPropagation()}>
+                            <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground border-b">
+                                Pilih Marketing
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => updateMut.mutate({ assignedWorkerId: null })}
+                                disabled={updateMut.isPending}
+                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted ${!lead.assignedWorkerId ? "bg-blue-50 text-blue-700 font-semibold" : ""}`}
+                            >
+                                — Tanpa Marketing —
+                            </button>
+                            {marketers.map((m) => (
+                                <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={() => updateMut.mutate({ assignedWorkerId: m.id })}
+                                    disabled={updateMut.isPending}
+                                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 ${lead.assignedWorkerId === m.id ? "bg-blue-50 text-blue-700 font-semibold" : ""}`}
+                                >
+                                    <User className="h-3 w-3 text-muted-foreground" />
+                                    <span className="truncate">{m.name}</span>
+                                    {m.position && <span className="text-[9px] text-muted-foreground">{m.position}</span>}
+                                </button>
+                            ))}
+                            {updateMut.isPending && (
+                                <div className="px-3 py-2 text-center"><Loader2 className="h-3 w-3 animate-spin inline" /></div>
+                            )}
+                        </div>
+                    )}
                 </div>
-            )}
+                {/* Brand chip */}
+                <div className="relative">
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setEditing(editing === "brand" ? null : "brand"); }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border hover:opacity-80"
+                        style={brandMeta ? { backgroundColor: `${brandMeta.color}20`, borderColor: `${brandMeta.color}60`, color: brandMeta.color } : { backgroundColor: "#f1f5f9", borderColor: "#cbd5e1", color: "#475569" }}
+                        title="Klik untuk ganti brand"
+                    >
+                        {brandMeta?.emoji} {brandMeta?.label ?? "— brand —"}
+                        <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                    </button>
+                    {editing === "brand" && (
+                        <div ref={popoverRef} className="absolute z-30 top-full left-0 mt-1 w-44 bg-white border-2 border-border rounded-lg shadow-xl py-1"
+                            onClick={(e) => e.stopPropagation()}>
+                            <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground border-b">
+                                Pilih Brand
+                            </div>
+                            {ACTIVE_BRANDS.map((b) => {
+                                const m = BRAND_META[b];
+                                return (
+                                    <button
+                                        key={b}
+                                        type="button"
+                                        onClick={() => updateMut.mutate({ brand: b as Brand })}
+                                        disabled={updateMut.isPending}
+                                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 ${lead.brand === b ? "font-bold" : ""}`}
+                                        style={lead.brand === b ? { backgroundColor: `${m.color}15` } : {}}
+                                    >
+                                        <span>{m.emoji}</span>
+                                        <span style={{ color: m.color }}>{m.label}</span>
+                                    </button>
+                                );
+                            })}
+                            {updateMut.isPending && (
+                                <div className="px-3 py-2 text-center"><Loader2 className="h-3 w-3 animate-spin inline" /></div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
 
             {/* Status badge — selalu tampil supaya owner cepat lihat fase lead */}
             {(() => {

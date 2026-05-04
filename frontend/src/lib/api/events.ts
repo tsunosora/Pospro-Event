@@ -23,6 +23,12 @@ export interface EventRecord {
     eventStart: string | null;
     eventEnd: string | null;
     notes: string | null;
+    // Wage override per event/project — kalau di-set, override matrix & default worker
+    dailyWageRate: string | null;
+    overtimeRatePerHour: string | null;
+    // PIC khusus rate (untuk worker = picWorkerId). Null = ikut member rate.
+    dailyWageRatePic: string | null;
+    overtimeRatePerHourPic: string | null;
     createdAt: string;
     updatedAt: string;
     customer?: { id: number; name: string; companyName: string | null } | null;
@@ -100,6 +106,10 @@ export interface EventFormInput {
     eventStart?: string | null;
     eventEnd?: string | null;
     notes?: string | null;
+    dailyWageRate?: number | string | null;
+    overtimeRatePerHour?: number | string | null;
+    dailyWageRatePic?: number | string | null;
+    overtimeRatePerHourPic?: number | string | null;
 }
 
 export interface EventListFilter {

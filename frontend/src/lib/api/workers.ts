@@ -48,6 +48,16 @@ export interface Worker {
     stampImageUrl: string | null;
     notes: string | null;
     isActive: boolean;
+    // Payroll fields
+    dailyWageRate: string | null;
+    overtimeRatePerHour: string | null;
+    isPic: boolean;
+    picAccessToken: string | null;
+    picPin: string | null;
+    teamId: number | null;
+    team?: { id: number; name: string; color: string } | null;
+    defaultCityKey: string | null;
+    defaultDivisionKey: string | null;
     createdAt: string;
     updatedAt: string;
     _count?: { withdrawals: number };
@@ -60,6 +70,14 @@ export interface WorkerFormInput {
     notes?: string;
     isActive?: boolean;
     photo?: File | null;
+    // Payroll
+    dailyWageRate?: string | number | null;
+    overtimeRatePerHour?: string | number | null;
+    isPic?: boolean;
+    picPin?: string | null;
+    teamId?: number | null;
+    defaultCityKey?: string | null;
+    defaultDivisionKey?: string | null;
 }
 
 export const getWorkers = async (
@@ -87,6 +105,13 @@ const toFormData = (input: WorkerFormInput) => {
     if (input.notes !== undefined) fd.append('notes', input.notes);
     if (input.isActive !== undefined) fd.append('isActive', String(input.isActive));
     if (input.photo) fd.append('photo', input.photo);
+    if (input.dailyWageRate !== undefined && input.dailyWageRate !== null) fd.append('dailyWageRate', String(input.dailyWageRate));
+    if (input.overtimeRatePerHour !== undefined && input.overtimeRatePerHour !== null) fd.append('overtimeRatePerHour', String(input.overtimeRatePerHour));
+    if (input.isPic !== undefined) fd.append('isPic', String(input.isPic));
+    if (input.picPin !== undefined && input.picPin !== null) fd.append('picPin', input.picPin);
+    if (input.teamId !== undefined) fd.append('teamId', input.teamId === null ? '' : String(input.teamId));
+    if (input.defaultCityKey !== undefined && input.defaultCityKey !== null) fd.append('defaultCityKey', input.defaultCityKey);
+    if (input.defaultDivisionKey !== undefined && input.defaultDivisionKey !== null) fd.append('defaultDivisionKey', input.defaultDivisionKey);
     return fd;
 };
 
@@ -105,10 +130,21 @@ export const updateWorker = async (id: number, input: Partial<WorkerFormInput>) 
     if (input.notes !== undefined) fd.append('notes', input.notes);
     if (input.isActive !== undefined) fd.append('isActive', String(input.isActive));
     if (input.photo) fd.append('photo', input.photo);
+    if (input.dailyWageRate !== undefined) fd.append('dailyWageRate', input.dailyWageRate === null ? '' : String(input.dailyWageRate));
+    if (input.overtimeRatePerHour !== undefined) fd.append('overtimeRatePerHour', input.overtimeRatePerHour === null ? '' : String(input.overtimeRatePerHour));
+    if (input.isPic !== undefined) fd.append('isPic', String(input.isPic));
+    if (input.picPin !== undefined) fd.append('picPin', input.picPin ?? '');
+    if (input.teamId !== undefined) fd.append('teamId', input.teamId === null ? '' : String(input.teamId));
+    if (input.defaultCityKey !== undefined) fd.append('defaultCityKey', input.defaultCityKey ?? '');
+    if (input.defaultDivisionKey !== undefined) fd.append('defaultDivisionKey', input.defaultDivisionKey ?? '');
     return (await api.patch<Worker>(`/workers/${id}`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
     })).data;
 };
+
+/** Generate ulang token PIC — invalidate link lama. */
+export const regeneratePicToken = async (id: number) =>
+    (await api.post<{ id: number; name: string; picAccessToken: string }>(`/workers/${id}/regenerate-pic-token`)).data;
 
 export const deleteWorker = async (id: number) =>
     (await api.delete<{ mode: 'hard-delete' | 'soft-delete'; usage: number }>(`/workers/${id}`)).data;

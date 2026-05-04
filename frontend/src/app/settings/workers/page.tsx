@@ -4,15 +4,18 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Plus, Pencil, Trash2, Loader2, Check, X, Eye, EyeOff,
-    Users as UsersIcon, Upload, User as UserIcon,
+    Users as UsersIcon, Upload, User as UserIcon, Link as LinkIcon, RefreshCw, Copy,
 } from "lucide-react";
 import {
     getWorkers, createWorker, updateWorker, deleteWorker, restoreWorker,
     uploadWorkerSignature, removeWorkerSignature,
     uploadWorkerStamp, removeWorkerStamp,
+    regeneratePicToken,
     WORKER_POSITIONS, getPositionMeta, isSignerPosition,
     type Worker,
 } from "@/lib/api/workers";
+import { listCrewTeams, type CrewTeam } from "@/lib/api/crew-teams";
+import { listWageRateDistinct } from "@/lib/api/wage-rates";
 
 export default function WorkersSettingsPage() {
     const qc = useQueryClient();
@@ -26,8 +29,26 @@ export default function WorkersSettingsPage() {
     const [notes, setNotes] = useState("");
     const [photo, setPhoto] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    // Payroll fields
+    const [dailyWageRate, setDailyWageRate] = useState<string>("");
+    const [overtimeRatePerHour, setOvertimeRatePerHour] = useState<string>("");
+    const [isPic, setIsPic] = useState(false);
+    const [picPin, setPicPin] = useState<string>("");
+    const [teamId, setTeamId] = useState<number | "">("");
+    const [defaultCityKey, setDefaultCityKey] = useState<string>("");
+    const [defaultDivisionKey, setDefaultDivisionKey] = useState<string>("");
+
+    const { data: teams = [] } = useQuery<CrewTeam[]>({
+        queryKey: ["crew-teams", true],
+        queryFn: () => listCrewTeams(true),
+    });
+    const { data: wageDistinct } = useQuery({
+        queryKey: ["wage-rates", "distinct"],
+        queryFn: listWageRateDistinct,
+    });
     const [error, setError] = useState<string | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<Worker | null>(null);
+    const [copiedTokenId, setCopiedTokenId] = useState<number | null>(null);
 
     const { data: workers = [], isLoading } = useQuery<Worker[]>({
         queryKey: ["workers", showInactive, positionFilter],
@@ -98,6 +119,8 @@ export default function WorkersSettingsPage() {
         setShowForm(false); setEditId(null);
         setName(""); setPosition(""); setPhone(""); setNotes("");
         setPhoto(null); setPhotoPreview(null); setError(null);
+        setDailyWageRate(""); setOvertimeRatePerHour(""); setIsPic(false); setPicPin(""); setTeamId("");
+        setDefaultCityKey(""); setDefaultDivisionKey("");
     }
 
     function startEdit(w: Worker) {
@@ -108,8 +131,35 @@ export default function WorkersSettingsPage() {
         setNotes(w.notes ?? "");
         setPhoto(null);
         setPhotoPreview(w.photoUrl ? `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}${w.photoUrl}` : null);
+        setDailyWageRate(w.dailyWageRate ?? "");
+        setOvertimeRatePerHour(w.overtimeRatePerHour ?? "");
+        setIsPic(w.isPic);
+        setPicPin(w.picPin ?? "");
+        setTeamId(w.teamId ?? "");
+        setDefaultCityKey(w.defaultCityKey ?? "");
+        setDefaultDivisionKey(w.defaultDivisionKey ?? "");
         setShowForm(true);
         setError(null);
+    }
+
+    const regenerateTokenMut = useMutation({
+        mutationFn: regeneratePicToken,
+        onSuccess: () => invalidate(),
+        onError: (e: any) => alert(`Gagal regenerate: ${e?.response?.data?.message || e?.message}`),
+    });
+
+    function handleCopyLink(w: Worker) {
+        if (!w.picAccessToken) return;
+        const url = `${window.location.origin}/pic/${w.picAccessToken}`;
+        navigator.clipboard.writeText(url).then(() => {
+            setCopiedTokenId(w.id);
+            setTimeout(() => setCopiedTokenId(null), 2000);
+        });
+    }
+
+    function handleRegenerate(w: Worker) {
+        if (!confirm(`Regenerate token PIC untuk ${w.name}?\n\nLink lama akan langsung tidak valid.`)) return;
+        regenerateTokenMut.mutate(w.id);
     }
 
     function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -124,6 +174,13 @@ export default function WorkersSettingsPage() {
         if (!name.trim()) { setError("Nama wajib diisi"); return; }
         const data: any = {
             name: name.trim(), position: position.trim(), phone: phone.trim(), notes: notes.trim(),
+            dailyWageRate: dailyWageRate.trim() || null,
+            overtimeRatePerHour: overtimeRatePerHour.trim() || null,
+            isPic,
+            picPin: picPin.trim() || null,
+            teamId: teamId === "" ? null : Number(teamId),
+            defaultCityKey: defaultCityKey.trim() || null,
+            defaultDivisionKey: defaultDivisionKey.trim() || null,
         };
         if (photo) data.photo = photo;
         if (editId) updateMut.mutate({ id: editId, data });
@@ -219,6 +276,125 @@ export default function WorkersSettingsPage() {
                                 <label className="text-xs font-medium block mb-1">Catatan</label>
                                 <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="(opsional)" className="w-full border rounded px-3 py-2 text-sm" />
                             </div>
+
+                            {/* ── Payroll section ── */}
+                            <div className="pt-2 border-t border-dashed border-border">
+                                <div className="text-xs font-bold text-emerald-700 mb-2 flex items-center gap-1">
+                                    💰 Payroll & Absensi
+                                </div>
+                                <div className="mb-3">
+                                    <label className="text-xs font-medium block mb-1">Tim Crew (opsional)</label>
+                                    <select
+                                        value={teamId === "" ? "" : String(teamId)}
+                                        onChange={(e) => setTeamId(e.target.value === "" ? "" : Number(e.target.value))}
+                                        className="w-full border rounded px-3 py-2 text-sm bg-white"
+                                    >
+                                        <option value="">— Tidak ada tim (independent) —</option>
+                                        {teams.map((t) => (
+                                            <option key={t.id} value={t.id}>
+                                                {t.name}{t.leader ? ` (PIC: ${t.leader.name})` : ""}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                        Worker hanya muncul di link absensi PIC tim-nya. Kalau PIC sendiri, biarkan kosong — sistem auto-bikin tim saat PIC pertama buka link.
+                                    </p>
+                                </div>
+                                {/* Default kota & divisi — auto-prefill di PIC dropdown */}
+                                <div className="mb-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs font-medium block mb-1">Default Kota</label>
+                                        <input
+                                            type="text"
+                                            list="wage-cities-options"
+                                            value={defaultCityKey}
+                                            onChange={(e) => setDefaultCityKey(e.target.value)}
+                                            placeholder="Jakarta"
+                                            className="w-full border rounded px-3 py-2 text-sm"
+                                        />
+                                        <datalist id="wage-cities-options">
+                                            {(wageDistinct?.cities ?? []).map((c) => <option key={c} value={c} />)}
+                                        </datalist>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium block mb-1">Default Divisi</label>
+                                        <input
+                                            type="text"
+                                            list="wage-divisions-options"
+                                            value={defaultDivisionKey}
+                                            onChange={(e) => setDefaultDivisionKey(e.target.value)}
+                                            placeholder="Tukang Kayu"
+                                            className="w-full border rounded px-3 py-2 text-sm"
+                                        />
+                                        <datalist id="wage-divisions-options">
+                                            {(wageDistinct?.divisions ?? []).map((d) => <option key={d} value={d} />)}
+                                        </datalist>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground md:col-span-2 -mt-1">
+                                        Auto-pilih di dropdown PIC saat absensi worker ini. Bisa di-override per shift.
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs font-medium block mb-1">Gaji Harian (Rp)</label>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={dailyWageRate}
+                                            onChange={(e) => setDailyWageRate(e.target.value.replace(/[^\d.]/g, ""))}
+                                            placeholder="150000"
+                                            className="w-full border rounded px-3 py-2 text-sm"
+                                        />
+                                        <p className="text-[10px] text-muted-foreground mt-1">Setengah hari otomatis = 50%.</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium block mb-1">Lembur per Jam (Rp)</label>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={overtimeRatePerHour}
+                                            onChange={(e) => setOvertimeRatePerHour(e.target.value.replace(/[^\d.]/g, ""))}
+                                            placeholder="20000"
+                                            className="w-full border rounded px-3 py-2 text-sm"
+                                        />
+                                        <p className="text-[10px] text-muted-foreground mt-1">Mulai dihitung setelah jam 17:00.</p>
+                                    </div>
+                                </div>
+                                <label className="flex items-center gap-2 text-sm mt-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={isPic}
+                                        onChange={(e) => setIsPic(e.target.checked)}
+                                        className="h-4 w-4"
+                                    />
+                                    <span className="font-medium">Aktifkan sebagai PIC</span>
+                                    <span className="text-[11px] text-muted-foreground">— bisa isi absensi via link tanpa login</span>
+                                </label>
+                                {isPic && (
+                                    <div className="mt-2">
+                                        <label className="text-xs font-medium block mb-1">
+                                            PIN PIC (4-6 digit) <span className="text-[10px] text-muted-foreground font-normal">— opsional, security tambahan</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={picPin}
+                                            onChange={(e) => setPicPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                            placeholder="1234"
+                                            maxLength={6}
+                                            className="w-32 border rounded px-3 py-2 text-sm font-mono tracking-widest text-center"
+                                        />
+                                        <p className="text-[10px] text-muted-foreground mt-1">
+                                            Kalau PIN di-set, PIC harus input PIN saat buka link. Kosongkan untuk hapus PIN.
+                                        </p>
+                                    </div>
+                                )}
+                                {editId && isPic && (
+                                    <p className="text-[10px] text-muted-foreground mt-1.5">
+                                        Setelah simpan, link PIC akan muncul di kartu worker.
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </div>
                     {error && <p className="text-xs text-red-600">{error}</p>}
@@ -289,6 +465,79 @@ export default function WorkersSettingsPage() {
                             <div className="text-[11px] text-muted-foreground mt-1">
                                 {w._count?.withdrawals ?? 0} pengambilan
                             </div>
+
+                            {/* Payroll info badges */}
+                            {(w.dailyWageRate || w.isPic || w.team) && (
+                                <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                                    {w.dailyWageRate && (
+                                        <span
+                                            className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono"
+                                            title={`Gaji harian: Rp ${parseFloat(w.dailyWageRate).toLocaleString('id-ID')}${w.overtimeRatePerHour ? ` · Lembur Rp ${parseFloat(w.overtimeRatePerHour).toLocaleString('id-ID')}/jam` : ''}`}
+                                        >
+                                            💰 Rp {parseFloat(w.dailyWageRate).toLocaleString('id-ID')}/hari
+                                        </span>
+                                    )}
+                                    {w.isPic && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-semibold">
+                                            👤 PIC
+                                        </span>
+                                    )}
+                                    {w.team && (
+                                        <span
+                                            className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                                            style={{ backgroundColor: `${w.team.color}20`, color: w.team.color, border: `1px solid ${w.team.color}40` }}
+                                            title={`Member tim ${w.team.name}`}
+                                        >
+                                            🏷️ {w.team.name}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* PIC link section — tampil kalau worker = PIC dan punya token */}
+                            {w.isPic && w.picAccessToken && (
+                                <div className="mt-2 pt-2 border-t border-border/40">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-blue-600 mb-1 flex items-center gap-1">
+                                        <LinkIcon className="h-3 w-3" />
+                                        Link Absensi PIC
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <input
+                                            readOnly
+                                            value={`${typeof window !== 'undefined' ? window.location.origin : ''}/pic/${w.picAccessToken}`}
+                                            className="flex-1 px-2 py-1 text-[10px] font-mono border rounded bg-muted/30 truncate"
+                                            onFocus={(e) => e.currentTarget.select()}
+                                        />
+                                        <button
+                                            onClick={() => handleCopyLink(w)}
+                                            title="Copy link"
+                                            className="p-1.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                        >
+                                            {copiedTokenId === w.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                                        </button>
+                                        <button
+                                            onClick={() => handleRegenerate(w)}
+                                            disabled={regenerateTokenMut.isPending}
+                                            title="Regenerate token (link lama jadi invalid)"
+                                            className="p-1.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-50"
+                                        >
+                                            <RefreshCw className={`h-3 w-3 ${regenerateTokenMut.isPending ? 'animate-spin' : ''}`} />
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                        Kasih link ini ke {w.name} untuk isi absensi tanpa login.
+                                        {w.picPin ? (
+                                            <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold">
+                                                🔐 PIN aktif
+                                            </span>
+                                        ) : (
+                                            <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">
+                                                ⚠️ Belum pakai PIN
+                                            </span>
+                                        )}
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Signature + Stamp untuk worker MARKETING/SALES (penawaran) atau ADMIN (invoice) */}
                             {isSignerPosition(w.position) && (

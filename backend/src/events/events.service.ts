@@ -28,6 +28,12 @@ export interface CreateEventInput extends EventPhaseInput {
     picWorkerId?: number | null;
     picName?: string | null;
     notes?: string | null;
+    // Wage override per event
+    dailyWageRate?: number | string | null;
+    overtimeRatePerHour?: number | string | null;
+    // Wage khusus PIC (dipakai untuk worker yang = event.picWorkerId). Null = ikut member rate.
+    dailyWageRatePic?: number | string | null;
+    overtimeRatePerHourPic?: number | string | null;
 }
 
 export interface UpdateEventInput extends Partial<CreateEventInput> { }
@@ -161,6 +167,10 @@ export class EventsService {
                 eventStart: toDate(input.eventStart) ?? null,
                 eventEnd: toDate(input.eventEnd) ?? null,
                 notes: input.notes?.trim() || null,
+                dailyWageRate: input.dailyWageRate != null && input.dailyWageRate !== '' ? input.dailyWageRate as any : null,
+                overtimeRatePerHour: input.overtimeRatePerHour != null && input.overtimeRatePerHour !== '' ? input.overtimeRatePerHour as any : null,
+                dailyWageRatePic: input.dailyWageRatePic != null && input.dailyWageRatePic !== '' ? input.dailyWageRatePic as any : null,
+                overtimeRatePerHourPic: input.overtimeRatePerHourPic != null && input.overtimeRatePerHourPic !== '' ? input.overtimeRatePerHourPic as any : null,
             },
         });
     }
@@ -181,6 +191,18 @@ export class EventsService {
         if (input.picWorkerId !== undefined) data.picWorkerId = input.picWorkerId ?? null;
         if (input.picName !== undefined) data.picName = input.picName?.trim() || null;
         if (input.notes !== undefined) data.notes = input.notes?.trim() || null;
+        if (input.dailyWageRate !== undefined) {
+            data.dailyWageRate = input.dailyWageRate != null && input.dailyWageRate !== '' ? input.dailyWageRate as any : null;
+        }
+        if (input.overtimeRatePerHour !== undefined) {
+            data.overtimeRatePerHour = input.overtimeRatePerHour != null && input.overtimeRatePerHour !== '' ? input.overtimeRatePerHour as any : null;
+        }
+        if (input.dailyWageRatePic !== undefined) {
+            data.dailyWageRatePic = input.dailyWageRatePic != null && input.dailyWageRatePic !== '' ? input.dailyWageRatePic as any : null;
+        }
+        if (input.overtimeRatePerHourPic !== undefined) {
+            data.overtimeRatePerHourPic = input.overtimeRatePerHourPic != null && input.overtimeRatePerHourPic !== '' ? input.overtimeRatePerHourPic as any : null;
+        }
 
         const phaseFields: (keyof EventPhaseInput)[] = [
             'departureStart', 'departureEnd',

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<title>Slip Gaji — {{worker.name}} — {{periodLabel}}</title>
+<style>
+  @page { size: A4; margin: 14mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1f2937; font-size: 11pt; line-height: 1.45; margin: 0; }
+
+  .doc-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 2pt solid #1a3b7c; padding-bottom: 10pt; margin-bottom: 14pt;
+  }
+  .company-block { flex: 1; }
+  .company-name { font-size: 16pt; font-weight: 700; color: #1a3b7c; }
+  .company-tagline { font-size: 9.5pt; color: #6b7280; margin-top: 2pt; }
+
+  .doc-title { text-align: right; }
+  .doc-title h1 { margin: 0; font-size: 18pt; color: #1a3b7c; }
+  .doc-title .meta { font-size: 9pt; color: #6b7280; margin-top: 4pt; }
+
+  .worker-info {
+    background: #f1f5fb; padding: 10pt 12pt; border-radius: 4pt; margin-bottom: 14pt;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6pt 18pt;
+  }
+  .worker-info .label { font-size: 9pt; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4pt; }
+  .worker-info .value { font-size: 11pt; font-weight: 600; }
+
+  .section-title {
+    font-size: 11pt; font-weight: 700; color: #1a3b7c;
+    border-bottom: 1pt solid #d1d5db; padding-bottom: 3pt; margin: 12pt 0 6pt;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 5pt 7pt; border-bottom: 0.5pt solid #e5e7eb; }
+  th { background: #f3f4f6; font-size: 9.5pt; text-transform: uppercase; color: #4b5563; text-align: left; letter-spacing: 0.3pt; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; }
+  td.center { text-align: center; }
+
+  .breakdown { margin-top: 8pt; }
+  .breakdown-row {
+    display: flex; justify-content: space-between; padding: 4pt 0;
+    font-size: 11pt;
+  }
+  .breakdown-row.subtotal {
+    font-weight: 600; border-top: 1pt solid #d1d5db; padding-top: 6pt; margin-top: 4pt;
+  }
+  .breakdown-row.grand {
+    font-weight: 700; font-size: 13pt; color: #1a3b7c;
+    background: #f1f5fb; padding: 8pt 10pt; border-radius: 4pt; margin-top: 8pt;
+  }
+  .breakdown-row.negative .num { color: #c8203a; }
+
+  .signatures {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24pt;
+    margin-top: 28pt; page-break-inside: avoid;
+  }
+  .sign-block { text-align: center; font-size: 10pt; }
+  .sign-line { border-bottom: 1pt solid #1f2937; height: 50pt; margin-bottom: 4pt; }
+  .sign-name { font-weight: 600; margin-top: 6pt; }
+  .sign-role { color: #6b7280; font-size: 9pt; }
+
+  .foot {
+    margin-top: 20pt; padding-top: 8pt; border-top: 1pt solid #e5e7eb;
+    font-size: 9pt; color: #6b7280; display: flex; justify-content: space-between;
+  }
+
+  .badge {
+    display: inline-block; padding: 1pt 6pt; border-radius: 3pt;
+    font-size: 8.5pt; font-weight: 600; text-transform: uppercase;
+  }
+  .badge-bonus, .badge-allowance { background: #d1fae5; color: #065f46; }
+  .badge-deduction, .badge-advance { background: #fee2e2; color: #991b1b; }
+
+  .pending-warning {
+    background: #fef3c7; border-left: 3pt solid #f59e0b; color: #92400e;
+    padding: 6pt 10pt; margin-top: 8pt; font-size: 9.5pt; border-radius: 3pt;
+  }
+</style>
+</head>
+<body>
+  <div class="doc-header">
+    <div class="company-block">
+      <div class="company-name">{{company.name}}</div>
+      {{#if company.address}}<div class="company-tagline">{{company.address}}</div>{{/if}}
+    </div>
+    <div class="doc-title">
+      <h1>SLIP GAJI</h1>
+      <div class="meta">
+        Periode: <strong>{{periodLabel}}</strong><br />
+        Tanggal cetak: {{generatedAt}}
+      </div>
+    </div>
+  </div>
+
+  <div class="worker-info">
+    <div>
+      <div class="label">Nama Pekerja</div>
+      <div class="value">{{worker.name}}</div>
+    </div>
+    {{#if worker.position}}
+    <div>
+      <div class="label">Posisi / Divisi</div>
+      <div class="value">{{worker.position}}</div>
+    </div>
+    {{/if}}
+    {{#if worker.phone}}
+    <div>
+      <div class="label">No. HP</div>
+      <div class="value">{{worker.phone}}</div>
+    </div>
+    {{/if}}
+    <div>
+      <div class="label">Tarif Harian</div>
+      <div class="value">Rp {{rates.dailyFmt}}{{#if rates.overtimeFmt}} · Lembur Rp {{rates.overtimeFmt}}/jam{{/if}}</div>
+    </div>
+  </div>
+
+  {{!-- Attendance details --}}
+  <div class="section-title">📅 Absensi & Lembur</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:90pt">Tanggal</th>
+        <th>Status</th>
+        <th class="center" style="width:60pt">Lembur (jam)</th>
+        <th class="num" style="width:90pt">Tarif</th>
+        <th class="num" style="width:90pt">Sub-total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each attendance.rows}}
+      <tr>
+        <td>{{this.dateFmt}}</td>
+        <td>
+          {{this.statusLabel}}
+          {{#if this.isPending}}<span class="badge" style="background:#fef3c7;color:#92400e;">Pending</span>{{/if}}
+          {{#if this.isRejected}}<span class="badge" style="background:#fee2e2;color:#991b1b;">Rejected</span>{{/if}}
+        </td>
+        <td class="center">{{this.overtimeHours}}</td>
+        <td class="num">Rp {{this.dailyRateFmt}}</td>
+        <td class="num">Rp {{this.subtotalFmt}}</td>
+      </tr>
+      {{/each}}
+      {{#unless attendance.rows.length}}
+      <tr><td colspan="5" style="text-align:center;color:#9ca3af;font-style:italic;">Tidak ada catatan absensi di periode ini</td></tr>
+      {{/unless}}
+    </tbody>
+  </table>
+
+  <div class="breakdown">
+    <div class="breakdown-row">
+      <span>Hari Hadir Penuh ({{attendance.fullDays}}× hari)</span>
+      <span class="num">Rp {{attendance.fullBaseFmt}}</span>
+    </div>
+    <div class="breakdown-row">
+      <span>½ Hari ({{attendance.halfDays}}× ½)</span>
+      <span class="num">Rp {{attendance.halfBaseFmt}}</span>
+    </div>
+    <div class="breakdown-row">
+      <span>Lembur ({{attendance.totalOvertimeHours}} jam)</span>
+      <span class="num">Rp {{attendance.overtimeFmt}}</span>
+    </div>
+    <div class="breakdown-row subtotal">
+      <span>Subtotal Gaji Hadir (Approved)</span>
+      <span class="num">Rp {{attendance.approvedTotalFmt}}</span>
+    </div>
+  </div>
+
+  {{!-- Adjustments --}}
+  {{#if adjustments.list.length}}
+  <div class="section-title">💰 Tunjangan & Potongan</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:90pt">Tanggal</th>
+        <th>Tipe</th>
+        <th>Catatan</th>
+        <th class="num" style="width:110pt">Jumlah</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each adjustments.list}}
+      <tr>
+        <td>{{this.dateFmt}}</td>
+        <td><span class="badge badge-{{this.typeLower}}">{{this.typeLabel}}</span></td>
+        <td style="font-size:10pt;color:#6b7280;">{{this.notes}}</td>
+        <td class="num" style="font-weight:600;{{#if this.isNegative}}color:#c8203a;{{/if}}">
+          {{this.signLabel}}Rp {{this.amountFmt}}
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  <div class="breakdown">
+    <div class="breakdown-row">
+      <span>Total Bonus + Tunjangan</span>
+      <span class="num">+Rp {{adjustments.positiveFmt}}</span>
+    </div>
+    <div class="breakdown-row negative">
+      <span>Total Potongan + Kasbon</span>
+      <span class="num">−Rp {{adjustments.negativeFmt}}</span>
+    </div>
+    <div class="breakdown-row subtotal">
+      <span>Net Adjustment</span>
+      <span class="num">{{#if adjustments.netNegative}}−{{else}}+{{/if}}Rp {{adjustments.netFmt}}</span>
+    </div>
+  </div>
+  {{/if}}
+
+  {{!-- Grand total --}}
+  <div class="breakdown-row grand">
+    <span>TOTAL GAJI CAIR</span>
+    <span class="num">Rp {{grandTotalFmt}}</span>
+  </div>
+
+  {{#if pendingNote}}
+  <div class="pending-warning">
+    ⚠️ {{pendingNote}}
+  </div>
+  {{/if}}
+
+  {{!-- Signatures --}}
+  <div class="signatures">
+    <div class="sign-block">
+      <div>Diterima oleh,</div>
+      <div class="sign-line"></div>
+      <div class="sign-name">{{worker.name}}</div>
+      <div class="sign-role">Pekerja</div>
+    </div>
+    <div class="sign-block">
+      <div>Disetujui oleh,</div>
+      <div class="sign-line"></div>
+      <div class="sign-name">{{approver.name}}</div>
+      <div class="sign-role">{{approver.role}}</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div>Slip ini di-generate otomatis dari sistem payroll.</div>
+    <div>{{company.name}} · {{generatedAt}}</div>
+  </div>
+</body>
+</html>

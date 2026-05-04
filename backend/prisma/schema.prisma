@@ -65,6 +65,9 @@ model User {
   editRequests        TransactionEditRequest[]   @relation("EditRequests")
   editReviews         TransactionEditRequest[]   @relation("EditReviews")
   withdrawalsCreated  Withdrawal[]               @relation("WithdrawalCreatedBy")
+  attendanceApprovals Attendance[]               @relation("AttendanceApprover")
+  adjustmentsCreated  PayrollAdjustment[]        @relation("AdjustmentCreatedBy")
+  attendanceAuditLogs AttendanceAuditLog[]       @relation("AuditChangedBy")
 
   @@map("users")
 }
@@ -1151,6 +1154,16 @@ model Worker {
   stampImageUrl      String?  @map("stamp_image_url") @db.Text       // Stempel pribadi (optional, fallback ke brand stamp)
   isActive           Boolean  @default(true) @map("is_active")
   notes              String?  @db.Text
+  // ─── Payroll fields ───────────────────────────────────────────────
+  dailyWageRate         Decimal? @map("daily_wage_rate") @db.Decimal(12, 2)         // Gaji per hari (Rp). Null = belum di-set
+  overtimeRatePerHour   Decimal? @map("overtime_rate_per_hour") @db.Decimal(12, 2)  // Tarif lembur per jam (Rp), mulai jam 17:00
+  isPic                 Boolean  @default(false) @map("is_pic")                     // True = bisa dapat link absensi PIC
+  picAccessToken        String?  @unique @map("pic_access_token") @db.VarChar(64)   // Token unik untuk public link PIC
+  picPin                String?  @map("pic_pin") @db.VarChar(20)                    // PIN 4-6 digit untuk security tambahan saat akses public link
+  teamId                Int?     @map("team_id")                                     // Worker member dari team mana (untuk filter PIC absensi)
+  defaultCityKey        String?  @map("default_city_key") @db.VarChar(100)           // Default kota untuk wage resolution (preset PIC dropdown)
+  defaultDivisionKey    String?  @map("default_division_key") @db.VarChar(100)       // Default divisi untuk wage resolution
+  // ─────────────────────────────────────────────────────────────────
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
 
@@ -1163,8 +1176,142 @@ model Worker {
   crewAssignments    EventCrewAssignment[]
   leadingTeams       CrewTeam[]           @relation("TeamLeader")
   signedQuotations   Invoice[]            @relation("InvoiceSignedByWorker")
+  attendances        Attendance[]         @relation("WorkerAttendance")    // sebagai subjek absensi
+  recordedAttendances Attendance[]        @relation("RecordedByPic")       // sebagai PIC yang merekam absensi
+  team               CrewTeam?            @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
+  adjustments        PayrollAdjustment[]  @relation("WorkerAdjustments")    // tunjangan/potongan
+  auditChangesAsPic  AttendanceAuditLog[] @relation("AuditChangedByPic")    // audit dari PIC
 
   @@map("workers")
+}
+
+/// Absensi harian — 1 row per worker per tanggal.
+/// Wage resolution priority (di payroll-summary):
+///   1. Kalau Attendance.eventId di-set & Event punya dailyWageRate → pakai Event override
+///   2. Kalau Attendance.cityKey + divisionKey di-set & ada WageRate match → pakai matrix
+///   3. Fallback: Worker.dailyWageRate (default)
+model Attendance {
+  id              Int              @id @default(autoincrement())
+  workerId        Int              @map("worker_id")
+  attendanceDate  DateTime         @map("attendance_date") @db.Date
+  status          AttendanceStatus @default(ABSENT)
+  overtimeHours   Decimal          @default(0) @map("overtime_hours") @db.Decimal(5, 2)
+  notes           String?          @db.VarChar(255)
+  recordedByPicId Int?             @map("recorded_by_pic_id")
+  // Wage context — bisa kosong (fallback ke Worker default) atau di-set untuk override per-row
+  eventId         Int?             @map("event_id")
+  cityKey         String?          @map("city_key") @db.VarChar(100)
+  divisionKey     String?          @map("division_key") @db.VarChar(100)
+  // Approval flow — admin approve absensi PIC sebelum payroll final
+  approvalStatus  AttendanceApprovalStatus @default(PENDING) @map("approval_status")
+  approvedAt      DateTime?        @map("approved_at")
+  approvedById    Int?             @map("approved_by_id")                            // User.id admin yang approve
+  rejectionReason String?          @map("rejection_reason") @db.VarChar(500)
+  recordedAt      DateTime         @default(now()) @map("recorded_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  worker          Worker           @relation("WorkerAttendance", fields: [workerId], references: [id], onDelete: Cascade)
+  recordedByPic   Worker?          @relation("RecordedByPic", fields: [recordedByPicId], references: [id], onDelete: SetNull)
+  event           Event?           @relation("EventAttendance", fields: [eventId], references: [id], onDelete: SetNull)
+  approvedBy      User?            @relation("AttendanceApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  auditLogs       AttendanceAuditLog[]
+
+  @@unique([workerId, attendanceDate])
+  @@index([attendanceDate])
+  @@index([recordedByPicId, attendanceDate])
+  @@index([eventId])
+  @@index([cityKey, divisionKey])
+  @@index([approvalStatus, attendanceDate])
+  @@map("attendances")
+}
+
+enum AttendanceApprovalStatus {
+  PENDING    // PIC submit, menunggu approve admin
+  APPROVED   // Admin approve, masuk payroll final
+  REJECTED   // Admin reject, gak dihitung gaji
+}
+
+/// Audit log untuk attendance — simpan history setiap CREATE/UPDATE/DELETE/APPROVE/REJECT.
+/// Old & new data disimpan sebagai JSON snapshot untuk forensik.
+model AttendanceAuditLog {
+  id              Int              @id @default(autoincrement())
+  attendanceId    Int?             @map("attendance_id")           // nullable supaya log tetap ada walau attendance ter-hapus
+  action          AuditAction
+  changedById     Int?             @map("changed_by_id")            // User.id admin (kalau dari /payroll page)
+  changedByPicId  Int?             @map("changed_by_pic_id")        // Worker.id PIC (kalau dari public link)
+  oldData         String?          @db.Text                          // JSON snapshot sebelum perubahan
+  newData         String?          @db.Text                          // JSON snapshot setelah perubahan
+  notes           String?          @db.VarChar(500)
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  attendance      Attendance?      @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  changedBy       User?            @relation("AuditChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  changedByPic    Worker?          @relation("AuditChangedByPic", fields: [changedByPicId], references: [id], onDelete: SetNull)
+
+  @@index([attendanceId, createdAt])
+  @@index([action, createdAt])
+  @@map("attendance_audit_logs")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+}
+
+/// Tunjangan / Potongan per worker per periode (mingguan/bulanan/custom).
+/// Dipakai admin untuk tambah bonus, kasbon, denda, dll yang bukan dari attendance.
+model PayrollAdjustment {
+  id              Int                    @id @default(autoincrement())
+  workerId        Int                    @map("worker_id")
+  type            PayrollAdjustmentType
+  amount          Decimal                @db.Decimal(12, 2)            // selalu positif. Sign ditentukan oleh `type`.
+  effectiveDate   DateTime               @map("effective_date") @db.Date  // tanggal berlaku (untuk filter periode)
+  notes           String?                @db.VarChar(500)
+  createdById     Int?                   @map("created_by_id")          // User.id admin
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  worker          Worker                 @relation("WorkerAdjustments", fields: [workerId], references: [id], onDelete: Cascade)
+  createdBy       User?                  @relation("AdjustmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([workerId, effectiveDate])
+  @@index([effectiveDate])
+  @@map("payroll_adjustments")
+}
+
+enum PayrollAdjustmentType {
+  BONUS        // bonus performa — positif, tambah ke gaji
+  ALLOWANCE    // tunjangan (transport, makan) — positif
+  DEDUCTION    // potongan (denda, terlambat) — negatif (kurangi)
+  ADVANCE      // kasbon — negatif (akan di-cair-kan dari gaji periode mendatang)
+}
+
+/// Master rate gaji per kombinasi (Kota, Divisi).
+/// Mis. "Jakarta" + "Tukang Kayu" = Rp 200.000/hari + Rp 25.000/jam lembur.
+/// Dipakai untuk resolve wage saat hitung payroll kalau Attendance.cityKey & divisionKey di-set.
+model WageRate {
+  id                  Int      @id @default(autoincrement())
+  city                String   @db.VarChar(100)                              // nama kota (free text supaya match Customer.city)
+  division            String   @db.VarChar(100)                              // nama divisi (free text, mis. "Tukang Kayu")
+  dailyWageRate       Decimal  @map("daily_wage_rate") @db.Decimal(12, 2)
+  overtimeRatePerHour Decimal  @map("overtime_rate_per_hour") @db.Decimal(12, 2)
+  notes               String?  @db.VarChar(500)
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@unique([city, division])
+  @@index([isActive])
+  @@map("wage_rates")
+}
+
+enum AttendanceStatus {
+  FULL_DAY    // gaji penuh
+  HALF_DAY    // 50% gaji
+  ABSENT      // tidak hadir = 0 (lembur tetap dihitung)
 }
 
 model Withdrawal {
@@ -1251,6 +1398,14 @@ model Event {
   notes          String?     @db.Text
   shareToken     String?     @unique @db.VarChar(64) @map("share_token")
   rabPlanId      Int?        @map("rab_plan_id")
+  // Wage override per event/project — kalau di-set, override WageRate matrix & Worker default
+  // Member rate: dipakai untuk semua worker di event ini
+  dailyWageRate         Decimal? @map("daily_wage_rate") @db.Decimal(12, 2)
+  overtimeRatePerHour   Decimal? @map("overtime_rate_per_hour") @db.Decimal(12, 2)
+  // PIC rate (opsional): dipakai khusus untuk worker yang sama dengan event.picWorkerId.
+  // Kalau null → PIC pakai member rate.
+  dailyWageRatePic      Decimal? @map("daily_wage_rate_pic") @db.Decimal(12, 2)
+  overtimeRatePerHourPic Decimal? @map("overtime_rate_per_hour_pic") @db.Decimal(12, 2)
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at")
 
@@ -1261,6 +1416,7 @@ model Event {
   packingItems     EventPackingItem[]
   crewAssignments  EventCrewAssignment[]
   cashflows        Cashflow[]
+  attendances      Attendance[]            @relation("EventAttendance")
 
   @@index([status])
   @@index([eventStart])
@@ -1281,6 +1437,7 @@ model CrewTeam {
 
   leader      Worker?               @relation("TeamLeader", fields: [leaderWorkerId], references: [id], onDelete: SetNull)
   assignments EventCrewAssignment[]
+  members     Worker[]              @relation("TeamMembers")               // Permanent member untuk PIC absensi
 
   @@map("crew_teams")
 }

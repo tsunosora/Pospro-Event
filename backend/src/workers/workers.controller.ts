@@ -78,6 +78,14 @@ export class WorkersController {
             notes: body.notes,
             isActive: body.isActive === 'false' ? false : (body.isActive === 'true' ? true : undefined),
             photoUrl: file ? `/uploads/${file.filename}` : undefined,
+            // Payroll
+            dailyWageRate: body.dailyWageRate ?? undefined,
+            overtimeRatePerHour: body.overtimeRatePerHour ?? undefined,
+            isPic: body.isPic === 'true' || body.isPic === true ? true : (body.isPic === 'false' || body.isPic === false ? false : undefined),
+            picPin: body.picPin ?? undefined,
+            teamId: body.teamId === '' || body.teamId == null ? null : Number(body.teamId),
+            defaultCityKey: body.defaultCityKey ?? undefined,
+            defaultDivisionKey: body.defaultDivisionKey ?? undefined,
         };
         return this.svc.create(input);
     }
@@ -102,7 +110,25 @@ export class WorkersController {
             input.isActive = body.isActive === 'false' ? false : body.isActive === 'true' ? true : body.isActive;
         }
         if (file) input.photoUrl = `/uploads/${file.filename}`;
+        // Payroll fields
+        if (body.dailyWageRate !== undefined) input.dailyWageRate = body.dailyWageRate;
+        if (body.overtimeRatePerHour !== undefined) input.overtimeRatePerHour = body.overtimeRatePerHour;
+        if (body.isPic !== undefined) {
+            input.isPic = body.isPic === 'true' || body.isPic === true ? true : false;
+        }
+        if (body.picPin !== undefined) input.picPin = body.picPin || null;
+        if (body.teamId !== undefined) {
+            input.teamId = body.teamId === '' || body.teamId === null || body.teamId === 'null' ? null : Number(body.teamId);
+        }
+        if (body.defaultCityKey !== undefined) input.defaultCityKey = body.defaultCityKey || null;
+        if (body.defaultDivisionKey !== undefined) input.defaultDivisionKey = body.defaultDivisionKey || null;
         return this.svc.update(id, input);
+    }
+
+    /** Generate ulang token PIC (kalau bocor / mau invalidate link lama) */
+    @Post(':id/regenerate-pic-token')
+    regeneratePicToken(@Param('id', ParseIntPipe) id: number) {
+        return this.svc.regeneratePicToken(id);
     }
 
     @Patch(':id/restore')
