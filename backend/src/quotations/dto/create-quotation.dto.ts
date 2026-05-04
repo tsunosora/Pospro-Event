@@ -30,6 +30,21 @@ export interface CreateQuotationDto {
     bankAccountIds?: string;           // CSV: "1,3,7"
     notes?: string;
 
+    // Custom text per quotation — override brand defaults
+    customOpeningText?: string | null;   // Override paragraf "Dengan hormat, Bersama surat ini..."
+    customDisclaimer?: string | null;    // Override "Catatan Harga"
+    customPaymentTerms?: string | null;  // Override "Sistem Pembayaran"
+    customClosing?: string | null;       // Override paragraf penutup (legacy, full override)
+    // Append/prepend mode — text di atas/bawah brand default (combine dengan separator \n\n)
+    disclaimerPrepend?: string | null;
+    disclaimerAppend?: string | null;
+    paymentTermsPrepend?: string | null;
+    paymentTermsAppend?: string | null;
+    closingPrepend?: string | null;
+    closingAppend?: string | null;
+    attachmentCount?: number | null;     // Jumlah lampiran (default 1 di template)
+    customAttachmentText?: string | null; // Teks bebas untuk lampiran (override "{N} ({terbilang}) berkas")
+
     // Angka
     taxRate?: number;
     discount?: number;

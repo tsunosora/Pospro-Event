@@ -61,12 +61,12 @@
   /* Fallback header (kalau tidak ada letterhead) */
   .fallback-header {
     display: flex; align-items: flex-start; gap: 12pt;
-    border-bottom: 2pt solid #c8203a;
+    border-bottom: 2pt solid {{theme.primary}};
     padding-bottom: 8pt;
     margin-bottom: 14pt;
   }
   .fallback-header .logo { width: 60pt; height: 60pt; object-fit: contain; }
-  .fallback-header .company-name { font-weight: 700; font-size: 16pt; color: #c8203a; letter-spacing: .5pt; }
+  .fallback-header .company-name { font-weight: 700; font-size: 16pt; color: {{theme.primary}}; letter-spacing: .5pt; }
   .fallback-header .company-addr { font-size: 9.5pt; color: #333; margin-top: 2pt; line-height: 1.35; }
 
   .doc-meta { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10pt; }
@@ -84,22 +84,22 @@
     margin-top: 12pt; font-size: 10.5pt;
   }
   table.items th, table.items td { border: 0.75pt solid #999; padding: 4pt 6pt; }
-  table.items thead { background: #c8203a; color: #fff; }
+  table.items thead { background: {{theme.primary}}; color: #fff; }
   table.items th { font-weight: 600; text-align: center; }
   table.items td.num { text-align: center; width: 28pt; }
   table.items td.qty { text-align: right; white-space: nowrap; }
   table.items td.rp { text-align: right; white-space: nowrap; }
   /* Header kategori — baris tebal warna untuk grouping */
   table.items tr.cat-header td {
-    background: #fde2e6;
+    background: {{theme.primaryLight}};
     font-weight: 700;
-    color: #8a1729;
+    color: {{theme.primaryDark}};
     text-transform: uppercase;
     font-size: 10pt;
     letter-spacing: .3pt;
   }
   table.items tr.cat-subtotal td {
-    background: #fff8f9;
+    background: {{theme.primarySubtle}};
     font-weight: 600;
     font-style: italic;
     font-size: 10pt;
@@ -119,9 +119,9 @@
   .text-section .section-title {
     font-weight: 700;
     font-size: 11pt;
-    color: #c8203a;
+    color: {{theme.primary}};
     margin-bottom: 4pt;
-    border-bottom: 0.5pt solid #c8203a;
+    border-bottom: 0.5pt solid {{theme.primary}};
     padding-bottom: 2pt;
   }
   .text-body {
@@ -231,18 +231,18 @@
     {{/unless}}
 
     {{#if doc.isInvoice}}
-    <div style="text-align:center; padding:8pt 0; margin-bottom: 6pt; border-bottom: 2pt solid #c8203a;">
-      <div style="font-size: 18pt; font-weight: 800; color: #c8203a; letter-spacing: 1pt;">{{doc.invoicePartLabel}}</div>
+    <div style="text-align:center; padding:8pt 0; margin-bottom: 6pt; border-bottom: 2pt solid {{theme.primary}};">
+      <div style="font-size: 18pt; font-weight: 800; color: {{theme.primary}}; letter-spacing: 1pt;">{{doc.invoicePartLabel}}</div>
     </div>
     {{/if}}
 
     <div class="doc-meta">
       <div class="nomor">
         <div><strong>{{#if doc.isInvoice}}No. Invoice{{else}}Nomor{{/if}}</strong>: {{doc.number}}{{#if doc.isRevision}}<span class="badge-rev">Rev. {{doc.revisionNumber}}</span>{{/if}}</div>
-        {{#unless doc.isInvoice}}<div><strong>Lampiran</strong>: 1 (satu) berkas</div>{{/unless}}
+        {{#unless doc.isInvoice}}<div style="white-space: pre-line;"><strong>Lampiran</strong>: {{attachment.label}}</div>{{/unless}}
         <div><strong>Perihal</strong>: <u><strong>{{doc.subject}}</strong></u></div>
         {{#if doc.dueDateFormatted}}
-        <div><strong>Jatuh Tempo</strong>: <span style="color:#c8203a; font-weight:700">{{doc.dueDateFormatted}}</span></div>
+        <div><strong>Jatuh Tempo</strong>: <span style="color:{{theme.primary}}; font-weight:700">{{doc.dueDateFormatted}}</span></div>
         {{/if}}
       </div>
       <div class="kota-tgl">
@@ -258,7 +258,10 @@
       <div>di Tempat</div>
     </div>
 
-    {{#if doc.isInvoice}}
+    {{#if customOpening}}
+    {{!-- Custom opening per quotation — override default --}}
+    <p class="opening" style="white-space: pre-line;">{{customOpening}}</p>
+    {{else if doc.isInvoice}}
     <p class="opening">
       Dengan hormat,<br/>
       Bersama invoice ini kami <strong>{{company.name}}</strong> menagihkan pembayaran
@@ -414,13 +417,13 @@
 
     {{#if doc.isInvoice}}
     {{#if doc.amountToPayFormatted}}
-    <div style="margin-top: 14pt; padding: 12pt 16pt; background: #fde2e6; border: 2pt solid #c8203a; border-radius: 6pt;">
-      <div style="font-size: 10pt; font-weight: 700; color: #8a1729; text-transform: uppercase; letter-spacing: .5pt; margin-bottom: 4pt;">
+    <div style="margin-top: 14pt; padding: 12pt 16pt; background: {{theme.primaryLight}}; border: 2pt solid {{theme.primary}}; border-radius: 6pt;">
+      <div style="font-size: 10pt; font-weight: 700; color: {{theme.primaryDark}}; text-transform: uppercase; letter-spacing: .5pt; margin-bottom: 4pt;">
         {{#eq doc.invoicePart "DP"}}JUMLAH YANG DITAGIH (DP){{/eq}}
         {{#eq doc.invoicePart "PELUNASAN"}}JUMLAH YANG DITAGIH (PELUNASAN){{/eq}}
         {{#eq doc.invoicePart "FULL"}}JUMLAH YANG DITAGIH{{/eq}}
       </div>
-      <div style="font-size: 22pt; font-weight: 800; color: #c8203a; font-family: 'Calibri',sans-serif;">{{doc.amountToPayFormatted}}</div>
+      <div style="font-size: 22pt; font-weight: 800; color: {{theme.primary}}; font-family: 'Calibri',sans-serif;">{{doc.amountToPayFormatted}}</div>
       <div style="font-size: 10pt; font-style: italic; color: #444; margin-top: 4pt;">
         Terbilang: <strong>{{doc.amountToPayTerbilang}}</strong>
       </div>

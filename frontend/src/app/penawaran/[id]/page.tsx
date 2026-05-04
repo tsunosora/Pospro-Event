@@ -16,7 +16,7 @@ import {
     type Quotation, type QuotationItem,
 } from "@/lib/api/quotations";
 import { Receipt } from "lucide-react";
-import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
+import { ACTIVE_BRANDS, BRAND_META, getBrand, type Brand } from "@/lib/api/brands";
 import { listQuotationVariants } from "@/lib/api/quotation-variants";
 import { getWorkers, MARKETER_POSITIONS } from "@/lib/api/workers";
 import { getBankAccounts } from "@/lib/api/transactions";
@@ -81,8 +81,26 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [itemDisplayMode, setItemDisplayMode] = useState<'detailed' | 'category-summary'>('detailed');
     const [bankAccountIds, setBankAccountIds] = useState<string>("");
     const [items, setItems] = useState<ItemRow[]>([]);
+    // Custom text per quotation (override brand defaults)
+    const [customOpeningText, setCustomOpeningText] = useState<string>("");
+    // Append/prepend per section — combine dengan brand default
+    const [disclaimerPrepend, setDisclaimerPrepend] = useState<string>("");
+    const [disclaimerAppend, setDisclaimerAppend] = useState<string>("");
+    const [paymentTermsPrepend, setPaymentTermsPrepend] = useState<string>("");
+    const [paymentTermsAppend, setPaymentTermsAppend] = useState<string>("");
+    const [closingPrepend, setClosingPrepend] = useState<string>("");
+    const [closingAppend, setClosingAppend] = useState<string>("");
+    const [attachmentCount, setAttachmentCount] = useState<number>(1);
+    const [customAttachmentText, setCustomAttachmentText] = useState<string>("");
 
     // Bank accounts dari /settings/bank-accounts
+    // Brand settings — untuk button "Salin dari Brand" di custom text section
+    const { data: brandSettings } = useQuery({
+        queryKey: ["brand-settings", brand],
+        queryFn: () => brand ? getBrand(brand) : Promise.resolve(null),
+        enabled: !!brand,
+    });
+
     const { data: allBanks = [] } = useQuery<Array<{ id: number; bankName: string; accountNumber: string; accountOwner: string }>>({
         queryKey: ["bank-accounts"],
         queryFn: getBankAccounts,
@@ -156,6 +174,15 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             data.itemDisplayMode === 'category-summary' ? 'category-summary' : 'detailed'
         );
         setBankAccountIds(data.bankAccountIds ?? "");
+        setCustomOpeningText((data as any).customOpeningText ?? "");
+        setDisclaimerPrepend((data as any).disclaimerPrepend ?? "");
+        setDisclaimerAppend((data as any).disclaimerAppend ?? "");
+        setPaymentTermsPrepend((data as any).paymentTermsPrepend ?? "");
+        setPaymentTermsAppend((data as any).paymentTermsAppend ?? "");
+        setClosingPrepend((data as any).closingPrepend ?? "");
+        setClosingAppend((data as any).closingAppend ?? "");
+        setAttachmentCount(Number((data as any).attachmentCount) || 1);
+        setCustomAttachmentText((data as any).customAttachmentText ?? "");
         setItems(keyed(data.items ?? []));
     }, [data]);
 
@@ -261,6 +288,15 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             discount,
             dpPercent,
             notes,
+            customOpeningText: customOpeningText.trim() || null,
+            disclaimerPrepend: disclaimerPrepend.trim() || null,
+            disclaimerAppend: disclaimerAppend.trim() || null,
+            paymentTermsPrepend: paymentTermsPrepend.trim() || null,
+            paymentTermsAppend: paymentTermsAppend.trim() || null,
+            closingPrepend: closingPrepend.trim() || null,
+            closingAppend: closingAppend.trim() || null,
+            attachmentCount: attachmentCount && attachmentCount > 0 ? Math.floor(attachmentCount) : null,
+            customAttachmentText: customAttachmentText.trim() || null,
             brand,
             items: items.map((it, idx) => ({
                 description: it.description,
@@ -953,6 +989,123 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     <Field label="Catatan / Terms" value={notes} onChange={setNotes} multiline />
                 </section>
 
+                {/* Custom text per quotation — override default brand text */}
+                <section className="bg-white rounded-lg border p-4 space-y-3">
+                    <div>
+                        <h3 className="font-semibold flex items-center gap-2">
+                            ✍️ Custom Text Surat (Opsional)
+                        </h3>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                            Override teks default per surat. Kosongkan untuk pakai default dari Pengaturan Brand.
+                        </p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium block mb-1">
+                            📎 Lampiran
+                        </label>
+                        <textarea
+                            value={customAttachmentText}
+                            onChange={(e) => setCustomAttachmentText(e.target.value)}
+                            rows={2}
+                            placeholder='Bebas isi: angka ("1 (satu) berkas"), dash ("-"), atau list multi-baris'
+                            className="w-full border rounded px-3 py-2 text-sm font-sans"
+                        />
+                        {/* Quick-fill chips — klik untuk auto-isi field di atas */}
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                            <span className="text-[10px] text-muted-foreground self-center mr-1">Quick fill:</span>
+                            {[
+                                { label: "1 (satu) berkas", val: "1 (satu) berkas" },
+                                { label: "2 (dua) berkas", val: "2 (dua) berkas" },
+                                { label: "3 (tiga) berkas", val: "3 (tiga) berkas" },
+                                { label: "—", val: "-" },
+                                { label: "Tidak ada", val: "Tidak ada" },
+                            ].map((opt) => (
+                                <button
+                                    key={opt.label}
+                                    type="button"
+                                    onClick={() => setCustomAttachmentText(opt.val)}
+                                    className="px-2 py-0.5 rounded border text-[10px] font-medium bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300"
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                            {customAttachmentText && (
+                                <button
+                                    type="button"
+                                    onClick={() => setCustomAttachmentText("")}
+                                    className="px-2 py-0.5 rounded border text-[10px] font-medium bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-300"
+                                >
+                                    ✕ Reset (pakai default)
+                                </button>
+                            )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                            Kosongkan untuk default auto: &quot;1 (satu) berkas&quot;. Multi-baris diperbolehkan (line break dipertahankan di PDF).
+                        </p>
+                    </div>
+                    {/* Pembuka — full custom (replace template) */}
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-medium">
+                                Pembuka Surat &quot;Dengan hormat...&quot;
+                                <span className="text-[10px] text-muted-foreground font-normal ml-1">(full custom)</span>
+                            </label>
+                            {brandSettings?.openingTemplate && (
+                                <button
+                                    type="button"
+                                    onClick={() => setCustomOpeningText(brandSettings.openingTemplate ?? "")}
+                                    className="text-[10px] px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100"
+                                    title="Salin template dari pengaturan brand"
+                                >
+                                    📋 Salin Template Brand
+                                </button>
+                            )}
+                        </div>
+                        <textarea
+                            value={customOpeningText}
+                            onChange={(e) => setCustomOpeningText(e.target.value)}
+                            rows={4}
+                            placeholder={brandSettings?.openingTemplate
+                                ? `Klik "Salin Template Brand" untuk auto-isi, atau ketik manual.`
+                                : "Default: 'Dengan hormat, Bersama surat ini kami ... mengajukan penawaran...'"}
+                            className="w-full border rounded px-3 py-2 text-sm font-sans"
+                        />
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                            Kalau diisi, REPLACE paragraf default. Kosongkan untuk pakai default sistem.
+                        </p>
+                    </div>
+
+                    {/* Catatan Harga — append/prepend mode */}
+                    <PrependAppendField
+                        title="📝 Catatan Harga / Disclaimer"
+                        prepend={disclaimerPrepend}
+                        append={disclaimerAppend}
+                        onPrepend={setDisclaimerPrepend}
+                        onAppend={setDisclaimerAppend}
+                        brandDefault={brandSettings?.quotationDisclaimer ?? null}
+                    />
+
+                    {/* Sistem Pembayaran — append/prepend mode */}
+                    <PrependAppendField
+                        title="💳 Sistem Pembayaran"
+                        prepend={paymentTermsPrepend}
+                        append={paymentTermsAppend}
+                        onPrepend={setPaymentTermsPrepend}
+                        onAppend={setPaymentTermsAppend}
+                        brandDefault={brandSettings?.quotationPaymentTerms ?? null}
+                    />
+
+                    {/* Penutup Surat — append/prepend mode */}
+                    <PrependAppendField
+                        title="✉️ Penutup Surat"
+                        prepend={closingPrepend}
+                        append={closingAppend}
+                        onPrepend={setClosingPrepend}
+                        onAppend={setClosingAppend}
+                        brandDefault={brandSettings?.quotationClosing ?? null}
+                    />
+                </section>
+
                 <section className="bg-white rounded-lg border p-4">
                     <h3 className="font-semibold mb-2">Ringkasan</h3>
                     <table className="w-full text-sm">
@@ -1518,5 +1671,75 @@ function Row({ label, value }: { label: string; value: string }) {
             <td className="py-1 text-gray-600">{label}</td>
             <td className="py-1 text-right">{value}</td>
         </tr>
+    );
+}
+
+/** Field section dengan 2 textarea (prepend/append) yang sandwich brand default text. */
+function PrependAppendField({
+    title, prepend, append, onPrepend, onAppend, brandDefault,
+}: {
+    title: string;
+    prepend: string;
+    append: string;
+    onPrepend: (v: string) => void;
+    onAppend: (v: string) => void;
+    brandDefault: string | null;
+}) {
+    const [showDefault, setShowDefault] = useState(false);
+    return (
+        <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/40 space-y-2">
+            <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700">{title}</label>
+                {brandDefault && (
+                    <button
+                        type="button"
+                        onClick={() => setShowDefault((v) => !v)}
+                        className="text-[10px] text-blue-600 hover:underline"
+                    >
+                        {showDefault ? "▲ Sembunyikan" : "▼ Lihat default brand"}
+                    </button>
+                )}
+            </div>
+
+            {/* Prepend — di ATAS default brand */}
+            <div>
+                <label className="text-[10px] font-medium text-emerald-700 block mb-0.5">
+                    ⬆️ Tambah di ATAS default brand (opsional)
+                </label>
+                <textarea
+                    value={prepend}
+                    onChange={(e) => onPrepend(e.target.value)}
+                    rows={2}
+                    placeholder="Kosongkan kalau tidak perlu menambah text di atas. Mis: 'Note khusus event ini:'"
+                    className="w-full border rounded px-2 py-1.5 text-xs font-sans"
+                />
+            </div>
+
+            {/* Default brand preview (collapsible) */}
+            {showDefault && (
+                <div className="bg-amber-50 border border-amber-200 rounded p-2">
+                    <div className="text-[10px] font-bold text-amber-800 mb-0.5">📌 Default dari pengaturan brand:</div>
+                    <pre className="text-[10px] text-amber-900 whitespace-pre-wrap font-sans">{brandDefault || "(belum di-set di pengaturan brand)"}</pre>
+                </div>
+            )}
+
+            {/* Append — di BAWAH default brand */}
+            <div>
+                <label className="text-[10px] font-medium text-blue-700 block mb-0.5">
+                    ⬇️ Tambah di BAWAH default brand (opsional)
+                </label>
+                <textarea
+                    value={append}
+                    onChange={(e) => onAppend(e.target.value)}
+                    rows={2}
+                    placeholder="Kosongkan kalau tidak perlu. Mis: 'Untuk event ini, harga sudah include logistic loading dock.'"
+                    className="w-full border rounded px-2 py-1.5 text-xs font-sans"
+                />
+            </div>
+
+            <p className="text-[9px] text-muted-foreground italic">
+                Format final di PDF: [Atas] + [Default Brand] + [Bawah] (yang kosong di-skip).
+            </p>
+        </div>
     );
 }

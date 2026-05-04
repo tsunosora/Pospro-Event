@@ -123,6 +123,8 @@ function BrandForm({
     const [quotationPaymentTerms, setQuotationPaymentTerms] = useState(initial?.quotationPaymentTerms ?? DEFAULT_PAYMENT_TERMS);
     const [quotationClosing, setQuotationClosing] = useState(initial?.quotationClosing ?? DEFAULT_CLOSING);
     const [invoiceClosingText, setInvoiceClosingText] = useState(initial?.invoiceClosingText ?? DEFAULT_INVOICE_CLOSING);
+    const [openingTemplate, setOpeningTemplate] = useState(initial?.openingTemplate ?? "");
+    const [themeColor, setThemeColor] = useState<string>(initial?.themeColor ?? (brand === "EXINDO" ? "#1e40af" : brand === "XPOSER" ? "#0d9488" : "#c8203a"));
     const [isActive, setIsActive] = useState(initial?.isActive ?? true);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -144,6 +146,8 @@ function BrandForm({
         setQuotationPaymentTerms(initial?.quotationPaymentTerms ?? DEFAULT_PAYMENT_TERMS);
         setQuotationClosing(initial?.quotationClosing ?? DEFAULT_CLOSING);
         setInvoiceClosingText(initial?.invoiceClosingText ?? DEFAULT_INVOICE_CLOSING);
+        setOpeningTemplate(initial?.openingTemplate ?? "");
+        setThemeColor(initial?.themeColor ?? (brand === "EXINDO" ? "#1e40af" : brand === "XPOSER" ? "#0d9488" : "#c8203a"));
         setIsActive(initial?.isActive ?? true);
     }, [initial, brand]);
 
@@ -158,6 +162,8 @@ function BrandForm({
             npwp, bankAccountIds, letterheadFooter,
             quotationDisclaimer, quotationPaymentTerms, quotationClosing,
             invoiceClosingText,
+            openingTemplate: openingTemplate.trim() || null,
+            themeColor: themeColor.trim() || null,
             isActive,
         }),
         onSuccess: () => {
@@ -224,10 +230,30 @@ function BrandForm({
                         </p>
                     )}
                 </div>
-                <label className="inline-flex items-center gap-1.5 text-sm">
-                    <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-                    Brand aktif
-                </label>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                        <label className="text-xs font-medium text-slate-700" title="Warna PDF header & accent (Penawaran, Invoice). Aplikasi pakai default kalau kosong.">
+                            🎨 Warna PDF
+                        </label>
+                        <input
+                            type="color"
+                            value={themeColor}
+                            onChange={(e) => setThemeColor(e.target.value)}
+                            className="h-7 w-10 rounded border border-slate-300 cursor-pointer"
+                        />
+                        <input
+                            type="text"
+                            value={themeColor}
+                            onChange={(e) => setThemeColor(e.target.value)}
+                            placeholder="#1e40af"
+                            className="w-24 px-2 py-1 border rounded text-xs font-mono"
+                        />
+                    </div>
+                    <label className="inline-flex items-center gap-1.5 text-sm">
+                        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+                        Brand aktif
+                    </label>
+                </div>
             </div>
 
             {/* Logo upload */}
@@ -491,6 +517,19 @@ function BrandForm({
                 <p className="text-xs text-muted-foreground">
                     Bagian text di bawah ini dipakai otomatis di surat penawaran brand <b>{meta.short}</b>. Boleh edit sesuai kebutuhan.
                 </p>
+
+                <Field
+                    label="📋 Template Pembuka Surat (Opsional)"
+                    hint='Template paragraf "Dengan hormat..." yang bisa di-Salin ke per-quotation dengan satu klik. Kosongkan kalau tidak perlu template.'
+                >
+                    <textarea
+                        value={openingTemplate}
+                        onChange={(e) => setOpeningTemplate(e.target.value)}
+                        rows={4}
+                        placeholder='Mis: "Dengan hormat, Bersama surat ini kami CV. Xposer Event mengajukan penawaran harga Sewa Perlengkapan Event untuk acara {EVENT} di {LOKASI} pada tanggal {TANGGAL}. Adapun rincian penawaran kami adalah sebagai berikut:"'
+                        className="form-input text-xs min-h-[90px]"
+                    />
+                </Field>
 
                 <Field label="📝 Catatan Harga / Disclaimer" hint="Daftar yang tidak termasuk dalam harga, dll. Pakai # di awal kalau mau bullet-style.">
                     <textarea

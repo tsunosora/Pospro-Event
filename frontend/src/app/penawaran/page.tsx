@@ -386,10 +386,31 @@ function PenawaranListPageInner() {
                             </tr>
                         </thead>
                         <tbody>
-                            {quotations.map((q) => (
-                                <tr key={q.id} className="border-t hover:bg-gray-50">
-                                    <td className="px-3 py-2 font-mono">
-                                        <Link href={`/penawaran/${q.id}`} className="text-blue-600 hover:underline">
+                            {quotations.map((q) => {
+                                const bm = q.brand ? BRAND_META[q.brand] : null;
+                                const accentColor = bm?.color ?? "#94a3b8"; // slate-400 default
+                                return (
+                                <tr
+                                    key={q.id}
+                                    className="border-t transition-colors"
+                                    style={{
+                                        borderLeft: `4px solid ${accentColor}`,
+                                        backgroundColor: bm ? `${accentColor}06` : undefined, // sangat tipis (~3% opacity hex)
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = bm ? `${accentColor}15` : "#f9fafb";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = bm ? `${accentColor}06` : "transparent";
+                                    }}
+                                >
+                                    <td className="px-3 py-2 font-mono"
+                                        style={{ borderLeft: `2px solid ${accentColor}40` }}>
+                                        <Link
+                                            href={`/penawaran/${q.id}`}
+                                            className="hover:underline font-semibold"
+                                            style={{ color: accentColor }}
+                                        >
                                             {q.invoiceNumber}
                                         </Link>
                                         {q.revisionNumber > 0 && (
@@ -506,7 +527,8 @@ function PenawaranListPageInner() {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

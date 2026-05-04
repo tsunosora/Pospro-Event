@@ -29,6 +29,8 @@ export interface UpsertBrandInput {
     quotationPaymentTerms?: string | null;
     quotationClosing?: string | null;
     invoiceClosingText?: string | null;
+    openingTemplate?: string | null;
+    themeColor?: string | null;
     isActive?: boolean;
     logoImageUrl?: string | null;
     letterheadImageUrl?: string | null;
@@ -117,6 +119,8 @@ export class BrandsService {
             quotationPaymentTerms: input.quotationPaymentTerms ?? null,
             quotationClosing: input.quotationClosing ?? null,
             invoiceClosingText: input.invoiceClosingText ?? null,
+            openingTemplate: input.openingTemplate?.trim() || null,
+            themeColor: input.themeColor?.trim() || null,
             isActive: input.isActive ?? true,
             ...(input.logoImageUrl !== undefined ? { logoImageUrl: input.logoImageUrl } : {}),
             ...(input.letterheadImageUrl !== undefined ? { letterheadImageUrl: input.letterheadImageUrl } : {}),

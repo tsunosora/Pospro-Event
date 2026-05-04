@@ -491,6 +491,20 @@ model Invoice {
   invoicePart       String?           @map("invoice_part") @db.VarChar(20)  // "DP" | "PELUNASAN" | "FULL" — untuk dokumen tipe INVOICE
   amountToPay       Decimal?          @map("amount_to_pay") @db.Decimal(15, 2) // Jumlah yang ditagihkan di invoice ini (mis. DP 50%); kalau null pakai total
   itemDisplayMode   String?           @map("item_display_mode") @db.VarChar(30) // "detailed" (default) | "category-summary" — sembunyikan harga per item, hanya total per kategori
+  // Custom text per quotation — override default brand text. Null = pakai brandTexts dari BrandSettings.
+  customOpeningText  String?           @map("custom_opening_text") @db.Text   // Override paragraf "Dengan hormat..." (full custom)
+  customDisclaimer   String?           @map("custom_disclaimer") @db.Text     // Legacy: full override; default skip pakai prepend/append saja
+  customPaymentTerms String?           @map("custom_payment_terms") @db.Text  // Legacy: full override
+  customClosing      String?           @map("custom_closing") @db.Text        // Legacy: full override
+  // Append/prepend mode — text di atas/bawah default dari BrandSettings
+  disclaimerPrepend     String?        @map("disclaimer_prepend") @db.Text
+  disclaimerAppend      String?        @map("disclaimer_append") @db.Text
+  paymentTermsPrepend   String?        @map("payment_terms_prepend") @db.Text
+  paymentTermsAppend    String?        @map("payment_terms_append") @db.Text
+  closingPrepend        String?        @map("closing_prepend") @db.Text
+  closingAppend         String?        @map("closing_append") @db.Text
+  attachmentCount    Int?              @map("attachment_count")                // Jumlah lampiran (mis. 1, 2, 3). Null = default 1.
+  customAttachmentText String?         @map("custom_attachment_text") @db.Text // Override teks lampiran (mis. "Brosur produk, Foto referensi"). Null = pakai "{N} ({terbilang}) berkas".
   createdAt     DateTime?     @default(now()) @map("created_at")
   updatedAt     DateTime?     @default(now()) @updatedAt @map("updated_at")
 
@@ -1663,6 +1677,8 @@ model BrandSettings {
   quotationPaymentTerms String?   @map("quotation_payment_terms") @db.Text // "Sedangkan system pembayaran 50%..."
   quotationClosing     String?    @map("quotation_closing") @db.Text   // "Demikian penawaran kerjasama kami..."
   invoiceClosingText   String?    @map("invoice_closing_text") @db.Text // "Nb: Jika terjadi pembatalan..." khusus untuk invoice (bukan penawaran)
+  openingTemplate      String?    @map("opening_template") @db.Text     // Template paragraf "Dengan hormat..." — bisa di-copy ke quotation
+  themeColor           String?    @map("theme_color") @db.VarChar(20) // Hex color untuk PDF header & accent (mis. "#1e40af"). Null = pakai default per brand.
   isActive             Boolean    @default(true) @map("is_active")
   createdAt            DateTime   @default(now()) @map("created_at")
   updatedAt            DateTime   @updatedAt @map("updated_at")

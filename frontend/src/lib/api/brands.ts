@@ -55,6 +55,8 @@ export interface BrandSettings {
     quotationPaymentTerms: string | null;
     quotationClosing: string | null;
     invoiceClosingText: string | null;
+    openingTemplate: string | null;
+    themeColor: string | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -74,6 +76,8 @@ export interface UpsertBrandInput {
     quotationPaymentTerms?: string | null;
     quotationClosing?: string | null;
     invoiceClosingText?: string | null;
+    openingTemplate?: string | null;
+    themeColor?: string | null;
     isActive?: boolean;
 }
 

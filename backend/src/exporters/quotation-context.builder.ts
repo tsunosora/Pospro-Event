@@ -59,7 +59,18 @@ export interface QuotationRenderContext {
         signatureUrl: string | null;
         stampUrl: string | null;
     };
-    // Custom text per brand (override default ketentuan)
+    // Theme color per brand — dipakai di template PDF untuk header table, total label, accent
+    theme: {
+        primary: string;        // hex, mis. "#c8203a"
+        primaryLight: string;   // shade tipis untuk bg subtotal cell, mis. "#fde2e6"
+        primarySubtle: string;  // shade ultra tipis untuk bg row, mis. "#fff8f9"
+        primaryDark: string;    // shade gelap untuk hover/text aksen, mis. "#8a1729"
+    };
+    // Custom opening paragraph — kalau quotation set customOpeningText, pakai itu (override template default)
+    customOpening: string | null;
+    // Lampiran info — jumlah angka + terbilang (mis. {count: 1, label: "1 (satu)"})
+    attachment: { count: number; label: string };
+    // Custom text per brand (override default ketentuan) — kalau quotation set customX, pakai itu
     brandTexts: {
         disclaimer: string | null;          // "# Harga belum termasuk..." (penawaran)
         paymentTerms: string | null;        // "Sedangkan system pembayaran..." (penawaran)
@@ -211,6 +222,72 @@ export function terbilangRupiah(n: number | string): string {
     const num = Number(n || 0);
     const txt = terbilang(num);
     return (txt.charAt(0).toUpperCase() + txt.slice(1) + ' rupiah').replace(/\s+/g, ' ');
+}
+
+/** Default theme color per brand. Dipakai kalau BrandSettings.themeColor null. */
+const DEFAULT_BRAND_COLOR: Record<string, string> = {
+    EXINDO: '#1e40af',  // blue-800
+    XPOSER: '#0d9488',  // teal-600
+    OTHER: '#64748b',   // slate-500
+};
+const FALLBACK_COLOR = '#c8203a'; // crimson — current default
+
+/** Convert hex (e.g. "#c8203a" or "#fff") → {r,g,b}. Returns null kalau invalid. */
+function parseHex(hex: string): { r: number; g: number; b: number } | null {
+    const s = hex.trim().replace(/^#/, '');
+    const full = s.length === 3 ? s.split('').map((c) => c + c).join('') : s;
+    if (!/^[0-9a-fA-F]{6}$/.test(full)) return null;
+    return {
+        r: parseInt(full.slice(0, 2), 16),
+        g: parseInt(full.slice(2, 4), 16),
+        b: parseInt(full.slice(4, 6), 16),
+    };
+}
+
+/** Mix `c` dengan putih sebanyak `pct%` (0-100). Higher pct = lebih terang. */
+function lighten(hex: string, pct: number): string {
+    const c = parseHex(hex);
+    if (!c) return hex;
+    const t = Math.max(0, Math.min(100, pct)) / 100;
+    const r = Math.round(c.r + (255 - c.r) * t);
+    const g = Math.round(c.g + (255 - c.g) * t);
+    const b = Math.round(c.b + (255 - c.b) * t);
+    return '#' + [r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('');
+}
+
+/** Mix `c` dengan hitam sebanyak `pct%` (0-100). Higher pct = lebih gelap. */
+function darken(hex: string, pct: number): string {
+    const c = parseHex(hex);
+    if (!c) return hex;
+    const t = Math.max(0, Math.min(100, pct)) / 100;
+    const r = Math.round(c.r * (1 - t));
+    const g = Math.round(c.g * (1 - t));
+    const b = Math.round(c.b * (1 - t));
+    return '#' + [r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('');
+}
+
+/** Resolve theme dari brand color (BrandSettings.themeColor → DEFAULT_BRAND_COLOR → FALLBACK). */
+export function resolveTheme(brandThemeColor: string | null | undefined, brand: string | null | undefined): {
+    primary: string; primaryLight: string; primarySubtle: string; primaryDark: string;
+} {
+    let primary = brandThemeColor?.trim();
+    if (!primary || !parseHex(primary)) {
+        primary = brand && DEFAULT_BRAND_COLOR[brand] ? DEFAULT_BRAND_COLOR[brand] : FALLBACK_COLOR;
+    }
+    return {
+        primary,
+        primaryLight: lighten(primary, 75),   // ~25% saturation
+        primarySubtle: lighten(primary, 92),  // sangat tipis untuk bg
+        primaryDark: darken(primary, 30),
+    };
+}
+
+/** Format jumlah lampiran ke "1 (satu) berkas" / "2 (dua) berkas" / dll. */
+function formatAttachmentLabel(count: number): string {
+    const safe = Math.max(1, Math.floor(count));
+    const words = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh'];
+    const word = safe <= 10 ? words[safe] : terbilang(safe).trim();
+    return `${safe} (${word}) berkas`;
 }
 
 function buildInvoicePartLabel(part: string | null | undefined): string {
@@ -375,12 +452,69 @@ export class QuotationContextBuilder {
                     ?? null
                 ),
             },
-            brandTexts: {
-                disclaimer: brandSettings?.quotationDisclaimer ?? null,
-                paymentTerms: brandSettings?.quotationPaymentTerms ?? null,
-                closing: brandSettings?.quotationClosing ?? null,
-                invoiceClosing: brandSettings?.invoiceClosingText ?? null,
-            },
+            theme: resolveTheme(brandSettings?.themeColor ?? null, quotation.brand),
+            customOpening: quotation.customOpeningText?.trim() || null,
+            // Helper untuk combine prepend + base + append (skip yang kosong)
+            // Lokal scope, di-spread ke brandTexts di bawah
+            attachment: (() => {
+                const c = quotation.attachmentCount && quotation.attachmentCount > 0 ? quotation.attachmentCount : 1;
+                const customText = quotation.customAttachmentText?.trim();
+                // Kalau user set teks custom, pakai itu sebagai label utuh.
+                // Kalau tidak, generate "{N} ({terbilang}) berkas" otomatis.
+                const label = customText || formatAttachmentLabel(c);
+                return { count: c, label };
+            })(),
+            brandTexts: (() => {
+                /**
+                 * Resolution per section (3-tier):
+                 *  1. Kalau quotation.customXxx (legacy full override) di-set → pakai itu (tidak combine apapun)
+                 *  2. Kalau prepend/append di-set → combine: prepend + brand_default + append (skip yang kosong)
+                 *  3. Default: brand_default saja
+                 */
+                const combine = (
+                    fullOverride: string | null | undefined,
+                    prepend: string | null | undefined,
+                    base: string | null | undefined,
+                    append: string | null | undefined,
+                ): string | null => {
+                    const o = fullOverride?.trim();
+                    if (o) return o;
+                    const parts: string[] = [];
+                    const p = prepend?.trim();
+                    const ba = base?.trim();
+                    const a = append?.trim();
+                    if (p) parts.push(p);
+                    if (ba) parts.push(ba);
+                    if (a) parts.push(a);
+                    return parts.length > 0 ? parts.join('\n\n') : null;
+                };
+                return {
+                    disclaimer: combine(
+                        quotation.customDisclaimer,
+                        quotation.disclaimerPrepend,
+                        brandSettings?.quotationDisclaimer,
+                        quotation.disclaimerAppend,
+                    ),
+                    paymentTerms: combine(
+                        quotation.customPaymentTerms,
+                        quotation.paymentTermsPrepend,
+                        brandSettings?.quotationPaymentTerms,
+                        quotation.paymentTermsAppend,
+                    ),
+                    closing: combine(
+                        quotation.customClosing,
+                        quotation.closingPrepend,
+                        brandSettings?.quotationClosing,
+                        quotation.closingAppend,
+                    ),
+                    invoiceClosing: combine(
+                        quotation.customClosing,
+                        quotation.closingPrepend,
+                        brandSettings?.invoiceClosingText,
+                        quotation.closingAppend,
+                    ),
+                };
+            })(),
             itemGroups,
             doc: {
                 number: quotation.invoiceNumber,
