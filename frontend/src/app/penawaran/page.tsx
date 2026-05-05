@@ -15,7 +15,7 @@ import {
     backfillQuotationStatus,
     type Quotation, type QuotationVariant,
 } from "@/lib/api/quotations";
-import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
+import { ACTIVE_BRANDS, BRAND_META, listBrands, type Brand } from "@/lib/api/brands";
 import { BrandBadge } from "@/components/BrandBadge";
 import { listQuotationVariants, type QuotationVariantConfig } from "@/lib/api/quotation-variants";
 import { getWorkers, MARKETER_POSITIONS } from "@/lib/api/workers";
@@ -88,7 +88,7 @@ function PenawaranListPageInner() {
         setPreviewQ(q);
         setPreviewLoading(true);
         try {
-            const blob = await downloadQuotationExport(q.id, "pdf");
+            const { blob } = await downloadQuotationExport(q.id, "pdf");
             if (previewUrl) URL.revokeObjectURL(previewUrl);
             setPreviewUrl(URL.createObjectURL(blob));
         } catch (err: any) {
@@ -120,6 +120,19 @@ function PenawaranListPageInner() {
         queryFn: () => listQuotationVariants(true), // include inactive untuk lookup label dari quotation lama
     });
     const variantConfigMap = new Map(variantConfigs.map((v) => [v.code, v]));
+
+    // Theme color per brand — diambil dari /settings/brand (BrandSettings.themeColor).
+    // Dipakai untuk mewarnai border + background row table sesuai brand setting user.
+    const { data: brandSettingsList = [] } = useQuery({
+        queryKey: ["brand-settings-all"],
+        queryFn: listBrands,
+        staleTime: 5 * 60 * 1000, // cache 5 menit, jarang berubah
+    });
+    const brandColorMap = new Map<Brand, string>(
+        brandSettingsList
+            .filter((b) => b.themeColor && b.themeColor.trim())
+            .map((b) => [b.brand, b.themeColor!.trim()]),
+    );
 
     const createMut = useMutation({
         mutationFn: createQuotation,
@@ -174,13 +187,13 @@ function PenawaranListPageInner() {
         backfillStatusMut.mutate();
     };
 
-    const handleExport = async (id: number, format: "pdf" | "docx", invoiceNumber: string) => {
+    const handleExport = async (id: number, format: "pdf" | "docx", _invoiceNumber: string) => {
         try {
-            const blob = await downloadQuotationExport(id, format);
+            const { blob, filename } = await downloadQuotationExport(id, format);
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `Penawaran_${invoiceNumber.replace(/[^a-zA-Z0-9._-]+/g, "_")}.${format}`;
+            a.download = filename; // pakai nama dari Content-Disposition server
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -388,7 +401,9 @@ function PenawaranListPageInner() {
                         <tbody>
                             {quotations.map((q) => {
                                 const bm = q.brand ? BRAND_META[q.brand] : null;
-                                const accentColor = bm?.color ?? "#94a3b8"; // slate-400 default
+                                // Prioritas warna: themeColor dari pengaturan brand → fallback BRAND_META.color → slate-400.
+                                const settingsColor = q.brand ? brandColorMap.get(q.brand) : null;
+                                const accentColor = settingsColor || bm?.color || "#94a3b8";
                                 return (
                                 <tr
                                     key={q.id}

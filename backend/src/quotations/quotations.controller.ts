@@ -21,8 +21,49 @@ import { DocxExportService } from '../exporters/docx-export.service';
 import type { CreateQuotationDto } from './dto/create-quotation.dto';
 import type { UpdateQuotationDto } from './dto/update-quotation.dto';
 
+/**
+ * Sanitize filename: pertahankan format nomor penawaran semaksimal mungkin.
+ * - Slash `/` (path separator, gak boleh) → ganti `-`
+ * - Backslash dan karakter terlarang lain → underscore
+ * - Pertahankan titik, dash, alfanumerik, spasi (akan di-trim)
+ *   Contoh: "5260/Xp.Pnwr/V/26" → "5260-Xp.Pnwr-V-26"
+ */
 function safeFilename(s: string): string {
-    return s.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 120);
+    return s
+        .replace(/\//g, '-')
+        .replace(/[\\?<>|*"\x00-\x1f]/g, '_')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/_+/g, '_')
+        .replace(/-+/g, '-')
+        .replace(/^[._-]+|[._-]+$/g, '')
+        .slice(0, 120);
+}
+
+/**
+ * Bangun nama file export berdasarkan data penawaran.
+ * - Kalau nomor sudah di-assign (bukan DRAFT) → pakai nomor: "5260-Xp.Pnwr-V-26"
+ * - Kalau masih DRAFT → kombinasi nama proyek/klien supaya gak random:
+ *   "Penawaran-IIFEX-PT.Prasetia" (project + company), atau
+ *   "Penawaran-PT.Prasetia" (kalau project kosong), atau
+ *   "Penawaran-DRAFT" (fallback ekstrem)
+ */
+function buildExportFilename(inv: any): string {
+    const num = (inv.invoiceNumber ?? '').toString();
+    const isDraft = num.startsWith('DRAFT-') || num.startsWith('DRAFT_');
+    if (!isDraft && num) {
+        return safeFilename(num);
+    }
+    // DRAFT — pakai project + client untuk nama yang lebih readable
+    const project = (inv.projectName ?? '').toString().trim();
+    const company = (inv.clientCompany ?? '').toString().trim();
+    const client = (inv.clientName ?? '').toString().trim();
+    const parts = ['Penawaran'];
+    if (project) parts.push(project);
+    if (company) parts.push(company);
+    else if (client) parts.push(client);
+    if (parts.length === 1) parts.push('DRAFT');
+    return safeFilename(parts.join('-'));
 }
 
 @UseGuards(JwtAuthGuard)
@@ -111,7 +152,9 @@ export class QuotationsController {
     async exportPdf(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
         const inv = await this.service.findOne(id);
         const pdf = await this.pdfExport.renderQuotationPdf(id);
-        const fileName = safeFilename(`Penawaran_${inv.invoiceNumber}.pdf`);
+        // Filename: kalau nomor sudah di-assign → pakai nomor, kalau masih DRAFT → pakai
+        // kombinasi nama project + klien supaya tidak random "DRAFT-1777891675959.pdf".
+        const fileName = `${buildExportFilename(inv)}.pdf`;
         res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
         res.setHeader('Content-Length', pdf.length.toString());
         res.end(pdf);
@@ -121,7 +164,7 @@ export class QuotationsController {
     async exportDocx(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
         const inv = await this.service.findOne(id);
         const docx = await this.docxExport.renderQuotationDocx(id);
-        const fileName = safeFilename(`Penawaran_${inv.invoiceNumber}.docx`);
+        const fileName = `${buildExportFilename(inv)}.docx`;
         res.setHeader(
             'Content-Type',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

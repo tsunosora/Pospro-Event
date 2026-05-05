@@ -460,7 +460,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setPreviewLoading(true);
         setPreviewOpen(true);
         try {
-            const blob = await downloadQuotationExport(id, "pdf");
+            const { blob } = await downloadQuotationExport(id, "pdf");
             if (previewUrl) URL.revokeObjectURL(previewUrl);
             const url = URL.createObjectURL(blob);
             setPreviewUrl(url);
@@ -484,7 +484,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             await updateQuotation(id, { itemDisplayMode: newMode });
             qc.invalidateQueries({ queryKey: ["quotation", id] });
             // Re-fetch PDF
-            const blob = await downloadQuotationExport(id, "pdf");
+            const { blob } = await downloadQuotationExport(id, "pdf");
             if (previewUrl) URL.revokeObjectURL(previewUrl);
             setPreviewUrl(URL.createObjectURL(blob));
         } catch (err: any) {
@@ -512,18 +512,17 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
     const handleExport = async (format: "pdf" | "docx") => {
         try {
-            const blob = await downloadQuotationExport(id, format);
+            const { blob, filename } = await downloadQuotationExport(id, format);
             const url = URL.createObjectURL(blob);
-            if (format === "pdf") {
-                window.open(url, "_blank");
-            } else {
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `Penawaran_${(data?.invoiceNumber ?? id).toString().replace(/[^a-zA-Z0-9._-]+/g, "_")}.${format}`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            }
+            // Pakai <a download> untuk PDF & DOCX supaya nama file dari server (Content-Disposition)
+            // dipakai Windows/Save As dialog. window.open() bikin browser pakai blob UUID jadi nama.
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            if (format === "pdf") a.target = "_blank"; // PDF tetap buka di tab baru
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 60_000);
         } catch (err: any) {
             alert("Gagal export: " + (err?.response?.data?.message || err.message));

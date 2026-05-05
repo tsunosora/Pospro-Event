@@ -29,6 +29,9 @@ async function bootstrap() {
     origin: allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
+    // Content-Disposition harus di-expose supaya frontend bisa baca filename dari header
+    // (default browser CORS sembunyikan header response selain whitelist).
+    exposedHeaders: ['Content-Disposition'],
   });
 
   await app.listen(process.env.PORT ?? 3001);

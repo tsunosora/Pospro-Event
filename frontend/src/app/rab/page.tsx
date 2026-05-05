@@ -266,40 +266,103 @@ function RabTagFilterStrip({
             .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
     }, [rabs]);
 
+    // Default: tampil top 6 tag terbanyak. Sisanya disembunyikan + dapat di-expand atau dicari.
+    const TOP_N = 6;
+    const [showAll, setShowAll] = useState(false);
+    const [search, setSearch] = useState("");
+
     if (tagCounts.length === 0) return null;
 
-    return (
-        <div className="flex items-center gap-2 overflow-x-auto sm:flex-wrap whitespace-nowrap pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0 [scrollbar-width:thin]">
-            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 w-[56px] uppercase tracking-wider">🏷️ Tag</span>
+    // Pastikan tag aktif selalu kelihatan, walau bukan top-N.
+    const topTags = tagCounts.slice(0, TOP_N);
+    const activeNotInTop = active && !topTags.some((t) => t.tag === active)
+        ? tagCounts.find((t) => t.tag === active)
+        : null;
+
+    const filteredHidden = search.trim()
+        ? tagCounts.filter((t) =>
+            t.tag.toLowerCase().includes(search.toLowerCase().trim()),
+        )
+        : tagCounts.slice(TOP_N);
+    const hiddenCount = tagCounts.length - TOP_N;
+
+    const renderChip = (tag: string, count: number) => {
+        const isActive = active === tag;
+        return (
             <button
+                key={tag}
                 type="button"
-                onClick={() => onChange("")}
-                className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition ${active === ""
-                    ? "bg-slate-700 text-white border-slate-700"
-                    : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                onClick={() => {
+                    onChange(isActive ? "" : tag);
+                    if (showAll) setShowAll(false);
+                    setSearch("");
+                }}
+                className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1.5 ${isActive
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-blue-700 border-blue-200 hover:border-blue-400"
                     }`}
             >
-                Semua
+                {tag}
+                <span className={`text-[10px] font-mono px-1 rounded-full ${isActive ? "bg-white/30" : "bg-blue-50 text-blue-700"}`}>
+                    {count}
+                </span>
             </button>
-            {tagCounts.map(({ tag, count }) => {
-                const isActive = active === tag;
-                return (
+        );
+    };
+
+    return (
+        <div className="space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 w-[56px] uppercase tracking-wider">🏷️ Tag</span>
+                <button
+                    type="button"
+                    onClick={() => onChange("")}
+                    className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition ${active === ""
+                        ? "bg-slate-700 text-white border-slate-700"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                        }`}
+                >
+                    Semua
+                </button>
+                {topTags.map(({ tag, count }) => renderChip(tag, count))}
+                {activeNotInTop && renderChip(activeNotInTop.tag, activeNotInTop.count)}
+                {hiddenCount > 0 && (
                     <button
-                        key={tag}
                         type="button"
-                        onClick={() => onChange(isActive ? "" : tag)}
-                        className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1.5 ${isActive
-                            ? "bg-blue-600 text-white border-blue-600"
-                            : "bg-white text-blue-700 border-blue-200 hover:border-blue-400"
-                            }`}
+                        onClick={() => setShowAll((v) => !v)}
+                        className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:border-slate-400 transition"
                     >
-                        {tag}
-                        <span className={`text-[10px] font-mono px-1 rounded-full ${isActive ? "bg-white/30" : "bg-blue-50 text-blue-700"}`}>
-                            {count}
-                        </span>
+                        {showAll ? "▲ Sembunyikan" : `▼ +${hiddenCount} lainnya`}
                     </button>
-                );
-            })}
+                )}
+            </div>
+
+            {/* Drawer expandable — search + list semua tag */}
+            {showAll && (
+                <div className="ml-[64px] border-2 border-dashed border-slate-200 rounded-lg p-2.5 bg-slate-50/40">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cari tag:</span>
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Ketik untuk filter..."
+                            autoFocus
+                            className="flex-1 max-w-xs border rounded px-2 py-1 text-xs"
+                        />
+                        <span className="text-[10px] text-slate-500">
+                            {filteredHidden.length} tag
+                        </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto [scrollbar-width:thin]">
+                        {filteredHidden.length === 0 ? (
+                            <p className="text-[11px] text-slate-400 italic">Tidak ada tag cocok.</p>
+                        ) : (
+                            filteredHidden.map(({ tag, count }) => renderChip(tag, count))
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

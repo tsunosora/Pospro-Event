@@ -172,8 +172,30 @@ export const getQuotationExportUrl = (id: number, format: 'pdf' | 'docx') => {
     return `${base}/quotations/${id}/export/${format}`;
 };
 
-// Fetch export as blob (butuh token di header, tidak bisa langsung <a href>)
-export const downloadQuotationExport = async (id: number, format: 'pdf' | 'docx'): Promise<Blob> => {
+// Parse filename dari Content-Disposition header.
+// Server kirim: `inline; filename="5260-Xp.Pnwr-V-26.pdf"` atau `attachment; filename="..."`
+function parseFilenameFromDisposition(disposition: string | undefined | null): string | null {
+    if (!disposition) return null;
+    // Match filename* (RFC 5987 encoded) duluan
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;\n]+)/i);
+    if (utf8Match) {
+        try { return decodeURIComponent(utf8Match[1].trim()); } catch { /* fallthrough */ }
+    }
+    // Match filename="..." atau filename=...
+    const m = disposition.match(/filename\s*=\s*"?([^";\n]+)"?/i);
+    return m ? m[1].trim() : null;
+}
+
+// Fetch export as blob + filename dari Content-Disposition (butuh token di header).
+export const downloadQuotationExport = async (
+    id: number,
+    format: 'pdf' | 'docx',
+): Promise<{ blob: Blob; filename: string }> => {
     const res = await api.get(`/quotations/${id}/export/${format}`, { responseType: 'blob' });
-    return res.data as Blob;
+    const disposition =
+        res.headers['content-disposition'] ?? res.headers['Content-Disposition'];
+    const filename =
+        parseFilenameFromDisposition(disposition as string | undefined) ??
+        `penawaran-${id}.${format}`;
+    return { blob: res.data as Blob, filename };
 };
