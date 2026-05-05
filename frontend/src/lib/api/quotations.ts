@@ -148,6 +148,10 @@ export const assignQuotationNumber = async (
 export const reviseQuotation = async (id: number) =>
     (await api.post<Quotation>(`/quotations/${id}/revise`, {})).data;
 
+/** Edit nomor penawaran yang sudah di-assign — koreksi typo / ganti format. */
+export const editQuotationNumber = async (id: number, invoiceNumber: string) =>
+    (await api.patch<Quotation>(`/quotations/${id}/edit-number`, { invoiceNumber })).data;
+
 export const generateInvoiceFromQuotation = async (
     quotationId: number,
     input: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string },

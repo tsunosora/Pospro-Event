@@ -632,6 +632,25 @@ export function LeadDrawer({
                                     💰 Buat RAB untuk customer ini
                                 </a>
                                 <a
+                                    href={(() => {
+                                        // Prefill event form dari data lead — nama event, venue, customer, brand, dll.
+                                        const params = new URLSearchParams();
+                                        params.set("customerId", String(lead.convertedCustomerId));
+                                        if (lead.organization) params.set("customerName", lead.organization);
+                                        if (lead.orderDescription || lead.organization) {
+                                            params.set("name", lead.orderDescription || lead.organization || "");
+                                        }
+                                        if (lead.eventLocation) params.set("venue", lead.eventLocation);
+                                        if (lead.brand) params.set("brand", lead.brand);
+                                        if (lead.assignedWorker?.name) params.set("picName", lead.assignedWorker.name);
+                                        if (lead.notes) params.set("notes", lead.notes);
+                                        return `/events/new?${params.toString()}`;
+                                    })()}
+                                    className="block px-3 py-2 rounded-md border-2 border-emerald-300 bg-emerald-50 text-sm hover:bg-emerald-100 text-emerald-800 font-medium"
+                                >
+                                    🎪 Jadikan Event
+                                </a>
+                                <a
                                     href={`/customers/${lead.convertedCustomerId}`}
                                     className="block px-3 py-2 rounded-md border border-border bg-background text-sm hover:bg-muted"
                                 >

@@ -121,6 +121,15 @@ export class QuotationsController {
         return this.service.assignNumber(id, body);
     }
 
+    /** Edit nomor penawaran — koreksi typo / ganti format setelah nomor di-assign. */
+    @Patch(':id/edit-number')
+    editNumber(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { invoiceNumber: string },
+    ) {
+        return this.service.editNumber(id, body.invoiceNumber);
+    }
+
     @Post(':id/generate-invoice')
     generateInvoice(
         @Param('id', ParseIntPipe) id: number,

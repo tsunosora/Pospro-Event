@@ -534,6 +534,40 @@ export class QuotationsService {
     }
 
     /**
+     * Edit nomor penawaran yang sudah di-assign — koreksi typo, ganti format, dll.
+     * Validasi: nomor tidak boleh kosong, harus unique (kecuali sama dengan nomor sekarang).
+     * Tidak mengubah status atau revision number.
+     */
+    async editNumber(id: number, newNumber: string) {
+        const inv = await this.prisma.invoice.findUnique({ where: { id } });
+        if (!inv || inv.type !== InvoiceType.QUOTATION) {
+            throw new NotFoundException(`Penawaran id=${id} tidak ditemukan`);
+        }
+        const trimmed = newNumber?.trim();
+        if (!trimmed) {
+            throw new BadRequestException('Nomor penawaran wajib diisi');
+        }
+        if (trimmed === inv.invoiceNumber) {
+            // Nomor sama persis — tidak perlu update.
+            return inv;
+        }
+        // Validasi unique
+        const existing = await this.prisma.invoice.findUnique({
+            where: { invoiceNumber: trimmed },
+        });
+        if (existing && existing.id !== id) {
+            throw new BadRequestException(
+                `Nomor "${trimmed}" sudah dipakai quotation lain (id=${existing.id}). Pilih nomor lain.`,
+            );
+        }
+        return this.prisma.invoice.update({
+            where: { id },
+            data: { invoiceNumber: trimmed },
+            include: { items: true },
+        });
+    }
+
+    /**
      * Buat revisi baru dari penawaran yang sudah punya nomor resmi.
      * Revisi merupakan row baru, parentQuotationId = id asal,
      * revisionNumber = (latest child revNumber + 1). Nomor belum di-assign

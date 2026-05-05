@@ -11,7 +11,7 @@ import dayjs from "dayjs";
 import "dayjs/locale/id";
 import {
     getQuotations, createQuotation, deleteQuotation,
-    assignQuotationNumber, reviseQuotation, downloadQuotationExport,
+    assignQuotationNumber, editQuotationNumber, reviseQuotation, downloadQuotationExport,
     backfillQuotationStatus,
     type Quotation, type QuotationVariant,
 } from "@/lib/api/quotations";
@@ -158,6 +158,29 @@ function PenawaranListPageInner() {
         mutationFn: (id: number) => assignQuotationNumber(id),
         onSuccess: () => qc.invalidateQueries({ queryKey: ["quotations"] }),
     });
+
+    /** Edit nomor penawaran via prompt inline — koreksi typo / format. */
+    const editNumberMut = useMutation({
+        mutationFn: ({ id, invoiceNumber }: { id: number; invoiceNumber: string }) =>
+            editQuotationNumber(id, invoiceNumber),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ["quotations"] }),
+        onError: (err: any) => {
+            alert(`Gagal edit nomor: ${err?.response?.data?.message || err?.message || 'Unknown error'}`);
+        },
+    });
+    const handleEditNumber = (q: Quotation) => {
+        const current = q.invoiceNumber;
+        const next = window.prompt(
+            `Edit nomor penawaran:\n\nFormat bebas (mis. "5260/Xp.Pnwr/V/26").\nKosongkan untuk batal.`,
+            current,
+        );
+        if (next === null) return; // user cancel
+        const trimmed = next.trim();
+        if (!trimmed) return alert("Nomor tidak boleh kosong.");
+        if (trimmed === current) return; // no change
+        if (!confirm(`Ubah nomor penawaran:\n\nDari: ${current}\nKe:   ${trimmed}\n\nLanjutkan?`)) return;
+        editNumberMut.mutate({ id: q.id, invoiceNumber: trimmed });
+    };
 
     const reviseMut = useMutation({
         mutationFn: reviseQuotation,
@@ -421,13 +444,27 @@ function PenawaranListPageInner() {
                                 >
                                     <td className="px-3 py-2 font-mono"
                                         style={{ borderLeft: `2px solid ${accentColor}40` }}>
-                                        <Link
-                                            href={`/penawaran/${q.id}`}
-                                            className="hover:underline font-semibold"
-                                            style={{ color: accentColor }}
-                                        >
-                                            {q.invoiceNumber}
-                                        </Link>
+                                        <div className="inline-flex items-center gap-1 group">
+                                            <Link
+                                                href={`/penawaran/${q.id}`}
+                                                className="hover:underline font-semibold"
+                                                style={{ color: accentColor }}
+                                            >
+                                                {q.invoiceNumber}
+                                            </Link>
+                                            {/* Tombol edit nomor — muncul hover, hanya untuk yang sudah di-assign (bukan DRAFT) */}
+                                            {!q.invoiceNumber.startsWith("DRAFT-") && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEditNumber(q)}
+                                                    disabled={editNumberMut.isPending}
+                                                    title="Edit nomor penawaran"
+                                                    className="opacity-0 group-hover:opacity-100 transition p-0.5 rounded text-slate-500 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                                                >
+                                                    <Pencil className="w-3 h-3" />
+                                                </button>
+                                            )}
+                                        </div>
                                         {q.revisionNumber > 0 && (
                                             <span className="ml-2 text-xs bg-red-100 text-red-700 px-1.5 rounded">Rev. {q.revisionNumber}</span>
                                         )}
