@@ -42,6 +42,16 @@ export interface CreateQuotationDto {
     customDisclaimer?: string | null;    // Override "Catatan Harga"
     customPaymentTerms?: string | null;  // Override "Sistem Pembayaran"
     customClosing?: string | null;       // Override paragraf penutup (legacy, full override)
+    // SPK-specific custom text (override saat render SPK saja)
+    customOpeningSpk?: string | null;
+    customDisclaimerSpk?: string | null;
+    customPaymentTermsSpk?: string | null;
+    customClosingSpk?: string | null;
+    // Invoice-specific custom text (override saat render Invoice saja)
+    customOpeningInvoice?: string | null;
+    customDisclaimerInvoice?: string | null;
+    customPaymentTermsInvoice?: string | null;
+    customClosingInvoice?: string | null;
     // Append/prepend mode — text di atas/bawah brand default (combine dengan separator \n\n)
     disclaimerPrepend?: string | null;
     disclaimerAppend?: string | null;

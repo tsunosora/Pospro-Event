@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Plus, FileText, FileDown, Pencil, Trash2, Loader2, GitBranch, Hash, Eye, X, Download, Users, Search,
+    Plus, FileText, FileDown, Pencil, Trash2, Loader2, GitBranch, Hash, Eye, X, Download, Users, Search, ScrollText,
 } from "lucide-react";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
@@ -64,6 +64,7 @@ function PenawaranListPageInner() {
     const [previewQ, setPreviewQ] = useState<Quotation | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewType, setPreviewType] = useState<"pdf" | "spk-pdf">("pdf");
 
     // Customer prefill — diisi saat user buka via ?customerId=X (dari CRM convert) atau pilih manual
     const [presetCustomer, setPresetCustomer] = useState<Customer | null>(null);
@@ -84,16 +85,33 @@ function PenawaranListPageInner() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [prefillCustomer]);
 
-    const handlePreview = async (q: Quotation) => {
+    const handlePreview = async (q: Quotation, type: "pdf" | "spk-pdf" = "pdf") => {
         setPreviewQ(q);
+        setPreviewType(type);
         setPreviewLoading(true);
         try {
-            const { blob } = await downloadQuotationExport(q.id, "pdf");
+            const { blob } = await downloadQuotationExport(q.id, type);
             if (previewUrl) URL.revokeObjectURL(previewUrl);
             setPreviewUrl(URL.createObjectURL(blob));
         } catch (err: any) {
             alert("Gagal preview: " + (err?.response?.data?.message || err.message));
             setPreviewQ(null);
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
+    /** Switch type preview (Penawaran/SPK) tanpa close modal. */
+    const switchPreviewType = async (type: "pdf" | "spk-pdf") => {
+        if (!previewQ || type === previewType) return;
+        setPreviewType(type);
+        setPreviewLoading(true);
+        try {
+            const { blob } = await downloadQuotationExport(previewQ.id, type);
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            setPreviewUrl(URL.createObjectURL(blob));
+        } catch (err: any) {
+            alert("Gagal switch preview: " + (err?.response?.data?.message || err.message));
         } finally {
             setPreviewLoading(false);
         }
@@ -210,7 +228,7 @@ function PenawaranListPageInner() {
         backfillStatusMut.mutate();
     };
 
-    const handleExport = async (id: number, format: "pdf" | "docx", _invoiceNumber: string) => {
+    const handleExport = async (id: number, format: "pdf" | "docx" | "spk-pdf", _invoiceNumber: string) => {
         try {
             const { blob, filename } = await downloadQuotationExport(id, format);
             const url = URL.createObjectURL(blob);
@@ -557,10 +575,17 @@ function PenawaranListPageInner() {
                                             </button>
                                             <button
                                                 onClick={() => handleExport(q.id, "pdf", q.invoiceNumber)}
-                                                title="Export PDF"
+                                                title="Export PDF Penawaran"
                                                 className="p-1.5 text-red-700 hover:bg-red-50 rounded"
                                             >
                                                 <FileDown className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleExport(q.id, "spk-pdf", q.invoiceNumber)}
+                                                title="Export SPK (Surat Perintah Kerja)"
+                                                className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded"
+                                            >
+                                                <ScrollText className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleExport(q.id, "docx", q.invoiceNumber)}
@@ -613,9 +638,19 @@ function PenawaranListPageInner() {
                 >
                     <div className="bg-white border-b px-4 py-2.5 flex items-center justify-between gap-3 shadow-sm">
                         <div className="flex items-center gap-2">
-                            <Eye className="h-5 w-5 text-violet-600" />
+                            {previewType === "spk-pdf" ? (
+                                <ScrollText className="h-5 w-5 text-emerald-600" />
+                            ) : (
+                                <Eye className="h-5 w-5 text-violet-600" />
+                            )}
                             <div>
-                                <h2 className="font-bold text-slate-900">Preview Penawaran</h2>
+                                <h2 className="font-bold text-slate-900">
+                                    {previewType === "spk-pdf"
+                                        ? "Preview SPK"
+                                        : previewQ.type === 'INVOICE'
+                                            ? "Preview Invoice"
+                                            : "Preview Penawaran"}
+                                </h2>
                                 <p className="text-xs text-muted-foreground">
                                     {previewQ.invoiceNumber}
                                     {previewQ.brand && <span> · Brand {previewQ.brand}</span>}
@@ -623,19 +658,46 @@ function PenawaranListPageInner() {
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Type switcher: Penawaran/Invoice ↔ SPK */}
+                            <div className="inline-flex gap-0.5 bg-slate-100 p-0.5 rounded-md border" title="Pilih dokumen yang di-preview">
+                                <button
+                                    type="button"
+                                    onClick={() => switchPreviewType("pdf")}
+                                    disabled={previewLoading}
+                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${previewType === 'pdf'
+                                        ? 'bg-white text-violet-700 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                >
+                                    {previewQ.type === 'INVOICE' ? '🧾 Invoice' : '📄 Penawaran'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => switchPreviewType("spk-pdf")}
+                                    disabled={previewLoading}
+                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${previewType === 'spk-pdf'
+                                        ? 'bg-white text-emerald-700 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                >
+                                    📜 SPK
+                                </button>
+                            </div>
                             <button
-                                onClick={() => handleExport(previewQ.id, "pdf", previewQ.invoiceNumber)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-semibold"
+                                onClick={() => handleExport(previewQ.id, previewType, previewQ.invoiceNumber)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${previewType === 'spk-pdf' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'} text-white rounded-md text-sm font-semibold`}
                             >
-                                <Download className="h-4 w-4" /> Download PDF
+                                <Download className="h-4 w-4" /> Download {previewType === 'spk-pdf' ? 'SPK' : 'PDF'}
                             </button>
-                            <button
-                                onClick={() => handleExport(previewQ.id, "docx", previewQ.invoiceNumber)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold"
-                            >
-                                <FileText className="h-4 w-4" /> DOCX
-                            </button>
+                            {previewType === "pdf" && (
+                                <button
+                                    onClick={() => handleExport(previewQ.id, "docx", previewQ.invoiceNumber)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold"
+                                >
+                                    <FileText className="h-4 w-4" /> DOCX
+                                </button>
+                            )}
                             <button
                                 onClick={closePreview}
                                 className="p-2 rounded-md hover:bg-slate-100 text-slate-700"

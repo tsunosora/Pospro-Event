@@ -98,6 +98,7 @@ export interface QuotationRenderContext {
         revisionNumber: number;
         // Invoice-specific (kalau type=INVOICE)
         isInvoice: boolean;
+        isSpk?: boolean;                     // kalau true → render sebagai SPK (Surat Perintah Kerja)
         invoicePart: string | null;          // "DP" | "PELUNASAN" | "FULL"
         invoicePartLabel: string | null;     // "INVOICE — DOWN PAYMENT" / dst
         amountToPayFormatted: string | null; // jumlah ditagihkan
@@ -574,6 +575,11 @@ function buildInvoiceSubject(part: string | null | undefined, variantLabel: stri
 export class QuotationContextBuilder {
     constructor(private prisma: PrismaService) { }
 
+    /** Fetch raw quotation row — dipakai untuk override SPK-specific custom text di pdf-export. */
+    async fetchRaw(quotationId: number): Promise<any | null> {
+        return this.prisma.invoice.findUnique({ where: { id: quotationId } });
+    }
+
     async build(quotationId: number): Promise<QuotationRenderContext> {
         const quotation = await this.prisma.invoice.findUnique({
             where: { id: quotationId },
@@ -738,7 +744,16 @@ export class QuotationContextBuilder {
                 ),
             },
             theme: resolveTheme(brandSettings?.themeColor ?? null, quotation.brand),
-            customOpening: quotation.customOpeningText?.trim() || null,
+            // customOpening priority untuk Invoice: customOpeningInvoice → customOpeningText (general)
+            // SPK override-nya di-handle di pdf-export.service (terpisah karena pakai template berbeda).
+            customOpening: (() => {
+                const isInvoice = quotation.type === 'INVOICE';
+                if (isInvoice) {
+                    const inv = (quotation as any).customOpeningInvoice?.trim();
+                    if (inv) return inv;
+                }
+                return quotation.customOpeningText?.trim() || null;
+            })(),
             // Helper untuk combine prepend + base + append (skip yang kosong)
             // Lokal scope, di-spread ke brandTexts di bawah
             attachment: (() => {
@@ -785,21 +800,27 @@ export class QuotationContextBuilder {
                 const invoiceClosingBase = useEn
                     ? (brandSettings?.invoiceClosingTextEn || brandSettings?.invoiceClosingText)
                     : brandSettings?.invoiceClosingText;
+                // Untuk INVOICE, prioritaskan custom*Invoice fields (jika di-set), supaya
+                // edit invoice-specific tidak tabrakan dengan custom penawaran.
+                const isInvoice = quotation.type === 'INVOICE';
+                const invDisclaimer = isInvoice ? (quotation as any).customDisclaimerInvoice : null;
+                const invPaymentTerms = isInvoice ? (quotation as any).customPaymentTermsInvoice : null;
+                const invClosing = isInvoice ? (quotation as any).customClosingInvoice : null;
                 return {
                     disclaimer: combine(
-                        quotation.customDisclaimer,
+                        invDisclaimer || quotation.customDisclaimer,
                         quotation.disclaimerPrepend,
                         disclaimerBase,
                         quotation.disclaimerAppend,
                     ),
                     paymentTerms: combine(
-                        quotation.customPaymentTerms,
+                        invPaymentTerms || quotation.customPaymentTerms,
                         quotation.paymentTermsPrepend,
                         paymentTermsBase,
                         quotation.paymentTermsAppend,
                     ),
                     closing: combine(
-                        quotation.customClosing,
+                        invClosing || quotation.customClosing,
                         quotation.closingPrepend,
                         closingBase,
                         quotation.closingAppend,

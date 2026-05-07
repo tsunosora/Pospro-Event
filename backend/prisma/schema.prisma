@@ -499,6 +499,16 @@ model Invoice {
   customDisclaimer   String?           @map("custom_disclaimer") @db.Text     // Legacy: full override; default skip pakai prepend/append saja
   customPaymentTerms String?           @map("custom_payment_terms") @db.Text  // Legacy: full override
   customClosing      String?           @map("custom_closing") @db.Text        // Legacy: full override
+  // ---- SPK-specific custom text (override saat render SPK saja, tidak pengaruh penawaran) ----
+  customOpeningSpk     String?         @map("custom_opening_spk") @db.Text
+  customDisclaimerSpk  String?         @map("custom_disclaimer_spk") @db.Text
+  customPaymentTermsSpk String?        @map("custom_payment_terms_spk") @db.Text
+  customClosingSpk     String?         @map("custom_closing_spk") @db.Text
+  // ---- Invoice-specific custom text (override saat render Invoice saja, tidak pengaruh penawaran) ----
+  customOpeningInvoice    String?      @map("custom_opening_invoice") @db.Text
+  customDisclaimerInvoice String?      @map("custom_disclaimer_invoice") @db.Text
+  customPaymentTermsInvoice String?    @map("custom_payment_terms_invoice") @db.Text
+  customClosingInvoice    String?      @map("custom_closing_invoice") @db.Text
   // Append/prepend mode — text di atas/bawah default dari BrandSettings
   disclaimerPrepend     String?        @map("disclaimer_prepend") @db.Text
   disclaimerAppend      String?        @map("disclaimer_append") @db.Text

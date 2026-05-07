@@ -74,6 +74,16 @@ export interface Quotation {
     customDisclaimer?: string | null;
     customPaymentTerms?: string | null;
     customClosing?: string | null;
+    // SPK-specific
+    customOpeningSpk?: string | null;
+    customDisclaimerSpk?: string | null;
+    customPaymentTermsSpk?: string | null;
+    customClosingSpk?: string | null;
+    // Invoice-specific
+    customOpeningInvoice?: string | null;
+    customDisclaimerInvoice?: string | null;
+    customPaymentTermsInvoice?: string | null;
+    customClosingInvoice?: string | null;
     disclaimerPrepend?: string | null;
     disclaimerAppend?: string | null;
     paymentTermsPrepend?: string | null;
@@ -193,13 +203,13 @@ function parseFilenameFromDisposition(disposition: string | undefined | null): s
 // Fetch export as blob + filename dari Content-Disposition (butuh token di header).
 export const downloadQuotationExport = async (
     id: number,
-    format: 'pdf' | 'docx',
+    format: 'pdf' | 'docx' | 'spk-pdf',
 ): Promise<{ blob: Blob; filename: string }> => {
     const res = await api.get(`/quotations/${id}/export/${format}`, { responseType: 'blob' });
     const disposition =
         res.headers['content-disposition'] ?? res.headers['Content-Disposition'];
     const filename =
         parseFilenameFromDisposition(disposition as string | undefined) ??
-        `penawaran-${id}.${format}`;
+        `penawaran-${id}.${format === 'spk-pdf' ? 'pdf' : format}`;
     return { blob: res.data as Blob, filename };
 };

@@ -169,6 +169,19 @@ export class QuotationsController {
         res.end(pdf);
     }
 
+    @Get(':id/export/spk-pdf')
+    @Header('Content-Type', 'application/pdf')
+    async exportSpkPdf(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+        const inv = await this.service.findOne(id);
+        const pdf = await this.pdfExport.renderSpkPdf(id);
+        // Filename: "SPK-{nomor}.pdf" — derive dari nomor penawaran
+        const baseName = buildExportFilename(inv).replace(/^SPK-/i, '');
+        const fileName = `SPK-${baseName}.pdf`;
+        res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+        res.setHeader('Content-Length', pdf.length.toString());
+        res.end(pdf);
+    }
+
     @Get(':id/export/docx')
     async exportDocx(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
         const inv = await this.service.findOne(id);

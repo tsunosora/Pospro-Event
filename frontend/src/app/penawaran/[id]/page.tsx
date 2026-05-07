@@ -4,7 +4,7 @@ import { use, useEffect, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    ArrowLeft, Plus, Trash2, Save, Hash, GitBranch, FileDown, FileText, Loader2,
+    ArrowLeft, Plus, Trash2, Save, Hash, GitBranch, FileDown, FileText, Loader2, ScrollText,
     Eye, X, Download, Calculator, Copy, GripVertical,
 } from "lucide-react";
 import {
@@ -102,6 +102,18 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [customDisclaimer, setCustomDisclaimer] = useState<string>("");
     const [customPaymentTerms, setCustomPaymentTerms] = useState<string>("");
     const [customClosing, setCustomClosing] = useState<string>("");
+    // SPK-specific custom text — terpisah dari penawaran, pengaruh hanya saat render SPK
+    const [customOpeningSpk, setCustomOpeningSpk] = useState<string>("");
+    const [customDisclaimerSpk, setCustomDisclaimerSpk] = useState<string>("");
+    const [customPaymentTermsSpk, setCustomPaymentTermsSpk] = useState<string>("");
+    const [customClosingSpk, setCustomClosingSpk] = useState<string>("");
+    // Invoice-specific custom text — terpisah, pengaruh hanya saat render Invoice
+    const [customOpeningInvoice, setCustomOpeningInvoice] = useState<string>("");
+    const [customDisclaimerInvoice, setCustomDisclaimerInvoice] = useState<string>("");
+    const [customPaymentTermsInvoice, setCustomPaymentTermsInvoice] = useState<string>("");
+    const [customClosingInvoice, setCustomClosingInvoice] = useState<string>("");
+    /** Tab aktif untuk Custom Text Surat: penawaran / spk / invoice. */
+    const [customTextTab, setCustomTextTab] = useState<'penawaran' | 'spk' | 'invoice'>('penawaran');
     // Append/prepend per section — combine dengan brand default
     const [disclaimerPrepend, setDisclaimerPrepend] = useState<string>("");
     const [disclaimerAppend, setDisclaimerAppend] = useState<string>("");
@@ -149,6 +161,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [previewOpen, setPreviewOpen] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
+    /** Type dokumen yang sedang di-preview: penawaran/invoice (pdf) atau SPK. */
+    const [previewType, setPreviewType] = useState<"pdf" | "spk-pdf">("pdf");
 
     // Calculator state — modal multiplier per row
     const [calcOpenKey, setCalcOpenKey] = useState<string | null>(null);
@@ -210,6 +224,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setCustomDisclaimer((data as any).customDisclaimer ?? "");
         setCustomPaymentTerms((data as any).customPaymentTerms ?? "");
         setCustomClosing((data as any).customClosing ?? "");
+        setCustomOpeningSpk((data as any).customOpeningSpk ?? "");
+        setCustomDisclaimerSpk((data as any).customDisclaimerSpk ?? "");
+        setCustomPaymentTermsSpk((data as any).customPaymentTermsSpk ?? "");
+        setCustomClosingSpk((data as any).customClosingSpk ?? "");
+        setCustomOpeningInvoice((data as any).customOpeningInvoice ?? "");
+        setCustomDisclaimerInvoice((data as any).customDisclaimerInvoice ?? "");
+        setCustomPaymentTermsInvoice((data as any).customPaymentTermsInvoice ?? "");
+        setCustomClosingInvoice((data as any).customClosingInvoice ?? "");
         setDisclaimerPrepend((data as any).disclaimerPrepend ?? "");
         setDisclaimerAppend((data as any).disclaimerAppend ?? "");
         setPaymentTermsPrepend((data as any).paymentTermsPrepend ?? "");
@@ -439,6 +461,16 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             paymentTermsAppend: paymentTermsAppend.trim() || null,
             closingPrepend: closingPrepend.trim() || null,
             closingAppend: closingAppend.trim() || null,
+            // SPK-specific custom text
+            customOpeningSpk: customOpeningSpk.trim() || null,
+            customDisclaimerSpk: customDisclaimerSpk.trim() || null,
+            customPaymentTermsSpk: customPaymentTermsSpk.trim() || null,
+            customClosingSpk: customClosingSpk.trim() || null,
+            // Invoice-specific custom text
+            customOpeningInvoice: customOpeningInvoice.trim() || null,
+            customDisclaimerInvoice: customDisclaimerInvoice.trim() || null,
+            customPaymentTermsInvoice: customPaymentTermsInvoice.trim() || null,
+            customClosingInvoice: customClosingInvoice.trim() || null,
             attachmentCount: attachmentCount && attachmentCount > 0 ? Math.floor(attachmentCount) : null,
             customAttachmentText: customAttachmentText.trim() || null,
             language,
@@ -456,17 +488,34 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         });
     };
 
-    const handlePreview = async () => {
+    const handlePreview = async (type: "pdf" | "spk-pdf" = "pdf") => {
+        setPreviewType(type);
         setPreviewLoading(true);
         setPreviewOpen(true);
         try {
-            const { blob } = await downloadQuotationExport(id, "pdf");
+            const { blob } = await downloadQuotationExport(id, type);
             if (previewUrl) URL.revokeObjectURL(previewUrl);
             const url = URL.createObjectURL(blob);
             setPreviewUrl(url);
         } catch (err: any) {
             alert("Gagal preview: " + (err?.response?.data?.message || err.message));
             setPreviewOpen(false);
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
+    /** Switch antara preview Penawaran/Invoice dan SPK dalam modal yang sama. */
+    const switchPreviewType = async (type: "pdf" | "spk-pdf") => {
+        if (type === previewType) return;
+        setPreviewType(type);
+        setPreviewLoading(true);
+        try {
+            const { blob } = await downloadQuotationExport(id, type);
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            setPreviewUrl(URL.createObjectURL(blob));
+        } catch (err: any) {
+            alert("Gagal switch preview: " + (err?.response?.data?.message || err.message));
         } finally {
             setPreviewLoading(false);
         }
@@ -483,8 +532,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             // Save mode saja (tidak save semua field) lewat updateQuotation partial
             await updateQuotation(id, { itemDisplayMode: newMode });
             qc.invalidateQueries({ queryKey: ["quotation", id] });
-            // Re-fetch PDF
-            const { blob } = await downloadQuotationExport(id, "pdf");
+            // Re-fetch PDF (mengikuti type yang sedang di-preview)
+            const { blob } = await downloadQuotationExport(id, previewType);
             if (previewUrl) URL.revokeObjectURL(previewUrl);
             setPreviewUrl(URL.createObjectURL(blob));
         } catch (err: any) {
@@ -510,7 +559,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleExport = async (format: "pdf" | "docx") => {
+    const handleExport = async (format: "pdf" | "docx" | "spk-pdf") => {
         try {
             const { blob, filename } = await downloadQuotationExport(id, format);
             const url = URL.createObjectURL(blob);
@@ -519,7 +568,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             const a = document.createElement("a");
             a.href = url;
             a.download = filename;
-            if (format === "pdf") a.target = "_blank"; // PDF tetap buka di tab baru
+            if (format === "pdf" || format === "spk-pdf") a.target = "_blank"; // PDF buka di tab baru
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -541,18 +590,20 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
     return (
         <div className="p-6 max-w-6xl mx-auto">
-            <div className="flex items-start justify-between mb-6">
-                <div>
-                    <Link href="/penawaran" className="text-sm text-blue-600 flex items-center gap-1 mb-2">
+            {/* Header — title kiri, action toolbar kanan (rapih, grouped) */}
+            <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
+                <div className="min-w-0">
+                    <Link href="/penawaran" className="text-sm text-blue-600 flex items-center gap-1 mb-2 hover:underline">
                         <ArrowLeft className="w-4 h-4" /> Kembali
                     </Link>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        Penawaran {data.invoiceNumber}
+                    <h1 className="text-2xl font-bold flex items-center gap-2 flex-wrap">
+                        <span>{data.type === "INVOICE" ? "Invoice" : "Penawaran"}</span>
+                        <span className="font-mono text-xl text-slate-700">{data.invoiceNumber}</span>
                         {data.revisionNumber > 0 && (
-                            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Rev. {data.revisionNumber}</span>
+                            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">Rev. {data.revisionNumber}</span>
                         )}
                     </h1>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 mt-0.5">
                         {(() => {
                             const cfg = variantCode ? variantConfigs.find((v) => v.code === variantCode) : null;
                             return cfg?.label
@@ -560,12 +611,16 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         })()}
                     </p>
                 </div>
-                <div className="flex gap-2">
+
+                {/* Toolbar: 2 grup (Actions + Export) dengan separator */}
+                <div className="flex items-stretch gap-1.5 flex-wrap">
+                    {/* === Group 1: Actions (Assign / Revisi / Invoice) === */}
                     {isDraft && (
                         <button
                             onClick={() => setShowAssignModal(true)}
                             disabled={assignMut.isPending}
-                            className="flex items-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm"
+                            title="Assign nomor resmi penawaran"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium shadow-sm"
                         >
                             <Hash className="w-4 h-4" /> Assign Nomor
                         </button>
@@ -574,39 +629,72 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         <button
                             onClick={() => reviseMut.mutate()}
                             disabled={reviseMut.isPending}
-                            className="flex items-center gap-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-sm"
+                            title="Buat revisi baru"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-sm font-medium shadow-sm"
                         >
-                            <GitBranch className="w-4 h-4" /> Buat Revisi
+                            <GitBranch className="w-4 h-4" /> Revisi
                         </button>
                     )}
                     {!isDraft && data.type !== "INVOICE" && (
                         <button
                             onClick={() => setShowInvoiceModal(true)}
-                            className="flex items-center gap-1 px-3 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-md text-sm"
-                            title="Generate Invoice DP / Pelunasan dari penawaran ini"
+                            title="Generate Invoice DP / Pelunasan"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-md text-sm font-medium shadow-sm"
                         >
-                            <Receipt className="w-4 h-4" /> Buat Invoice
+                            <Receipt className="w-4 h-4" /> Invoice
                         </button>
                     )}
-                    <button
-                        onClick={handlePreview}
-                        className="flex items-center gap-1 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-md text-sm"
-                        title="Lihat preview surat penawaran sebelum download"
-                    >
-                        <Eye className="w-4 h-4" /> Preview
-                    </button>
-                    <button
-                        onClick={() => handleExport("pdf")}
-                        className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm"
-                    >
-                        <FileDown className="w-4 h-4" /> PDF
-                    </button>
-                    <button
-                        onClick={() => handleExport("docx")}
-                        className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm"
-                    >
-                        <FileText className="w-4 h-4" /> DOCX
-                    </button>
+
+                    {/* Vertical divider */}
+                    <div className="w-px bg-slate-200 mx-1" />
+
+                    {/* === Group 2: Preview & Export — kompak, ikon-first === */}
+                    <div className="inline-flex rounded-md border border-slate-200 overflow-hidden shadow-sm">
+                        <button
+                            onClick={() => handlePreview("pdf")}
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium border-r border-violet-700"
+                            title={data?.type === 'INVOICE' ? "Preview Invoice" : "Preview Penawaran"}
+                        >
+                            <Eye className="w-4 h-4" />
+                            <span className="hidden md:inline">Preview</span>
+                        </button>
+                        <button
+                            onClick={() => handleExport("pdf")}
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium border-r border-red-700"
+                            title="Download PDF"
+                        >
+                            <FileDown className="w-4 h-4" />
+                            <span className="hidden md:inline">PDF</span>
+                        </button>
+                        <button
+                            onClick={() => handleExport("docx")}
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
+                            title="Download DOCX"
+                        >
+                            <FileText className="w-4 h-4" />
+                            <span className="hidden md:inline">DOCX</span>
+                        </button>
+                    </div>
+
+                    {/* SPK group — terpisah, warna emerald biar jelas */}
+                    <div className="inline-flex rounded-md border border-emerald-300 overflow-hidden shadow-sm">
+                        <button
+                            onClick={() => handlePreview("spk-pdf")}
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-sm font-medium border-r border-emerald-300"
+                            title="Preview SPK"
+                        >
+                            <Eye className="w-4 h-4" />
+                            <span className="hidden md:inline">Preview</span>
+                        </button>
+                        <button
+                            onClick={() => handleExport("spk-pdf")}
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium"
+                            title="Download SPK"
+                        >
+                            <ScrollText className="w-4 h-4" />
+                            <span className="hidden md:inline">SPK</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1303,6 +1391,37 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             Kosongkan untuk default auto: &quot;1 (satu) berkas&quot;. Multi-baris diperbolehkan (line break dipertahankan di PDF).
                         </p>
                     </div>
+                    {/* Tab switcher — Penawaran / SPK / Invoice (per-doctype custom text) */}
+                    <div className="border-b border-slate-200 -mx-4 px-4 pt-1">
+                        <div className="flex items-center gap-0.5">
+                            {([
+                                { v: 'penawaran' as const, label: '📄 Penawaran', color: 'violet' },
+                                { v: 'spk' as const, label: '📜 SPK', color: 'emerald' },
+                                { v: 'invoice' as const, label: '🧾 Invoice', color: 'red' },
+                            ]).map((t) => (
+                                <button
+                                    key={t.v}
+                                    type="button"
+                                    onClick={() => setCustomTextTab(t.v)}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-t-md border-b-2 transition ${customTextTab === t.v
+                                        ? `border-${t.color}-600 text-${t.color}-700 bg-${t.color}-50`
+                                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                                        }`}
+                                >
+                                    {t.label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1 mb-2">
+                            {customTextTab === 'penawaran' && '📄 Custom text khusus untuk surat Penawaran. Diisi di sini tidak pengaruh ke SPK & Invoice.'}
+                            {customTextTab === 'spk' && '📜 Custom text khusus untuk SPK. Kalau kosong, fallback ke Penawaran. Diisi di sini tidak pengaruh ke Penawaran & Invoice.'}
+                            {customTextTab === 'invoice' && '🧾 Custom text khusus untuk Invoice. Kalau kosong, fallback ke Penawaran. Diisi di sini tidak pengaruh ke Penawaran & SPK.'}
+                        </p>
+                    </div>
+
+                    {/* ====== TAB: PENAWARAN ====== */}
+                    {customTextTab === 'penawaran' && (
+                    <>
                     {/* Pembuka — full custom (replace template) */}
                     <div>
                         <div className="flex items-center justify-between mb-1">
@@ -1382,6 +1501,85 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             ? (brandSettings?.quotationClosingEn || brandSettings?.quotationClosing)
                             : brandSettings?.quotationClosing) ?? null}
                     />
+                    </>
+                    )}
+
+                    {/* ====== TAB: SPK ====== */}
+                    {customTextTab === 'spk' && (
+                    <>
+                    <SimpleCustomField
+                        title="📝 Pembuka SPK (Opsional)"
+                        value={customOpeningSpk}
+                        onChange={setCustomOpeningSpk}
+                        placeholder="Kosongkan untuk pakai default. Mis: 'Dengan hormat, Bersama Surat Perintah Kerja ini...'"
+                        rows={3}
+                        helpText="Override paragraf pembuka khusus SPK. Kosong = pakai pembuka default SPK (auto-generate)."
+                    />
+                    <SimpleCustomField
+                        title="# Catatan / Disclaimer SPK"
+                        value={customDisclaimerSpk}
+                        onChange={setCustomDisclaimerSpk}
+                        fallbackLabel="Penawaran"
+                        fallbackValue={customDisclaimer}
+                        brandDefault={brandSettings?.quotationDisclaimer ?? null}
+                        placeholder="Kosong = fallback ke disclaimer Penawaran. Mis: '# Estimasi produksi 14 hari\n# Harga belum termasuk: management fee, deposit, dll'"
+                    />
+                    <SimpleCustomField
+                        title="💳 Sistem Pembayaran SPK"
+                        value={customPaymentTermsSpk}
+                        onChange={setCustomPaymentTermsSpk}
+                        fallbackLabel="Penawaran"
+                        fallbackValue={customPaymentTerms}
+                        brandDefault={brandSettings?.quotationPaymentTerms ?? null}
+                    />
+                    <SimpleCustomField
+                        title="✉️ Penutup SPK"
+                        value={customClosingSpk}
+                        onChange={setCustomClosingSpk}
+                        fallbackLabel="Penawaran"
+                        fallbackValue={customClosing}
+                        brandDefault={brandSettings?.quotationClosing ?? null}
+                    />
+                    </>
+                    )}
+
+                    {/* ====== TAB: INVOICE ====== */}
+                    {customTextTab === 'invoice' && (
+                    <>
+                    <SimpleCustomField
+                        title="📝 Pembuka Invoice (Opsional)"
+                        value={customOpeningInvoice}
+                        onChange={setCustomOpeningInvoice}
+                        placeholder="Kosongkan untuk pakai default. Mis: 'Dengan hormat, Bersama invoice ini kami menagihkan...'"
+                        rows={3}
+                        helpText="Override paragraf pembuka khusus Invoice. Kosong = pakai pembuka default Invoice (auto-generate)."
+                    />
+                    <SimpleCustomField
+                        title="📝 Catatan Harga / Disclaimer Invoice"
+                        value={customDisclaimerInvoice}
+                        onChange={setCustomDisclaimerInvoice}
+                        fallbackLabel="Penawaran"
+                        fallbackValue={customDisclaimer}
+                        brandDefault={brandSettings?.quotationDisclaimer ?? null}
+                    />
+                    <SimpleCustomField
+                        title="💳 Sistem Pembayaran Invoice"
+                        value={customPaymentTermsInvoice}
+                        onChange={setCustomPaymentTermsInvoice}
+                        fallbackLabel="Penawaran"
+                        fallbackValue={customPaymentTerms}
+                        brandDefault={brandSettings?.quotationPaymentTerms ?? null}
+                    />
+                    <SimpleCustomField
+                        title="✉️ Penutup / Nb Invoice"
+                        value={customClosingInvoice}
+                        onChange={setCustomClosingInvoice}
+                        fallbackLabel="Penawaran"
+                        fallbackValue={customClosing}
+                        brandDefault={brandSettings?.invoiceClosingText ?? null}
+                    />
+                    </>
+                    )}
                 </section>
 
                 <section className="bg-white rounded-lg border p-4">
@@ -1469,9 +1667,19 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     {/* Header */}
                     <div className="bg-white border-b px-4 py-2.5 flex items-center justify-between gap-3 shadow-sm">
                         <div className="flex items-center gap-2">
-                            <Eye className="h-5 w-5 text-violet-600" />
+                            {previewType === "spk-pdf" ? (
+                                <ScrollText className="h-5 w-5 text-emerald-600" />
+                            ) : (
+                                <Eye className="h-5 w-5 text-violet-600" />
+                            )}
                             <div>
-                                <h2 className="font-bold text-slate-900">Preview Penawaran</h2>
+                                <h2 className="font-bold text-slate-900">
+                                    {previewType === "spk-pdf"
+                                        ? "Preview SPK"
+                                        : data.type === 'INVOICE'
+                                            ? "Preview Invoice"
+                                            : "Preview Penawaran"}
+                                </h2>
                                 <p className="text-xs text-muted-foreground">
                                     {data.invoiceNumber}
                                     {data.brand && <span> · Brand {data.brand}</span>}
@@ -1479,43 +1687,74 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             </div>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
-                            {/* Live toggle Tampilan Item — auto-save + reload PDF */}
-                            <div className="inline-flex gap-0.5 bg-slate-100 p-0.5 rounded-md border" title="Pilih tampilan item: detail per row atau ringkas per kategori">
+                            {/* Type switcher: Penawaran/Invoice ↔ SPK */}
+                            <div className="inline-flex gap-0.5 bg-slate-100 p-0.5 rounded-md border" title="Pilih dokumen yang di-preview">
                                 <button
                                     type="button"
-                                    onClick={() => itemDisplayMode !== 'detailed' && togglePreviewMode('detailed')}
+                                    onClick={() => switchPreviewType("pdf")}
                                     disabled={previewLoading}
-                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'detailed'
-                                        ? 'bg-white text-blue-700 shadow-sm'
+                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${previewType === 'pdf'
+                                        ? 'bg-white text-violet-700 shadow-sm'
                                         : 'text-slate-600 hover:text-slate-900'
                                         }`}
                                 >
-                                    📋 Detail
+                                    {data.type === 'INVOICE' ? '🧾 Invoice' : '📄 Penawaran'}
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => itemDisplayMode !== 'category-summary' && togglePreviewMode('category-summary')}
+                                    onClick={() => switchPreviewType("spk-pdf")}
                                     disabled={previewLoading}
-                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'category-summary'
-                                        ? 'bg-white text-blue-700 shadow-sm'
+                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${previewType === 'spk-pdf'
+                                        ? 'bg-white text-emerald-700 shadow-sm'
                                         : 'text-slate-600 hover:text-slate-900'
                                         }`}
                                 >
-                                    📊 Ringkas
+                                    📜 SPK
                                 </button>
                             </div>
+
+                            {/* Live toggle Tampilan Item — cuma untuk Penawaran/Invoice, hide saat SPK */}
+                            {previewType === "pdf" && (
+                                <div className="inline-flex gap-0.5 bg-slate-100 p-0.5 rounded-md border" title="Pilih tampilan item: detail per row atau ringkas per kategori">
+                                    <button
+                                        type="button"
+                                        onClick={() => itemDisplayMode !== 'detailed' && togglePreviewMode('detailed')}
+                                        disabled={previewLoading}
+                                        className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'detailed'
+                                            ? 'bg-white text-blue-700 shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-900'
+                                            }`}
+                                    >
+                                        📋 Detail
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => itemDisplayMode !== 'category-summary' && togglePreviewMode('category-summary')}
+                                        disabled={previewLoading}
+                                        className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'category-summary'
+                                            ? 'bg-white text-blue-700 shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-900'
+                                            }`}
+                                    >
+                                        📊 Ringkas
+                                    </button>
+                                </div>
+                            )}
                             <button
-                                onClick={() => handleExport("pdf")}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-semibold"
+                                onClick={() => handleExport(previewType)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${previewType === 'spk-pdf' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'} text-white rounded-md text-sm font-semibold`}
+                                title={`Download ${previewType === 'spk-pdf' ? 'SPK' : 'PDF'}`}
                             >
-                                <Download className="h-4 w-4" /> Download PDF
+                                <Download className="h-4 w-4" /> Download {previewType === 'spk-pdf' ? 'SPK' : 'PDF'}
                             </button>
-                            <button
-                                onClick={() => handleExport("docx")}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold"
-                            >
-                                <FileText className="h-4 w-4" /> DOCX
-                            </button>
+                            {previewType === "pdf" && (
+                                <button
+                                    onClick={() => handleExport("docx")}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold"
+                                >
+                                    <FileText className="h-4 w-4" /> DOCX
+                                </button>
+                            )}
                             <button
                                 onClick={closePreview}
                                 className="p-2 rounded-md hover:bg-slate-100 text-slate-700"
@@ -2063,6 +2302,84 @@ function SortableItemRow({
                 </div>
             </td>
         </tr>
+    );
+}
+
+/**
+ * Field custom text simpel — 1 textarea full override.
+ * Dipakai di tab SPK & Invoice. Tampilkan info fallback (kalau kosong → fallback ke nilai lain).
+ */
+function SimpleCustomField({
+    title, value, onChange, placeholder, rows, helpText, fallbackLabel, fallbackValue, brandDefault,
+}: {
+    title: string;
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+    rows?: number;
+    helpText?: string;
+    fallbackLabel?: string;        // mis. "Penawaran"
+    fallbackValue?: string;         // value field penawaran (untuk "salin dari")
+    brandDefault?: string | null;
+}) {
+    const hasFallback = Boolean(fallbackValue && fallbackValue.trim());
+    const isActive = Boolean(value && value.trim());
+    return (
+        <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/40 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-bold text-slate-700">{title}</label>
+                <div className="flex items-center gap-1.5">
+                    {fallbackLabel && hasFallback && !isActive && (
+                        <button
+                            type="button"
+                            onClick={() => onChange(fallbackValue!)}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100"
+                            title={`Salin nilai dari ${fallbackLabel}`}
+                        >
+                            📋 Salin dari {fallbackLabel}
+                        </button>
+                    )}
+                    {brandDefault && !isActive && (
+                        <button
+                            type="button"
+                            onClick={() => onChange(brandDefault)}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100"
+                            title="Salin dari pengaturan brand"
+                        >
+                            📋 Salin Brand
+                        </button>
+                    )}
+                    {isActive && (
+                        <button
+                            type="button"
+                            onClick={() => onChange("")}
+                            className="text-[10px] text-amber-700 hover:underline"
+                        >
+                            ✕ Reset
+                        </button>
+                    )}
+                </div>
+            </div>
+            <textarea
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                rows={rows ?? 4}
+                placeholder={placeholder ?? `Kosongkan untuk fallback ke ${fallbackLabel ?? 'default brand'}.`}
+                className={`w-full border rounded px-2 py-1.5 text-xs font-sans ${isActive ? "border-emerald-300 bg-white ring-1 ring-emerald-200" : ""
+                    }`}
+            />
+            {helpText && (
+                <p className="text-[10px] text-muted-foreground">{helpText}</p>
+            )}
+            {!helpText && fallbackLabel && (
+                <p className="text-[10px] text-muted-foreground">
+                    {isActive
+                        ? `✅ Custom aktif — override ${fallbackLabel}.`
+                        : `⏭️ Kosong → pakai dari ${fallbackLabel}${hasFallback ? "" : " (juga kosong → pakai default brand)"}.`
+                    }
+                </p>
+            )}
+        </div>
     );
 }
 

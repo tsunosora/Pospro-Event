@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>SPK {{doc.number}}</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 11pt;
+    color: #111;
+    line-height: 1.5;
+  }
+
+  {{#if company.letterheadUrl}}
+  .letterhead-bg {
+    position: fixed; top: 0; left: 0;
+    width: 210mm; height: 297mm;
+    z-index: -1; pointer-events: none; user-select: none;
+  }
+  {{/if}}
+
+  table.page-layout { width: 100%; border-collapse: collapse; }
+  table.page-layout > thead > tr > td.page-header-spacer {
+    height: {{#if company.letterheadUrl}}38mm{{else}}18mm{{/if}};
+    padding: 0; border: 0;
+  }
+  table.page-layout > tfoot > tr > td.page-footer-spacer {
+    height: {{#if company.letterheadUrl}}45mm{{else}}22mm{{/if}};
+    padding: 0; border: 0;
+  }
+  table.page-layout > tbody > tr > td.page-content {
+    padding: 0 22mm;
+    vertical-align: top;
+  }
+
+  .fallback-header {
+    display: flex; align-items: flex-start; gap: 12pt;
+    border-bottom: 2pt solid {{theme.primary}};
+    padding-bottom: 8pt; margin-bottom: 14pt;
+  }
+  .fallback-header .logo { width: 60pt; height: 60pt; object-fit: contain; }
+  .fallback-header .company-name { font-weight: 700; font-size: 16pt; color: {{theme.primary}}; letter-spacing: .5pt; }
+  .fallback-header .company-addr { font-size: 9.5pt; color: #333; margin-top: 2pt; line-height: 1.35; }
+
+  /* Title SPK */
+  .spk-title {
+    text-align: center;
+    font-size: 14pt;
+    font-weight: 800;
+    text-decoration: underline;
+    letter-spacing: 1.5pt;
+    margin: 6pt 0 14pt 0;
+    text-transform: uppercase;
+  }
+
+  /* Header table — "No : ..." style */
+  table.spk-header { font-size: 11pt; line-height: 1.55; margin-bottom: 12pt; }
+  table.spk-header td { padding: 1pt 0; vertical-align: top; }
+  table.spk-header td.k { width: 130pt; font-weight: 600; }
+  table.spk-header td.s { width: 12pt; }
+
+  /* Paragraf utama */
+  .main-paragraph {
+    text-align: justify;
+    line-height: 1.55;
+    margin: 8pt 0 6pt 0;
+  }
+
+  /* List spesifikasi — table 2 kolom (no. urut + deskripsi) untuk penataan rapi & sejajar.
+     Nomor di kolom sempit di kiri, deskripsi mengisi sisa lebar. Kalau deskripsi wrap,
+     baris berikutnya rata dengan baris pertama (bukan dengan nomor). */
+  table.spec-list {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0 12pt 24pt;     /* tab-indent dari kiri */
+    font-size: 11pt;
+    line-height: 1.55;
+  }
+  table.spec-list td {
+    vertical-align: top;
+    padding: 3pt 4pt;
+  }
+  table.spec-list td.no-col {
+    width: 26pt;
+    text-align: right;
+    padding-right: 8pt;
+    color: {{theme.primaryDark}};
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  table.spec-list td.desc-col {
+    text-align: left;
+  }
+  /* Striping zebra tipis biar enak dibaca */
+  table.spec-list tbody tr:nth-child(odd) td { background: {{theme.primarySubtle}}; }
+  /* Header kategori — full-width, bold, kontras */
+  table.spec-list tr.cat-row td {
+    background: {{theme.primary}} !important;
+    color: #fff;
+    font-weight: 700;
+    font-size: 10pt;
+    letter-spacing: .4pt;
+    text-transform: uppercase;
+    padding: 4pt 8pt;
+    margin-top: 6pt;
+  }
+
+  /* Catatan dengan prefix "#" */
+  .hash-notes {
+    margin: 8pt 0;
+    line-height: 1.55;
+  }
+  .hash-notes .hash-line {
+    margin-bottom: 2pt;
+  }
+
+  /* Bullet pembayaran "•" */
+  .bullet-list {
+    margin: 8pt 0;
+    padding-left: 18pt;
+    line-height: 1.55;
+  }
+  .bullet-list li {
+    margin-bottom: 4pt;
+    text-align: justify;
+  }
+
+  /* Bank list */
+  .bank-block {
+    margin: 8pt 0;
+    line-height: 1.55;
+  }
+  .bank-block .bank-line {
+    margin-left: 24pt;
+    margin-bottom: 2pt;
+  }
+
+  /* Closing & signature */
+  .closing-line { margin-top: 10pt; line-height: 1.55; }
+  .sign-date { margin-top: 14pt; font-weight: 600; }
+
+  .signature-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 30pt;
+    margin-top: 18pt;
+    page-break-inside: avoid;
+  }
+  .signature-row .block {
+    flex: 1;
+    text-align: center;
+    min-width: 200pt;
+  }
+  .signature-row .role {
+    font-weight: 700;
+    margin-bottom: 4pt;
+  }
+  .signature-row .sign-area {
+    position: relative;
+    height: 80pt;
+    margin: 4pt 0;
+  }
+  .signature-row .sign-image {
+    position: absolute; top: 0; left: 50%;
+    transform: translateX(-50%);
+    max-height: 80pt; max-width: 180pt; z-index: 2;
+  }
+  .signature-row .stamp-image {
+    position: absolute; top: 8pt; left: 50%;
+    transform: translateX(-72%);
+    max-height: 80pt; max-width: 110pt;
+    opacity: 0.85; z-index: 1;
+    mix-blend-mode: multiply;
+  }
+  .signature-row .materai {
+    font-size: 10pt;
+    font-style: italic;
+    color: #555;
+    padding: 26pt 0;
+  }
+  .signature-row .name {
+    font-weight: 700;
+    text-decoration: underline;
+    margin-top: 4pt;
+  }
+
+  .end-spacer { height: 36pt; }
+</style>
+</head>
+<body>
+
+{{#if company.letterheadUrl}}
+<img class="letterhead-bg" src="{{company.letterheadUrl}}" alt="" />
+{{/if}}
+
+<table class="page-layout">
+  <thead><tr><td class="page-header-spacer"></td></tr></thead>
+  <tfoot><tr><td class="page-footer-spacer"></td></tr></tfoot>
+  <tbody>
+    <tr><td class="page-content">
+
+<div class="content">
+
+  {{#unless company.letterheadUrl}}
+  <div class="fallback-header">
+    {{#if company.logoUrl}}<img class="logo" src="{{company.logoUrl}}" />{{/if}}
+    <div>
+      <div class="company-name">{{company.name}}</div>
+      <div class="company-addr">
+        {{company.address}}<br/>
+        {{#if company.phone}}Telp: {{company.phone}}{{/if}}{{#if company.email}} &bull; {{company.email}}{{/if}}
+      </div>
+    </div>
+  </div>
+  {{/unless}}
+
+  <div class="spk-title">Surat Perintah Kerja</div>
+
+  {{!-- Header info: No, Hal, Nama Perusahaan, Penanggung Jawab, dst --}}
+  <table class="spk-header">
+    <tr><td class="k">No</td><td class="s">:</td><td>{{doc.number}}</td></tr>
+    <tr><td class="k">Hal</td><td class="s">:</td><td>{{doc.variantLabel}}</td></tr>
+    {{#if client.company}}<tr><td class="k">Nama Perusahaan</td><td class="s">:</td><td>{{client.company}}</td></tr>{{/if}}
+    <tr><td class="k">Penanggung Jawab</td><td class="s">:</td><td>{{client.name}}</td></tr>
+    {{#if client.position}}<tr><td class="k">Jabatan</td><td class="s">:</td><td>{{client.position}}</td></tr>{{/if}}
+    {{#if client.phone}}<tr><td class="k">No. Telp kantor</td><td class="s">:</td><td>{{client.phone}}</td></tr>{{/if}}
+    {{#if client.address}}<tr><td class="k">Alamat</td><td class="s">:</td><td>{{client.address}}</td></tr>{{/if}}
+    {{#if project.name}}<tr><td class="k">Event</td><td class="s">:</td><td>{{project.name}}</td></tr>{{/if}}
+    {{#if project.location}}<tr><td class="k">Tempat</td><td class="s">:</td><td>{{project.location}}</td></tr>{{/if}}
+    {{#if project.dateRange}}<tr><td class="k">Tanggal Event</td><td class="s">:</td><td>{{project.dateRange}}</td></tr>{{/if}}
+  </table>
+
+  {{!-- Paragraf utama: "Dengan ini memberikan pekerjaan kepada..." --}}
+  <p class="main-paragraph">
+    Dengan ini memberikan pekerjaan kepada <strong>{{company.name}}</strong> untuk pemasangan {{lowercase doc.variantLabel}}{{#if project.name}} pada Event <strong>{{project.name}}</strong>{{/if}}{{#if project.dateRange}} tanggal <strong>{{project.dateRange}}</strong>{{/if}}{{#if project.location}} di <strong>{{project.location}}</strong>{{/if}}, yaitu sebesar <strong>{{totals.total}}</strong> ({{totals.totalTerbilang}}){{#if spk.exclTax}} exclude PPN dan PPH{{else}} sudah termasuk PPN {{totals.taxRate}}%{{/if}}, dengan spesifikasi sebagai berikut:
+  </p>
+
+  {{!-- List spesifikasi — table 2 kolom (no. urut + deskripsi). Nomor urut consecutive
+       di seluruh list (1, 2, 3, ...) supaya enak dibaca, bukan reset per kategori. --}}
+  <table class="spec-list">
+    <tbody>
+      {{#each spk.specItems}}
+        {{#if this.isCategoryHeader}}
+        <tr class="cat-row"><td colspan="2">{{this.label}}</td></tr>
+        {{else}}
+        <tr>
+          <td class="no-col">{{this.no}}.</td>
+          <td class="desc-col">{{this.description}}</td>
+        </tr>
+        {{/if}}
+      {{/each}}
+    </tbody>
+  </table>
+
+  {{!-- Catatan dengan prefix "#" — dari brand disclaimer (split per baris) --}}
+  {{#if brandTexts.disclaimer}}
+  <div class="hash-notes" style="white-space: pre-line;">{{spk.disclaimerHashed}}</div>
+  {{/if}}
+
+  {{!-- Bullet pembayaran --}}
+  <ul class="bullet-list">
+    <li>DP {{payment.dpPercent}}% dari nominal kontrak atau sebesar <strong>{{payment.dpAmount}}</strong> ({{payment.dpAmountTerbilang}}) dibayarkan pada saat surat perintah kerja ini ditandatangani.</li>
+    <li>Pelunasan sebesar <strong>{{payment.pelunasan}}</strong> ({{payment.pelunasanTerbilang}}) dibayarkan pada saat booth berdiri{{#if doc.validUntilFormatted}} atau selambat-lambatnya pada tanggal <strong>{{doc.validUntilFormatted}}</strong>{{/if}}.</li>
+    <li>Surat Perintah Kerja tidak bisa dibatalkan. Apabila terjadi pembatalan, maka pembatalan akan dikenakan biaya 50% dari total harga. Dan dibayarkan maksimal 1 (satu) minggu dari pembatalan surat perintah kerja. Pembayaran DP yang sudah kami terima tidak dapat dikembalikan.</li>
+    <li>Pembatalan Surat Perintah Kerja disampaikan secara tertulis.</li>
+  </ul>
+
+  {{#if payment.banks.length}}
+  <div class="bank-block">
+    Pembayaran dapat ditransfer ke rekening :
+    {{#each payment.banks}}
+    <div class="bank-line">{{this.bankName}} <strong>{{this.accountNumber}}</strong> an. {{this.accountOwner}}</div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  <div class="closing-line">
+    Demikian Surat Perintah Kerja dibuat dan ditandatangani atas kesepakatan bersama :
+  </div>
+
+  <div class="sign-date">{{doc.dateFormatted}}</div>
+
+  {{!-- TTD: Vendor (kiri) | Klien (kanan) --}}
+  <div class="signature-row">
+    <div class="block">
+      <div class="role">{{company.name}}</div>
+      <div class="sign-area">
+        {{#if signedBy.stampUrl}}<img class="stamp-image" src="{{signedBy.stampUrl}}" alt="Stempel" />{{/if}}
+        {{#if signedBy.signatureUrl}}<img class="sign-image" src="{{signedBy.signatureUrl}}" alt="Tanda Tangan" />{{/if}}
+      </div>
+      <div class="name">{{signedBy.name}}</div>
+    </div>
+    <div class="block">
+      <div class="role">{{#if client.company}}{{client.company}}{{else}}{{client.name}}{{/if}}</div>
+      <div class="sign-area">
+        <div class="materai">Materai 10000</div>
+      </div>
+      <div class="name">{{client.name}}</div>
+    </div>
+  </div>
+
+  <div class="end-spacer"></div>
+
+</div>
+
+    </td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>

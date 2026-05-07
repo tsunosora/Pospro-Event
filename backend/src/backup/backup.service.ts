@@ -13,7 +13,21 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.13 (current) — Multi-event + USD currency toggle + drag-and-drop ordering:
+// v2.14 (current) — Per-doctype custom text + SPK enhancements + edit nomor:
+//   - Invoice.customOpeningSpk, customDisclaimerSpk, customPaymentTermsSpk, customClosingSpk
+//     → custom text khusus saat render SPK (terpisah dari Penawaran)
+//   - Invoice.customOpeningInvoice, customDisclaimerInvoice, customPaymentTermsInvoice, customClosingInvoice
+//     → custom text khusus saat render Invoice (terpisah dari Penawaran)
+//   - SPK feature: render Surat Perintah Kerja dari data quotation yang sama (template terpisah,
+//     header tabular + paragraf + bullet pembayaran + TTD 2 kolom + materai)
+//   - SPK auto-detect "exclude/include PPN" sesuai taxRate
+//   - Filename export: pakai nomor penawaran apa adanya (slashes → dash). DRAFT pakai
+//     project+klien (mis. "Penawaran-IIFEX-PT.Foo.pdf"), bukan UUID timestamp.
+//   - Edit nomor penawaran (PATCH /quotations/:id/edit-number) — koreksi typo / format
+//     setelah nomor di-assign, validasi unique
+//   - i18n English: formal business labels (Sincerely yours, In words, dst), tanggal
+//     pakai locale en-US (mis. "21 June 2026"), variant label English (Event Equipment Rental)
+// v2.13 — Multi-event + USD currency toggle + drag-and-drop ordering:
 //   - Invoice.additionalEvents (JSON) — array event tambahan `[{name, location, dateStart, dateEnd}]`
 //     untuk satu penawaran yang cover banyak event dengan tanggal beda
 //   - Invoice.useUsdCurrency (Boolean default false) — toggle label Rp → USD di PDF
@@ -251,7 +265,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.13',
+                version: '2.14',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,
