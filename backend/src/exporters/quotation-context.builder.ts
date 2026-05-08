@@ -471,7 +471,7 @@ export const I18N: Record<'id' | 'en', Record<string, string>> = {
     en: {
         // Header
         kepada: 'To',
-        diTempat: 'At the recipient’s address',
+        diTempat: '',  // English version: tidak ada padanan natural untuk "di Tempat" — kosongkan
         nomor: 'Number',
         noInvoice: 'Invoice No.',
         lampiran: 'Attachment',
