@@ -6,4 +6,8 @@ export interface QuotationItemInput {
     orderIndex?: number;
     productVariantId?: number | null;
     categoryName?: string | null;   // untuk grouping di PDF (mis. "Konstruksi Utama Booth")
+    /** Multi-event grouping: 0=event utama, 1+ = additionalEvents[i-1]. null = shared/global. */
+    eventIndex?: number | null;
+    /** Package grouping (mode 'package'): nama paket (mis. "Package 1"). null = mode normal. */
+    packageGroup?: string | null;
 }

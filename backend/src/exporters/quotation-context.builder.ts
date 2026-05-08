@@ -83,6 +83,45 @@ export interface QuotationRenderContext {
     };
     // Grouped items (untuk render per-kategori dengan header tebal)
     itemGroups: QuotationItemGroup[];
+    // Multi-event grouping (mode 'event-grouped'): items per event lokasi dengan subtotal
+    itemsByEvent?: Array<{
+        no: number;                       // 1-based display number
+        eventIndex: number;
+        eventName: string;
+        eventLocation: string;
+        eventDateRange: string;
+        items: QuotationRenderItem[];
+        subtotalNum: number;
+        subtotalFormatted: string;
+    }>;
+    // Package grouping (mode 'package'): per-package list (untuk PDF Jalakx style)
+    packages?: Array<{
+        no: number;                       // 1-based display number
+        name: string;
+        items: QuotationRenderItem[];
+        subtotalFormatted: string | null;
+        /** Specs khusus untuk paket ini (PDF Jalakx Package 1/2/3 spec list). */
+        specs?: Array<{ title: string | null; items: string[] }>;
+    }>;
+    // Mode display final yang dipilih (auto-detect dari itemDisplayMode + ada-tidaknya eventIndex/packageGroup)
+    displayMode: 'detailed' | 'category-summary' | 'event-grouped' | 'package';
+    // Payment schedule (kalau di-set, override DP/pelunasan default)
+    paymentSchedule?: Array<{
+        label: string;
+        percent: number;
+        amountFormatted: string;
+        amountTerbilang: string;
+    }> | null;
+    // Specifications terpisah (sesuai PDF Nukahiji style).
+    // Sudah TIDAK include yang punya packageGroup (yang sudah di-attach ke packages[]).
+    specifications?: Array<{
+        title: string | null;
+        items: string[];
+    }> | null;
+    // Harga paket (kalau di-set & > 0 → tampil "Total / Harga Paket" di footer)
+    packagePriceFormatted?: string | null;
+    // Tampilkan grand total? Default true. False untuk mode 'package'.
+    showGrandTotal: boolean;
     // Dokumen
     doc: {
         number: string;
@@ -107,6 +146,9 @@ export interface QuotationRenderContext {
         // Display mode untuk item table
         itemDisplayMode: 'detailed' | 'category-summary';   // default 'detailed'
         isCategorySummary: boolean;          // kalau true → hide harga per item, hanya subtotal kategori
+        // Mode flags baru — dipakai di template untuk conditional rendering
+        isEventGrouped?: boolean;            // mode 'event-grouped' aktif (item per event)
+        isPackageMode?: boolean;             // mode 'package' aktif (PDF Jalakx style)
     };
     // Klien
     client: {
@@ -713,6 +755,177 @@ export class QuotationContextBuilder {
         const dpAmount = (totalNum * dpPercentNum) / 100;
         const pelunasan = totalNum - dpAmount;
 
+        // ─────────────────────────────────────────────────────────────────
+        // EVENT-GROUPED MODE — items dipisah per event lokasi (PDF Nukahiji style).
+        // Aktif kalau ada item dengan eventIndex non-null.
+        // ─────────────────────────────────────────────────────────────────
+        const hasEventIndexedItems = quotation.items.some((it: any) =>
+            typeof it.eventIndex === 'number' && it.eventIndex >= 0
+        );
+        let itemsByEvent: QuotationRenderContext['itemsByEvent'] = undefined;
+        if (hasEventIndexedItems) {
+            // Build event lookup: 0 = main event, 1+ = additionalEvents[i-1]
+            const eventsList = buildEventsList(quotation, lang);
+            // Group items by eventIndex
+            const buckets = new Map<number, { items: QuotationRenderItem[]; subtotalNum: number; nextNo: number }>();
+            const orderedIndices: number[] = [];
+            for (const it of quotation.items) {
+                const idx = typeof (it as any).eventIndex === 'number' ? (it as any).eventIndex : -1;
+                if (idx < 0) continue; // skip items tanpa eventIndex (rendered di itemGroups normal)
+                if (!buckets.has(idx)) {
+                    buckets.set(idx, { items: [], subtotalNum: 0, nextNo: 1 });
+                    orderedIndices.push(idx);
+                }
+                const b = buckets.get(idx)!;
+                b.items.push({
+                    no: b.nextNo,
+                    description: it.description,
+                    unit: it.unit ?? '',
+                    quantity: formatQty(it.quantity.toString(), it.unit),
+                    price: formatRp(it.price.toString(), useUsd),
+                    subtotal: formatRp(Number(it.quantity) * Number(it.price), useUsd),
+                    categoryName: it.categoryName ?? null,
+                });
+                b.nextNo += 1;
+                b.subtotalNum += Number(it.quantity) * Number(it.price);
+            }
+            itemsByEvent = orderedIndices
+                .sort((a, b) => a - b)
+                .map((idx, displayIdx) => {
+                    const ev = eventsList[idx] ?? { name: `Event ${idx + 1}`, location: '', dateRange: '' };
+                    const b = buckets.get(idx)!;
+                    return {
+                        no: displayIdx + 1,
+                        eventIndex: idx,
+                        eventName: ev.name,
+                        eventLocation: ev.location,
+                        eventDateRange: ev.dateRange,
+                        items: b.items,
+                        subtotalNum: b.subtotalNum,
+                        subtotalFormatted: formatRp(b.subtotalNum, useUsd),
+                    };
+                });
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // PACKAGE MODE — items dipisah per package (PDF Jalakx style).
+        // Aktif kalau ada item dengan packageGroup non-null.
+        // ─────────────────────────────────────────────────────────────────
+        const hasPackagedItems = quotation.items.some((it: any) =>
+            it.packageGroup && it.packageGroup.toString().trim().length > 0
+        );
+        let packages: QuotationRenderContext['packages'] = undefined;
+        if (hasPackagedItems) {
+            const pkgMap = new Map<string, { items: QuotationRenderItem[]; subtotalNum: number; nextNo: number }>();
+            const pkgOrder: string[] = [];
+            for (const it of quotation.items) {
+                const grp = ((it as any).packageGroup ?? '').toString().trim();
+                if (!grp) continue;
+                if (!pkgMap.has(grp)) {
+                    pkgMap.set(grp, { items: [], subtotalNum: 0, nextNo: 1 });
+                    pkgOrder.push(grp);
+                }
+                const p = pkgMap.get(grp)!;
+                p.items.push({
+                    no: p.nextNo,
+                    description: it.description,
+                    unit: it.unit ?? '',
+                    quantity: formatQty(it.quantity.toString(), it.unit),
+                    price: formatRp(it.price.toString(), useUsd),
+                    subtotal: formatRp(Number(it.quantity) * Number(it.price), useUsd),
+                    categoryName: it.categoryName ?? null,
+                });
+                p.nextNo += 1;
+                p.subtotalNum += Number(it.quantity) * Number(it.price);
+            }
+            packages = pkgOrder.map((name, displayIdx) => {
+                const p = pkgMap.get(name)!;
+                // Package biasanya tidak tampilkan subtotal (karena pilihan opsi),
+                // tapi tetap available kalau template butuh.
+                return {
+                    no: displayIdx + 1,
+                    name,
+                    items: p.items,
+                    subtotalFormatted: p.subtotalNum > 0 ? formatRp(p.subtotalNum, useUsd) : null,
+                };
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // Resolve display mode (auto-detect dari data + setting)
+        // ─────────────────────────────────────────────────────────────────
+        let displayMode: QuotationRenderContext['displayMode'] = 'detailed';
+        if (quotation.itemDisplayMode === 'category-summary') displayMode = 'category-summary';
+        if (hasEventIndexedItems) displayMode = 'event-grouped';
+        if (hasPackagedItems) displayMode = 'package';        // package menang kalau both ada
+
+        // ─────────────────────────────────────────────────────────────────
+        // Payment schedule resolved (kalau di-set, override DP/pelunasan default)
+        // ─────────────────────────────────────────────────────────────────
+        const paymentScheduleRaw = (quotation as any).paymentSchedule;
+        let paymentScheduleResolved: QuotationRenderContext['paymentSchedule'] = null;
+        if (Array.isArray(paymentScheduleRaw) && paymentScheduleRaw.length > 0) {
+            paymentScheduleResolved = paymentScheduleRaw.map((s: any) => {
+                const pct = Number(s?.percent ?? 0);
+                const amt = (totalNum * pct) / 100;
+                return {
+                    label: (s?.label ?? '').toString(),
+                    percent: pct,
+                    amountFormatted: formatRp(amt, useUsd),
+                    amountTerbilang: rupiahInWords(amt, lang, useUsd),
+                };
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // Specifications — ada 2 tipe:
+        // 1. Spec dengan packageGroup → attach ke packages[].specs (kalau mode package)
+        // 2. Spec tanpa packageGroup (global) → render terpisah di section "Spesifikasi"
+        // ─────────────────────────────────────────────────────────────────
+        const specsRaw = (quotation as any).specifications;
+        const allSpecs = Array.isArray(specsRaw) && specsRaw.length > 0
+            ? specsRaw.map((g: any) => ({
+                title: (g?.title ?? '').toString().trim() || null,
+                items: Array.isArray(g?.items) ? g.items.map((s: any) => (s ?? '').toString()) : [],
+                packageGroup: (g?.packageGroup ?? '').toString().trim() || null,
+            }))
+            : [];
+
+        // Attach specs ke packages — match by packageGroup name
+        if (packages && packages.length > 0) {
+            for (const pkg of packages) {
+                const matched = allSpecs
+                    .filter((s) => s.packageGroup && s.packageGroup === pkg.name)
+                    .map((s) => ({ title: s.title, items: s.items }));
+                if (matched.length > 0) pkg.specs = matched;
+            }
+        }
+
+        // Specifications global (tanpa packageGroup) — render di section sendiri.
+        // Kalau mode package: include juga specs yang gagal match (orphan packageGroup).
+        const globalSpecs = allSpecs
+            .filter((s) => {
+                if (!s.packageGroup) return true; // truly global
+                if (!packages || packages.length === 0) return true; // bukan mode package → semua jadi global
+                // mode package: skip yang sudah ke-attach ke packages
+                return !packages.some((p) => p.name === s.packageGroup);
+            })
+            .map((s) => ({ title: s.title, items: s.items }));
+
+        const specifications: QuotationRenderContext['specifications'] =
+            globalSpecs.length > 0 ? globalSpecs : null;
+
+        // ─────────────────────────────────────────────────────────────────
+        // Harga paket — kalau di-set & > 0 → tampil "Total / Harga Paket" di footer
+        // ─────────────────────────────────────────────────────────────────
+        const packagePriceNum = (quotation as any).packagePrice ? Number((quotation as any).packagePrice) : null;
+        const packagePriceFormatted = packagePriceNum && packagePriceNum > 0
+            ? formatRp(packagePriceNum, useUsd)
+            : null;
+
+        // Tampilkan grand total? Default true kecuali eksplisit false (mode package).
+        const showGrandTotal = (quotation as any).showGrandTotal !== false;
+
         // (lang sudah resolved di atas, sebelum variantLabel/subject)
         return {
             language: lang,
@@ -834,15 +1047,23 @@ export class QuotationContextBuilder {
                 };
             })(),
             itemGroups,
+            itemsByEvent,
+            packages,
+            displayMode,
+            paymentSchedule: paymentScheduleResolved,
+            specifications,
+            packagePriceFormatted,
+            showGrandTotal,
             doc: {
                 number: quotation.invoiceNumber,
                 variant: quotation.quotationVariant ?? 'SEWA',
                 variantCode: quotation.variantCode,
                 templateKey,
                 variantLabel,
-                subject: quotation.type === 'INVOICE'
+                // customSubject (kalau di-set) override default subject derivation
+                subject: ((quotation as any).customSubject?.trim()) || (quotation.type === 'INVOICE'
                     ? buildInvoiceSubject(quotation.invoicePart, variantLabel, lang)
-                    : subjectText,
+                    : subjectText),
                 dateFormatted: formatDateId(quotation.date, lang),
                 // City — opsional. Kalau user kosongkan, tampilkan kosong (no fallback).
                 city: quotation.signCity?.trim() || '',
@@ -863,6 +1084,9 @@ export class QuotationContextBuilder {
                 dueDateFormatted: quotation.dueDate ? formatDateId(quotation.dueDate, lang) : null,
                 itemDisplayMode: (quotation.itemDisplayMode === 'category-summary' ? 'category-summary' : 'detailed'),
                 isCategorySummary: quotation.itemDisplayMode === 'category-summary',
+                // Mode flags baru — untuk conditional rendering di template
+                isEventGrouped: displayMode === 'event-grouped',
+                isPackageMode: displayMode === 'package',
             },
             client: {
                 name: quotation.clientName,

@@ -15,12 +15,15 @@ export class DocumentNumberService {
      * Reserve nomor urut untuk penawaran — format:
      *   `${seq}/${kode}/Pnwr/${roman}/${yy}`   contoh `4022/Xp/Pnwr/II/23`
      *
-     * Counter unik per (docType, kode, year). Tiap call akan increment atomik
-     * lewat upsert + `increment`. Reset otomatis di awal tahun baru karena
-     * tahun masuk ke unique key.
+     * Untuk versi English, prefix "Pnwr" diganti "Quot" (mis. `5264/Xp/Quot/V/26`).
+     *
+     * Counter unik per (docType, kode, year) — Indonesian dan English share counter
+     * yang sama (docType='Pnwr') supaya nomor urut tidak conflict / double-assign
+     * lintas bahasa.
      */
-    async assignForQuotation(kode: string, date: Date = new Date()): Promise<string> {
+    async assignForQuotation(kode: string, date: Date = new Date(), lang: 'id' | 'en' = 'id'): Promise<string> {
         const year = date.getFullYear();
+        // docType di counter tetap 'Pnwr' supaya nomor urut shared antar bahasa.
         const counter = await this.prisma.documentNumberCounter.upsert({
             where: { docType_kode_year: { docType: 'Pnwr', kode, year } },
             create: { docType: 'Pnwr', kode, year, lastSeq: 1 },
@@ -29,7 +32,8 @@ export class DocumentNumberService {
 
         const yy = String(year).slice(-2);
         const mm = ROMAN_MONTH[date.getMonth() + 1];
-        return `${counter.lastSeq}/${kode}/Pnwr/${mm}/${yy}`;
+        const prefix = lang === 'en' ? 'Quot' : 'Pnwr';
+        return `${counter.lastSeq}/${kode}/${prefix}/${mm}/${yy}`;
     }
 
     /**

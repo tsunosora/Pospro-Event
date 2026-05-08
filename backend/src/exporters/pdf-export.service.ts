@@ -15,6 +15,10 @@ Handlebars.registerHelper('eq', function (this: any, a: any, b: any, options: an
 Handlebars.registerHelper('lowercase', function (s: any) {
     return typeof s === 'string' ? s.toLowerCase() : s;
 });
+// "addOne" — return @index + 1 (untuk display 1-based numbering di template)
+Handlebars.registerHelper('addOne', function (n: any) {
+    return Number(n) + 1;
+});
 
 @Injectable()
 export class PdfExportService implements OnModuleDestroy {

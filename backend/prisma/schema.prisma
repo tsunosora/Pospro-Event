@@ -522,6 +522,20 @@ model Invoice {
   // Toggle mata uang USD — kalau true, label Rp diganti USD di semua nominal (TANPA konversi kurs).
   // Marketing input nilai USD manual ke field harga. Default false = pakai Rp.
   useUsdCurrency     Boolean           @default(false) @map("use_usd_currency")
+  // Custom subject — override auto-derive dari variantLabel.
+  // Contoh: "Booth Rental offering letter" (English) vs default "Penawaran Sewa Booth Special Design".
+  customSubject      String?           @map("custom_subject") @db.VarChar(200)
+  // Payment schedule multi-step — array `[{label, percent}]`. Total persen harus = 100.
+  // Null = pakai dpPercent legacy (single DP + auto-pelunasan).
+  paymentSchedule    Json?             @map("payment_schedule")
+  // Specifications terpisah dari item table — list group dengan judul.
+  // Format: `[{title?: string, items: string[]}]`. Render sebagai section setelah item table.
+  specifications     Json?             @map("specifications")
+  // Harga paket — alternatif untuk diskon dengan label lebih jelas.
+  // Kalau di-set & > 0 → tampil "Total Penawaran / Harga Paket" di footer (PDF Nukahiji style).
+  packagePrice       Decimal?          @map("package_price") @db.Decimal(15, 2)
+  // Tampilkan grand total di footer? Default true. Set false untuk mode 'package' (PDF Jalakx).
+  showGrandTotal     Boolean           @default(true) @map("show_grand_total")
   createdAt     DateTime?     @default(now()) @map("created_at")
   updatedAt     DateTime?     @default(now()) @updatedAt @map("updated_at")
 
@@ -549,11 +563,18 @@ model InvoiceItem {
   orderIndex       Int     @default(0) @map("order_index")
   productVariantId Int?    @map("product_variant_id")
   categoryName     String? @map("category_name") @db.VarChar(100) // snapshot kategori RAB untuk grouping di PDF
+  // Multi-event grouping: link item ke event tertentu (untuk penawaran multi-lokasi).
+  // null = shared/global. 0 = event utama (projectName). 1+ = additionalEvents[i-1].
+  eventIndex       Int?    @map("event_index")
+  // Package grouping (mode 'package'): nama paket (mis. "Package 1", "Package 2"). null untuk mode normal.
+  packageGroup     String? @map("package_group") @db.VarChar(80)
 
   invoice        Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
 
   @@index([invoiceId, orderIndex])
+  @@index([invoiceId, eventIndex])
+  @@index([invoiceId, packageGroup])
   @@map("invoice_items")
 }
 

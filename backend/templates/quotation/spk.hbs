@@ -256,15 +256,43 @@
     </tbody>
   </table>
 
+  {{!-- Specifications section — render kalau di-set di Quotation (PDF Nukahiji style).
+       Group dengan judul (Booth/Stage/Totem) + bullet checkmarks. --}}
+  {{#if specifications}}
+  <div style="margin: 8pt 0 10pt 0;">
+    <div style="font-weight: 700; color: {{theme.primary}}; margin-bottom: 4pt; font-size: 11pt; border-bottom: 0.5pt solid {{theme.primary}}; padding-bottom: 2pt;">
+      Spesifikasi
+    </div>
+    {{#each specifications}}
+    <div style="margin-top: 4pt;">
+      {{#if this.title}}
+      <div style="font-weight: 700; color: {{../theme.primaryDark}}; margin-bottom: 2pt; font-size: 10.5pt;">▪ {{this.title}}</div>
+      {{/if}}
+      <ul style="margin: 0 0 6pt 24pt; padding: 0; line-height: 1.6; font-size: 10.5pt;">
+        {{#each this.items}}<li>✓ {{this}}</li>{{/each}}
+      </ul>
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+
   {{!-- Catatan dengan prefix "#" — dari brand disclaimer (split per baris) --}}
   {{#if brandTexts.disclaimer}}
   <div class="hash-notes" style="white-space: pre-line;">{{spk.disclaimerHashed}}</div>
   {{/if}}
 
-  {{!-- Bullet pembayaran --}}
+  {{!-- Bullet pembayaran — kalau ada paymentSchedule custom, pakai itu. Else fallback ke DP+Pelunasan default. --}}
   <ul class="bullet-list">
-    <li>DP {{payment.dpPercent}}% dari nominal kontrak atau sebesar <strong>{{payment.dpAmount}}</strong> ({{payment.dpAmountTerbilang}}) dibayarkan pada saat surat perintah kerja ini ditandatangani.</li>
-    <li>Pelunasan sebesar <strong>{{payment.pelunasan}}</strong> ({{payment.pelunasanTerbilang}}) dibayarkan pada saat booth berdiri{{#if doc.validUntilFormatted}} atau selambat-lambatnya pada tanggal <strong>{{doc.validUntilFormatted}}</strong>{{/if}}.</li>
+    {{#if paymentSchedule}}
+      {{#each paymentSchedule}}
+      <li>
+        <strong>{{this.label}} {{this.percent}}%</strong> dari nominal kontrak sebesar <strong>{{this.amountFormatted}}</strong> ({{this.amountTerbilang}}){{#if @first}} dibayarkan pada saat surat perintah kerja ini ditandatangani{{else}}{{#if @last}} sebagai pelunasan akhir{{else}} dibayarkan secara bertahap{{/if}}{{/if}}.
+      </li>
+      {{/each}}
+    {{else}}
+      <li>DP {{payment.dpPercent}}% dari nominal kontrak atau sebesar <strong>{{payment.dpAmount}}</strong> ({{payment.dpAmountTerbilang}}) dibayarkan pada saat surat perintah kerja ini ditandatangani.</li>
+      <li>Pelunasan sebesar <strong>{{payment.pelunasan}}</strong> ({{payment.pelunasanTerbilang}}) dibayarkan pada saat booth berdiri{{#if doc.validUntilFormatted}} atau selambat-lambatnya pada tanggal <strong>{{doc.validUntilFormatted}}</strong>{{/if}}.</li>
+    {{/if}}
     <li>Surat Perintah Kerja tidak bisa dibatalkan. Apabila terjadi pembatalan, maka pembatalan akan dikenakan biaya 50% dari total harga. Dan dibayarkan maksimal 1 (satu) minggu dari pembatalan surat perintah kerja. Pembayaran DP yang sudah kami terima tidak dapat dikembalikan.</li>
     <li>Pembatalan Surat Perintah Kerja disampaikan secara tertulis.</li>
   </ul>

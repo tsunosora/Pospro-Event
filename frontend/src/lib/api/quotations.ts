@@ -13,6 +13,10 @@ export interface QuotationItem {
     orderIndex?: number;
     productVariantId?: number | null;
     categoryName?: string | null;
+    /** Multi-event grouping: 0=event utama, 1+ = additionalEvents[i-1]. null = shared/global. */
+    eventIndex?: number | null;
+    /** Package grouping (mode 'package'): nama paket. null = mode normal. */
+    packageGroup?: string | null;
 }
 
 export interface Quotation {
@@ -70,6 +74,11 @@ export interface Quotation {
     itemDisplayMode?: 'detailed' | 'category-summary' | null; // tampilan item di PDF/DOCX
     language?: 'id' | 'en';                                   // bahasa surat
     useUsdCurrency?: boolean;                                 // Toggle USD label (no conversion)
+    customSubject?: string | null;                            // Override "Hal:" auto-derive
+    paymentSchedule?: Array<{ label: string; percent: number }> | null;
+    specifications?: Array<{ title?: string | null; items: string[] }> | null;
+    packagePrice?: number | string | null;
+    showGrandTotal?: boolean;
     customOpeningText?: string | null;
     customDisclaimer?: string | null;
     customPaymentTerms?: string | null;
@@ -127,6 +136,12 @@ export interface CreateQuotationInput {
     taxRate?: number;
     discount?: number;
     items?: QuotationItem[];
+    // Field baru — multi-event/package support
+    customSubject?: string | null;
+    paymentSchedule?: Array<{ label: string; percent: number }> | null;
+    specifications?: Array<{ title?: string | null; items: string[] }> | null;
+    packagePrice?: number | string | null;
+    showGrandTotal?: boolean;
 }
 
 export const getQuotations = async (params: { variant?: QuotationVariant; variantCode?: string; year?: number; status?: InvoiceStatus; type?: 'QUOTATION' | 'INVOICE' | 'ALL' } = {}) => {

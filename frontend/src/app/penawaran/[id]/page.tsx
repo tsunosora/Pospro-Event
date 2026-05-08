@@ -114,6 +114,22 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [customClosingInvoice, setCustomClosingInvoice] = useState<string>("");
     /** Tab aktif untuk Custom Text Surat: penawaran / spk / invoice. */
     const [customTextTab, setCustomTextTab] = useState<'penawaran' | 'spk' | 'invoice'>('penawaran');
+    /**
+     * Form mode — kalau "simple", sembunyikan semua advanced fields (multi-event, package,
+     * payment schedule custom, specifications, custom subject, custom text override).
+     * Tampil cuma yang wajib + sering dipakai. Default: simple untuk user baru.
+     * Pakai localStorage supaya pilihan tersimpan.
+     */
+    const [formMode, setFormMode] = useState<'simple' | 'advanced'>(() => {
+        if (typeof window === 'undefined') return 'simple';
+        return (localStorage.getItem('pospro:quotation:formMode') as any) || 'simple';
+    });
+    useEffect(() => {
+        try { localStorage.setItem('pospro:quotation:formMode', formMode); } catch { /* ignore */ }
+    }, [formMode]);
+    /** Collapsible state per section — default collapse semua advanced. */
+    const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+    const toggleSection = (key: string) => setOpenSections((s) => ({ ...s, [key]: !s[key] }));
     // Append/prepend per section — combine dengan brand default
     const [disclaimerPrepend, setDisclaimerPrepend] = useState<string>("");
     const [disclaimerAppend, setDisclaimerAppend] = useState<string>("");
@@ -126,6 +142,23 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [language, setLanguage] = useState<'id' | 'en'>('id');
     /** Toggle mata uang USD — kalau true, label Rp diganti USD. Marketing input nilai USD manual. */
     const [useUsdCurrency, setUseUsdCurrency] = useState<boolean>(false);
+    /** Custom subject (Hal:) — kalau kosong, auto-derive dari variant. */
+    const [customSubject, setCustomSubject] = useState<string>("");
+    /** Payment schedule custom multi-step. Empty = pakai dpPercent legacy. */
+    const [paymentSchedule, setPaymentSchedule] = useState<Array<{ label: string; percent: number }>>([]);
+    /**
+     * Specifications terpisah dari item (sesuai PDF Nukahiji + Jalakx).
+     * `packageGroup` opsional — kalau di-set, spec ini cuma tampil untuk paket itu di mode package.
+     */
+    const [specifications, setSpecifications] = useState<Array<{
+        title: string;
+        items: string[];
+        packageGroup?: string;
+    }>>([]);
+    /** Harga paket — alternatif diskon dengan label "Harga Paket". 0 = pakai total normal. */
+    const [packagePrice, setPackagePrice] = useState<number>(0);
+    /** Tampilkan grand total di footer? Default true. False untuk mode 'package'. */
+    const [showGrandTotal, setShowGrandTotal] = useState<boolean>(true);
 
     // Bank accounts dari /settings/bank-accounts
     // Brand settings — untuk button "Salin dari Brand" di custom text section
@@ -242,6 +275,26 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setCustomAttachmentText((data as any).customAttachmentText ?? "");
         setLanguage((data as any).language === 'en' ? 'en' : 'id');
         setUseUsdCurrency(Boolean((data as any).useUsdCurrency));
+        setCustomSubject((data as any).customSubject ?? "");
+        setPaymentSchedule(
+            Array.isArray((data as any).paymentSchedule)
+                ? (data as any).paymentSchedule.map((s: any) => ({
+                      label: String(s?.label ?? ""),
+                      percent: Number(s?.percent ?? 0),
+                  }))
+                : [],
+        );
+        setSpecifications(
+            Array.isArray((data as any).specifications)
+                ? (data as any).specifications.map((g: any) => ({
+                      title: String(g?.title ?? ""),
+                      items: Array.isArray(g?.items) ? g.items.map((s: any) => String(s ?? "")) : [],
+                      packageGroup: String(g?.packageGroup ?? ""),
+                  }))
+                : [],
+        );
+        setPackagePrice(Number((data as any).packagePrice) || 0);
+        setShowGrandTotal((data as any).showGrandTotal !== false);
         setItems(keyed(data.items ?? []));
     }, [data]);
 
@@ -475,6 +528,20 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             customAttachmentText: customAttachmentText.trim() || null,
             language,
             useUsdCurrency,
+            // Field baru — multi-event/package support
+            customSubject: customSubject.trim() || null,
+            paymentSchedule: paymentSchedule
+                .filter((s) => s.label.trim() && s.percent > 0)
+                .map((s) => ({ label: s.label.trim(), percent: Number(s.percent) })),
+            specifications: specifications
+                .map((g) => ({
+                    title: g.title.trim() || null,
+                    items: g.items.map((s) => s.trim()).filter(Boolean),
+                    packageGroup: (g.packageGroup ?? '').trim() || null,
+                }))
+                .filter((g) => g.items.length > 0),
+            packagePrice: packagePrice > 0 ? packagePrice : null,
+            showGrandTotal,
             brand,
             items: items.map((it, idx) => ({
                 description: it.description,
@@ -484,6 +551,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 orderIndex: idx,
                 productVariantId: it.productVariantId ?? null,
                 categoryName: it.categoryName ?? null,
+                eventIndex: typeof (it as any).eventIndex === 'number' ? (it as any).eventIndex : null,
+                packageGroup: ((it as any).packageGroup ?? '').toString().trim() || null,
             })),
         });
     };
@@ -610,6 +679,32 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 || (data.quotationVariant === "PENGADAAN_BOOTH" ? "Pengadaan Booth Special Design" : "Sewa Perlengkapan Event");
                         })()}
                     </p>
+
+                    {/* Mode Toggle — kompak inline */}
+                    <div className="mt-2 inline-flex items-center gap-1 p-0.5 bg-slate-100 rounded-md border border-slate-200 text-xs">
+                        <button
+                            type="button"
+                            onClick={() => setFormMode('simple')}
+                            className={`px-2 py-1 rounded transition ${formMode === 'simple'
+                                ? 'bg-white text-emerald-700 shadow-sm font-semibold'
+                                : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            title="Mode mudah: cuma field penting"
+                        >
+                            😊 Sederhana
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFormMode('advanced')}
+                            className={`px-2 py-1 rounded transition ${formMode === 'advanced'
+                                ? 'bg-white text-violet-700 shadow-sm font-semibold'
+                                : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            title="Mode lengkap: semua fitur advanced"
+                        >
+                            🎛️ Lengkap
+                        </button>
+                    </div>
                 </div>
 
                 {/* Toolbar: 2 grup (Actions + Export) dengan separator */}
@@ -1225,11 +1320,32 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     <option value="Backwall" />
                     <option value="Stage" />
                 </datalist>
+                {(() => {
+                    // Mode Sederhana: sembunyikan kolom Event & Paket biar form simpel.
+                    // Mode Lengkap: tampilkan kalau multi-event aktif.
+                    const eventOptions = formMode === 'advanced' && additionalEvents.length > 0
+                        ? [
+                            { index: 0, label: `0. ${projectName || 'Event Utama'}` },
+                            ...additionalEvents.map((e, i) => ({
+                                index: i + 1,
+                                label: `${i + 1}. ${e.name || `Event ${i + 2}`}`,
+                            })),
+                          ]
+                        : [];
+                    const showPackageCol = formMode === 'advanced';
+                    const colCount = 8 + (eventOptions.length > 0 ? 1 : 0) + (showPackageCol ? 1 : 0);
+                    return (
                 <table className="w-full text-sm">
                     <thead className="bg-gray-50 text-left text-gray-700">
                         <tr>
                             <th className="w-6 px-1"></th>
                             <th className="px-2 py-1.5 w-40">Kategori</th>
+                            {eventOptions.length > 0 && (
+                                <th className="px-2 py-1.5 w-32" title="Link ke event lokasi">Event</th>
+                            )}
+                            {showPackageCol && (
+                                <th className="px-2 py-1.5 w-20" title="Nama paket (mode package)">Paket</th>
+                            )}
                             <th className="px-2 py-1.5">Uraian</th>
                             <th className="px-2 py-1.5 w-24">Qty</th>
                             <th className="px-2 py-1.5 w-24">Satuan</th>
@@ -1253,12 +1369,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                             removeItem={removeItem}
                                             setCalcOpenKey={setCalcOpenKey}
                                             rp={rp}
+                                            eventOptions={eventOptions}
+                                            showPackageCol={showPackageCol}
                                         />
                                     );
                                 })}
                                 {items.length === 0 && (
                                     <tr>
-                                        <td colSpan={8} className="text-center py-6 text-gray-400">
+                                        <td colSpan={colCount} className="text-center py-6 text-gray-400">
                                             Belum ada item. Klik &quot;Tambah Item&quot;.
                                         </td>
                                     </tr>
@@ -1267,104 +1385,424 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </SortableContext>
                     </DndContext>
                 </table>
+                    );
+                })()}
             </section>
 
-            <div className="grid md:grid-cols-2 gap-6 mt-6">
-                <section className="bg-white rounded-lg border p-4 space-y-3">
-                    <h3 className="font-semibold mb-2">Pajak &amp; Pembayaran</h3>
-                    <div className="grid grid-cols-2 gap-2">
+            <div className="grid md:grid-cols-2 gap-6 mt-6 auto-rows-min items-start">
+                <section className="bg-white rounded-lg border p-3 space-y-2">
+                    <h3 className="font-semibold text-sm">💵 Pajak &amp; Pembayaran</h3>
+                    <div className="grid grid-cols-3 gap-2">
                         <Field label="PPN (%)" value={String(taxRate)} onChange={(v) => setTaxRate(parseFloat(v) || 0)} type="number" />
                         <Field label="Diskon (Rp)" value={String(discount)} onChange={(v) => setDiscount(parseFloat(v) || 0)} type="number" />
+                        <Field label="DP (%)" value={String(dpPercent)} onChange={(v) => setDpPercent(parseFloat(v) || 0)} type="number" />
                     </div>
-                    <Field label="DP (%)" value={String(dpPercent)} onChange={(v) => setDpPercent(parseFloat(v) || 0)} type="number" />
                     <Field label="Catatan / Terms" value={notes} onChange={setNotes} multiline />
                 </section>
 
-                {/* Custom text per quotation — override default brand text */}
-                <section className="bg-white rounded-lg border p-4 space-y-3">
-                    <div>
-                        <h3 className="font-semibold flex items-center gap-2">
-                            ✍️ Custom Text Surat (Opsional)
-                        </h3>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                            Override teks default per surat. Kosongkan untuk pakai default dari Pengaturan Brand.
-                        </p>
-                    </div>
-
-                    {/* Language selector — selalu tampil karena fundamental */}
-                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
-                        <label className="text-xs font-bold text-blue-800 block mb-1.5">
-                            🌐 Bahasa Surat
+                {/* === Section: Format Lanjutan (Subject + Harga Paket + Show Grand Total) === */}
+                {formMode === 'advanced' && (
+                <section className="bg-white rounded-lg border border-violet-200 overflow-hidden">
+                    <button
+                        type="button"
+                        onClick={() => toggleSection('format')}
+                        className="w-full flex items-center justify-between px-3 py-2 bg-violet-50 hover:bg-violet-100 transition text-left"
+                    >
+                        <div className="flex items-center gap-2">
+                            <span>🎨</span>
+                            <div>
+                                <h3 className="font-semibold text-sm text-violet-900">Format Lanjutan</h3>
+                                <p className="text-[10px] text-violet-700">Subject • Harga paket • Show total</p>
+                            </div>
+                        </div>
+                        <span className="text-violet-700 text-xs">{openSections.format ? '▲' : '▼'}</span>
+                    </button>
+                    {openSections.format && (
+                    <div className="p-3 space-y-2 border-t border-violet-200">
+                        <Field
+                            label='Hal: (Custom Subject)'
+                            value={customSubject}
+                            onChange={setCustomSubject}
+                            placeholder="Otomatis dari variant kalau dikosongkan"
+                        />
+                        <Field
+                            label="Harga Paket (Rp)"
+                            value={packagePrice ? String(packagePrice) : ""}
+                            onChange={(v) => setPackagePrice(parseFloat(v) || 0)}
+                            type="number"
+                            placeholder="Kosong = pakai grand total normal"
+                        />
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={showGrandTotal}
+                                onChange={(e) => setShowGrandTotal(e.target.checked)}
+                                className="w-4 h-4"
+                            />
+                            <span>Tampilkan Grand Total di footer <span className="text-slate-500">(uncheck untuk mode Package)</span></span>
                         </label>
-                        <div className="flex gap-2">
+                    </div>
+                    )}
+                </section>
+                )}
+
+                {/* === Section: Spesifikasi (PDF Nukahiji style) === */}
+                {formMode === 'advanced' && (
+                <section className="bg-white rounded-lg border border-emerald-200 overflow-hidden">
+                    <button
+                        type="button"
+                        onClick={() => toggleSection('spec')}
+                        className="w-full flex items-center justify-between px-3 py-2 bg-emerald-50 hover:bg-emerald-100 transition text-left"
+                    >
+                        <div className="flex items-center gap-2">
+                            <span>📋</span>
+                            <div>
+                                <h3 className="font-semibold text-sm text-emerald-900 flex items-center gap-1.5">
+                                    Spesifikasi Detail
+                                    {specifications.length > 0 && <span className="px-1.5 py-0.5 bg-emerald-200 rounded text-[10px] font-bold">{specifications.length}</span>}
+                                </h3>
+                                <p className="text-[10px] text-emerald-700">List spec per item (Booth/Stage/Totem)</p>
+                            </div>
+                        </div>
+                        <span className="text-emerald-700 text-xs">{openSections.spec ? '▲' : '▼'}</span>
+                    </button>
+                    {openSections.spec && (
+                    <div className="p-3 space-y-2 border-t border-emerald-200">
+                        <button
+                            type="button"
+                            onClick={() => setSpecifications([...specifications, { title: "", items: [""] }])}
+                            className="w-full px-2 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium"
+                            title="Tambah group spec (mis. Booth, Stage, Totem)"
+                        >
+                            ➕ Tambah Group Spesifikasi
+                        </button>
+                    {specifications.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">Belum ada. Klik "+ Tambah Group" untuk mulai.</p>
+                    ) : (
+                        specifications.map((grp, gi) => (
+                            <div key={gi} className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/40 space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="text"
+                                        value={grp.title}
+                                        onChange={(e) =>
+                                            setSpecifications(
+                                                specifications.map((g, i) =>
+                                                    i === gi ? { ...g, title: e.target.value } : g,
+                                                ),
+                                            )
+                                        }
+                                        placeholder="Judul group (mis. Booth, Stage)"
+                                        className="flex-1 border rounded px-2 py-1 text-xs font-bold"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setSpecifications(specifications.filter((_, i) => i !== gi))
+                                        }
+                                        className="text-red-600 hover:bg-red-50 p-1 rounded"
+                                        title="Hapus group"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                                {/* Dropdown "Untuk paket" — auto-detect packages dari items.packageGroup */}
+                                {(() => {
+                                    const pkgList = Array.from(new Set(items
+                                        .map((it: any) => (it.packageGroup ?? '').toString().trim())
+                                        .filter((s) => s.length > 0)));
+                                    if (pkgList.length === 0) return null; // tidak mode package, sembunyikan dropdown
+                                    return (
+                                        <div className="flex items-center gap-2 text-xs">
+                                            <label className="text-slate-600 whitespace-nowrap">📦 Untuk paket:</label>
+                                            <select
+                                                value={grp.packageGroup ?? ""}
+                                                onChange={(e) =>
+                                                    setSpecifications(
+                                                        specifications.map((g, i) =>
+                                                            i === gi ? { ...g, packageGroup: e.target.value } : g,
+                                                        ),
+                                                    )
+                                                }
+                                                className="flex-1 border rounded px-2 py-1 text-xs"
+                                            >
+                                                <option value="">— Global (semua paket) —</option>
+                                                {pkgList.map((p) => (
+                                                    <option key={p} value={p}>{p}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    );
+                                })()}
+                                {grp.items.map((it, ii) => (
+                                    <div key={ii} className="flex items-center gap-2">
+                                        <span className="text-emerald-600 text-xs">✓</span>
+                                        <input
+                                            type="text"
+                                            value={it}
+                                            onChange={(e) =>
+                                                setSpecifications(
+                                                    specifications.map((g, i) =>
+                                                        i === gi
+                                                            ? {
+                                                                ...g,
+                                                                items: g.items.map((s, j) =>
+                                                                    j === ii ? e.target.value : s,
+                                                                ),
+                                                            }
+                                                            : g,
+                                                    ),
+                                                )
+                                            }
+                                            placeholder="Mis. Ukuran (250 x 200) cm"
+                                            className="flex-1 border rounded px-2 py-1 text-xs"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setSpecifications(
+                                                    specifications.map((g, i) =>
+                                                        i === gi
+                                                            ? { ...g, items: g.items.filter((_, j) => j !== ii) }
+                                                            : g,
+                                                    ),
+                                                )
+                                            }
+                                            className="text-red-600 hover:bg-red-50 p-0.5 rounded"
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setSpecifications(
+                                            specifications.map((g, i) =>
+                                                i === gi ? { ...g, items: [...g.items, ""] } : g,
+                                            ),
+                                        )
+                                    }
+                                    className="text-[10px] text-blue-600 hover:underline ml-5"
+                                >
+                                    + Tambah Item
+                                </button>
+                            </div>
+                        ))
+                    )}
+                    </div>
+                    )}
+                </section>
+                )}
+
+                {/* === Section: Payment Schedule (Multi-step) === */}
+                {formMode === 'advanced' && (
+                <section className="bg-white rounded-lg border border-blue-200 overflow-hidden">
+                    <button
+                        type="button"
+                        onClick={() => toggleSection('payment')}
+                        className="w-full flex items-center justify-between px-3 py-2 bg-blue-50 hover:bg-blue-100 transition text-left"
+                    >
+                        <div className="flex items-center gap-2">
+                            <span>💰</span>
+                            <div>
+                                <h3 className="font-semibold text-sm text-blue-900 flex items-center gap-1.5">
+                                    Skema Pembayaran Bertahap
+                                    {paymentSchedule.length > 0 && <span className="px-1.5 py-0.5 bg-blue-200 rounded text-[10px] font-bold">{paymentSchedule.length}</span>}
+                                </h3>
+                                <p className="text-[10px] text-blue-700">Multi-step DP — override DP {dpPercent}%</p>
+                            </div>
+                        </div>
+                        <span className="text-blue-700 text-xs">{openSections.payment ? '▲' : '▼'}</span>
+                    </button>
+                    {openSections.payment && (
+                    <div className="p-3 space-y-2 border-t border-blue-200">
+                        <div className="flex gap-1.5">
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setPaymentSchedule([
+                                        { label: "DP", percent: 50 },
+                                        { label: "Pelunasan", percent: 50 },
+                                    ])
+                                }
+                                className="flex-1 text-[11px] px-2 py-1 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 border border-blue-300 font-semibold"
+                                title="Preset 50% DP + 50% Pelunasan"
+                            >
+                                ⚡ 50/50
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setPaymentSchedule([
+                                        { label: "DP1", percent: 50 },
+                                        { label: "DP2", percent: 30 },
+                                        { label: "Pelunasan", percent: 20 },
+                                    ])
+                                }
+                                className="flex-1 text-[11px] px-2 py-1 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 border border-blue-300 font-semibold"
+                                title="Preset DP1 50% + DP2 30% + Pelunasan 20%"
+                            >
+                                ⚡ 50/30/20
+                            </button>
+                        </div>
+                    {paymentSchedule.length > 0 && (
+                        <>
+                            {paymentSchedule.map((s, si) => (
+                                <div key={si} className="flex items-center gap-2">
+                                    <input
+                                        type="text"
+                                        value={s.label}
+                                        onChange={(e) =>
+                                            setPaymentSchedule(
+                                                paymentSchedule.map((p, i) =>
+                                                    i === si ? { ...p, label: e.target.value } : p,
+                                                ),
+                                            )
+                                        }
+                                        placeholder="Label (mis. DP1, Pelunasan)"
+                                        className="flex-1 border rounded px-2 py-1 text-xs"
+                                    />
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value={s.percent}
+                                        onChange={(e) =>
+                                            setPaymentSchedule(
+                                                paymentSchedule.map((p, i) =>
+                                                    i === si ? { ...p, percent: parseFloat(e.target.value) || 0 } : p,
+                                                ),
+                                            )
+                                        }
+                                        className="w-16 border rounded px-2 py-1 text-xs text-right"
+                                    />
+                                    <span className="text-xs text-slate-500">%</span>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setPaymentSchedule(paymentSchedule.filter((_, i) => i !== si))
+                                        }
+                                        className="text-red-600 hover:bg-red-50 p-0.5 rounded"
+                                    >
+                                        <Trash2 className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            ))}
+                            {(() => {
+                                const totalPct = paymentSchedule.reduce((sum, s) => sum + Number(s.percent || 0), 0);
+                                const ok = Math.abs(totalPct - 100) < 0.01;
+                                return (
+                                    <p className={`text-[11px] font-bold ${ok ? "text-emerald-700" : "text-red-700"}`}>
+                                        Total: {totalPct.toFixed(2)}% {ok ? "✓" : "(harus 100%)"}
+                                    </p>
+                                );
+                            })()}
+                        </>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => setPaymentSchedule([...paymentSchedule, { label: "", percent: 0 }])}
+                        className="w-full text-sm px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded font-medium border border-dashed border-slate-300"
+                    >
+                        ➕ Tambah Step Pembayaran
+                    </button>
+                    </div>
+                    )}
+                </section>
+                )}
+
+                {/* Bahasa & Mata Uang — compact section */}
+                <section className="bg-white rounded-lg border border-blue-200 overflow-hidden">
+                    <div className="px-3 py-2 bg-gradient-to-r from-blue-50 to-violet-50 border-b border-blue-200 flex items-center gap-2">
+                        <span>🌐</span>
+                        <div>
+                            <h3 className="font-semibold text-sm text-blue-900">Bahasa & Mata Uang</h3>
+                            <p className="text-[10px] text-blue-700">Bahasa surat + toggle USD</p>
+                        </div>
+                    </div>
+                    <div className="p-3 space-y-2">
+
+                    {/* Language + USD toggle — kompak dalam 1 baris pill-style */}
+                    <div className="flex gap-1.5">
+                        {/* Language pills */}
+                        <div className="flex gap-0.5 p-0.5 bg-slate-100 rounded-md flex-1">
                             {([
-                                { value: 'id' as const, label: '🇮🇩 Indonesia', desc: 'Bahasa default' },
-                                { value: 'en' as const, label: '🇬🇧 English', desc: 'For international clients' },
+                                { value: 'id' as const, label: '🇮🇩 ID' },
+                                { value: 'en' as const, label: '🇬🇧 EN' },
                             ]).map((opt) => (
                                 <button
                                     key={opt.value}
                                     type="button"
                                     onClick={() => setLanguage(opt.value)}
-                                    className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition ${language === opt.value
-                                        ? "border-blue-600 bg-white text-blue-700 ring-2 ring-blue-200"
-                                        : "border-slate-300 bg-white text-slate-700 hover:border-blue-400"
+                                    title={opt.value === 'id' ? 'Bahasa Indonesia' : 'English (international)'}
+                                    className={`flex-1 px-2 py-1 rounded text-xs font-semibold transition ${language === opt.value
+                                        ? "bg-white text-blue-700 shadow-sm"
+                                        : "text-slate-600 hover:text-slate-900"
                                         }`}
                                 >
-                                    <div className="font-bold">{opt.label}</div>
-                                    <div className="text-[10px] text-muted-foreground">{opt.desc}</div>
+                                    {opt.label}
                                 </button>
                             ))}
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1.5">
-                            Auto-translate label header (Nomor → Number, Lampiran → Attachment, dll), terbilang (English number-to-words), dan teks default brand (kalau ada versi English di pengaturan).
-                        </p>
-
-                        {/* Toggle mata uang USD — cuma ganti label Rp → USD di PDF. TANPA konversi. */}
-                        <div className="mt-2 pt-2 border-t border-blue-200">
-                            <button
-                                type="button"
-                                onClick={() => setUseUsdCurrency((v) => !v)}
-                                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border-2 transition ${useUsdCurrency
-                                    ? "border-emerald-500 bg-emerald-50 text-emerald-800"
-                                    : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
-                                    }`}
-                            >
-                                <span className="flex items-center gap-2 font-medium text-sm">
-                                    {useUsdCurrency ? "💵" : "💴"} Mata Uang USD
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${useUsdCurrency ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-600"
-                                        }`}>
-                                        {useUsdCurrency ? "AKTIF" : "OFF"}
-                                    </span>
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">
-                                    {useUsdCurrency ? "Klik untuk pakai Rp" : "Klik untuk aktifkan USD"}
-                                </span>
-                            </button>
-                            <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">
-                                {useUsdCurrency
-                                    ? "✅ Label Rp diganti USD di PDF. ⚠️ TIDAK ada konversi kurs — input nilai harga di field uraian sudah dalam USD (mis. tulis 5000 untuk USD 5,000.00)."
-                                    : "Default pakai Rp. Aktifkan kalau penawaran ini buat klien internasional & kamu mau input harga langsung dalam USD."}
-                            </p>
-                        </div>
+                        {/* USD toggle */}
+                        <button
+                            type="button"
+                            onClick={() => setUseUsdCurrency((v) => !v)}
+                            title={useUsdCurrency
+                                ? "USD aktif — label di PDF pakai USD. Klik untuk balik ke Rp."
+                                : "Klik untuk aktifkan USD (label Rp → USD, tanpa konversi kurs)"}
+                            className={`px-3 py-1 rounded-md text-xs font-semibold transition border ${useUsdCurrency
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                : "bg-white text-slate-600 border-slate-300 hover:border-slate-400"
+                                }`}
+                        >
+                            {useUsdCurrency ? "💵 USD ✓" : "💴 Rp (default)"}
+                        </button>
                     </div>
+                    <p className="text-[10px] text-muted-foreground">
+                        {language === 'en' && "📖 Label header auto-translate (Nomor→Number, dll). "}
+                        {useUsdCurrency
+                            ? "💡 Input nilai harga langsung dalam USD (tanpa konversi kurs)."
+                            : "💡 Default pakai Rp. Aktifkan USD untuk klien internasional."}
+                    </p>
+                    </div>
+                </section>
+
+                {/* Custom Text Surat — Mode Lengkap saja */}
+                {formMode === 'advanced' && (
+                <section className="bg-white rounded-lg border border-amber-200 overflow-hidden">
+                    <button
+                        type="button"
+                        onClick={() => toggleSection('customText')}
+                        className="w-full flex items-center justify-between px-3 py-2 bg-amber-50 hover:bg-amber-100 transition text-left"
+                    >
+                        <div className="flex items-center gap-2">
+                            <span>✍️</span>
+                            <div>
+                                <h3 className="font-semibold text-sm text-amber-900">Custom Text Surat</h3>
+                                <p className="text-[10px] text-amber-700">Override Lampiran, Pembuka, Disclaimer, dst</p>
+                            </div>
+                        </div>
+                        <span className="text-amber-700 text-xs">{openSections.customText ? '▲' : '▼'}</span>
+                    </button>
+                    {openSections.customText && (
+                    <div className="p-3 space-y-2 border-t border-amber-200">
                     <div>
-                        <label className="text-xs font-medium block mb-1">
-                            📎 Lampiran
-                        </label>
+                        <label className="text-xs font-medium block mb-1">📎 Lampiran</label>
                         <textarea
                             value={customAttachmentText}
                             onChange={(e) => setCustomAttachmentText(e.target.value)}
-                            rows={2}
-                            placeholder='Bebas isi: angka ("1 (satu) berkas"), dash ("-"), atau list multi-baris'
-                            className="w-full border rounded px-3 py-2 text-sm font-sans"
+                            rows={1}
+                            placeholder='Default "1 (satu) berkas" — bisa ganti dengan dash atau list'
+                            className="w-full border rounded px-2 py-1 text-xs font-sans"
                         />
-                        {/* Quick-fill chips — klik untuk auto-isi field di atas */}
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                            <span className="text-[10px] text-muted-foreground self-center mr-1">Quick fill:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
                             {[
-                                { label: "1 (satu) berkas", val: "1 (satu) berkas" },
-                                { label: "2 (dua) berkas", val: "2 (dua) berkas" },
-                                { label: "3 (tiga) berkas", val: "3 (tiga) berkas" },
+                                { label: "1 (satu)", val: "1 (satu) berkas" },
+                                { label: "2 (dua)", val: "2 (dua) berkas" },
+                                { label: "3 (tiga)", val: "3 (tiga) berkas" },
                                 { label: "—", val: "-" },
                                 { label: "Tidak ada", val: "Tidak ada" },
                             ].map((opt) => (
@@ -1372,7 +1810,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     key={opt.label}
                                     type="button"
                                     onClick={() => setCustomAttachmentText(opt.val)}
-                                    className="px-2 py-0.5 rounded border text-[10px] font-medium bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300"
+                                    className="px-1.5 py-0.5 rounded border text-[10px] bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300"
                                 >
                                     {opt.label}
                                 </button>
@@ -1381,15 +1819,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 <button
                                     type="button"
                                     onClick={() => setCustomAttachmentText("")}
-                                    className="px-2 py-0.5 rounded border text-[10px] font-medium bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-300"
+                                    className="px-1.5 py-0.5 rounded border text-[10px] bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-300"
                                 >
-                                    ✕ Reset (pakai default)
+                                    ✕ Reset
                                 </button>
                             )}
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                            Kosongkan untuk default auto: &quot;1 (satu) berkas&quot;. Multi-baris diperbolehkan (line break dipertahankan di PDF).
-                        </p>
                     </div>
                     {/* Tab switcher — Penawaran / SPK / Invoice (per-doctype custom text) */}
                     <div className="border-b border-slate-200 -mx-4 px-4 pt-1">
@@ -1580,7 +2015,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     />
                     </>
                     )}
+                    </div>
+                    )}
                 </section>
+                )}
 
                 <section className="bg-white rounded-lg border p-4">
                     <h3 className="font-semibold mb-2">Ringkasan</h3>
@@ -2204,6 +2642,7 @@ function Row({ label, value }: { label: string; value: string }) {
 /** Row item draggable — drag handle di kolom kiri, isinya sama persis dengan tr lama. */
 function SortableItemRow({
     it, sub, updateItem, duplicateItem, removeItem, setCalcOpenKey, rp,
+    eventOptions, showPackageCol,
 }: {
     it: ItemRow;
     sub: number;
@@ -2212,6 +2651,10 @@ function SortableItemRow({
     removeItem: (k: string) => void;
     setCalcOpenKey: (k: string | null) => void;
     rp: (v: string | number) => string;
+    /** Pilihan event untuk dropdown event-grouped. Empty = sembunyikan kolom event. */
+    eventOptions: Array<{ index: number; label: string }>;
+    /** Tampilkan kolom Paket? False di Mode Sederhana. */
+    showPackageCol: boolean;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: it._key });
     const style: CSSProperties = {
@@ -2243,6 +2686,43 @@ function SortableItemRow({
                     className="w-full border rounded px-2 py-1 text-xs"
                 />
             </td>
+            {/* Kolom Event — hanya muncul kalau ada multi-event */}
+            {eventOptions.length > 0 && (
+                <td className="px-2 py-1">
+                    <select
+                        value={(it as any).eventIndex ?? ''}
+                        onChange={(e) =>
+                            updateItem(it._key, {
+                                eventIndex: e.target.value === '' ? null : Number(e.target.value),
+                            } as any)
+                        }
+                        className="w-full border rounded px-1 py-1 text-xs"
+                        title="Link item ke event tertentu (pricing per lokasi)"
+                    >
+                        <option value="">— shared —</option>
+                        {eventOptions.map((opt) => (
+                            <option key={opt.index} value={opt.index}>
+                                {opt.label}
+                            </option>
+                        ))}
+                    </select>
+                </td>
+            )}
+            {/* Kolom Paket — input text untuk grouping package (Mode Lengkap saja) */}
+            {showPackageCol && (
+                <td className="px-2 py-1">
+                    <input
+                        type="text"
+                        value={(it as any).packageGroup ?? ""}
+                        onChange={(e) =>
+                            updateItem(it._key, { packageGroup: e.target.value || null } as any)
+                        }
+                        placeholder="(opt) Pkg"
+                        className="w-full border rounded px-1 py-1 text-xs"
+                        title="Mode 'package': nama paket (mis. Package 1)"
+                    />
+                </td>
+            )}
             <td className="px-2 py-1">
                 <input
                     value={it.description}

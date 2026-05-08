@@ -63,6 +63,24 @@ export interface CreateQuotationDto {
     customAttachmentText?: string | null; // Teks bebas untuk lampiran
     language?: 'id' | 'en';                // Bahasa surat (default 'id')
     useUsdCurrency?: boolean;              // Toggle: kalau true, label Rp diganti USD (TANPA konversi).
+    /** Custom subject — override "Hal:" auto-derive dari variant. */
+    customSubject?: string | null;
+    /** Payment schedule multi-step. Total persen harus 100. Null = pakai dpPercent legacy. */
+    paymentSchedule?: Array<{ label: string; percent: number }> | null;
+    /**
+     * Specifications terpisah dari item table — list group dengan judul.
+     * `packageGroup` (opsional) untuk link spec ke paket tertentu di mode 'package'.
+     * Null/empty = global (tampil di semua paket atau di luar package mode).
+     */
+    specifications?: Array<{
+        title?: string | null;
+        items: string[];
+        packageGroup?: string | null;
+    }> | null;
+    /** Harga paket — alternatif diskon dengan label "Harga Paket". */
+    packagePrice?: number | string | null;
+    /** Tampilkan grand total di footer. Default true. False untuk mode 'package'. */
+    showGrandTotal?: boolean;
 
     // Angka
     taxRate?: number;

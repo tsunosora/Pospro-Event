@@ -282,7 +282,113 @@
     </p>
     {{/if}}
 
-    {{#if doc.isCategorySummary}}
+    {{#if doc.isEventGrouped}}
+    {{!-- ============================================================
+         MODE: EVENT-GROUPED — Items dipisah per event lokasi (PDF Nukahiji EO style)
+         ============================================================ --}}
+    <table class="items">
+      <thead>
+        <tr>
+          <th style="width:28pt">{{i18n.no}}</th>
+          <th>{{i18n.uraian}}</th>
+          <th style="width:72pt">{{i18n.qty}}</th>
+          <th style="width:90pt">{{i18n.hargaSatuan}}</th>
+          <th style="width:100pt">{{i18n.jumlah}}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each itemsByEvent}}
+        <tr class="cat-header">
+          <td colspan="5">{{this.no}}. {{this.eventName}}{{#if this.eventLocation}}, {{this.eventLocation}}{{/if}}{{#if this.eventDateRange}} — {{this.eventDateRange}}{{/if}}</td>
+        </tr>
+        {{#each this.items}}
+        <tr>
+          <td class="num">{{this.no}}</td>
+          <td>{{this.description}}</td>
+          <td class="qty">{{this.quantity}}</td>
+          <td class="rp">{{this.price}}</td>
+          <td class="rp">{{this.subtotal}}</td>
+        </tr>
+        {{/each}}
+        <tr class="cat-subtotal">
+          <td colspan="4" style="text-align:right">Subtotal {{this.eventName}}</td>
+          <td class="rp">{{this.subtotalFormatted}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+      <tbody class="grand-totals">
+        {{#if showGrandTotal}}
+        <tr>
+          <td colspan="4" class="label">Total Harga Penawaran</td>
+          <td class="rp">{{totals.subtotal}}</td>
+        </tr>
+        {{#if totals.discount}}
+        <tr>
+          <td colspan="4" class="label">{{i18n.diskon}}</td>
+          <td class="rp">({{totals.discount}})</td>
+        </tr>
+        {{/if}}
+        {{#if totals.taxRate}}
+        <tr>
+          <td colspan="4" class="label">{{i18n.ppn}} {{totals.taxRate}}%</td>
+          <td class="rp">{{totals.taxAmount}}</td>
+        </tr>
+        {{/if}}
+        {{#if packagePriceFormatted}}
+        <tr class="grand-total" style="background:{{theme.primarySubtle}};">
+          <td colspan="4" class="label">Harga Paket</td>
+          <td class="rp">{{packagePriceFormatted}}</td>
+        </tr>
+        {{else}}
+        <tr class="grand-total">
+          <td colspan="4" class="label">{{i18n.grandTotal}}</td>
+          <td class="rp">{{totals.total}}</td>
+        </tr>
+        {{/if}}
+        {{/if}}
+      </tbody>
+    </table>
+    {{else if doc.isPackageMode}}
+    {{!-- ============================================================
+         MODE: PACKAGE — Per-package list dengan opsi harga + spec per package
+         (PDF Jalakx style: Package 1/2/3 dengan ukuran options + spec list per paket)
+         ============================================================ --}}
+    <div class="package-container" style="margin-top: 12pt;">
+      {{#each packages}}
+      <div class="package-block" style="margin-bottom: 14pt;">
+        <div class="package-name" style="font-size: 11.5pt; font-weight: 700; color: {{../theme.primary}}; padding: 4pt 8pt; background: {{../theme.primaryLight}}; border-left: 4pt solid {{../theme.primary}}; margin-bottom: 6pt;">
+          {{this.no}}. {{this.name}}
+        </div>
+        {{!-- Pricing options --}}
+        <ul class="package-options" style="margin: 0 0 4pt 24pt; padding: 0; list-style: none; font-size: 11pt; line-height: 1.7;">
+          {{#each this.items}}
+          <li style="display: flex; justify-content: space-between; gap: 12pt;">
+            <span>▪ {{this.description}}{{#if this.unit}} <span style="color:#666;">({{this.quantity}})</span>{{/if}}</span>
+            <strong style="white-space: nowrap;">{{this.price}}</strong>
+          </li>
+          {{/each}}
+        </ul>
+        {{!-- Spec per package (kalau ada) --}}
+        {{#if this.specs}}
+        <div style="margin: 4pt 0 0 24pt;">
+          <div style="font-size: 10.5pt; font-style: italic; color: #555; margin-bottom: 2pt;">Specification:</div>
+          {{#each this.specs}}
+          {{#if this.title}}<div style="font-size: 10pt; font-weight: 600; color: {{../../theme.primaryDark}}; margin-top: 3pt;">{{this.title}}</div>{{/if}}
+          <ul style="margin: 0 0 4pt 16pt; padding: 0; line-height: 1.55; font-size: 10.5pt;">
+            {{#each this.items}}<li>✓ {{this}}</li>{{/each}}
+          </ul>
+          {{/each}}
+        </div>
+        {{/if}}
+      </div>
+      {{/each}}
+    </div>
+    {{#if showGrandTotal}}
+    <div class="terbilang" style="margin-top: 8pt; text-align: right;">
+      <strong>{{i18n.grandTotal}}: {{totals.total}}</strong>
+    </div>
+    {{/if}}
+    {{else if doc.isCategorySummary}}
     {{!-- ============================================================
          MODE: CATEGORY SUMMARY — Hide harga & qty per item, hanya total per kategori
          ============================================================ --}}
@@ -403,15 +509,58 @@
           <td class="rp">{{totals.taxAmount}}</td>
         </tr>
         {{/if}}
+        {{#if packagePriceFormatted}}
+        <tr>
+          <td colspan="4" class="label">Total Harga Penawaran</td>
+          <td class="rp">{{totals.total}}</td>
+        </tr>
+        <tr class="grand-total" style="background:{{theme.primarySubtle}};">
+          <td colspan="4" class="label">Harga Paket</td>
+          <td class="rp">{{packagePriceFormatted}}</td>
+        </tr>
+        {{else}}
         <tr class="grand-total">
           <td colspan="4" class="label">{{i18n.grandTotal}}</td>
           <td class="rp">{{totals.total}}</td>
         </tr>
+        {{/if}}
       </tbody>
     </table>
     {{/if}}
 
     <div class="terbilang">{{i18n.terbilang}}: <strong>{{totals.totalTerbilang}}</strong></div>
+
+    {{!-- Specifications section — render kalau di-set di Quotation (PDF Nukahiji style) --}}
+    {{#if specifications}}
+    <div class="text-section" style="margin-top: 14pt;">
+      <div class="section-title">Spesifikasi</div>
+      {{#each specifications}}
+      <div style="margin-top: 4pt;">
+        {{#if this.title}}
+        <div style="font-weight: 700; color: {{../theme.primaryDark}}; margin-bottom: 2pt;">▪ {{this.title}}</div>
+        {{/if}}
+        <ul style="margin: 0 0 6pt 24pt; padding: 0; line-height: 1.6; font-size: 10.5pt;">
+          {{#each this.items}}<li>✓ {{this}}</li>{{/each}}
+        </ul>
+      </div>
+      {{/each}}
+    </div>
+    {{/if}}
+
+    {{!-- Payment schedule — kalau di-set, override DP/pelunasan default. Tampil di section sendiri. --}}
+    {{#if paymentSchedule}}
+    <div class="text-section" style="margin-top: 12pt;">
+      <div class="section-title">{{i18n.sistemPembayaran}}</div>
+      <ul style="margin: 0 0 0 18pt; padding: 0; line-height: 1.7;">
+        {{#each paymentSchedule}}
+        <li>
+          <strong>{{this.label}} {{this.percent}}%</strong> sebesar <strong>{{this.amountFormatted}}</strong>
+          <em style="color:#555;">({{this.amountTerbilang}})</em>
+        </li>
+        {{/each}}
+      </ul>
+    </div>
+    {{/if}}
 
     {{#if doc.isInvoice}}
     {{#if doc.amountToPayFormatted}}

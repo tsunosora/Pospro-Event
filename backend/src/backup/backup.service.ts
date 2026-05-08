@@ -13,7 +13,26 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.14 (current) — Per-doctype custom text + SPK enhancements + edit nomor:
+// v2.15 (current) — Quotation format enhancements (multi-event pricing, package mode, payment schedule):
+//   - InvoiceItem.eventIndex (Int?) — link item ke event tertentu di additionalEvents.
+//     Mode 'event-grouped' (auto-aktif): items dipisah per event lokasi dengan harga berbeda
+//     (PDF Nukahiji EO style: booth Jogja Rp 11jt, Surabaya Rp 4.5jt, Riau Rp 8.5jt)
+//   - InvoiceItem.packageGroup (String?) — nama paket untuk mode 'package'.
+//     Mode 'package' (auto-aktif kalau ada packageGroup): per-package list dengan opsi harga,
+//     hide grand total (PDF Jalakx style: Package 1/2/3 dengan ukuran options)
+//   - Invoice.paymentSchedule (Json?) — multi-step payment installments
+//     `[{label: "DP1", percent: 50}, {label: "DP2", percent: 30}, {label: "Pelunasan", percent: 20}]`
+//     Total persen wajib 100. Null = pakai dpPercent legacy.
+//   - Invoice.customSubject (VarChar 200) — override "Hal:" auto-derive dari variant
+//     (mis. "Booth Rental offering letter" untuk versi English)
+//   - Invoice.specifications (Json?) — list group `[{title?, items[]}]` render terpisah
+//     setelah item table (Booth/Stage/Totem specs di PDF Nukahiji)
+//   - Invoice.packagePrice (Decimal 15,2) — harga paket alternatif diskon dengan label clear
+//     ("Total Harga Penawaran / Harga Paket" di footer PDF)
+//   - Invoice.showGrandTotal (Boolean default true) — false untuk mode 'package' (no grand total)
+//   - Document number language-aware: prefix "Pnwr" (Indonesian) → "Quot" (English) saat assignNumber
+//     Counter shared antar bahasa supaya nomor urut tidak conflict
+// v2.14 — Per-doctype custom text + SPK enhancements + edit nomor:
 //   - Invoice.customOpeningSpk, customDisclaimerSpk, customPaymentTermsSpk, customClosingSpk
 //     → custom text khusus saat render SPK (terpisah dari Penawaran)
 //   - Invoice.customOpeningInvoice, customDisclaimerInvoice, customPaymentTermsInvoice, customClosingInvoice
@@ -265,7 +284,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.14',
+                version: '2.15',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,

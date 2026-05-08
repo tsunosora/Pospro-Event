@@ -21,6 +21,49 @@ function toDecimal(v: number | string | undefined | null, fallback = '0'): Prism
     return new Prisma.Decimal(v as any);
 }
 
+/**
+ * Validate & normalize paymentSchedule untuk disimpan di kolom JSON.
+ * Total persen harus = 100 (toleransi 0.01). Reject kalau invalid.
+ * Return Prisma.JsonNull kalau input kosong/null.
+ */
+function sanitizePaymentSchedule(
+    input: Array<{ label: string; percent: number }> | null | undefined,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+    if (!input || !Array.isArray(input) || input.length === 0) return Prisma.JsonNull;
+    const cleaned = input
+        .map((s) => ({
+            label: (s?.label ?? '').toString().trim(),
+            percent: Number(s?.percent ?? 0),
+        }))
+        .filter((s) => s.label && s.percent > 0);
+    if (cleaned.length === 0) return Prisma.JsonNull;
+    const total = cleaned.reduce((sum, s) => sum + s.percent, 0);
+    if (Math.abs(total - 100) > 0.01) {
+        throw new BadRequestException(
+            `Total persen payment schedule harus 100% (sekarang ${total.toFixed(2)}%). Sesuaikan persen masing-masing step.`,
+        );
+    }
+    return cleaned as unknown as Prisma.InputJsonValue;
+}
+
+/** Sanitize specifications JSON: trim items, drop kosong, drop group tanpa items. */
+function sanitizeSpecifications(
+    input: Array<{ title?: string | null; items: string[]; packageGroup?: string | null }> | null | undefined,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+    if (!input || !Array.isArray(input) || input.length === 0) return Prisma.JsonNull;
+    const cleaned = input
+        .map((g) => ({
+            title: (g?.title ?? '').toString().trim() || null,
+            items: Array.isArray(g?.items)
+                ? g.items.map((s) => (s ?? '').toString().trim()).filter((s) => s.length > 0)
+                : [],
+            packageGroup: (g?.packageGroup ?? '').toString().trim() || null,
+        }))
+        .filter((g) => g.items.length > 0);
+    if (cleaned.length === 0) return Prisma.JsonNull;
+    return cleaned as unknown as Prisma.InputJsonValue;
+}
+
 /** Normalize additional events sebelum disimpan ke kolom JSON. Tanggal jadi ISO string, field kosong jadi null. */
 function sanitizeAdditionalEvents(
     input: CreateQuotationDto['additionalEvents'] | undefined | null,
@@ -138,6 +181,11 @@ export class QuotationsService {
                 customAttachmentText: dto.customAttachmentText?.trim() || null,
                 language: dto.language === 'en' ? 'en' : 'id',
                 useUsdCurrency: Boolean(dto.useUsdCurrency),
+                customSubject: dto.customSubject?.trim() || null,
+                paymentSchedule: sanitizePaymentSchedule(dto.paymentSchedule),
+                specifications: sanitizeSpecifications(dto.specifications),
+                packagePrice: dto.packagePrice ? toDecimal(dto.packagePrice) : null,
+                showGrandTotal: dto.showGrandTotal === false ? false : true,
 
                 taxRate: toDecimal(taxRate),
                 discount: toDecimal(discount),
@@ -154,6 +202,8 @@ export class QuotationsService {
                         orderIndex: it.orderIndex ?? idx,
                         productVariantId: it.productVariantId ?? null,
                         categoryName: it.categoryName ?? null,
+                        eventIndex: typeof it.eventIndex === 'number' ? it.eventIndex : null,
+                        packageGroup: it.packageGroup?.trim() || null,
                     })),
                 },
             },
@@ -299,6 +349,21 @@ export class QuotationsService {
                     ...(dto.useUsdCurrency !== undefined
                         ? { useUsdCurrency: Boolean(dto.useUsdCurrency) }
                         : {}),
+                    ...(dto.customSubject !== undefined
+                        ? { customSubject: dto.customSubject?.trim() || null }
+                        : {}),
+                    ...(dto.paymentSchedule !== undefined
+                        ? { paymentSchedule: sanitizePaymentSchedule(dto.paymentSchedule) }
+                        : {}),
+                    ...(dto.specifications !== undefined
+                        ? { specifications: sanitizeSpecifications(dto.specifications) }
+                        : {}),
+                    ...(dto.packagePrice !== undefined
+                        ? { packagePrice: dto.packagePrice ? toDecimal(dto.packagePrice) : null }
+                        : {}),
+                    ...(dto.showGrandTotal !== undefined
+                        ? { showGrandTotal: dto.showGrandTotal === false ? false : true }
+                        : {}),
                     ...(recomputed ?? {}),
                     ...(dto.items !== undefined
                         ? {
@@ -311,6 +376,8 @@ export class QuotationsService {
                                     orderIndex: it.orderIndex ?? idx,
                                     productVariantId: it.productVariantId ?? null,
                                     categoryName: it.categoryName ?? null,
+                                    eventIndex: typeof it.eventIndex === 'number' ? it.eventIndex : null,
+                                    packageGroup: it.packageGroup?.trim() || null,
                                 })),
                             },
                         }
@@ -447,8 +514,16 @@ export class QuotationsService {
                         orderIndex: it.orderIndex,
                         productVariantId: it.productVariantId,
                         categoryName: it.categoryName,
+                        eventIndex: it.eventIndex,
+                        packageGroup: it.packageGroup,
                     })),
                 },
+                // Carry forward fitur PDF spesifik ke invoice
+                customSubject: quotation.customSubject,
+                paymentSchedule: (quotation.paymentSchedule ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                specifications: (quotation.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                packagePrice: quotation.packagePrice,
+                showGrandTotal: quotation.showGrandTotal,
             },
             include: { items: true, customer: true, parent: true, children: true },
         });
@@ -534,7 +609,8 @@ export class QuotationsService {
             }
         }
 
-        const base = await this.docNumberService.assignForQuotation(kode, inv.date ?? new Date());
+        const lang: 'id' | 'en' = inv.language === 'en' ? 'en' : 'id';
+        const base = await this.docNumberService.assignForQuotation(kode, inv.date ?? new Date(), lang);
         const finalNumber = this.docNumberService.formatWithRevision(base, inv.revisionNumber);
 
         return this.prisma.invoice.update({
@@ -643,6 +719,11 @@ export class QuotationsService {
                 brand: source.brand,
                 variantCode: source.variantCode,
 
+                customSubject: source.customSubject,
+                paymentSchedule: (source.paymentSchedule ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                specifications: (source.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                packagePrice: source.packagePrice,
+                showGrandTotal: source.showGrandTotal,
                 items: {
                     create: source.items.map((it) => ({
                         description: it.description,
@@ -652,6 +733,8 @@ export class QuotationsService {
                         orderIndex: it.orderIndex,
                         productVariantId: it.productVariantId,
                         categoryName: it.categoryName,
+                        eventIndex: it.eventIndex,
+                        packageGroup: it.packageGroup,
                     })),
                 },
             },
