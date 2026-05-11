@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     ArrowLeft, Plus, Trash2, Save, Hash, GitBranch, FileDown, FileText, Loader2, ScrollText,
-    Eye, X, Download, Calculator, Copy, GripVertical,
+    Eye, X, Download, Calculator, Copy, GripVertical, Pencil,
 } from "lucide-react";
 import {
     DndContext, PointerSensor, useSensor, useSensors,
@@ -19,7 +19,7 @@ import QuotationItemCalculator, { type QuotationCalcResult } from "./QuotationIt
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 import {
-    getQuotation, updateQuotation, assignQuotationNumber, reviseQuotation,
+    getQuotation, updateQuotation, assignQuotationNumber, editQuotationNumber, reviseQuotation,
     downloadQuotationExport, generateInvoiceFromQuotation, listInvoicesByQuotation,
     type Quotation, type QuotationItem,
 } from "@/lib/api/quotations";
@@ -105,6 +105,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     // SPK-specific custom text — terpisah dari penawaran, pengaruh hanya saat render SPK
     const [customOpeningSpk, setCustomOpeningSpk] = useState<string>("");
     const [customDisclaimerSpk, setCustomDisclaimerSpk] = useState<string>("");
+    /** Penanggung Jawab SPK — override clientName di SPK kalau berbeda dengan penawaran */
+    const [spkPicName, setSpkPicName] = useState<string>("");
+    const [spkPicPosition, setSpkPicPosition] = useState<string>("");
+    const [spkPicPhone, setSpkPicPhone] = useState<string>("");
+    /** Penanggung Jawab Invoice — override clientName di Invoice (mis. ke Finance team) */
+    const [invoicePicName, setInvoicePicName] = useState<string>("");
+    const [invoicePicPosition, setInvoicePicPosition] = useState<string>("");
+    const [invoicePicPhone, setInvoicePicPhone] = useState<string>("");
     const [customPaymentTermsSpk, setCustomPaymentTermsSpk] = useState<string>("");
     const [customClosingSpk, setCustomClosingSpk] = useState<string>("");
     // Invoice-specific custom text — terpisah, pengaruh hanya saat render Invoice
@@ -259,6 +267,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setCustomClosing((data as any).customClosing ?? "");
         setCustomOpeningSpk((data as any).customOpeningSpk ?? "");
         setCustomDisclaimerSpk((data as any).customDisclaimerSpk ?? "");
+        setSpkPicName((data as any).spkPicName ?? "");
+        setSpkPicPosition((data as any).spkPicPosition ?? "");
+        setSpkPicPhone((data as any).spkPicPhone ?? "");
+        setInvoicePicName((data as any).invoicePicName ?? "");
+        setInvoicePicPosition((data as any).invoicePicPosition ?? "");
+        setInvoicePicPhone((data as any).invoicePicPhone ?? "");
         setCustomPaymentTermsSpk((data as any).customPaymentTermsSpk ?? "");
         setCustomClosingSpk((data as any).customClosingSpk ?? "");
         setCustomOpeningInvoice((data as any).customOpeningInvoice ?? "");
@@ -366,6 +380,28 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         },
         onError: showErr("Gagal assign nomor"),
     });
+    /** Edit nomor (Penawaran atau Invoice) — koreksi typo / ganti format setelah di-assign. */
+    const editNumberMut = useMutation({
+        mutationFn: (newNumber: string) => editQuotationNumber(id, newNumber),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ["quotation", id] }),
+        onError: (err: any) => alert(`Gagal edit nomor: ${err?.response?.data?.message || err?.message}`),
+    });
+    const handleEditCurrentNumber = () => {
+        if (!data) return;
+        const docLabel = data.type === 'INVOICE' ? 'invoice' : 'penawaran';
+        const exampleFormat = data.type === 'INVOICE' ? '1234/Xp/Inv/V/26' : '5260/Xp.Pnwr/V/26';
+        const current = data.invoiceNumber;
+        const next = window.prompt(
+            `Edit nomor ${docLabel}:\n\nFormat bebas (mis. "${exampleFormat}").\nKosongkan untuk batal.`,
+            current,
+        );
+        if (next === null) return;
+        const trimmed = next.trim();
+        if (!trimmed) return alert("Nomor tidak boleh kosong.");
+        if (trimmed === current) return;
+        if (!confirm(`Ubah nomor ${docLabel}:\n\nDari: ${current}\nKe:   ${trimmed}\n\nLanjutkan?`)) return;
+        editNumberMut.mutate(trimmed);
+    };
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
@@ -517,6 +553,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             // SPK-specific custom text
             customOpeningSpk: customOpeningSpk.trim() || null,
             customDisclaimerSpk: customDisclaimerSpk.trim() || null,
+            spkPicName: spkPicName.trim() || null,
+            spkPicPosition: spkPicPosition.trim() || null,
+            spkPicPhone: spkPicPhone.trim() || null,
+            invoicePicName: invoicePicName.trim() || null,
+            invoicePicPosition: invoicePicPosition.trim() || null,
+            invoicePicPhone: invoicePicPhone.trim() || null,
             customPaymentTermsSpk: customPaymentTermsSpk.trim() || null,
             customClosingSpk: customClosingSpk.trim() || null,
             // Invoice-specific custom text
@@ -665,9 +707,21 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     <Link href="/penawaran" className="text-sm text-blue-600 flex items-center gap-1 mb-2 hover:underline">
                         <ArrowLeft className="w-4 h-4" /> Kembali
                     </Link>
-                    <h1 className="text-2xl font-bold flex items-center gap-2 flex-wrap">
+                    <h1 className="text-2xl font-bold flex items-center gap-2 flex-wrap group">
                         <span>{data.type === "INVOICE" ? "Invoice" : "Penawaran"}</span>
                         <span className="font-mono text-xl text-slate-700">{data.invoiceNumber}</span>
+                        {/* Tombol edit nomor — muncul untuk dokumen yang sudah di-assign (bukan DRAFT) */}
+                        {!data.invoiceNumber.startsWith("DRAFT-") && (
+                            <button
+                                type="button"
+                                onClick={handleEditCurrentNumber}
+                                disabled={editNumberMut.isPending}
+                                title={`Edit nomor ${data.type === 'INVOICE' ? 'invoice' : 'penawaran'}`}
+                                className="p-1.5 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition disabled:opacity-50"
+                            >
+                                <Pencil className="w-4 h-4" />
+                            </button>
+                        )}
                         {data.revisionNumber > 0 && (
                             <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">Rev. {data.revisionNumber}</span>
                         )}
@@ -1942,6 +1996,58 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     {/* ====== TAB: SPK ====== */}
                     {customTextTab === 'spk' && (
                     <>
+                    {/* Penanggung Jawab SPK — override clientName kalau berbeda dengan penawaran */}
+                    <div className="border border-emerald-200 rounded-lg p-3 bg-emerald-50/40 space-y-2">
+                        <div>
+                            <h4 className="text-sm font-bold text-emerald-900 flex items-center gap-1.5">
+                                👤 Penanggung Jawab SPK
+                            </h4>
+                            <p className="text-[10px] text-emerald-700 mt-0.5">
+                                Kalau yang tandatangan SPK <strong>berbeda</strong> dengan PIC di Penawaran, isi di sini.
+                                Kosongkan untuk pakai nama PIC dari Penawaran (<span className="font-mono">{clientName || '—'}</span>).
+                            </p>
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
+                                Nama Penanggung Jawab
+                            </label>
+                            <input
+                                type="text"
+                                value={spkPicName}
+                                onChange={(e) => setSpkPicName(e.target.value)}
+                                placeholder={`Default: ${clientName || '(belum diisi di penawaran)'}`}
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${spkPicName.trim() ? 'border-emerald-400 bg-white' : ''}`}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
+                                Jabatan <span className="font-normal text-slate-500">(opsional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={spkPicPosition}
+                                onChange={(e) => setSpkPicPosition(e.target.value)}
+                                placeholder="Mis. CEO, Direktur, Manager Operasional"
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${spkPicPosition.trim() ? 'border-emerald-400 bg-white' : ''}`}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
+                                No. HP / Telp <span className="font-normal text-slate-500">(opsional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={spkPicPhone}
+                                onChange={(e) => setSpkPicPhone(e.target.value)}
+                                placeholder={`Default: ${clientPhone || '(belum diisi di penawaran)'}`}
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${spkPicPhone.trim() ? 'border-emerald-400 bg-white' : ''}`}
+                            />
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                                💡 Akan tampil di baris &quot;No. Telp kantor&quot; di header SPK. Kosongkan untuk pakai No. Telp dari Penawaran.
+                            </p>
+                        </div>
+                    </div>
+
                     <SimpleCustomField
                         title="📝 Pembuka SPK (Opsional)"
                         value={customOpeningSpk}
@@ -1981,6 +2087,58 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     {/* ====== TAB: INVOICE ====== */}
                     {customTextTab === 'invoice' && (
                     <>
+                    {/* Penanggung Jawab Invoice — override clientName kalau invoice ditujukan ke PIC berbeda (mis. Finance team) */}
+                    <div className="border border-red-200 rounded-lg p-3 bg-red-50/40 space-y-2">
+                        <div>
+                            <h4 className="text-sm font-bold text-red-900 flex items-center gap-1.5">
+                                👤 Penanggung Jawab Invoice
+                            </h4>
+                            <p className="text-[10px] text-red-700 mt-0.5">
+                                Kalau invoice ditujukan ke PIC <strong>berbeda</strong> dengan PIC Penawaran (mis. ke Finance/Accounting team),
+                                isi di sini. Kosongkan untuk pakai PIC dari Penawaran (<span className="font-mono">{clientName || '—'}</span>).
+                            </p>
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
+                                Nama Penanggung Jawab
+                            </label>
+                            <input
+                                type="text"
+                                value={invoicePicName}
+                                onChange={(e) => setInvoicePicName(e.target.value)}
+                                placeholder={`Default: ${clientName || '(belum diisi di penawaran)'}`}
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${invoicePicName.trim() ? 'border-red-400 bg-white' : ''}`}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
+                                Jabatan <span className="font-normal text-slate-500">(opsional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={invoicePicPosition}
+                                onChange={(e) => setInvoicePicPosition(e.target.value)}
+                                placeholder="Mis. Finance Manager, Accounting Head"
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${invoicePicPosition.trim() ? 'border-red-400 bg-white' : ''}`}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
+                                No. HP / Telp <span className="font-normal text-slate-500">(opsional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={invoicePicPhone}
+                                onChange={(e) => setInvoicePicPhone(e.target.value)}
+                                placeholder={`Default: ${clientPhone || '(belum diisi di penawaran)'}`}
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${invoicePicPhone.trim() ? 'border-red-400 bg-white' : ''}`}
+                            />
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                                💡 Kalau diisi, akan muncul di Invoice PDF di section &quot;Kepada Yth&quot;. Kosongkan untuk pakai data dari Penawaran.
+                            </p>
+                        </div>
+                    </div>
+
                     <SimpleCustomField
                         title="📝 Pembuka Invoice (Opsional)"
                         value={customOpeningInvoice}

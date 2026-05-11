@@ -187,16 +187,18 @@ function PenawaranListPageInner() {
         },
     });
     const handleEditNumber = (q: Quotation) => {
+        const docLabel = q.type === 'INVOICE' ? 'invoice' : 'penawaran';
+        const exampleFormat = q.type === 'INVOICE' ? '1234/Xp/Inv/V/26' : '5260/Xp.Pnwr/V/26';
         const current = q.invoiceNumber;
         const next = window.prompt(
-            `Edit nomor penawaran:\n\nFormat bebas (mis. "5260/Xp.Pnwr/V/26").\nKosongkan untuk batal.`,
+            `Edit nomor ${docLabel}:\n\nFormat bebas (mis. "${exampleFormat}").\nKosongkan untuk batal.`,
             current,
         );
         if (next === null) return; // user cancel
         const trimmed = next.trim();
         if (!trimmed) return alert("Nomor tidak boleh kosong.");
         if (trimmed === current) return; // no change
-        if (!confirm(`Ubah nomor penawaran:\n\nDari: ${current}\nKe:   ${trimmed}\n\nLanjutkan?`)) return;
+        if (!confirm(`Ubah nomor ${docLabel}:\n\nDari: ${current}\nKe:   ${trimmed}\n\nLanjutkan?`)) return;
         editNumberMut.mutate({ id: q.id, invoiceNumber: trimmed });
     };
 
@@ -476,7 +478,7 @@ function PenawaranListPageInner() {
                                                     type="button"
                                                     onClick={() => handleEditNumber(q)}
                                                     disabled={editNumberMut.isPending}
-                                                    title="Edit nomor penawaran"
+                                                    title={`Edit nomor ${q.type === 'INVOICE' ? 'invoice' : 'penawaran'}`}
                                                     className="opacity-0 group-hover:opacity-100 transition p-0.5 rounded text-slate-500 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-50"
                                                 >
                                                     <Pencil className="w-3 h-3" />

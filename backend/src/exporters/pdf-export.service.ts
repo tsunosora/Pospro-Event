@@ -89,12 +89,19 @@ export class PdfExportService implements OnModuleDestroy {
         const spkCustomDisclaimer = rawQuotation?.customDisclaimerSpk?.trim() || null;
         const spkCustomPaymentTerms = rawQuotation?.customPaymentTermsSpk?.trim() || null;
         const spkCustomClosing = rawQuotation?.customClosingSpk?.trim() || null;
+        // SPK-specific PIC override — kalau di-set, ganti Penanggung Jawab di SPK header
+        // tanpa pengaruh data klien di penawaran utama.
+        const spkPicName = rawQuotation?.spkPicName?.trim() || null;
+        const spkPicPosition = rawQuotation?.spkPicPosition?.trim() || null;
+        const spkPicPhone = rawQuotation?.spkPicPhone?.trim() || null;
 
         // Hitung nominal DP & pelunasan dari total — terbilang dipakai di paragraf SPK.
         const totalNum = parseRpNumber(ctx.totals.total);
         const dpPercent = Number(ctx.payment.dpPercent) || 0;
         const dpAmountNum = (totalNum * dpPercent) / 100;
         const pelunasanNum = totalNum - dpAmountNum;
+        // useUsd flag dari raw quotation row — supaya terbilang DP/Pelunasan pakai "US Dollars" kalau aktif
+        const useUsd: boolean = Boolean(rawQuotation?.useUsdCurrency);
 
         // Catatan disclaimer untuk SPK — kalau ada SPK-specific custom, pakai itu.
         // Kalau gak, fallback ke brandTexts.disclaimer (yang sudah hasil combine custom+prepend+brand+append).
@@ -138,11 +145,19 @@ export class PdfExportService implements OnModuleDestroy {
             },
             payment: {
                 ...ctx.payment,
-                dpAmountTerbilang: rupiahInWords(dpAmountNum, ctx.language),
-                pelunasanTerbilang: rupiahInWords(pelunasanNum, ctx.language),
+                dpAmountTerbilang: rupiahInWords(dpAmountNum, ctx.language, useUsd),
+                pelunasanTerbilang: rupiahInWords(pelunasanNum, ctx.language, useUsd),
             },
             // Override customOpening untuk SPK kalau di-set (gak pengaruh penawaran)
             customOpening: spkCustomOpening || ctx.customOpening,
+            // Override client info untuk SPK (Penanggung Jawab, Jabatan, No. Telp)
+            // — fallback ke client utama kalau SPK-specific tidak di-set
+            client: {
+                ...ctx.client,
+                name: spkPicName || ctx.client.name,
+                phone: spkPicPhone || ctx.client.phone,
+                ...(spkPicPosition ? { position: spkPicPosition } : {}),
+            },
             // Override brandTexts dengan SPK-specific kalau di-set
             brandTexts: {
                 ...ctx.brandTexts,

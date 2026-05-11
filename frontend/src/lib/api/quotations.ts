@@ -88,11 +88,17 @@ export interface Quotation {
     customDisclaimerSpk?: string | null;
     customPaymentTermsSpk?: string | null;
     customClosingSpk?: string | null;
+    spkPicName?: string | null;
+    spkPicPosition?: string | null;
+    spkPicPhone?: string | null;
     // Invoice-specific
     customOpeningInvoice?: string | null;
     customDisclaimerInvoice?: string | null;
     customPaymentTermsInvoice?: string | null;
     customClosingInvoice?: string | null;
+    invoicePicName?: string | null;
+    invoicePicPosition?: string | null;
+    invoicePicPhone?: string | null;
     disclaimerPrepend?: string | null;
     disclaimerAppend?: string | null;
     paymentTermsPrepend?: string | null;

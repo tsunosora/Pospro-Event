@@ -51,18 +51,30 @@ export class AttendanceService {
         return d;
     }
 
-    /** Catat audit log — fail silently kalau gagal supaya gak ganggu operasi utama. */
-    private async logAudit(params: {
-        attendanceId: number | null;
-        action: AuditAction;
-        changedById?: number | null;
-        changedByPicId?: number | null;
-        oldData?: any;
-        newData?: any;
-        notes?: string | null;
-    }) {
+    /**
+     * Catat audit log — fail silently kalau gagal supaya gak ganggu operasi utama.
+     *
+     * PENTING: Saat di-call dari DALAM `$transaction`, pass `tx` sebagai `client`
+     * supaya audit log query masuk ke koneksi tx yang SAMA. Kalau pakai `this.prisma`
+     * dari dalam tx, query masuk koneksi terpisah → attendance row belum committed →
+     * FK constraint `attendance_id` violation.
+     *
+     * Di luar transaction, pass `this.prisma` (standalone commit).
+     */
+    private async logAudit(
+        client: Prisma.TransactionClient | PrismaService,
+        params: {
+            attendanceId: number | null;
+            action: AuditAction;
+            changedById?: number | null;
+            changedByPicId?: number | null;
+            oldData?: any;
+            newData?: any;
+            notes?: string | null;
+        },
+    ) {
         try {
-            await this.prisma.attendanceAuditLog.create({
+            await client.attendanceAuditLog.create({
                 data: {
                     attendanceId: params.attendanceId,
                     action: params.action,
@@ -124,6 +136,8 @@ export class AttendanceService {
 
         const results: { id: number; isNew: boolean }[] = [];
 
+        // Timeout 30s untuk akomodasi bulk besar (default Prisma cuma 5s).
+        // maxWait 10s untuk tunggu koneksi pool kalau lagi sibuk.
         await this.prisma.$transaction(async (tx) => {
             for (const e of entries) {
                 const overtime = e.overtimeHours != null ? Number(e.overtimeHours) || 0 : 0;
@@ -174,8 +188,10 @@ export class AttendanceService {
 
                 results.push({ id: upserted.id, isNew: !prev });
 
-                // Audit log
-                await this.logAudit({
+                // Audit log — PASS tx supaya query masuk koneksi yang sama dengan upsert.
+                // Kalau pakai this.prisma di sini, FK ke attendance_id gagal karena
+                // row baru belum committed di luar tx scope.
+                await this.logAudit(tx, {
                     attendanceId: upserted.id,
                     action: prev ? 'UPDATE' : 'CREATE',
                     changedById: actorAdminId,
@@ -185,6 +201,9 @@ export class AttendanceService {
                     notes: approvalReset ? 'Auto-reset PENDING karena data berubah setelah APPROVED' : null,
                 });
             }
+        }, {
+            timeout: 30_000,   // 30s — akomodasi bulk besar
+            maxWait: 10_000,   // 10s tunggu koneksi pool
         });
 
         return { upserted: results.length };
@@ -222,7 +241,7 @@ export class AttendanceService {
         }
 
         const updated = await this.prisma.attendance.update({ where: { id }, data });
-        await this.logAudit({
+        await this.logAudit(this.prisma, {
             attendanceId: id,
             action: 'UPDATE',
             changedById: actorAdminId,
@@ -236,7 +255,7 @@ export class AttendanceService {
         const existing = await this.prisma.attendance.findUnique({ where: { id } });
         if (!existing) throw new NotFoundException(`Attendance id=${id} tidak ditemukan`);
         const result = await this.prisma.attendance.delete({ where: { id } });
-        await this.logAudit({
+        await this.logAudit(this.prisma, {
             attendanceId: null,  // deleted, jangan link ke row yang gak ada
             action: 'DELETE',
             changedById: actorAdminId,
@@ -259,7 +278,7 @@ export class AttendanceService {
                 rejectionReason: null,
             },
         });
-        await this.logAudit({
+        await this.logAudit(this.prisma, {
             attendanceId: id,
             action: 'APPROVE',
             changedById: actorAdminId,
@@ -281,7 +300,7 @@ export class AttendanceService {
                 rejectionReason: reason?.trim() || null,
             },
         });
-        await this.logAudit({
+        await this.logAudit(this.prisma, {
             attendanceId: id,
             action: 'REJECT',
             changedById: actorAdminId,
@@ -309,9 +328,9 @@ export class AttendanceService {
             },
         });
 
-        // Audit log per row
+        // Audit log per row — di luar transaction, pakai this.prisma
         for (const t of targets) {
-            await this.logAudit({
+            await this.logAudit(this.prisma, {
                 attendanceId: t.id,
                 action: 'APPROVE',
                 changedById: actorAdminId,

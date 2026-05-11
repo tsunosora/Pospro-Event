@@ -504,11 +504,21 @@ model Invoice {
   customDisclaimerSpk  String?         @map("custom_disclaimer_spk") @db.Text
   customPaymentTermsSpk String?        @map("custom_payment_terms_spk") @db.Text
   customClosingSpk     String?         @map("custom_closing_spk") @db.Text
+  // Penanggung Jawab khusus SPK — kalau di-set, override clientName di SPK header.
+  // Berguna ketika PIC yang tandatangan SPK berbeda dengan PIC di penawaran.
+  spkPicName           String?         @map("spk_pic_name") @db.VarChar(150)
+  spkPicPosition       String?         @map("spk_pic_position") @db.VarChar(100)
+  spkPicPhone          String?         @map("spk_pic_phone") @db.VarChar(50)
   // ---- Invoice-specific custom text (override saat render Invoice saja, tidak pengaruh penawaran) ----
   customOpeningInvoice    String?      @map("custom_opening_invoice") @db.Text
   customDisclaimerInvoice String?      @map("custom_disclaimer_invoice") @db.Text
   customPaymentTermsInvoice String?    @map("custom_payment_terms_invoice") @db.Text
   customClosingInvoice    String?      @map("custom_closing_invoice") @db.Text
+  // Penanggung Jawab khusus Invoice — kalau di-set, override clientName/Position/Phone di Invoice.
+  // Berguna ketika PIC yang menerima tagihan invoice berbeda dengan PIC di penawaran (mis. ke Finance team).
+  invoicePicName       String?         @map("invoice_pic_name") @db.VarChar(150)
+  invoicePicPosition   String?         @map("invoice_pic_position") @db.VarChar(100)
+  invoicePicPhone      String?         @map("invoice_pic_phone") @db.VarChar(50)
   // Append/prepend mode — text di atas/bawah default dari BrandSettings
   disclaimerPrepend     String?        @map("disclaimer_prepend") @db.Text
   disclaimerAppend      String?        @map("disclaimer_append") @db.Text

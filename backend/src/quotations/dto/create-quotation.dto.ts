@@ -47,11 +47,21 @@ export interface CreateQuotationDto {
     customDisclaimerSpk?: string | null;
     customPaymentTermsSpk?: string | null;
     customClosingSpk?: string | null;
+    /** Penanggung Jawab SPK — kalau di-set, override clientName di SPK header. */
+    spkPicName?: string | null;
+    /** Jabatan PIC SPK (mis. CEO, Direktur). */
+    spkPicPosition?: string | null;
+    /** No. HP PIC SPK — kalau berbeda dengan No. Telp di penawaran. */
+    spkPicPhone?: string | null;
     // Invoice-specific custom text (override saat render Invoice saja)
     customOpeningInvoice?: string | null;
     customDisclaimerInvoice?: string | null;
     customPaymentTermsInvoice?: string | null;
     customClosingInvoice?: string | null;
+    /** Penanggung Jawab khusus Invoice — kalau di-set, override clientName di Invoice. */
+    invoicePicName?: string | null;
+    invoicePicPosition?: string | null;
+    invoicePicPhone?: string | null;
     // Append/prepend mode — text di atas/bawah brand default (combine dengan separator \n\n)
     disclaimerPrepend?: string | null;
     disclaimerAppend?: string | null;

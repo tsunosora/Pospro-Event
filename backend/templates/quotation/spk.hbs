@@ -236,8 +236,15 @@
 
   {{!-- Paragraf utama: "Dengan ini memberikan pekerjaan kepada..." --}}
   <p class="main-paragraph">
-    Dengan ini memberikan pekerjaan kepada <strong>{{company.name}}</strong> untuk pemasangan {{lowercase doc.variantLabel}}{{#if project.name}} pada Event <strong>{{project.name}}</strong>{{/if}}{{#if project.dateRange}} tanggal <strong>{{project.dateRange}}</strong>{{/if}}{{#if project.location}} di <strong>{{project.location}}</strong>{{/if}}, yaitu sebesar <strong>{{totals.total}}</strong> ({{totals.totalTerbilang}}){{#if spk.exclTax}} exclude PPN dan PPH{{else}} sudah termasuk PPN {{totals.taxRate}}%{{/if}}, dengan spesifikasi sebagai berikut:
+    Dengan ini memberikan pekerjaan kepada <strong>{{company.name}}</strong> untuk pemasangan {{lowercase doc.variantLabel}}{{#if project.name}} pada Event <strong>{{project.name}}</strong>{{/if}}{{#if project.dateRange}} tanggal <strong>{{project.dateRange}}</strong>{{/if}}{{#if project.location}} di <strong>{{project.location}}</strong>{{/if}}, yaitu sebesar <strong>{{totals.total}}</strong>{{#if spk.exclTax}} exclude PPN dan PPH{{else}} sudah termasuk PPN {{totals.taxRate}}%{{/if}}, dengan spesifikasi sebagai berikut:
   </p>
+
+  {{!-- Standalone Terbilang line — lebih mencolok daripada inline parentheses --}}
+  {{#if totals.totalTerbilang}}
+  <div class="terbilang-block" style="margin: 4pt 0 8pt 0; font-style: italic; font-size: 11pt; padding: 4pt 8pt; border-left: 3pt solid {{theme.primary}}; background: {{theme.primarySubtle}};">
+    <strong>Terbilang:</strong> <strong style="color: {{theme.primaryDark}};">{{totals.totalTerbilang}}</strong>
+  </div>
+  {{/if}}
 
   {{!-- List spesifikasi — table 2 kolom (no. urut + deskripsi). Nomor urut consecutive
        di seluruh list (1, 2, 3, ...) supaya enak dibaca, bukan reset per kategori. --}}

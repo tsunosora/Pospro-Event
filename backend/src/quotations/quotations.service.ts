@@ -167,10 +167,23 @@ export class QuotationsService {
                 customDisclaimerSpk: dto.customDisclaimerSpk?.trim() || null,
                 customPaymentTermsSpk: dto.customPaymentTermsSpk?.trim() || null,
                 customClosingSpk: dto.customClosingSpk?.trim() || null,
+                // Cast `as any` — column baru di schema, Prisma Client perlu regenerate dulu.
+                // Setelah backend di-build ulang, types akan match.
+                ...(({
+                    spkPicName: dto.spkPicName?.trim() || null,
+                    spkPicPosition: dto.spkPicPosition?.trim() || null,
+                    spkPicPhone: dto.spkPicPhone?.trim() || null,
+                }) as any),
                 customOpeningInvoice: dto.customOpeningInvoice?.trim() || null,
                 customDisclaimerInvoice: dto.customDisclaimerInvoice?.trim() || null,
                 customPaymentTermsInvoice: dto.customPaymentTermsInvoice?.trim() || null,
                 customClosingInvoice: dto.customClosingInvoice?.trim() || null,
+                // Cast `as any` — column baru, Prisma Client perlu regenerate dulu
+                ...(({
+                    invoicePicName: dto.invoicePicName?.trim() || null,
+                    invoicePicPosition: dto.invoicePicPosition?.trim() || null,
+                    invoicePicPhone: dto.invoicePicPhone?.trim() || null,
+                }) as any),
                 disclaimerPrepend: dto.disclaimerPrepend?.trim() || null,
                 disclaimerAppend: dto.disclaimerAppend?.trim() || null,
                 paymentTermsPrepend: dto.paymentTermsPrepend?.trim() || null,
@@ -331,10 +344,18 @@ export class QuotationsService {
                     ...(dto.customDisclaimerSpk !== undefined ? { customDisclaimerSpk: dto.customDisclaimerSpk?.trim() || null } : {}),
                     ...(dto.customPaymentTermsSpk !== undefined ? { customPaymentTermsSpk: dto.customPaymentTermsSpk?.trim() || null } : {}),
                     ...(dto.customClosingSpk !== undefined ? { customClosingSpk: dto.customClosingSpk?.trim() || null } : {}),
+                    // Cast `as any` — column baru, Prisma Client perlu regenerate dulu
+                    ...((dto.spkPicName !== undefined ? { spkPicName: dto.spkPicName?.trim() || null } : {}) as any),
+                    ...((dto.spkPicPosition !== undefined ? { spkPicPosition: dto.spkPicPosition?.trim() || null } : {}) as any),
+                    ...((dto.spkPicPhone !== undefined ? { spkPicPhone: dto.spkPicPhone?.trim() || null } : {}) as any),
                     ...(dto.customOpeningInvoice !== undefined ? { customOpeningInvoice: dto.customOpeningInvoice?.trim() || null } : {}),
                     ...(dto.customDisclaimerInvoice !== undefined ? { customDisclaimerInvoice: dto.customDisclaimerInvoice?.trim() || null } : {}),
                     ...(dto.customPaymentTermsInvoice !== undefined ? { customPaymentTermsInvoice: dto.customPaymentTermsInvoice?.trim() || null } : {}),
                     ...(dto.customClosingInvoice !== undefined ? { customClosingInvoice: dto.customClosingInvoice?.trim() || null } : {}),
+                    // Cast `as any` — column baru, Prisma Client perlu regenerate dulu
+                    ...((dto.invoicePicName !== undefined ? { invoicePicName: dto.invoicePicName?.trim() || null } : {}) as any),
+                    ...((dto.invoicePicPosition !== undefined ? { invoicePicPosition: dto.invoicePicPosition?.trim() || null } : {}) as any),
+                    ...((dto.invoicePicPhone !== undefined ? { invoicePicPhone: dto.invoicePicPhone?.trim() || null } : {}) as any),
                     ...(dto.disclaimerPrepend !== undefined ? { disclaimerPrepend: dto.disclaimerPrepend?.trim() || null } : {}),
                     ...(dto.disclaimerAppend !== undefined ? { disclaimerAppend: dto.disclaimerAppend?.trim() || null } : {}),
                     ...(dto.paymentTermsPrepend !== undefined ? { paymentTermsPrepend: dto.paymentTermsPrepend?.trim() || null } : {}),
@@ -524,6 +545,13 @@ export class QuotationsService {
                 specifications: (quotation.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 packagePrice: quotation.packagePrice,
                 showGrandTotal: quotation.showGrandTotal,
+                // Carry forward Invoice-PIC override fields supaya invoice yang baru di-generate
+                // langsung punya PIC override sesuai yang di-set di quotation.
+                ...(({
+                    invoicePicName: (quotation as any).invoicePicName,
+                    invoicePicPosition: (quotation as any).invoicePicPosition,
+                    invoicePicPhone: (quotation as any).invoicePicPhone,
+                }) as any),
             },
             include: { items: true, customer: true, parent: true, children: true },
         });
@@ -626,18 +654,19 @@ export class QuotationsService {
     }
 
     /**
-     * Edit nomor penawaran yang sudah di-assign — koreksi typo, ganti format, dll.
+     * Edit nomor dokumen (PENAWARAN atau INVOICE) yang sudah di-assign — koreksi typo / ganti format.
      * Validasi: nomor tidak boleh kosong, harus unique (kecuali sama dengan nomor sekarang).
      * Tidak mengubah status atau revision number.
      */
     async editNumber(id: number, newNumber: string) {
         const inv = await this.prisma.invoice.findUnique({ where: { id } });
-        if (!inv || inv.type !== InvoiceType.QUOTATION) {
-            throw new NotFoundException(`Penawaran id=${id} tidak ditemukan`);
+        if (!inv) {
+            throw new NotFoundException(`Dokumen id=${id} tidak ditemukan`);
         }
+        const docLabel = inv.type === InvoiceType.INVOICE ? 'Invoice' : 'Penawaran';
         const trimmed = newNumber?.trim();
         if (!trimmed) {
-            throw new BadRequestException('Nomor penawaran wajib diisi');
+            throw new BadRequestException(`Nomor ${docLabel.toLowerCase()} wajib diisi`);
         }
         if (trimmed === inv.invoiceNumber) {
             // Nomor sama persis — tidak perlu update.
@@ -648,8 +677,9 @@ export class QuotationsService {
             where: { invoiceNumber: trimmed },
         });
         if (existing && existing.id !== id) {
+            const existingLabel = existing.type === InvoiceType.INVOICE ? 'invoice' : 'quotation';
             throw new BadRequestException(
-                `Nomor "${trimmed}" sudah dipakai quotation lain (id=${existing.id}). Pilih nomor lain.`,
+                `Nomor "${trimmed}" sudah dipakai ${existingLabel} lain (id=${existing.id}). Pilih nomor lain.`,
             );
         }
         return this.prisma.invoice.update({
@@ -724,6 +754,15 @@ export class QuotationsService {
                 specifications: (source.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 packagePrice: source.packagePrice,
                 showGrandTotal: source.showGrandTotal,
+                // Carry forward SPK & Invoice PIC override fields ke revisi
+                ...(({
+                    spkPicName: (source as any).spkPicName,
+                    spkPicPosition: (source as any).spkPicPosition,
+                    spkPicPhone: (source as any).spkPicPhone,
+                    invoicePicName: (source as any).invoicePicName,
+                    invoicePicPosition: (source as any).invoicePicPosition,
+                    invoicePicPhone: (source as any).invoicePicPhone,
+                }) as any),
                 items: {
                     create: source.items.map((it) => ({
                         description: it.description,

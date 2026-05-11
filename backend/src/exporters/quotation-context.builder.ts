@@ -157,6 +157,8 @@ export interface QuotationRenderContext {
         address: string;
         phone: string;
         email: string;
+        /** Jabatan PIC (mis. "CEO", "Direktur"). Cuma dipakai di SPK kalau di-set. */
+        position?: string | null;
     };
     // Event/proyek (event UTAMA)
     project: {
@@ -1088,13 +1090,22 @@ export class QuotationContextBuilder {
                 isEventGrouped: displayMode === 'event-grouped',
                 isPackageMode: displayMode === 'package',
             },
-            client: {
-                name: quotation.clientName,
-                company: quotation.clientCompany ?? '',
-                address: quotation.clientAddress ?? '',
-                phone: quotation.clientPhone ?? '',
-                email: quotation.clientEmail ?? '',
-            },
+            client: (() => {
+                // Untuk INVOICE, prioritaskan invoicePicName/Position/Phone kalau di-set.
+                // Kalau kosong → fallback ke clientName/Phone (PIC penawaran).
+                const isInvoice = quotation.type === 'INVOICE';
+                const invPicName = isInvoice ? (quotation as any).invoicePicName?.trim() : null;
+                const invPicPosition = isInvoice ? (quotation as any).invoicePicPosition?.trim() : null;
+                const invPicPhone = isInvoice ? (quotation as any).invoicePicPhone?.trim() : null;
+                return {
+                    name: invPicName || quotation.clientName,
+                    company: quotation.clientCompany ?? '',
+                    address: quotation.clientAddress ?? '',
+                    phone: invPicPhone || (quotation.clientPhone ?? ''),
+                    email: quotation.clientEmail ?? '',
+                    ...(invPicPosition ? { position: invPicPosition } : {}),
+                };
+            })(),
             project: {
                 name: quotation.projectName ?? '',
                 location: quotation.eventLocation ?? '',
