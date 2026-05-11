@@ -94,6 +94,11 @@ export class PdfExportService implements OnModuleDestroy {
         const spkPicName = rawQuotation?.spkPicName?.trim() || null;
         const spkPicPosition = rawQuotation?.spkPicPosition?.trim() || null;
         const spkPicPhone = rawQuotation?.spkPicPhone?.trim() || null;
+        // Batas Pelunasan SPK — fallback ke validUntil kalau gak di-set spesifik untuk SPK
+        const spkPaymentDeadline = rawQuotation?.spkPaymentDeadline ?? rawQuotation?.validUntil ?? null;
+        const spkPaymentDeadlineFormatted = spkPaymentDeadline
+            ? formatDateLocal(spkPaymentDeadline, ctx.language)
+            : null;
 
         // Hitung nominal DP & pelunasan dari total — terbilang dipakai di paragraf SPK.
         // Ambil DIRECT dari raw quotation (Decimal) — lebih reliable dibanding parse string formatted
@@ -175,6 +180,7 @@ export class PdfExportService implements OnModuleDestroy {
                 customPaymentTerms: spkCustomPaymentTerms,    // available di template kalau perlu
                 customClosing: spkCustomClosing,
                 specItems,
+                paymentDeadlineFormatted: spkPaymentDeadlineFormatted,
             },
         };
         const template = this.loadTemplate('spk');
@@ -267,5 +273,15 @@ function parseRpNumber(s: string): number {
     }
 
     return Number(normalized) || 0;
+}
+
+/** Format Date jadi string lokal id-ID atau en-US (mis. "18 Mei 2026" / "18 May 2026"). */
+function formatDateLocal(d: Date | string | null | undefined, lang: 'id' | 'en' = 'id'): string {
+    if (!d) return '';
+    const date = typeof d === 'string' ? new Date(d) : d;
+    const monthsId = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const monthsEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const months = lang === 'en' ? monthsEn : monthsId;
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 

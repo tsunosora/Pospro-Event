@@ -11,6 +11,7 @@ import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
 import { getWorkers, MARKETER_POSITIONS, type Worker } from "@/lib/api/workers";
 import { LevelBadge } from "./LevelBadge";
 import { WaButton } from "./WaButton";
+import { formatLeadEventDateRange, formatLeadEventDateRangeShort } from "@/lib/utils/date-range";
 
 /** Format tanggal singkat — kalau hari ini "Hari ini", kalau kemarin "Kemarin", lainnya "DD MMM" / "DD MMM YYYY" */
 function formatShortDate(iso: string): string {
@@ -261,20 +262,23 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
             )}
 
             {/* Event Date — TAMPIL PALING DULU & MENONJOL kalau ada.
-                Kasus umum: deal sudah closed tapi event masih 1-2 bulan lagi → harus visible biar owner tau prioritas persiapan. */}
-            {lead.eventDate && (() => {
-                const c = eventDateColor(lead.eventDate);
-                const d = dayjs(lead.eventDate).startOf("day");
+                Kasus umum: deal sudah closed tapi event masih 1-2 bulan lagi → harus visible biar owner tau prioritas persiapan.
+                Display smart range: 1 hari = "18 Mei", multi-hari = "18-21 Mei" atau "29 Mei - 3 Jun". */}
+            {lead.eventDateStart && (() => {
+                const c = eventDateColor(lead.eventDateStart);
+                const d = dayjs(lead.eventDateStart).startOf("day");
                 const today = dayjs().startOf("day");
                 const diffDays = d.diff(today, "day");
+                const rangeTitle = formatLeadEventDateRange(lead) ?? "";
+                const rangeShort = formatLeadEventDateRangeShort(lead) ?? "";
                 return (
                     <div
                         className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold ${c.bg} ${c.text} border ${c.border}`}
-                        title={`Event: ${dayjs(lead.eventDate).format("DD MMMM YYYY")}${lead.eventLocation ? ` · ${lead.eventLocation}` : ""}`}
+                        title={`Event: ${rangeTitle}${lead.eventLocation ? ` · ${lead.eventLocation}` : ""}`}
                     >
                         <PartyPopper className="h-3 w-3 shrink-0" />
                         <span className="truncate flex-1">
-                            🎪 {formatShortDate(lead.eventDate)}
+                            🎪 {rangeShort}
                             {diffDays > 7 && diffDays <= 60 && (
                                 <span className="font-normal opacity-70"> ({diffDays} hari)</span>
                             )}

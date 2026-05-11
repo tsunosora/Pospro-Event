@@ -20,7 +20,8 @@ export interface CreateLeadInput {
     followUpDate?: string | null;
     orderDescription?: string;
     projectValueEst?: number | string | null;
-    eventDate?: string | null;
+    eventDateStart?: string | null;
+    eventDateEnd?: string | null;
     eventLocation?: string;
     notes?: string;
     leadCameAt?: string;
@@ -199,7 +200,11 @@ export class LeadsService {
                 followUpDate: this.toDate(input.followUpDate) ?? null,
                 orderDescription: input.orderDescription?.trim() || null,
                 projectValueEst: this.decOrNull(input.projectValueEst) ?? null,
-                eventDate: this.toDate(input.eventDate) ?? null,
+                // Cast `as any` — column baru hasil rename + add, Prisma Client perlu regenerate dulu.
+                ...(({
+                    eventDateStart: this.toDate(input.eventDateStart) ?? null,
+                    eventDateEnd: this.toDate(input.eventDateEnd) ?? null,
+                }) as any),
                 eventLocation: input.eventLocation?.trim() || null,
                 notes: input.notes?.trim() || null,
                 leadCameAt: this.toDate(input.leadCameAt) || new Date(),
@@ -252,7 +257,9 @@ export class LeadsService {
         if (input.followUpDate !== undefined) data.followUpDate = this.toDate(input.followUpDate);
         if (input.orderDescription !== undefined) data.orderDescription = input.orderDescription?.trim() || null;
         if (input.projectValueEst !== undefined) data.projectValueEst = this.decOrNull(input.projectValueEst);
-        if (input.eventDate !== undefined) data.eventDate = this.toDate(input.eventDate);
+        // Cast `as any` — column baru, Prisma Client perlu regenerate dulu
+        if (input.eventDateStart !== undefined) (data as any).eventDateStart = this.toDate(input.eventDateStart);
+        if (input.eventDateEnd !== undefined) (data as any).eventDateEnd = this.toDate(input.eventDateEnd);
         if (input.eventLocation !== undefined) data.eventLocation = input.eventLocation?.trim() || null;
         if (input.notes !== undefined) data.notes = input.notes?.trim() || null;
         if (input.lastContactedAt !== undefined) data.lastContactedAt = this.toDate(input.lastContactedAt);

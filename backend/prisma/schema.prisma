@@ -509,6 +509,9 @@ model Invoice {
   spkPicName           String?         @map("spk_pic_name") @db.VarChar(150)
   spkPicPosition       String?         @map("spk_pic_position") @db.VarChar(100)
   spkPicPhone          String?         @map("spk_pic_phone") @db.VarChar(50)
+  // Batas pelunasan SPK — tanggal selambat-lambatnya pelunasan dibayar.
+  // Kalau null, render SPK fallback ke validUntil (legacy behavior).
+  spkPaymentDeadline   DateTime?       @map("spk_payment_deadline")
   // ---- Invoice-specific custom text (override saat render Invoice saja, tidak pengaruh penawaran) ----
   customOpeningInvoice    String?      @map("custom_opening_invoice") @db.Text
   customDisclaimerInvoice String?      @map("custom_disclaimer_invoice") @db.Text
@@ -1648,7 +1651,8 @@ model Lead {
   followUpDate        DateTime?  @map("follow_up_date")
   orderDescription    String?    @map("order_description") @db.Text
   projectValueEst     Decimal?   @map("project_value_est") @db.Decimal(15, 2)
-  eventDate           DateTime?  @map("event_date")
+  eventDateStart      DateTime?  @map("event_date_start")
+  eventDateEnd        DateTime?  @map("event_date_end")
   eventLocation       String?    @map("event_location") @db.VarChar(200)
   city                String?    @db.VarChar(100)
   notes               String?    @db.Text

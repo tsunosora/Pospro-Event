@@ -109,6 +109,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [spkPicName, setSpkPicName] = useState<string>("");
     const [spkPicPosition, setSpkPicPosition] = useState<string>("");
     const [spkPicPhone, setSpkPicPhone] = useState<string>("");
+    /** Batas Pelunasan SPK — tanggal "selambat-lambatnya" pelunasan dibayar (kalau kosong, fallback ke validUntil) */
+    const [spkPaymentDeadline, setSpkPaymentDeadline] = useState<string>("");
     /** Penanggung Jawab Invoice — override clientName di Invoice (mis. ke Finance team) */
     const [invoicePicName, setInvoicePicName] = useState<string>("");
     const [invoicePicPosition, setInvoicePicPosition] = useState<string>("");
@@ -270,6 +272,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setSpkPicName((data as any).spkPicName ?? "");
         setSpkPicPosition((data as any).spkPicPosition ?? "");
         setSpkPicPhone((data as any).spkPicPhone ?? "");
+        setSpkPaymentDeadline((data as any).spkPaymentDeadline ? (data as any).spkPaymentDeadline.slice(0, 10) : "");
         setInvoicePicName((data as any).invoicePicName ?? "");
         setInvoicePicPosition((data as any).invoicePicPosition ?? "");
         setInvoicePicPhone((data as any).invoicePicPhone ?? "");
@@ -488,8 +491,11 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             clientEmail,
             projectName,
             eventLocation,
-            eventDateStart: eventDateStart || undefined,
-            eventDateEnd: eventDateEnd || undefined,
+            // Pakai null (bukan undefined) supaya backend tahu user mau CLEAR field.
+            // `undefined` = "tidak diubah" → tanggal lama tetap (bug).
+            // `null` = "clear ke kosong" → tanggal benar-benar di-reset.
+            eventDateStart: eventDateStart || null,
+            eventDateEnd: eventDateEnd || null,
             additionalEvents: additionalEvents
                 .map((e) => ({
                     name: e.name.trim() || null,
@@ -498,7 +504,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     dateEnd: e.dateEnd || null,
                 }))
                 .filter((e) => e.name || e.location || e.dateStart || e.dateEnd),
-            validUntil: validUntil || undefined,
+            validUntil: validUntil || null,
             date: docDate || undefined,
             signCity: signCity.trim() || null,
             variantCode: variantCode || null,
@@ -556,6 +562,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             spkPicName: spkPicName.trim() || null,
             spkPicPosition: spkPicPosition.trim() || null,
             spkPicPhone: spkPicPhone.trim() || null,
+            spkPaymentDeadline: spkPaymentDeadline || null,
             invoicePicName: invoicePicName.trim() || null,
             invoicePicPosition: invoicePicPosition.trim() || null,
             invoicePicPhone: invoicePicPhone.trim() || null,
@@ -2046,6 +2053,28 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 💡 Akan tampil di baris &quot;No. Telp kantor&quot; di header SPK. Kosongkan untuk pakai No. Telp dari Penawaran.
                             </p>
                         </div>
+                    </div>
+
+                    {/* Batas Pelunasan SPK — tanggal "selambat-lambatnya pelunasan dibayarkan" */}
+                    <div className="border border-emerald-200 rounded-lg p-3 bg-emerald-50/40 space-y-2">
+                        <div>
+                            <h4 className="text-sm font-bold text-emerald-900 flex items-center gap-1.5">
+                                📅 Batas Pelunasan SPK
+                            </h4>
+                            <p className="text-[10px] text-emerald-700 mt-0.5">
+                                Tanggal &quot;selambat-lambatnya&quot; pelunasan harus dibayarkan oleh klien.
+                                Tampil di kalimat bullet pembayaran SPK. Kosongkan untuk pakai &quot;Berlaku Sampai&quot; di Event/Proyek.
+                            </p>
+                        </div>
+                        <input
+                            type="date"
+                            value={spkPaymentDeadline}
+                            onChange={(e) => setSpkPaymentDeadline(e.target.value)}
+                            className={`w-full border rounded px-2 py-1.5 text-sm ${spkPaymentDeadline.trim() ? 'border-emerald-400 bg-white' : ''}`}
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                            💡 Contoh hasil di SPK: <em>&quot;Pelunasan... dibayarkan pada saat booth berdiri atau selambat-lambatnya pada tanggal <strong>{spkPaymentDeadline ? new Date(spkPaymentDeadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : validUntil ? new Date(validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + ' (fallback dari Berlaku Sampai)' : '—'}</strong>.&quot;</em>
+                        </p>
                     </div>
 
                     <SimpleCustomField

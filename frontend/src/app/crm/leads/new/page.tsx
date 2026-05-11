@@ -154,7 +154,8 @@ export default function NewLeadPage() {
         sourceDetail: "",
         stageId: 0,
         orderDescription: "",
-        eventDate: "",
+        eventDateStart: "",
+        eventDateEnd: "",
         eventLocation: "",
         notes: "",
         labelIds: [] as number[],
@@ -176,7 +177,8 @@ export default function NewLeadPage() {
                 sourceDetail: form.sourceDetail || null,
                 stageId: form.stageId || (stages?.[0]?.id ?? 0),
                 orderDescription: form.orderDescription || null,
-                eventDate: form.eventDate || null,
+                eventDateStart: form.eventDateStart || null,
+                eventDateEnd: form.eventDateEnd || null,
                 eventLocation: form.eventLocation || null,
                 notes: form.notes || null,
                 labelIds: form.labelIds,
@@ -622,27 +624,42 @@ export default function NewLeadPage() {
                     </Field>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Field label="Tanggal Event">
+                        <Field label="Tanggal Mulai Event">
                             <InputWithIcon icon={<Calendar className="h-4 w-4" />}>
                                 <input
                                     type="date"
-                                    value={form.eventDate}
-                                    onChange={(e) => set("eventDate", e.target.value)}
+                                    value={form.eventDateStart}
+                                    onChange={(e) => set("eventDateStart", e.target.value)}
                                     className="form-input"
                                 />
                             </InputWithIcon>
                         </Field>
-                        <Field label="Lokasi Event">
-                            <InputWithIcon icon={<MapPin className="h-4 w-4" />}>
+                        <Field label="Tanggal Selesai (opsional)">
+                            <InputWithIcon icon={<Calendar className="h-4 w-4" />}>
                                 <input
-                                    value={form.eventLocation}
-                                    onChange={(e) => set("eventLocation", e.target.value)}
-                                    className="form-input"
-                                    placeholder="JIExpo Kemayoran, ICE BSD, dll"
+                                    type="date"
+                                    value={form.eventDateEnd}
+                                    onChange={(e) => set("eventDateEnd", e.target.value)}
+                                    min={form.eventDateStart || undefined}
+                                    disabled={!form.eventDateStart}
+                                    className="form-input disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                             </InputWithIcon>
                         </Field>
                     </div>
+                    <p className="text-[10px] text-muted-foreground -mt-2">
+                        💡 Untuk event multi-hari (mis. 1-3 Mei 2026), isi keduanya. Kalau 1 hari saja, cukup tanggal mulai.
+                    </p>
+                    <Field label="Lokasi Event">
+                        <InputWithIcon icon={<MapPin className="h-4 w-4" />}>
+                            <input
+                                value={form.eventLocation}
+                                onChange={(e) => set("eventLocation", e.target.value)}
+                                className="form-input"
+                                placeholder="JIExpo Kemayoran, ICE BSD, dll"
+                            />
+                        </InputWithIcon>
+                    </Field>
                 </Section>
 
                 {/* ── Section: Catatan & Label ── */}

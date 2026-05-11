@@ -91,6 +91,7 @@ export interface Quotation {
     spkPicName?: string | null;
     spkPicPosition?: string | null;
     spkPicPhone?: string | null;
+    spkPaymentDeadline?: string | null;
     // Invoice-specific
     customOpeningInvoice?: string | null;
     customDisclaimerInvoice?: string | null;

@@ -298,7 +298,7 @@
       {{/each}}
     {{else}}
       <li>DP {{payment.dpPercent}}% dari nominal kontrak atau sebesar <strong>{{payment.dpAmount}}</strong> ({{payment.dpAmountTerbilang}}) dibayarkan pada saat surat perintah kerja ini ditandatangani.</li>
-      <li>Pelunasan sebesar <strong>{{payment.pelunasan}}</strong> ({{payment.pelunasanTerbilang}}) dibayarkan pada saat booth berdiri{{#if doc.validUntilFormatted}} atau selambat-lambatnya pada tanggal <strong>{{doc.validUntilFormatted}}</strong>{{/if}}.</li>
+      <li>Pelunasan sebesar <strong>{{payment.pelunasan}}</strong> ({{payment.pelunasanTerbilang}}) dibayarkan pada saat booth berdiri{{#if spk.paymentDeadlineFormatted}} atau selambat-lambatnya pada tanggal <strong>{{spk.paymentDeadlineFormatted}}</strong>{{/if}}.</li>
     {{/if}}
     <li>Surat Perintah Kerja tidak bisa dibatalkan. Apabila terjadi pembatalan, maka pembatalan akan dikenakan biaya 50% dari total harga. Dan dibayarkan maksimal 1 (satu) minggu dari pembatalan surat perintah kerja. Pembayaran DP yang sudah kami terima tidak dapat dikembalikan.</li>
     <li>Pembatalan Surat Perintah Kerja disampaikan secara tertulis.</li>

@@ -19,7 +19,7 @@ function NewEventInner() {
     const sp = useSearchParams();
 
     // Prefill dari URL query — biar bisa dipanggil dari CRM "Jadikan Event" dll.
-    // Contoh: /events/new?customerId=12&customerName=PT.Foo&name=IIFEX&venue=GrandCity
+    // Contoh: /events/new?customerId=12&customerName=PT.Foo&name=IIFEX&venue=GrandCity&eventStart=2026-05-18&eventEnd=2026-05-21
     const customerIdParam = sp.get("customerId");
     const initial: Partial<EventRecord> = {
         name: sp.get("name") || "",
@@ -29,6 +29,8 @@ function NewEventInner() {
         picName: sp.get("picName") || "",
         notes: sp.get("notes") || "",
         brand: ((sp.get("brand") as EventBrand) || undefined),
+        eventStart: sp.get("eventStart") || null,
+        eventEnd: sp.get("eventEnd") || null,
     };
 
     return (

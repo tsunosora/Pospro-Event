@@ -23,6 +23,7 @@ import {
 } from "@/lib/api/crm";
 import { LevelBadge } from "./LevelBadge";
 import { WaButton } from "./WaButton";
+import { formatLeadEventDateRange } from "@/lib/utils/date-range";
 import { BrandBadge } from "@/components/BrandBadge";
 import { Building2, Check, ImagePlus, Loader2, MapPin, Pencil, Trash2, X, MessageCircle, FileText, Send, CheckCircle2 } from "lucide-react";
 
@@ -82,7 +83,8 @@ export function LeadDrawer({
         source: LeadSource;
         sourceDetail: string;
         followUpDate: string;
-        eventDate: string;
+        eventDateStart: string;
+        eventDateEnd: string;
         eventLocation: string;
         orderDescription: string;
         projectValueEst: string;
@@ -91,7 +93,7 @@ export function LeadDrawer({
     }>({
         name: "", phone: "", organization: "", productCategory: "", city: "",
         level: "", status: "NEW", source: "OTHER", sourceDetail: "",
-        followUpDate: "", eventDate: "", eventLocation: "",
+        followUpDate: "", eventDateStart: "", eventDateEnd: "", eventLocation: "",
         orderDescription: "", projectValueEst: "", greetingTemplate: "", notes: "",
     });
 
@@ -140,7 +142,8 @@ export function LeadDrawer({
             source: lead.source,
             sourceDetail: lead.sourceDetail ?? "",
             followUpDate: toDateInput(lead.followUpDate),
-            eventDate: toDateInput(lead.eventDate),
+            eventDateStart: toDateInput(lead.eventDateStart),
+            eventDateEnd: toDateInput(lead.eventDateEnd),
             eventLocation: lead.eventLocation ?? "",
             orderDescription: lead.orderDescription ?? "",
             projectValueEst: lead.projectValueEst ?? "",
@@ -162,7 +165,8 @@ export function LeadDrawer({
             source: editForm.source,
             sourceDetail: editForm.sourceDetail.trim() || null,
             followUpDate: editForm.followUpDate ? new Date(editForm.followUpDate).toISOString() : null,
-            eventDate: editForm.eventDate ? new Date(editForm.eventDate).toISOString() : null,
+            eventDateStart: editForm.eventDateStart ? new Date(editForm.eventDateStart).toISOString() : null,
+            eventDateEnd: editForm.eventDateEnd ? new Date(editForm.eventDateEnd).toISOString() : null,
             eventLocation: editForm.eventLocation.trim() || null,
             orderDescription: editForm.orderDescription.trim() || null,
             projectValueEst: editForm.projectValueEst.trim() || null,
@@ -416,7 +420,7 @@ export function LeadDrawer({
                                 <Field label="Kota" value={lead.city} icon={<MapPin className="h-3 w-3" />} />
                                 <Field label="Order Description" value={lead.orderDescription} />
                                 <Field label="Project Value Est." value={lead.projectValueEst ? `Rp ${Number(lead.projectValueEst).toLocaleString("id-ID")}` : null} />
-                                <Field label="Event Date" value={lead.eventDate ? new Date(lead.eventDate).toLocaleDateString("id-ID") : null} />
+                                <Field label="Tanggal Event" value={formatLeadEventDateRange(lead)} />
                                 <Field label="Event Location" value={lead.eventLocation} icon={<MapPin className="h-3 w-3" />} />
                                 <Field label="Source" value={lead.source} />
                                 <Field label="Greeting Template" value={lead.greetingTemplate} />
@@ -481,14 +485,26 @@ export function LeadDrawer({
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-medium text-muted-foreground">Event Date</label>
+                                        <label className="text-[10px] font-medium text-muted-foreground">Tgl Mulai Event</label>
                                         <input
                                             type="date"
-                                            value={editForm.eventDate}
-                                            onChange={(e) => setEditForm(f => ({ ...f, eventDate: e.target.value }))}
+                                            value={editForm.eventDateStart}
+                                            onChange={(e) => setEditForm(f => ({ ...f, eventDateStart: e.target.value }))}
                                             className="w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background"
                                         />
                                     </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-medium text-muted-foreground">Tgl Selesai Event (opsional)</label>
+                                    <input
+                                        type="date"
+                                        value={editForm.eventDateEnd}
+                                        onChange={(e) => setEditForm(f => ({ ...f, eventDateEnd: e.target.value }))}
+                                        min={editForm.eventDateStart || undefined}
+                                        disabled={!editForm.eventDateStart}
+                                        className="w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background disabled:opacity-50 disabled:cursor-not-allowed"
+                                    />
+                                    <p className="text-[9px] text-muted-foreground">💡 Untuk event multi-hari (mis. 1-3 Mei).</p>
                                 </div>
                                 <EditField label="Event Location" value={editForm.eventLocation} onChange={v => setEditForm(f => ({ ...f, eventLocation: v }))} />
                                 <EditField label="Project Value Est. (Rp)" value={editForm.projectValueEst} onChange={v => setEditForm(f => ({ ...f, projectValueEst: v.replace(/[^\d.]/g, "") }))} placeholder="50000000" />
@@ -641,6 +657,8 @@ export function LeadDrawer({
                                             params.set("name", lead.orderDescription || lead.organization || "");
                                         }
                                         if (lead.eventLocation) params.set("venue", lead.eventLocation);
+                                        if (lead.eventDateStart) params.set("eventStart", lead.eventDateStart);
+                                        if (lead.eventDateEnd) params.set("eventEnd", lead.eventDateEnd);
                                         if (lead.brand) params.set("brand", lead.brand);
                                         if (lead.assignedWorker?.name) params.set("picName", lead.assignedWorker.name);
                                         if (lead.notes) params.set("notes", lead.notes);

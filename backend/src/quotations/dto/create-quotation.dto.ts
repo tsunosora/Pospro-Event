@@ -53,6 +53,9 @@ export interface CreateQuotationDto {
     spkPicPosition?: string | null;
     /** No. HP PIC SPK — kalau berbeda dengan No. Telp di penawaran. */
     spkPicPhone?: string | null;
+    /** Batas Pelunasan SPK — tanggal "selambat-lambatnya" pelunasan dibayar.
+     *  Kalau null, render SPK fallback ke validUntil (legacy). */
+    spkPaymentDeadline?: string | Date | null;
     // Invoice-specific custom text (override saat render Invoice saja)
     customOpeningInvoice?: string | null;
     customDisclaimerInvoice?: string | null;

@@ -35,10 +35,10 @@ export default function CrmBoardPage() {
     /**
      * Date filter — bisa filter berdasarkan 1 dari 3 field tanggal:
      *  - leadCameAt: kapan lead masuk pipeline (default — paling umum dipakai)
-     *  - eventDate: kapan event berlangsung (untuk track persiapan)
+     *  - eventDateStart: kapan event mulai (untuk track persiapan)
      *  - followUpDate: kapan follow-up direncanakan
      */
-    const [dateField, setDateField] = useState<"leadCameAt" | "eventDate" | "followUpDate">("leadCameAt");
+    const [dateField, setDateField] = useState<"leadCameAt" | "eventDateStart" | "followUpDate">("leadCameAt");
     const [dateRange, setDateRange] = useState<DateRange>({ preset: "ALL" });
 
     const { data, isLoading, refetch, isFetching } = useQuery({
@@ -318,7 +318,7 @@ export default function CrmBoardPage() {
                         title="Pilih tanggal yang difilter"
                     >
                         <option value="leadCameAt">📥 Lead Masuk</option>
-                        <option value="eventDate">🎪 Event Date</option>
+                        <option value="eventDateStart">🎪 Tanggal Event</option>
                         <option value="followUpDate">📞 Follow-Up</option>
                     </select>
                     <DateRangeFilter value={dateRange} onChange={setDateRange} label="" />

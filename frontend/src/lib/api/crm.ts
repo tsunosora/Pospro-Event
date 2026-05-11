@@ -102,7 +102,8 @@ export interface Lead {
     followUpDate: string | null;
     orderDescription: string | null;
     projectValueEst: string | null;
-    eventDate: string | null;
+    eventDateStart: string | null;
+    eventDateEnd: string | null;
     eventLocation: string | null;
     notes: string | null;
     imageUrl: string | null;
