@@ -96,8 +96,10 @@ export class PdfExportService implements OnModuleDestroy {
         const spkPicPhone = rawQuotation?.spkPicPhone?.trim() || null;
 
         // Hitung nominal DP & pelunasan dari total — terbilang dipakai di paragraf SPK.
-        const totalNum = parseRpNumber(ctx.totals.total);
-        const dpPercent = Number(ctx.payment.dpPercent) || 0;
+        // Ambil DIRECT dari raw quotation (Decimal) — lebih reliable dibanding parse string formatted
+        // yang rentan failure kalau format mata uang berbeda (id-ID vs en-US).
+        const totalNum = rawQuotation?.total ? Number(rawQuotation.total) : parseRpNumber(ctx.totals.total);
+        const dpPercent = rawQuotation?.dpPercent ? Number(rawQuotation.dpPercent) : (Number(ctx.payment.dpPercent) || 0);
         const dpAmountNum = (totalNum * dpPercent) / 100;
         const pelunasanNum = totalNum - dpAmountNum;
         // useUsd flag dari raw quotation row — supaya terbilang DP/Pelunasan pakai "US Dollars" kalau aktif
@@ -216,28 +218,54 @@ function deriveSpkNumber(quotationNumber: string): string {
 /**
  * Parse nominal Rupiah string ("Rp 55.000.000" atau "USD 5,500.00") jadi number.
  * Untuk hitung DP & pelunasan di SPK template (yang butuh angka, bukan string formatted).
+ *
+ * BUG FIX: sebelumnya `lastDot > lastComma` salah trigger en-US branch saat input
+ * id-ID multi-dot ("17.500.000") karena lastComma = -1. Akibatnya "17.500.000"
+ * di-Number() langsung = NaN → 0 → terbilang kosong.
  */
 function parseRpNumber(s: string): number {
     if (!s) return 0;
-    // Hapus prefix "Rp"/"USD" + spasi + separator (titik utk id-ID, koma utk en-US)
-    // Pertahankan tanda minus & desimal terakhir (titik utk en-US, koma utk id-ID).
+    // Strip prefix mata uang + char non-numerik (kecuali . , -)
     const cleaned = s.replace(/[^0-9.,-]/g, '').trim();
     if (!cleaned) return 0;
-    // Cek format: kalau mengandung koma & titik, koma = decimal (id) atau titik = decimal (en).
-    // Heuristik: posisi karakter desimal terakhir (yang muncul terakhir) → desimal.
+
+    const dotCount = (cleaned.match(/\./g) || []).length;
+    const commaCount = (cleaned.match(/,/g) || []).length;
     const lastDot = cleaned.lastIndexOf('.');
     const lastComma = cleaned.lastIndexOf(',');
+
     let normalized = cleaned;
-    if (lastDot > lastComma) {
-        // en-US format: "5,500.00" — koma = thousand, titik = decimal
+
+    if (commaCount === 0 && dotCount > 1) {
+        // id-ID multi-dot, no comma: "17.500.000" → semua dot = thousand
+        normalized = cleaned.replace(/\./g, '');
+    } else if (dotCount === 0 && commaCount > 1) {
+        // en-US multi-comma, no dot: "17,500,000" → semua koma = thousand
         normalized = cleaned.replace(/,/g, '');
-    } else if (lastComma > lastDot) {
-        // id-ID format: "5.000.000,50" — titik = thousand, koma = decimal
-        normalized = cleaned.replace(/\./g, '').replace(',', '.');
+    } else if (dotCount > 0 && commaCount > 0) {
+        // Ada keduanya — separator terakhir = decimal
+        if (lastDot > lastComma) {
+            // "5,500.00" → koma = thousand, titik = decimal (en-US)
+            normalized = cleaned.replace(/,/g, '');
+        } else {
+            // "5.000.000,50" → titik = thousand, koma = decimal (id-ID)
+            normalized = cleaned.replace(/\./g, '').replace(',', '.');
+        }
+    } else if (dotCount === 1) {
+        // Single dot: ambiguous. Kalau angka setelah dot = 3 digit → thousand. Else = decimal.
+        const afterDot = cleaned.length - lastDot - 1;
+        normalized = afterDot === 3 ? cleaned.replace(/\./g, '') : cleaned;
+    } else if (commaCount === 1) {
+        // Single comma: ambiguous. Kalau angka setelah = 3 digit → thousand (id). Else = decimal (en).
+        const afterComma = cleaned.length - lastComma - 1;
+        normalized = afterComma === 3
+            ? cleaned.replace(/,/g, '')
+            : cleaned.replace(',', '.');
     } else {
-        // Cuma satu jenis separator atau none — asumsi thousand (umum di id-ID)
-        normalized = cleaned.replace(/[.,]/g, '');
+        // No separator → angka utuh
+        normalized = cleaned;
     }
+
     return Number(normalized) || 0;
 }
 
