@@ -515,41 +515,16 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             discount,
             dpPercent,
             notes,
-            // Smart save: kalau isi sama persis dengan default brand → simpan null biar tetap "linked"
-            // ke brand (kalau brand setting di-update nanti, surat ini ikut update juga).
-            // Kalau user edit/hapus bagian → simpan sebagai custom override.
-            customOpeningText: (() => {
-                const useEn = language === 'en';
-                const def = useEn ? (brandSettings?.openingTemplateEn || brandSettings?.openingTemplate) : brandSettings?.openingTemplate;
-                const v = customOpeningText.trim();
-                if (!v) return null;
-                if (def && v === def.trim()) return null;
-                return v;
-            })(),
-            customDisclaimer: (() => {
-                const useEn = language === 'en';
-                const def = useEn ? (brandSettings?.quotationDisclaimerEn || brandSettings?.quotationDisclaimer) : brandSettings?.quotationDisclaimer;
-                const v = customDisclaimer.trim();
-                if (!v) return null;
-                if (def && v === def.trim()) return null;
-                return v;
-            })(),
-            customPaymentTerms: (() => {
-                const useEn = language === 'en';
-                const def = useEn ? (brandSettings?.quotationPaymentTermsEn || brandSettings?.quotationPaymentTerms) : brandSettings?.quotationPaymentTerms;
-                const v = customPaymentTerms.trim();
-                if (!v) return null;
-                if (def && v === def.trim()) return null;
-                return v;
-            })(),
-            customClosing: (() => {
-                const useEn = language === 'en';
-                const def = useEn ? (brandSettings?.quotationClosingEn || brandSettings?.quotationClosing) : brandSettings?.quotationClosing;
-                const v = customClosing.trim();
-                if (!v) return null;
-                if (def && v === def.trim()) return null;
-                return v;
-            })(),
+            // Save apa adanya: nilai textarea = nilai tersimpan.
+            // Kalau user mau revert ke brand default, klik tombol "✕ Reset" di tiap PrependAppendField
+            // (clear textarea → save null → render fallback ke brand default + prepend/append).
+            // CATATAN: dulu ada "smart save" yang auto-convert ke null kalau text match brand default,
+            // tapi itu bikin bug: user edit kecil (whitespace) → match def → save null → PDF tidak update.
+            // Sekarang predictable: WYSIWYG (what you see is what you save).
+            customOpeningText: customOpeningText.trim() || null,
+            customDisclaimer: customDisclaimer.trim() || null,
+            customPaymentTerms: customPaymentTerms.trim() || null,
+            customClosing: customClosing.trim() || null,
             disclaimerPrepend: disclaimerPrepend.trim() || null,
             disclaimerAppend: disclaimerAppend.trim() || null,
             paymentTermsPrepend: paymentTermsPrepend.trim() || null,

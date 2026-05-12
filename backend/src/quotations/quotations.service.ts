@@ -547,6 +547,28 @@ export class QuotationsService {
                 specifications: (quotation.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 packagePrice: quotation.packagePrice,
                 showGrandTotal: quotation.showGrandTotal,
+                // Carry forward Penawaran-level custom text (fallback chain di context builder)
+                customOpeningText: quotation.customOpeningText,
+                customDisclaimer: quotation.customDisclaimer,
+                customPaymentTerms: quotation.customPaymentTerms,
+                customClosing: quotation.customClosing,
+                disclaimerPrepend: quotation.disclaimerPrepend,
+                disclaimerAppend: quotation.disclaimerAppend,
+                paymentTermsPrepend: quotation.paymentTermsPrepend,
+                paymentTermsAppend: quotation.paymentTermsAppend,
+                closingPrepend: quotation.closingPrepend,
+                closingAppend: quotation.closingAppend,
+                // Carry forward Invoice-specific custom text supaya tab Invoice di Penawaran benar-benar
+                // diterapkan ke invoice yang di-generate. Sebelumnya bug: hilang setelah generate.
+                customOpeningInvoice: quotation.customOpeningInvoice,
+                customDisclaimerInvoice: quotation.customDisclaimerInvoice,
+                customPaymentTermsInvoice: quotation.customPaymentTermsInvoice,
+                customClosingInvoice: quotation.customClosingInvoice,
+                // Language + currency + lampiran
+                language: quotation.language,
+                useUsdCurrency: quotation.useUsdCurrency,
+                attachmentCount: quotation.attachmentCount,
+                customAttachmentText: quotation.customAttachmentText,
                 // Carry forward Invoice-PIC override fields supaya invoice yang baru di-generate
                 // langsung punya PIC override sesuai yang di-set di quotation.
                 ...(({
@@ -756,11 +778,36 @@ export class QuotationsService {
                 specifications: (source.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 packagePrice: source.packagePrice,
                 showGrandTotal: source.showGrandTotal,
+                // Carry forward semua custom text (Penawaran, SPK, Invoice) ke revisi
+                customOpeningText: source.customOpeningText,
+                customDisclaimer: source.customDisclaimer,
+                customPaymentTerms: source.customPaymentTerms,
+                customClosing: source.customClosing,
+                customOpeningSpk: source.customOpeningSpk,
+                customDisclaimerSpk: source.customDisclaimerSpk,
+                customPaymentTermsSpk: source.customPaymentTermsSpk,
+                customClosingSpk: source.customClosingSpk,
+                customOpeningInvoice: source.customOpeningInvoice,
+                customDisclaimerInvoice: source.customDisclaimerInvoice,
+                customPaymentTermsInvoice: source.customPaymentTermsInvoice,
+                customClosingInvoice: source.customClosingInvoice,
+                disclaimerPrepend: source.disclaimerPrepend,
+                disclaimerAppend: source.disclaimerAppend,
+                paymentTermsPrepend: source.paymentTermsPrepend,
+                paymentTermsAppend: source.paymentTermsAppend,
+                closingPrepend: source.closingPrepend,
+                closingAppend: source.closingAppend,
+                // Language + currency + lampiran
+                language: source.language,
+                useUsdCurrency: source.useUsdCurrency,
+                attachmentCount: source.attachmentCount,
+                customAttachmentText: source.customAttachmentText,
                 // Carry forward SPK & Invoice PIC override fields ke revisi
                 ...(({
                     spkPicName: (source as any).spkPicName,
                     spkPicPosition: (source as any).spkPicPosition,
                     spkPicPhone: (source as any).spkPicPhone,
+                    spkPaymentDeadline: (source as any).spkPaymentDeadline,
                     invoicePicName: (source as any).invoicePicName,
                     invoicePicPosition: (source as any).invoicePicPosition,
                     invoicePicPhone: (source as any).invoicePicPhone,

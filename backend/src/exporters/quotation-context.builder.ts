@@ -1040,8 +1040,11 @@ export class QuotationContextBuilder {
                         closingBase,
                         quotation.closingAppend,
                     ),
+                    // `invoiceClosing` dipakai di template untuk "Nb:" di Invoice PDF.
+                    // PRIORITAS: customClosingInvoice (Invoice tab) → customClosing (Penawaran tab) → brand default.
+                    // Sebelumnya BUG: cuma baca customClosing, ignore customClosingInvoice → user edit di tab Invoice tidak muncul.
                     invoiceClosing: combine(
-                        quotation.customClosing,
+                        invClosing || quotation.customClosing,
                         quotation.closingPrepend,
                         invoiceClosingBase,
                         quotation.closingAppend,
