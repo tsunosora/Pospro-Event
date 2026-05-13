@@ -95,6 +95,14 @@
   table.spec-list td.desc-col {
     text-align: left;
   }
+  /* Unit text — tampil di-bawah deskripsi, abu-abu kecil (sama style dengan RAB preview) */
+  table.spec-list td.desc-col .item-unit {
+    display: block;
+    margin-top: 1pt;
+    font-size: 9.5pt;
+    color: #6b7280;
+    font-style: italic;
+  }
   /* Striping zebra tipis biar enak dibaca */
   table.spec-list tbody tr:nth-child(odd) td { background: {{theme.primarySubtle}}; }
   /* Header kategori — full-width, bold, kontras */
@@ -256,7 +264,10 @@
         {{else}}
         <tr>
           <td class="no-col">{{this.no}}.</td>
-          <td class="desc-col">{{this.description}}</td>
+          <td class="desc-col">
+            {{this.description}}
+            {{#if this.quantity}}<span class="item-unit">{{this.quantity}}</span>{{/if}}
+          </td>
         </tr>
         {{/if}}
       {{/each}}

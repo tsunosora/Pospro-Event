@@ -23,6 +23,12 @@ export interface CreateLeadInput {
     eventDateStart?: string | null;
     eventDateEnd?: string | null;
     eventLocation?: string;
+    additionalEvents?: Array<{
+        name?: string | null;
+        location?: string | null;
+        dateStart?: string | null;
+        dateEnd?: string | null;
+    }> | null;
     notes?: string;
     leadCameAt?: string;
     lastContactedAt?: string | null;
@@ -55,7 +61,19 @@ const LEAD_INCLUDE = {
     assignedWorker: { select: { id: true, name: true, position: true, photoUrl: true } },
     previousAssignedWorker: { select: { id: true, name: true, position: true, photoUrl: true } },
     labels: { include: { label: true } },
-    convertedCustomer: { select: { id: true, name: true } },
+    convertedCustomer: {
+        select: {
+            id: true,
+            name: true,
+            // RAB & Quotation linked ke customer ini — supaya frontend tau status convert
+            rabPlans: { select: { id: true, code: true, title: true }, take: 5 },
+            invoices: {
+                where: { type: 'QUOTATION' as any },
+                select: { id: true, invoiceNumber: true, status: true },
+                take: 5,
+            },
+        },
+    },
 } satisfies Prisma.LeadInclude;
 
 @Injectable()
@@ -73,6 +91,27 @@ export class LeadsService {
         if (v === undefined) return undefined;
         if (v === null || v === '') return null;
         try { return new Prisma.Decimal(v as any); } catch { return null; }
+    }
+
+    /**
+     * Sanitize additionalEvents — kosongkan invalid date strings, filter row empty.
+     * Return Prisma.JsonNull kalau input kosong (Prisma butuh JsonNull bukan null untuk JSON column).
+     */
+    private sanitizeAdditionalEvents(
+        input: CreateLeadInput['additionalEvents'],
+    ): any {
+        if (input === undefined) return undefined;
+        if (input === null) return Prisma.JsonNull;
+        if (!Array.isArray(input) || input.length === 0) return Prisma.JsonNull;
+        const cleaned = input
+            .map((ev) => ({
+                name: ev.name?.trim() || null,
+                location: ev.location?.trim() || null,
+                dateStart: ev.dateStart ? new Date(ev.dateStart).toISOString() : null,
+                dateEnd: ev.dateEnd ? new Date(ev.dateEnd).toISOString() : null,
+            }))
+            .filter((ev) => ev.name || ev.location || ev.dateStart || ev.dateEnd);
+        return cleaned.length > 0 ? cleaned : Prisma.JsonNull;
     }
 
     private async pickDefaultStage() {
@@ -206,6 +245,9 @@ export class LeadsService {
                     eventDateEnd: this.toDate(input.eventDateEnd) ?? null,
                 }) as any),
                 eventLocation: input.eventLocation?.trim() || null,
+                ...(input.additionalEvents !== undefined
+                    ? { additionalEvents: this.sanitizeAdditionalEvents(input.additionalEvents) } as any
+                    : {}),
                 notes: input.notes?.trim() || null,
                 leadCameAt: this.toDate(input.leadCameAt) || new Date(),
                 lastContactedAt: this.toDate(input.lastContactedAt) ?? null,
@@ -261,6 +303,7 @@ export class LeadsService {
         if (input.eventDateStart !== undefined) (data as any).eventDateStart = this.toDate(input.eventDateStart);
         if (input.eventDateEnd !== undefined) (data as any).eventDateEnd = this.toDate(input.eventDateEnd);
         if (input.eventLocation !== undefined) data.eventLocation = input.eventLocation?.trim() || null;
+        if (input.additionalEvents !== undefined) (data as any).additionalEvents = this.sanitizeAdditionalEvents(input.additionalEvents);
         if (input.notes !== undefined) data.notes = input.notes?.trim() || null;
         if (input.lastContactedAt !== undefined) data.lastContactedAt = this.toDate(input.lastContactedAt);
 
@@ -447,7 +490,9 @@ export class LeadsService {
                     name: lead.name!.trim(),
                     phone: lead.phone,
                     companyName: lead.organization || null,
-                    address: lead.eventLocation || null,
+                    // Pakai lead.city sebagai alamat klien (BUKAN eventLocation — itu venue event).
+                    // Admin bisa lengkapi alamat full nanti di detail customer / saat buat Penawaran.
+                    address: lead.city || null,
                 },
             });
 

@@ -110,7 +110,7 @@ const navigation: NavEntry[] = [
     { kind: "link", name: "Tarif Gaji (Kota+Divisi)", href: "/settings/wage-rates", icon: Wallet },
     { kind: "link", name: "Laba per Project", href: "/reports/event-profit", icon: TrendingDown },
     { kind: "link", name: "Daftar DP / Piutang", href: "/transactions/dp", icon: Wallet },
-    { kind: "link", name: "Invoice & Penawaran", href: "/invoices", icon: FileText },
+    { kind: "link", name: "Dashboard Piutang", href: "/invoices", icon: FileText },
 
     // ── 🖨️ Lini Printing & POS (5%) ──
     { kind: "section", label: "Lini Printing & POS" },

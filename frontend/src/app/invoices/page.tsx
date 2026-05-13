@@ -1,354 +1,588 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
-    Plus, Eye, Loader2, CheckCircle2, X, Trash2,
-    Pencil, FileText, ClipboardList, ArrowRight, AlertCircle
+    AlertTriangle, ArrowUpRight, Loader2, Phone, Search,
+    TrendingUp, Users, Wallet, Receipt, AlertCircle, ChevronRight,
 } from "lucide-react";
-import {
-    getInvoices, createInvoice, updateInvoice, updateInvoiceStatus,
-    deleteInvoice, convertQuotationToInvoice, getSettings
-} from "@/lib/api";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
-import "dayjs/locale/id";
-import {
-    DocType, Invoice, STATUS_CONFIG, INVOICE_NEXT_STATUSES, QUOTATION_NEXT_STATUSES, fmt
-} from "./types";
-import { PrintModal } from "./PrintModal";
-import { FormModal } from "./FormModal";
+import { getReceivablesDashboard, getQuotation, type ReceivablesDashboard, type Quotation } from "@/lib/api/quotations";
+import { PaymentDetailModal } from "@/components/PaymentDetailModal";
 
-dayjs.extend(relativeTime);
-dayjs.locale("id");
+const fmtRp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
+const fmtShort = (n: number) => {
+    if (Math.abs(n) >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(1)}M`;
+    if (Math.abs(n) >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(1)}jt`;
+    if (Math.abs(n) >= 1_000) return `Rp ${(n / 1_000).toFixed(0)}k`;
+    return `Rp ${n}`;
+};
+const fmtDate = (s: string | null | undefined) => {
+    if (!s) return "—";
+    try {
+        return new Date(s).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+    } catch { return s; }
+};
 
-export default function InvoicesPage() {
-    const queryClient = useQueryClient();
+function severity(days: number) {
+    if (days <= 7) return { cls: "bg-amber-100 text-amber-800 border-amber-300", label: "Hampir Tempo" };
+    if (days <= 30) return { cls: "bg-orange-100 text-orange-800 border-orange-300", label: "Lewat Tempo" };
+    if (days <= 90) return { cls: "bg-red-100 text-red-800 border-red-300", label: "Telat Berat" };
+    return { cls: "bg-red-200 text-red-900 border-red-400 font-bold", label: "Macet" };
+}
 
-    const [activeTab, setActiveTab] = useState<DocType>("INVOICE");
-    const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
-    const [editDoc, setEditDoc] = useState<Invoice | null>(null);
-    const [previewDoc, setPreviewDoc] = useState<Invoice | null>(null);
-    const [deleteId, setDeleteId] = useState<number | null>(null);
+function customerSeverity(c: ReceivablesDashboard["byCustomer"][number]) {
+    if (c.sisaTagihan === 0) return { cls: "text-emerald-700", emoji: "✅" };
+    if (c.overdueCount > 0) return { cls: "text-red-700", emoji: "🚨" };
+    if (c.oldestUnpaidDays > 60) return { cls: "text-orange-700", emoji: "⚠️" };
+    if (c.oldestUnpaidDays > 30) return { cls: "text-amber-700", emoji: "⏳" };
+    return { cls: "text-slate-700", emoji: "📋" };
+}
 
-    const { data: invoiceData, isLoading: loadingInvoices } = useQuery({ queryKey: ["invoices", "INVOICE"], queryFn: () => getInvoices("INVOICE") });
-    const { data: quotationData, isLoading: loadingQuotations } = useQuery({ queryKey: ["invoices", "QUOTATION"], queryFn: () => getInvoices("QUOTATION") });
-    const { data: settings } = useQuery({ queryKey: ["store-settings"], queryFn: getSettings, staleTime: 5 * 60 * 1000 });
+export default function InvoicesPiutangPage() {
+    const { data, isLoading, error } = useQuery({
+        queryKey: ["receivables-dashboard"],
+        queryFn: getReceivablesDashboard,
+        staleTime: 30_000,
+    });
 
-    const invoices: Invoice[] = invoiceData ?? [];
-    const quotations: Invoice[] = quotationData ?? [];
-    const docs = activeTab === "INVOICE" ? invoices : quotations;
-    const isLoading = activeTab === "INVOICE" ? loadingInvoices : loadingQuotations;
+    const [filter, setFilter] = useState("");
+    const [activeTab, setActiveTab] = useState<"customer" | "overdue" | "income">("customer");
+    const [detailTargetId, setDetailTargetId] = useState<number | null>(null);
+    const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
 
-    const invalidate = () => {
-        queryClient.invalidateQueries({ queryKey: ["invoices", "INVOICE"] });
-        queryClient.invalidateQueries({ queryKey: ["invoices", "QUOTATION"] });
-    };
+    // Fetch invoice detail saat user klik row
+    const { data: detailInvoice } = useQuery<Quotation>({
+        queryKey: ["quotation-detail", detailTargetId],
+        queryFn: () => getQuotation(detailTargetId!),
+        enabled: !!detailTargetId,
+        staleTime: 30_000,
+    });
 
-    const createMutation = useMutation({ mutationFn: createInvoice, onSuccess: () => { invalidate(); setFormMode(null); } });
-    const updateMutation = useMutation({ mutationFn: ({ id, data }: { id: number; data: any }) => updateInvoice(id, data), onSuccess: () => { invalidate(); setFormMode(null); setEditDoc(null); } });
-    const statusMutation = useMutation({ mutationFn: ({ id, status }: { id: number; status: string }) => updateInvoiceStatus(id, status), onSuccess: invalidate });
-    const deleteMutation = useMutation({ mutationFn: deleteInvoice, onSuccess: () => { invalidate(); setDeleteId(null); } });
-    const convertMutation = useMutation({ mutationFn: convertQuotationToInvoice, onSuccess: () => { invalidate(); } });
+    const filteredCustomers = useMemo(() => {
+        if (!data) return [];
+        const q = filter.trim().toLowerCase();
+        if (!q) return data.byCustomer;
+        return data.byCustomer.filter((c) =>
+            c.customerName.toLowerCase().includes(q) ||
+            (c.companyName?.toLowerCase().includes(q) ?? false) ||
+            (c.phone?.includes(q) ?? false)
+        );
+    }, [data, filter]);
 
-    const handleSave = (data: any) => {
-        if (formMode === "edit" && editDoc) {
-            updateMutation.mutate({ id: editDoc.id, data });
-        } else {
-            createMutation.mutate(data);
-        }
-    };
+    const maxIncome = useMemo(() => {
+        if (!data) return 0;
+        return Math.max(1, ...data.incomeMonthly.map((m) => m.amount));
+    }, [data]);
 
-    const invoiceSummary = useMemo(() => ({
-        total: invoices.length,
-        totalValue: invoices.reduce((s, i) => s + parseFloat(i.total), 0),
-        unpaid: invoices.filter(i => i.status === "SENT").length,
-        unpaidValue: invoices.filter(i => i.status === "SENT").reduce((s, i) => s + parseFloat(i.total), 0),
-        overdue: invoices.filter(i => i.status === "SENT" && i.dueDate && dayjs(i.dueDate).isBefore(dayjs())).length,
-    }), [invoices]);
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh] text-slate-600">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                Memuat dashboard piutang...
+            </div>
+        );
+    }
 
-    const quotationSummary = useMemo(() => ({
-        total: quotations.length,
-        pending: quotations.filter(q => q.status === "SENT").length,
-        accepted: quotations.filter(q => q.status === "ACCEPTED").length,
-        acceptedValue: quotations.filter(q => q.status === "ACCEPTED").reduce((s, q) => s + parseFloat(q.total), 0),
-    }), [quotations]);
-
-    const nextStatuses = activeTab === "INVOICE" ? INVOICE_NEXT_STATUSES : QUOTATION_NEXT_STATUSES;
-    const isSaving = createMutation.isPending || updateMutation.isPending;
+    if (error || !data) {
+        return (
+            <div className="p-6">
+                <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700 text-sm">
+                    ❌ Gagal memuat data piutang. Pastikan backend sudah running &amp; schema sudah di-migrate.
+                    <br />
+                    <code className="text-xs mt-2 block">{(error as any)?.message ?? "no error message"}</code>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="sm:flex sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-foreground">Invoice &amp; Penawaran</h1>
-                    <p className="mt-1 text-sm text-muted-foreground">Kelola faktur tagihan dan surat penawaran harga untuk klien B2B.</p>
-                </div>
-                <button onClick={() => { setEditDoc(null); setFormMode("create"); }}
-                    className="mt-4 sm:mt-0 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm">
-                    <Plus className="h-4 w-4" />
-                    Buat {activeTab === "INVOICE" ? "Invoice" : "Penawaran Harga"}
-                </button>
+        <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4">
+            <div>
+                <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <Receipt className="h-7 w-7 text-emerald-600" />
+                    Dashboard Piutang &amp; Pemasukan
+                </h1>
+                <p className="text-sm text-slate-600">
+                    Rekap semua invoice — siapa belum bayar, berapa lama, &amp; pemasukan dari Cashflow.
+                </p>
             </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <KpiCard
+                    title="Total Piutang"
+                    value={fmtShort(data.kpi.totalOutstanding)}
+                    fullValue={fmtRp(data.kpi.totalOutstanding)}
+                    sub={`${data.kpi.customersWithDebt} customer`}
+                    color="amber"
+                    icon={<Wallet className="h-5 w-5" />}
+                />
+                <KpiCard
+                    title="🚨 Overdue"
+                    value={fmtShort(data.kpi.overdueAmount)}
+                    fullValue={fmtRp(data.kpi.overdueAmount)}
+                    sub={`${data.kpi.overdueCount} invoice lewat tempo`}
+                    color={data.kpi.overdueCount > 0 ? "red" : "slate"}
+                    icon={<AlertTriangle className="h-5 w-5" />}
+                />
+                <KpiCard
+                    title="💰 Pemasukan Bulan Ini"
+                    value={fmtShort(data.kpi.totalIncomeMonth)}
+                    fullValue={fmtRp(data.kpi.totalIncomeMonth)}
+                    sub="dari pembayaran invoice"
+                    color="emerald"
+                    icon={<ArrowUpRight className="h-5 w-5" />}
+                />
+                <KpiCard
+                    title="📈 Pemasukan YTD"
+                    value={fmtShort(data.kpi.totalIncomeYTD)}
+                    fullValue={fmtRp(data.kpi.totalIncomeYTD)}
+                    sub="tahun berjalan"
+                    color="blue"
+                    icon={<TrendingUp className="h-5 w-5" />}
+                />
+            </div>
+
+            {/* Warning banner kalau ada overdue */}
+            {data.kpi.overdueCount > 0 && (
+                <div className="bg-red-50 border-l-4 border-red-500 rounded p-3 flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <h3 className="font-bold text-red-900 text-sm">
+                            ⚠️ Ada {data.kpi.overdueCount} invoice lewat tempo senilai {fmtRp(data.kpi.overdueAmount)}!
+                        </h3>
+                        <p className="text-xs text-red-700 mt-0.5">
+                            Disarankan segera kontak customer atau kirim reminder pembayaran.
+                        </p>
+                        <button
+                            onClick={() => setActiveTab("overdue")}
+                            className="text-xs text-red-700 underline hover:text-red-900 mt-1 font-semibold"
+                        >
+                            Lihat daftar overdue →
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Tabs */}
-            <div className="flex gap-1 bg-muted/40 p-1 rounded-xl w-fit">
-                <button onClick={() => setActiveTab("INVOICE")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "INVOICE" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                    <FileText className="h-4 w-4" /> Invoice
-                    <span className="bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded-full">{invoices.length}</span>
-                </button>
-                <button onClick={() => setActiveTab("QUOTATION")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "QUOTATION" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                    <ClipboardList className="h-4 w-4" /> Penawaran Harga (SPH)
-                    <span className="bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded-full">{quotations.length}</span>
-                </button>
+            <div className="border-b border-slate-200 flex gap-1 overflow-x-auto">
+                <TabButton active={activeTab === "customer"} onClick={() => setActiveTab("customer")}>
+                    <Users className="h-4 w-4" /> Per Customer ({data.byCustomer.length})
+                </TabButton>
+                <TabButton active={activeTab === "overdue"} onClick={() => setActiveTab("overdue")}>
+                    <AlertTriangle className="h-4 w-4" /> Overdue ({data.overdueInvoices.length})
+                </TabButton>
+                <TabButton active={activeTab === "income"} onClick={() => setActiveTab("income")}>
+                    <TrendingUp className="h-4 w-4" /> Pemasukan 12 Bulan
+                </TabButton>
             </div>
 
-            {/* Summary cards */}
-            {activeTab === "INVOICE" ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="glass p-4 rounded-xl border border-border">
-                        <p className="text-xs text-muted-foreground mb-1">Total Invoice</p>
-                        <p className="text-xl font-bold text-foreground">{invoiceSummary.total}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{fmt(invoiceSummary.totalValue)} total nilai</p>
+            {/* TAB: Per Customer */}
+            {activeTab === "customer" && (
+                <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                        <div className="relative flex-1 max-w-md">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <input
+                                type="text"
+                                value={filter}
+                                onChange={(e) => setFilter(e.target.value)}
+                                placeholder="Cari customer (nama / perusahaan / hp)"
+                                className="w-full pl-8 pr-3 py-2 text-sm border rounded"
+                            />
+                        </div>
                     </div>
-                    <div className="glass p-4 rounded-xl border border-blue-500/20">
-                        <p className="text-xs text-muted-foreground mb-1">Menunggu Pembayaran</p>
-                        <p className="text-xl font-bold text-blue-500">{invoiceSummary.unpaid} invoice</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{fmt(invoiceSummary.unpaidValue)}</p>
-                    </div>
-                    <div className={`glass p-4 rounded-xl border ${invoiceSummary.overdue > 0 ? "border-destructive/30" : "border-border"}`}>
-                        <p className="text-xs text-muted-foreground mb-1">Overdue</p>
-                        <p className={`text-xl font-bold ${invoiceSummary.overdue > 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                            {invoiceSummary.overdue} invoice
-                        </p>
-                        {invoiceSummary.overdue > 0 && (
-                            <p className="text-xs text-destructive mt-0.5 flex items-center gap-1">
-                                <AlertCircle className="h-3 w-3" /> Melewati jatuh tempo
-                            </p>
-                        )}
-                    </div>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="glass p-4 rounded-xl border border-border">
-                        <p className="text-xs text-muted-foreground mb-1">Total Penawaran</p>
-                        <p className="text-xl font-bold text-foreground">{quotationSummary.total}</p>
-                    </div>
-                    <div className="glass p-4 rounded-xl border border-blue-500/20">
-                        <p className="text-xs text-muted-foreground mb-1">Menunggu Konfirmasi</p>
-                        <p className="text-xl font-bold text-blue-500">{quotationSummary.pending} SPH</p>
-                    </div>
-                    <div className="glass p-4 rounded-xl border border-emerald-500/20">
-                        <p className="text-xs text-muted-foreground mb-1">Diterima → Jadi Invoice</p>
-                        <p className="text-xl font-bold text-emerald-600">{quotationSummary.accepted} SPH</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{fmt(quotationSummary.acceptedValue)}</p>
+
+                    <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-50 border-b text-xs">
+                                <tr>
+                                    <th className="text-left px-3 py-2 font-semibold text-slate-700">Customer</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-slate-700">Total Invoice</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-slate-700">Sudah Bayar</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-slate-700">Sisa Piutang</th>
+                                    <th className="text-center px-3 py-2 font-semibold text-slate-700">Status</th>
+                                    <th className="px-3 py-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredCustomers.length === 0 ? (
+                                    <tr><td colSpan={6} className="text-center py-6 text-slate-500 text-xs">
+                                        {filter ? "Tidak ada customer cocok dengan filter." : "Belum ada data invoice."}
+                                    </td></tr>
+                                ) : filteredCustomers.map((c) => {
+                                    const sev = customerSeverity(c);
+                                    const paidPct = c.totalInvoiced > 0 ? (c.totalPaid / c.totalInvoiced) * 100 : 0;
+                                    const customerKey = `${c.customerId ?? c.customerName}`;
+                                    const isExpanded = expandedCustomer === customerKey;
+                                    return (
+                                        <FragmentRows key={customerKey}>
+                                        <tr
+                                            className="border-b hover:bg-slate-50 cursor-pointer"
+                                            onClick={() => setExpandedCustomer(isExpanded ? null : customerKey)}
+                                        >
+                                            <td className="px-3 py-2">
+                                                <div className="flex items-center gap-2">
+                                                    <ChevronRight className={`h-3.5 w-3.5 text-slate-400 transition-transform flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`} />
+                                                    <span className="text-lg">{sev.emoji}</span>
+                                                    <div>
+                                                        {c.customerId ? (
+                                                            <Link href={`/customers/${c.customerId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-slate-900 hover:text-blue-600 hover:underline">
+                                                                {c.customerName}
+                                                            </Link>
+                                                        ) : (
+                                                            <span className="font-semibold text-slate-900">{c.customerName}</span>
+                                                        )}
+                                                        {c.companyName && (
+                                                            <div className="text-[11px] text-slate-500">{c.companyName}</div>
+                                                        )}
+                                                        {c.phone && (
+                                                            <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                                                <Phone className="h-2.5 w-2.5" /> {c.phone}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                <div className="font-mono font-semibold">{fmtShort(c.totalInvoiced)}</div>
+                                                <div className="text-[10px] text-slate-500">{c.invoiceCount} invoice</div>
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                <div className="font-mono text-emerald-700 font-semibold">{fmtShort(c.totalPaid)}</div>
+                                                <div className="text-[10px] text-slate-500">{paidPct.toFixed(0)}%</div>
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                <div className={`font-mono font-bold ${c.sisaTagihan > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                                                    {c.sisaTagihan > 0 ? fmtShort(c.sisaTagihan) : "LUNAS"}
+                                                </div>
+                                                {c.sisaTagihan > 0 && c.oldestUnpaidDays > 0 && (
+                                                    <div className="text-[10px] text-slate-500">
+                                                        {c.oldestUnpaidDays} hari sejak invoice terlama
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-2 text-center">
+                                                <div className="inline-flex flex-col gap-0.5">
+                                                    {c.overdueCount > 0 && (
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-300 font-semibold">
+                                                            🚨 {c.overdueCount} overdue
+                                                        </span>
+                                                    )}
+                                                    {c.partialCount > 0 && (
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300">
+                                                            ⏳ {c.partialCount} partial
+                                                        </span>
+                                                    )}
+                                                    {c.unpaidCount > 0 && (
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300">
+                                                            📝 {c.unpaidCount} belum bayar
+                                                        </span>
+                                                    )}
+                                                    {c.sisaTagihan === 0 && (
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-300 font-semibold">
+                                                            ✅ Lunas Semua
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                <Link
+                                                    href={c.customerId ? `/customers/${c.customerId}` : "/penawaran"}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="text-[11px] text-blue-600 hover:underline inline-flex items-center gap-0.5"
+                                                >
+                                                    Customer <ChevronRight className="h-3 w-3" />
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                        {isExpanded && (
+                                            <tr className="bg-slate-50/70">
+                                                <td colSpan={6} className="px-3 py-2">
+                                                    <CustomerInvoices invoiceIds={c.invoiceIds} onOpenDetail={setDetailTargetId} />
+                                                </td>
+                                            </tr>
+                                        )}
+                                        </FragmentRows>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
 
-            {/* Mobile Card List */}
-            <div className="md:hidden space-y-3">
-                {isLoading ? (
-                    <div className="glass rounded-xl border border-border p-10 flex flex-col items-center gap-2 text-muted-foreground">
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                        <span className="text-sm">Memuat data...</span>
-                    </div>
-                ) : docs.length === 0 ? (
-                    <div className="glass rounded-xl border border-border p-10 text-center text-sm text-muted-foreground">
-                        Belum ada {activeTab === "INVOICE" ? "invoice" : "penawaran harga"}. Klik tombol di atas untuk membuat.
-                    </div>
-                ) : docs.map((doc) => {
-                    const dateField = activeTab === "INVOICE" ? doc.dueDate : doc.validUntil;
-                    const isOverdue = dateField && dayjs(dateField).isBefore(dayjs()) && doc.status === "SENT";
-                    const nextSts = nextStatuses[doc.status] ?? [];
-                    return (
-                        <div key={doc.id} className="glass rounded-xl border border-border p-4 space-y-3">
-                            {/* Top row: number + status + total */}
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                    <p className="font-mono font-bold text-primary text-sm">{doc.invoiceNumber}</p>
-                                    <p className="font-semibold text-foreground">{doc.clientName}</p>
-                                    {doc.clientCompany && <p className="text-xs text-muted-foreground">{doc.clientCompany}</p>}
-                                </div>
-                                <div className="text-right shrink-0">
-                                    <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${STATUS_CONFIG[doc.status].className}`}>
-                                        {STATUS_CONFIG[doc.status].label}
-                                    </span>
-                                    <p className="font-bold text-foreground mt-1">{fmt(parseFloat(doc.total))}</p>
-                                </div>
-                            </div>
-
-                            {/* Date info */}
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                <span>Dibuat: {dayjs(doc.date).format("DD MMM YYYY")}</span>
-                                {dateField && (
-                                    <span className={isOverdue ? "text-destructive font-medium" : ""}>
-                                        {activeTab === "INVOICE" ? "Jatuh Tempo" : "Berlaku s/d"}: {dayjs(dateField).format("DD MMM YYYY")}
-                                        {isOverdue && " ⚠ Overdue"}
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center gap-1.5 pt-1 border-t border-border/50 flex-wrap">
-                                {nextSts.map(ns => (
-                                    <button key={ns} onClick={() => statusMutation.mutate({ id: doc.id, status: ns })}
-                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${ns === "PAID" || ns === "ACCEPTED" ? "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100" : ns === "CANCELLED" || ns === "REJECTED" ? "border-destructive/20 text-destructive bg-destructive/5 hover:bg-destructive/10" : "border-primary/20 text-primary bg-primary/5 hover:bg-primary/10"}`}>
-                                        {ns === "PAID" || ns === "ACCEPTED" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                                        {STATUS_CONFIG[ns].label}
-                                    </button>
-                                ))}
-                                {activeTab === "QUOTATION" && doc.status === "ACCEPTED" && (
-                                    <button onClick={() => convertMutation.mutate(doc.id)}
-                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-primary/20 text-primary bg-primary/5 hover:bg-primary/10 transition-colors">
-                                        <FileText className="h-3.5 w-3.5" /> Jadi Invoice
-                                    </button>
-                                )}
-                                <div className="flex items-center gap-1 ml-auto">
-                                    <button onClick={() => setPreviewDoc(doc)} title="Preview & Cetak"
-                                        className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
-                                        <Eye className="h-4 w-4" />
-                                    </button>
-                                    {doc.status === "DRAFT" && (
-                                        <button onClick={() => { setEditDoc(doc); setFormMode("edit"); }} title="Edit"
-                                            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
-                                            <Pencil className="h-4 w-4" />
-                                        </button>
-                                    )}
-                                    <button onClick={() => setDeleteId(doc.id)} title="Hapus"
-                                        className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            </div>
+            {/* TAB: Overdue */}
+            {activeTab === "overdue" && (
+                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                    {data.overdueInvoices.length === 0 ? (
+                        <div className="text-center py-10 text-slate-500">
+                            <div className="text-4xl mb-2">🎉</div>
+                            <div className="font-semibold text-emerald-700">Tidak ada invoice lewat tempo!</div>
+                            <div className="text-xs mt-1">Semua piutang masih dalam masa pembayaran.</div>
                         </div>
-                    );
-                })}
-            </div>
-
-            {/* Desktop Table */}
-            <div className="hidden md:block bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-border">
-                        <thead className="bg-muted/50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Nomor</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Klien / Perusahaan</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Dibuat</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{activeTab === "INVOICE" ? "Jatuh Tempo" : "Berlaku s/d"}</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Total</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {isLoading ? (
-                                <tr><td colSpan={7} className="px-6 py-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></td></tr>
-                            ) : docs.length === 0 ? (
-                                <tr><td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">
-                                    Belum ada {activeTab === "INVOICE" ? "invoice" : "penawaran harga"}. Klik tombol di atas untuk membuat.
-                                </td></tr>
-                            ) : docs.map((doc) => {
-                                const dateField = activeTab === "INVOICE" ? doc.dueDate : doc.validUntil;
-                                const isOverdue = dateField && dayjs(dateField).isBefore(dayjs()) && doc.status === "SENT";
-                                const nextSts = nextStatuses[doc.status] ?? [];
-                                return (
-                                    <tr key={doc.id} className="hover:bg-muted/30 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-medium text-primary">{doc.invoiceNumber}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <p className="text-sm font-semibold text-foreground">{doc.clientName}</p>
-                                            {doc.clientCompany && <p className="text-xs text-muted-foreground">{doc.clientCompany}</p>}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{dayjs(doc.date).format("DD MMM YYYY")}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            {dateField ? (
-                                                <span className={isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}>
-                                                    {dayjs(dateField).format("DD MMM YYYY")}
-                                                    {isOverdue && <span className="block text-xs">Overdue</span>}
+                    ) : (
+                        <table className="w-full text-sm">
+                            <thead className="bg-red-50 border-b text-xs">
+                                <tr>
+                                    <th className="text-left px-3 py-2 font-semibold text-red-900">Invoice</th>
+                                    <th className="text-left px-3 py-2 font-semibold text-red-900">Customer</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-red-900">Sisa Tagihan</th>
+                                    <th className="text-center px-3 py-2 font-semibold text-red-900">Jatuh Tempo</th>
+                                    <th className="text-center px-3 py-2 font-semibold text-red-900">Telat</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.overdueInvoices.map((inv) => {
+                                    const sev = severity(inv.daysOverdue);
+                                    return (
+                                        <tr key={inv.id} className="border-b hover:bg-red-50/30">
+                                            <td className="px-3 py-2">
+                                                <button
+                                                    onClick={() => setDetailTargetId(inv.id)}
+                                                    className="font-mono text-xs text-blue-600 hover:underline font-semibold"
+                                                    title="Lihat detail pembayaran"
+                                                >
+                                                    {inv.invoiceNumber}
+                                                </button>
+                                                <div className="text-[10px] text-slate-500">{fmtDate(inv.date)}</div>
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                {inv.customerId ? (
+                                                    <Link href={`/customers/${inv.customerId}`} className="font-semibold text-slate-900 hover:text-blue-600 hover:underline text-xs">
+                                                        {inv.customerName}
+                                                    </Link>
+                                                ) : (
+                                                    <span className="font-semibold text-xs">{inv.customerName}</span>
+                                                )}
+                                                {inv.companyName && (
+                                                    <div className="text-[10px] text-slate-500">{inv.companyName}</div>
+                                                )}
+                                                {inv.phone && (
+                                                    <a
+                                                        href={`https://wa.me/${inv.phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Halo, mohon konfirmasi pembayaran invoice ${inv.invoiceNumber}`)}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-[10px] text-green-600 hover:underline inline-flex items-center gap-0.5 mt-0.5"
+                                                    >
+                                                        💬 WA: {inv.phone}
+                                                    </a>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                <div className="font-mono font-bold text-red-700">{fmtShort(inv.sisa)}</div>
+                                                <div className="text-[10px] text-slate-500">dari {fmtShort(inv.amountToPay)}</div>
+                                            </td>
+                                            <td className="px-3 py-2 text-center text-xs">
+                                                {fmtDate(inv.dueDate)}
+                                            </td>
+                                            <td className="px-3 py-2 text-center">
+                                                <span className={`inline-block text-[10px] px-2 py-0.5 rounded border font-semibold ${sev.cls}`}>
+                                                    {inv.daysOverdue} hari · {sev.label}
                                                 </span>
-                                            ) : <span className="text-muted-foreground">—</span>}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${STATUS_CONFIG[doc.status].className}`}>
-                                                {STATUS_CONFIG[doc.status].label}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-foreground text-right">
-                                            {fmt(parseFloat(doc.total))}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <div className="flex justify-end items-center gap-1 text-muted-foreground">
-                                                {nextSts.map(ns => (
-                                                    <button key={ns} onClick={() => statusMutation.mutate({ id: doc.id, status: ns })}
-                                                        title={`Tandai: ${STATUS_CONFIG[ns].label}`}
-                                                        className={`p-1.5 rounded hover:bg-muted transition-colors ${ns === "PAID" || ns === "ACCEPTED" ? "hover:text-emerald-600" : ns === "CANCELLED" || ns === "REJECTED" ? "hover:text-destructive" : "hover:text-primary"}`}>
-                                                        {ns === "PAID" || ns === "ACCEPTED" ? <CheckCircle2 className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
-                                                    </button>
-                                                ))}
-                                                {activeTab === "QUOTATION" && doc.status === "ACCEPTED" && (
-                                                    <button onClick={() => convertMutation.mutate(doc.id)} title="Konversi ke Invoice"
-                                                        className="p-1.5 rounded hover:bg-primary/10 hover:text-primary transition-colors">
-                                                        <FileText className="h-4 w-4" />
-                                                    </button>
-                                                )}
-                                                <button onClick={() => setPreviewDoc(doc)} title="Preview & Cetak"
-                                                    className="p-1.5 rounded hover:bg-muted hover:text-primary transition-colors">
-                                                    <Eye className="h-4 w-4" />
-                                                </button>
-                                                {doc.status === "DRAFT" && (
-                                                    <button onClick={() => { setEditDoc(doc); setFormMode("edit"); }} title="Edit"
-                                                        className="p-1.5 rounded hover:bg-muted hover:text-primary transition-colors">
-                                                        <Pencil className="h-4 w-4" />
-                                                    </button>
-                                                )}
-                                                <button onClick={() => setDeleteId(doc.id)} title="Hapus"
-                                                    className="p-1.5 rounded hover:bg-destructive/10 hover:text-destructive transition-colors">
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    )}
                 </div>
-            </div>
+            )}
 
-            {/* Form */}
-            {formMode && (
-                <FormModal
-                    mode={formMode}
-                    docType={activeTab}
-                    initial={editDoc ?? undefined}
-                    onClose={() => { setFormMode(null); setEditDoc(null); }}
-                    onSave={handleSave}
-                    isPending={isSaving}
+            {/* TAB: Income Chart */}
+            {activeTab === "income" && (
+                <div className="bg-white rounded-lg shadow-sm border p-4">
+                    <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-emerald-600" />
+                        Pemasukan 12 Bulan Terakhir
+                    </h3>
+                    <p className="text-xs text-slate-500 mb-4">
+                        Sumber: Cashflow IN kategori &quot;Pembayaran Invoice&quot;. Auto-tercatat saat admin Tandai Lunas.
+                    </p>
+                    <div className="space-y-1.5">
+                        {data.incomeMonthly.map((m) => {
+                            const pct = (m.amount / maxIncome) * 100;
+                            return (
+                                <div key={m.month} className="flex items-center gap-2 text-xs">
+                                    <div className="w-14 text-slate-600 font-semibold text-right flex-shrink-0">
+                                        {m.label}
+                                    </div>
+                                    <div className="flex-1 bg-slate-100 rounded h-6 relative overflow-hidden">
+                                        <div
+                                            className={`h-full ${m.amount > 0 ? "bg-gradient-to-r from-emerald-400 to-emerald-600" : ""}`}
+                                            style={{ width: `${Math.max(pct, 0)}%` }}
+                                        />
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-slate-900 mix-blend-difference">
+                                            {m.amount > 0 ? fmtShort(m.amount) : "—"}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs">
+                        <span className="text-slate-600">Total pemasukan 12 bulan:</span>
+                        <span className="font-mono font-bold text-emerald-700">
+                            {fmtRp(data.incomeMonthly.reduce((s, m) => s + m.amount, 0))}
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal detail pembayaran — semua cicilan + bukti tf */}
+            {detailTargetId && detailInvoice && (
+                <PaymentDetailModal
+                    invoice={detailInvoice}
+                    onClose={() => setDetailTargetId(null)}
                 />
             )}
-
-            {/* Print Preview */}
-            {previewDoc && <PrintModal doc={previewDoc} settings={settings} onClose={() => setPreviewDoc(null)} />}
-
-            {/* Delete confirm */}
-            {deleteId !== null && (
-                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-card w-full max-w-sm rounded-xl border border-border shadow-lg p-6 animate-in fade-in zoom-in-95 duration-200">
-                        <h3 className="font-semibold text-foreground mb-2">Hapus Dokumen?</h3>
-                        <p className="text-sm text-muted-foreground mb-6">Data tidak dapat dipulihkan setelah dihapus.</p>
-                        <div className="flex justify-end gap-3">
-                            <button onClick={() => setDeleteId(null)} className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground border border-input hover:bg-muted/50 transition-colors">Batal</button>
-                            <button onClick={() => deleteMutation.mutate(deleteId)} disabled={deleteMutation.isPending}
-                                className="px-4 py-2 rounded-lg text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50">
-                                {deleteMutation.isPending ? "Menghapus..." : "Hapus"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
+    );
+}
+
+/** Wrapper untuk render multiple rows dari .map() callback (React.Fragment shortcut tidak boleh punya key di tbody). */
+function FragmentRows({ children }: { children: React.ReactNode }) {
+    return <>{children}</>;
+}
+
+/** Sub-table di expand row: list invoice milik 1 customer, clickable buat buka detail pembayaran. */
+function CustomerInvoices({ invoiceIds, onOpenDetail }: { invoiceIds: number[]; onOpenDetail: (id: number) => void }) {
+    const { data, isLoading } = useQuery<Quotation[]>({
+        queryKey: ["customer-invoices", invoiceIds.join(",")],
+        queryFn: async () => {
+            const results = await Promise.all(invoiceIds.map((id) => getQuotation(id)));
+            return results;
+        },
+        enabled: invoiceIds.length > 0,
+        staleTime: 30_000,
+    });
+
+    if (isLoading) {
+        return (
+            <div className="text-xs text-slate-500 py-2 flex items-center gap-2">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Memuat invoice...
+            </div>
+        );
+    }
+
+    if (!data || data.length === 0) {
+        return <div className="text-xs text-slate-500 py-2 italic">Tidak ada invoice.</div>;
+    }
+
+    const STATUS_BADGE: Record<string, string> = {
+        PAID: "bg-emerald-100 text-emerald-800",
+        PARTIALLY_PAID: "bg-amber-100 text-amber-800",
+        SENT: "bg-blue-100 text-blue-800",
+        DRAFT: "bg-slate-100 text-slate-700",
+        CANCELLED: "bg-red-100 text-red-700",
+    };
+
+    return (
+        <div className="space-y-1.5">
+            <div className="text-[10px] font-bold text-slate-600 uppercase mb-1">Daftar Invoice ({data.length})</div>
+            {data.map((inv) => {
+                const amountToPay = Number(inv.amountToPay ?? inv.total ?? 0);
+                const paidAmount = Number((inv as any).paidAmount ?? 0);
+                const sisa = Math.max(0, amountToPay - paidAmount);
+                const badgeCls = STATUS_BADGE[inv.status] ?? "bg-slate-100 text-slate-700";
+                return (
+                    <div key={inv.id} className="bg-white border border-slate-200 rounded p-2 flex items-center justify-between gap-2 text-xs hover:border-emerald-400 transition">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => onOpenDetail(inv.id)}
+                                    className="font-mono font-bold text-blue-600 hover:underline"
+                                >
+                                    {inv.invoiceNumber}
+                                </button>
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded ${badgeCls} font-semibold`}>
+                                    {inv.status}
+                                </span>
+                                {inv.invoicePart && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                        {inv.invoicePart}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">
+                                {fmtDate(inv.date)}
+                                {inv.projectName && ` · ${inv.projectName}`}
+                            </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                            <div className="text-[10px] text-slate-500">
+                                Total: <span className="font-mono">{fmtShort(amountToPay)}</span>
+                            </div>
+                            <div className="text-[10px] text-emerald-700 font-semibold">
+                                Bayar: <span className="font-mono">{fmtShort(paidAmount)}</span>
+                            </div>
+                            {sisa > 0 && (
+                                <div className="text-[10px] text-amber-700 font-bold">
+                                    Sisa: <span className="font-mono">{fmtShort(sisa)}</span>
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => onOpenDetail(inv.id)}
+                            className="text-[10px] px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded font-semibold whitespace-nowrap"
+                            title="Lihat semua cicilan + bukti transfer"
+                        >
+                            🧾 Detail
+                        </button>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+function KpiCard({ title, value, fullValue, sub, color, icon }: {
+    title: string;
+    value: string;
+    fullValue: string;
+    sub: string;
+    color: "amber" | "red" | "emerald" | "blue" | "slate";
+    icon: React.ReactNode;
+}) {
+    const colorMap = {
+        amber: "bg-amber-50 border-amber-200 text-amber-900",
+        red: "bg-red-50 border-red-300 text-red-900",
+        emerald: "bg-emerald-50 border-emerald-200 text-emerald-900",
+        blue: "bg-blue-50 border-blue-200 text-blue-900",
+        slate: "bg-slate-50 border-slate-200 text-slate-900",
+    };
+    const iconColorMap = {
+        amber: "text-amber-600",
+        red: "text-red-600",
+        emerald: "text-emerald-600",
+        blue: "text-blue-600",
+        slate: "text-slate-600",
+    };
+    return (
+        <div className={`rounded-lg border p-3 ${colorMap[color]}`} title={fullValue}>
+            <div className="flex items-start justify-between mb-1">
+                <div className="text-[10px] font-semibold uppercase tracking-wide opacity-75">{title}</div>
+                <span className={iconColorMap[color]}>{icon}</span>
+            </div>
+            <div className="text-xl font-bold font-mono">{value}</div>
+            <div className="text-[10px] opacity-70 mt-0.5">{sub}</div>
+        </div>
+    );
+}
+
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+    return (
+        <button
+            onClick={onClick}
+            className={`px-3 py-2 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition whitespace-nowrap ${active
+                ? "border-emerald-600 text-emerald-700"
+                : "border-transparent text-slate-600 hover:text-slate-900"
+                }`}
+        >
+            {children}
+        </button>
     );
 }

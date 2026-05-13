@@ -713,6 +713,606 @@ export class QuotationsService {
         });
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // PAYMENT STATUS MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════
+
+    /** Mark Invoice as SENT (sudah dikirim ke klien). DRAFT → SENT. */
+    async markInvoiceSent(invoiceId: number, _userId: number | null = null) {
+        const inv = await this.prisma.invoice.findUnique({ where: { id: invoiceId } });
+        if (!inv) throw new NotFoundException(`Invoice id=${invoiceId} tidak ditemukan`);
+        if (inv.type !== InvoiceType.INVOICE) {
+            throw new BadRequestException('Mark Sent hanya untuk Invoice (bukan Penawaran/SPK).');
+        }
+        if (inv.status === InvoiceStatus.CANCELLED) {
+            throw new BadRequestException('Invoice sudah CANCELLED, tidak bisa mark sent.');
+        }
+        return this.prisma.invoice.update({
+            where: { id: invoiceId },
+            data: { status: InvoiceStatus.SENT },
+        });
+    }
+
+    /**
+     * Mark Invoice as PAID atau PARTIALLY_PAID.
+     * - Kalau paidAmount accumulated ≥ amountToPay → status PAID
+     * - Kalau paidAmount > 0 tapi < amountToPay → status PARTIALLY_PAID
+     * - Auto-create Cashflow IN entry (kalau createCashflow=true).
+     */
+    async markInvoicePaid(
+        invoiceId: number,
+        payload: {
+            amount: number | string;        // nominal yang dibayar di transaksi ini
+            paidAt?: string | Date;          // tanggal pembayaran (default: now)
+            paymentMethod?: 'CASH' | 'QRIS' | 'BANK_TRANSFER' | 'OTHER';
+            paymentRef?: string | null;
+            paymentNote?: string | null;
+            paymentProofUrl?: string | null; // URL gambar bukti transfer (opsional)
+            createCashflow?: boolean;        // default true — auto-create entry di Cashflow
+            cashflowBankAccountId?: number | null;  // bank tujuan (untuk Cashflow entry)
+        },
+        userId: number | null = null,
+    ) {
+        const inv = await this.prisma.invoice.findUnique({ where: { id: invoiceId } });
+        if (!inv) throw new NotFoundException(`Invoice id=${invoiceId} tidak ditemukan`);
+        if (inv.type !== InvoiceType.INVOICE) {
+            throw new BadRequestException('Mark Paid hanya untuk Invoice (bukan Penawaran/SPK).');
+        }
+        if (inv.status === InvoiceStatus.CANCELLED) {
+            throw new BadRequestException('Invoice sudah CANCELLED, tidak bisa mark paid.');
+        }
+
+        const newPayment = Number(payload.amount);
+        if (!newPayment || newPayment <= 0) {
+            throw new BadRequestException('Nominal pembayaran harus > 0.');
+        }
+        const targetAmount = Number(inv.amountToPay ?? inv.total ?? 0);
+        const previousPaid = Number((inv as any).paidAmount ?? 0);
+        const accumulatedPaid = previousPaid + newPayment;
+
+        // Resolve status: PAID kalau penuh, PARTIALLY_PAID kalau sebagian.
+        // Cast as any — PARTIALLY_PAID enum baru, Prisma Client perlu regenerate.
+        const isFullyPaid = accumulatedPaid >= targetAmount - 0.01; // toleransi float
+        const newStatus = isFullyPaid ? InvoiceStatus.PAID : ('PARTIALLY_PAID' as any);
+
+        const paidAt = payload.paidAt ? new Date(payload.paidAt) : new Date();
+
+        return this.prisma.$transaction(async (tx) => {
+            // 0. Hitung installment number — count existing payments + 1
+            const existingCount = await (tx as any).invoicePayment.count({
+                where: { invoiceId },
+            });
+            const installmentNumber = existingCount + 1;
+
+            // 1. Auto-create Cashflow IN entry (kalau opt-in)
+            let cashflowId: number | null = null;
+            if (payload.createCashflow !== false) {
+                const cashflowMethod: 'CASH' | 'QRIS' | 'BANK_TRANSFER' | null =
+                    payload.paymentMethod === 'OTHER' ? null :
+                    payload.paymentMethod === 'CASH' ? 'CASH' :
+                    payload.paymentMethod === 'QRIS' ? 'QRIS' :
+                    payload.paymentMethod === 'BANK_TRANSFER' ? 'BANK_TRANSFER' :
+                    null;
+                const noteLines = [
+                    `Pembayaran Invoice ${inv.invoiceNumber} (cicilan ke-${installmentNumber})`,
+                    payload.paymentRef ? `Ref: ${payload.paymentRef}` : null,
+                    payload.paymentNote ? `Catatan: ${payload.paymentNote}` : null,
+                ].filter(Boolean).join('\n');
+                const cf = await tx.cashflow.create({
+                    data: {
+                        type: 'INCOME',
+                        category: 'Pembayaran Invoice',
+                        amount: toDecimal(newPayment),
+                        note: noteLines,
+                        userId: userId,
+                        bankAccountId: payload.cashflowBankAccountId ?? null,
+                        paymentMethod: cashflowMethod as any,
+                        date: paidAt,
+                    },
+                });
+                cashflowId = cf.id;
+            }
+
+            // 2. Create InvoicePayment row — record per-cicilan
+            await (tx as any).invoicePayment.create({
+                data: {
+                    invoiceId,
+                    installmentNumber,
+                    amount: toDecimal(newPayment),
+                    paidAt,
+                    paymentMethod: payload.paymentMethod ?? null,
+                    paymentRef: payload.paymentRef?.trim() || null,
+                    paymentNote: payload.paymentNote?.trim() || null,
+                    paymentProofUrl: payload.paymentProofUrl?.trim() || null,
+                    bankAccountId: payload.cashflowBankAccountId ?? null,
+                    cashflowId,
+                    createdById: userId,
+                },
+            });
+
+            // 3. Update invoice status + accumulated payment fields (untuk display ringkas)
+            const updated = await tx.invoice.update({
+                where: { id: invoiceId },
+                data: {
+                    status: newStatus,
+                    paidAmount: toDecimal(accumulatedPaid) as any,
+                    paidAt,
+                    paymentMethod: payload.paymentMethod ?? null,
+                    paymentRef: payload.paymentRef?.trim() || null,
+                    paymentNote: payload.paymentNote?.trim() || null,
+                    paymentProofUrl: payload.paymentProofUrl?.trim() || null,
+                    // Update FK cashflow cuma kalau belum di-set (kalau partial multi-payment, FK awal preserved)
+                    ...((cashflowId && !(inv as any).paymentCashflowId)
+                        ? { paymentCashflowId: cashflowId }
+                        : {}),
+                } as any,
+                include: { items: true },
+            });
+            return updated;
+        });
+    }
+
+    /** Cancel Invoice. Status → CANCELLED. Tidak boleh kalau sudah PAID. */
+    async cancelInvoice(invoiceId: number, reason: string | null = null, _userId: number | null = null) {
+        const inv = await this.prisma.invoice.findUnique({ where: { id: invoiceId } });
+        if (!inv) throw new NotFoundException(`Invoice id=${invoiceId} tidak ditemukan`);
+        if (inv.type !== InvoiceType.INVOICE) {
+            throw new BadRequestException('Cancel hanya untuk Invoice (bukan Penawaran/SPK).');
+        }
+        if (inv.status === InvoiceStatus.PAID) {
+            throw new BadRequestException('Invoice sudah PAID, tidak bisa di-cancel. Buat refund/credit note manual.');
+        }
+        return this.prisma.invoice.update({
+            where: { id: invoiceId },
+            data: {
+                status: InvoiceStatus.CANCELLED,
+                cancelledAt: new Date(),
+                cancelReason: reason?.trim() || null,
+            } as any,
+        });
+    }
+
+    /**
+     * Get aggregate payment summary untuk satu Quotation.
+     * Return: total invoiced, total paid, sisa tagihan, list invoices dengan status.
+     */
+    /**
+     * Dashboard piutang & pemasukan — aggregate per customer + total.
+     *
+     * Output:
+     *  - kpi: { totalOutstanding, totalIncomeMonth, totalIncomeYTD, customersWithDebt, overdueCount, overdueAmount }
+     *  - byCustomer: list per-customer sorted by sisaTagihan desc
+     *  - overdueInvoices: list invoice yang lewat tempo, untuk warning
+     *  - incomeMonthly: 12 bulan terakhir, untuk chart pemasukan
+     */
+    async getReceivablesDashboard() {
+        // Ambil semua invoice yang status-nya bukan CANCELLED
+        const invoices = await this.prisma.invoice.findMany({
+            where: {
+                type: InvoiceType.INVOICE,
+                status: { not: InvoiceStatus.CANCELLED },
+            },
+            include: {
+                customer: { select: { id: true, name: true, companyName: true, phone: true } },
+            },
+            orderBy: { date: 'desc' },
+        });
+
+        const today = new Date();
+        const todayMs = today.getTime();
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const yearStart = new Date(today.getFullYear(), 0, 1);
+
+        // Aggregate per customer
+        type CustomerAgg = {
+            customerId: number | null;
+            customerName: string;
+            companyName: string | null;
+            phone: string | null;
+            totalInvoiced: number;
+            totalPaid: number;
+            sisaTagihan: number;
+            invoiceCount: number;
+            unpaidCount: number;
+            partialCount: number;
+            overdueCount: number;
+            oldestUnpaidDays: number; // hari sejak invoice terlama yang belum lunas
+            invoiceIds: number[];
+        };
+        const customerMap = new Map<string, CustomerAgg>();
+
+        const overdueInvoices: Array<{
+            id: number;
+            invoiceNumber: string;
+            customerId: number | null;
+            customerName: string;
+            companyName: string | null;
+            phone: string | null;
+            amountToPay: number;
+            paidAmount: number;
+            sisa: number;
+            date: string;
+            dueDate: string | null;
+            daysOverdue: number;
+            status: string;
+        }> = [];
+
+        for (const inv of invoices) {
+            // key: customerId atau clientName (kalau ga ada customer)
+            const key = inv.customerId
+                ? `id:${inv.customerId}`
+                : `name:${inv.clientName}`;
+
+            const amountToPay = Number(inv.amountToPay ?? inv.total ?? 0);
+            const paidAmount = Number((inv as any).paidAmount ?? 0);
+            const sisa = Math.max(0, amountToPay - paidAmount);
+            const isPaid = inv.status === InvoiceStatus.PAID;
+            const isPartial = (inv.status as any) === 'PARTIALLY_PAID';
+
+            // Overdue check: dueDate < today AND status bukan PAID
+            const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+            const isOverdue = dueDate && dueDate.getTime() < todayMs && !isPaid && sisa > 0;
+            const daysOverdue = isOverdue && dueDate
+                ? Math.floor((todayMs - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+                : 0;
+
+            // Days since invoice issued (untuk oldestUnpaidDays kalau dueDate kosong)
+            const daysSinceIssued = Math.floor((todayMs - new Date(inv.date).getTime()) / (1000 * 60 * 60 * 24));
+
+            if (!customerMap.has(key)) {
+                customerMap.set(key, {
+                    customerId: inv.customerId,
+                    customerName: inv.customer?.name ?? inv.clientName,
+                    companyName: inv.customer?.companyName ?? inv.clientCompany,
+                    phone: inv.customer?.phone ?? inv.clientPhone,
+                    totalInvoiced: 0,
+                    totalPaid: 0,
+                    sisaTagihan: 0,
+                    invoiceCount: 0,
+                    unpaidCount: 0,
+                    partialCount: 0,
+                    overdueCount: 0,
+                    oldestUnpaidDays: 0,
+                    invoiceIds: [],
+                });
+            }
+            const agg = customerMap.get(key)!;
+            agg.totalInvoiced += amountToPay;
+            agg.totalPaid += paidAmount;
+            agg.sisaTagihan += sisa;
+            agg.invoiceCount += 1;
+            agg.invoiceIds.push(inv.id);
+            if (!isPaid && sisa > 0) {
+                if (isPartial) agg.partialCount += 1;
+                else agg.unpaidCount += 1;
+                if (isOverdue) agg.overdueCount += 1;
+                if (daysSinceIssued > agg.oldestUnpaidDays) {
+                    agg.oldestUnpaidDays = daysSinceIssued;
+                }
+            }
+
+            if (isOverdue && sisa > 0) {
+                overdueInvoices.push({
+                    id: inv.id,
+                    invoiceNumber: inv.invoiceNumber,
+                    customerId: inv.customerId,
+                    customerName: inv.customer?.name ?? inv.clientName,
+                    companyName: inv.customer?.companyName ?? inv.clientCompany,
+                    phone: inv.customer?.phone ?? inv.clientPhone,
+                    amountToPay,
+                    paidAmount,
+                    sisa,
+                    date: inv.date.toISOString(),
+                    dueDate: dueDate?.toISOString() ?? null,
+                    daysOverdue,
+                    status: inv.status,
+                });
+            }
+        }
+
+        // Sort customer list by sisaTagihan desc, exclude yang lunas (sisa 0)
+        const byCustomer = Array.from(customerMap.values())
+            .filter((c) => c.sisaTagihan > 0 || c.invoiceCount > 0)
+            .sort((a, b) => b.sisaTagihan - a.sisaTagihan);
+
+        // Income aggregation — dari Cashflow IN kategori "Pembayaran Invoice"
+        const cashflows = await this.prisma.cashflow.findMany({
+            where: {
+                type: 'INCOME',
+                category: 'Pembayaran Invoice',
+                date: { gte: new Date(today.getFullYear() - 1, today.getMonth(), 1) },
+            },
+            orderBy: { date: 'asc' },
+        });
+
+        let totalIncomeMonth = 0;
+        let totalIncomeYTD = 0;
+        // Monthly aggregation — 12 bulan terakhir
+        const monthlyMap = new Map<string, number>();
+        for (const cf of cashflows) {
+            const amt = Number(cf.amount);
+            const d = new Date(cf.date);
+            if (d >= monthStart) totalIncomeMonth += amt;
+            if (d >= yearStart) totalIncomeYTD += amt;
+            const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            monthlyMap.set(monthKey, (monthlyMap.get(monthKey) ?? 0) + amt);
+        }
+        // Build last-12-month array
+        const incomeMonthly: Array<{ month: string; label: string; amount: number }> = [];
+        const monthLabels = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            incomeMonthly.push({
+                month: key,
+                label: `${monthLabels[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`,
+                amount: monthlyMap.get(key) ?? 0,
+            });
+        }
+
+        const totalOutstanding = byCustomer.reduce((s, c) => s + c.sisaTagihan, 0);
+        const overdueAmount = overdueInvoices.reduce((s, inv) => s + inv.sisa, 0);
+
+        return {
+            kpi: {
+                totalOutstanding,
+                totalIncomeMonth,
+                totalIncomeYTD,
+                customersWithDebt: byCustomer.filter((c) => c.sisaTagihan > 0).length,
+                overdueCount: overdueInvoices.length,
+                overdueAmount,
+                totalInvoices: invoices.length,
+            },
+            byCustomer,
+            overdueInvoices: overdueInvoices.sort((a, b) => b.daysOverdue - a.daysOverdue),
+            incomeMonthly,
+        };
+    }
+
+    /**
+     * Get detailed payment info untuk Invoice — includes bank account info
+     * (rekening yang menerima transfer) kalau pembayaran via BANK_TRANSFER.
+     */
+    async getPaymentDetail(invoiceId: number) {
+        const inv = await this.prisma.invoice.findUnique({
+            where: { id: invoiceId },
+        });
+        if (!inv) throw new NotFoundException(`Invoice id=${invoiceId} tidak ditemukan`);
+        if (inv.type !== InvoiceType.INVOICE) {
+            throw new BadRequestException('Payment detail hanya untuk Invoice (bukan Penawaran).');
+        }
+
+        // Fetch semua installment payments — per cicilan
+        const installments = await (this.prisma as any).invoicePayment.findMany({
+            where: { invoiceId },
+            include: { bankAccount: true },
+            orderBy: { installmentNumber: 'asc' },
+        });
+
+        // Backfill: kalau invoice sudah pernah Mark Paid sebelum fitur InvoicePayment dibuat,
+        // tabel kosong. Synthesize 1 row dari field di Invoice biar UI tetap nampilkan.
+        let syntheticInstallment: any[] = [];
+        if (installments.length === 0 && (inv as any).paidAmount && Number((inv as any).paidAmount) > 0) {
+            let bankAccount: any = null;
+            const cashflowId = (inv as any).paymentCashflowId as number | null;
+            if (cashflowId) {
+                const cashflow = await this.prisma.cashflow.findUnique({ where: { id: cashflowId } });
+                if (cashflow?.bankAccountId) {
+                    bankAccount = await this.prisma.bankAccount.findUnique({
+                        where: { id: cashflow.bankAccountId },
+                    });
+                }
+            }
+            syntheticInstallment = [{
+                id: 0,
+                installmentNumber: 1,
+                amount: Number((inv as any).paidAmount),
+                paidAt: (inv as any).paidAt,
+                paymentMethod: (inv as any).paymentMethod,
+                paymentRef: (inv as any).paymentRef,
+                paymentNote: (inv as any).paymentNote,
+                paymentProofUrl: (inv as any).paymentProofUrl,
+                bankAccount: bankAccount ? {
+                    id: bankAccount.id,
+                    bankName: bankAccount.bankName,
+                    accountNumber: bankAccount.accountNumber,
+                    accountOwner: bankAccount.accountOwner,
+                } : null,
+                cashflowId,
+                createdAt: (inv as any).paidAt,
+                isLegacy: true, // flag agar UI tau ini synthetic dari data lama
+            }];
+        }
+
+        const list = installments.length > 0
+            ? installments.map((p: any) => ({
+                id: p.id,
+                installmentNumber: p.installmentNumber,
+                amount: Number(p.amount),
+                paidAt: p.paidAt,
+                paymentMethod: p.paymentMethod,
+                paymentRef: p.paymentRef,
+                paymentNote: p.paymentNote,
+                paymentProofUrl: p.paymentProofUrl,
+                bankAccount: p.bankAccount ? {
+                    id: p.bankAccount.id,
+                    bankName: p.bankAccount.bankName,
+                    accountNumber: p.bankAccount.accountNumber,
+                    accountOwner: p.bankAccount.accountOwner,
+                } : null,
+                cashflowId: p.cashflowId,
+                createdAt: p.createdAt,
+            }))
+            : syntheticInstallment;
+
+        return {
+            invoiceId: inv.id,
+            invoiceNumber: inv.invoiceNumber,
+            status: inv.status,
+            amountToPay: Number(inv.amountToPay ?? 0),
+            paidAmount: Number((inv as any).paidAmount ?? 0),
+            // Latest payment ringkasan (dari Invoice fields — backward compat)
+            paidAt: (inv as any).paidAt,
+            paymentMethod: (inv as any).paymentMethod,
+            paymentRef: (inv as any).paymentRef,
+            paymentNote: (inv as any).paymentNote,
+            paymentProofUrl: (inv as any).paymentProofUrl,
+            // List semua cicilan
+            installments: list,
+            installmentCount: list.length,
+        };
+    }
+
+    async getPaymentSummary(quotationId: number) {
+        const quotation = await this.prisma.invoice.findUnique({
+            where: { id: quotationId },
+        });
+        if (!quotation || quotation.type !== InvoiceType.QUOTATION) {
+            throw new NotFoundException(`Penawaran id=${quotationId} tidak ditemukan`);
+        }
+        const invoices = await this.prisma.invoice.findMany({
+            where: { parentQuotationId: quotationId, type: InvoiceType.INVOICE },
+            orderBy: { date: 'asc' },
+        });
+        const quotationTotal = Number(quotation.total ?? 0);
+        let totalInvoiced = 0;
+        let totalPaid = 0;
+        for (const inv of invoices) {
+            if (inv.status === InvoiceStatus.CANCELLED) continue;
+            totalInvoiced += Number(inv.amountToPay ?? 0);
+            totalPaid += Number((inv as any).paidAmount ?? 0);
+        }
+        const sisaTagihan = Math.max(0, quotationTotal - totalPaid);
+        return {
+            quotationTotal,
+            totalInvoiced,
+            totalPaid,
+            sisaTagihan,
+            invoices: invoices.map((inv) => ({
+                id: inv.id,
+                invoiceNumber: inv.invoiceNumber,
+                invoicePart: inv.invoicePart,
+                status: inv.status,
+                amountToPay: Number(inv.amountToPay ?? 0),
+                paidAmount: Number((inv as any).paidAmount ?? 0),
+                paidAt: (inv as any).paidAt,
+                paymentMethod: (inv as any).paymentMethod,
+                paymentRef: (inv as any).paymentRef,
+                date: inv.date,
+            })),
+        };
+    }
+
+    /**
+     * Edge case: Klien transfer langsung lunas padahal sudah ada Invoice DP/Pelunasan.
+     * Admin pilih mode handling:
+     *   - 'auto_create_pelunasan': mark DP PAID + create Pelunasan + mark PAID (2 invoices)
+     *   - 'convert_to_full': edit existing invoice → invoicePart=FULL, amount=quotationTotal, mark PAID (1 invoice)
+     *   - 'cancel_and_new_full': cancel existing + create new FULL invoice + mark PAID (3 records)
+     */
+    async markFullyPaidEdgeCase(
+        quotationId: number,
+        sourceInvoiceId: number,
+        mode: 'auto_create_pelunasan' | 'convert_to_full' | 'cancel_and_new_full',
+        payment: {
+            amount: number;
+            paidAt?: string | Date;
+            paymentMethod?: 'CASH' | 'QRIS' | 'BANK_TRANSFER' | 'OTHER';
+            paymentRef?: string | null;
+            paymentNote?: string | null;
+            createCashflow?: boolean;
+            cashflowBankAccountId?: number | null;
+        },
+        userId: number | null = null,
+    ) {
+        const quotation = await this.prisma.invoice.findUnique({
+            where: { id: quotationId },
+        });
+        if (!quotation || quotation.type !== InvoiceType.QUOTATION) {
+            throw new NotFoundException(`Penawaran id=${quotationId} tidak ditemukan`);
+        }
+        const sourceInvoice = await this.prisma.invoice.findUnique({
+            where: { id: sourceInvoiceId },
+        });
+        if (!sourceInvoice || sourceInvoice.type !== InvoiceType.INVOICE) {
+            throw new NotFoundException(`Invoice id=${sourceInvoiceId} tidak ditemukan`);
+        }
+        const quotationTotal = Number(quotation.total ?? 0);
+        const dpAmount = Number(sourceInvoice.amountToPay ?? 0);
+        const pelunasanAmount = quotationTotal - dpAmount;
+
+        if (mode === 'auto_create_pelunasan') {
+            // 1. Mark source (DP) as PAID
+            await this.markInvoicePaid(sourceInvoiceId, {
+                amount: dpAmount,
+                paidAt: payment.paidAt,
+                paymentMethod: payment.paymentMethod,
+                paymentRef: payment.paymentRef,
+                paymentNote: payment.paymentNote,
+                createCashflow: payment.createCashflow,
+                cashflowBankAccountId: payment.cashflowBankAccountId,
+            }, userId);
+            // 2. Create Pelunasan invoice
+            const pelunasan = await this.generateInvoiceFromQuotation(quotationId, {
+                part: 'PELUNASAN',
+                customAmount: pelunasanAmount,
+            });
+            // 3. Mark Pelunasan as PAID
+            await this.markInvoicePaid(pelunasan.id, {
+                amount: pelunasanAmount,
+                paidAt: payment.paidAt,
+                paymentMethod: payment.paymentMethod,
+                paymentRef: payment.paymentRef,
+                paymentNote: payment.paymentNote,
+                createCashflow: payment.createCashflow,
+                cashflowBankAccountId: payment.cashflowBankAccountId,
+            }, userId);
+            return { mode, dpId: sourceInvoiceId, pelunasanId: pelunasan.id };
+        }
+
+        if (mode === 'convert_to_full') {
+            // Ubah source invoice: invoicePart=FULL, amount=total quotation, mark PAID
+            await this.prisma.invoice.update({
+                where: { id: sourceInvoiceId },
+                data: {
+                    invoicePart: 'FULL',
+                    amountToPay: toDecimal(quotationTotal),
+                },
+            });
+            await this.markInvoicePaid(sourceInvoiceId, {
+                amount: quotationTotal,
+                paidAt: payment.paidAt,
+                paymentMethod: payment.paymentMethod,
+                paymentRef: payment.paymentRef,
+                paymentNote: payment.paymentNote,
+                createCashflow: payment.createCashflow,
+                cashflowBankAccountId: payment.cashflowBankAccountId,
+            }, userId);
+            return { mode, invoiceId: sourceInvoiceId };
+        }
+
+        if (mode === 'cancel_and_new_full') {
+            // Cancel source + create new FULL invoice + mark PAID
+            await this.cancelInvoice(sourceInvoiceId, 'Klien bayar langsung lunas — di-cancel & ganti invoice FULL', userId);
+            const fullInv = await this.generateInvoiceFromQuotation(quotationId, {
+                part: 'FULL',
+                customAmount: quotationTotal,
+            });
+            await this.markInvoicePaid(fullInv.id, {
+                amount: quotationTotal,
+                paidAt: payment.paidAt,
+                paymentMethod: payment.paymentMethod,
+                paymentRef: payment.paymentRef,
+                paymentNote: payment.paymentNote,
+                createCashflow: payment.createCashflow,
+                cashflowBankAccountId: payment.cashflowBankAccountId,
+            }, userId);
+            return { mode, cancelledId: sourceInvoiceId, fullId: fullInv.id };
+        }
+
+        throw new BadRequestException(`Mode "${mode}" tidak dikenali.`);
+    }
+
     /**
      * Buat revisi baru dari penawaran yang sudah punya nomor resmi.
      * Revisi merupakan row baru, parentQuotationId = id asal,
@@ -845,6 +1445,61 @@ export class QuotationsService {
             clientAddress: cust.address ?? undefined,
             clientPhone: cust.phone ?? undefined,
             clientEmail: cust.email ?? undefined,
+        });
+    }
+
+    /**
+     * Create Penawaran dari Lead — auto-pull data customer hasil convert +
+     * carry forward event utama (location + tanggal) dan additionalEvents (multi-kota).
+     * Admin tidak perlu input manual lagi data event yang sudah diisi di stage Lead.
+     */
+    async createFromLead(leadId: number, variant: QuotationVariant) {
+        const lead = await this.prisma.lead.findUnique({
+            where: { id: leadId },
+        });
+        if (!lead) throw new NotFoundException(`Lead id=${leadId} tidak ditemukan`);
+        if (!lead.convertedCustomerId) {
+            throw new BadRequestException('Lead belum di-convert ke Customer. Convert dulu.');
+        }
+        const cust = await this.prisma.customer.findUnique({
+            where: { id: lead.convertedCustomerId },
+        });
+        if (!cust) throw new NotFoundException(`Customer converted (id=${lead.convertedCustomerId}) tidak ditemukan`);
+
+        // Parse additionalEvents JSON dari Lead (kalau ada)
+        const leadAdditionalEvents = (lead as any).additionalEvents as
+            | Array<{ name?: string | null; location?: string | null; dateStart?: string | null; dateEnd?: string | null }>
+            | null
+            | undefined;
+
+        return this.create({
+            quotationVariant: variant,
+            brand: (lead.brand as any) ?? null,
+            customerId: cust.id,
+            clientName: cust.companyPIC ?? cust.name,
+            clientCompany: cust.companyName ?? undefined,
+            clientAddress: cust.address ?? undefined,
+            clientPhone: cust.phone ?? undefined,
+            clientEmail: cust.email ?? undefined,
+            // Event utama — dari Lead
+            projectName: lead.orderDescription ?? undefined,
+            eventLocation: lead.eventLocation ?? undefined,
+            eventDateStart: (lead as any).eventDateStart
+                ? new Date((lead as any).eventDateStart).toISOString()
+                : undefined,
+            eventDateEnd: (lead as any).eventDateEnd
+                ? new Date((lead as any).eventDateEnd).toISOString()
+                : undefined,
+            // Multi-event dari Lead
+            additionalEvents: Array.isArray(leadAdditionalEvents) && leadAdditionalEvents.length > 0
+                ? leadAdditionalEvents.map((ev) => ({
+                    name: ev.name ?? null,
+                    location: ev.location ?? null,
+                    dateStart: ev.dateStart ?? null,
+                    dateEnd: ev.dateEnd ?? null,
+                }))
+                : null,
+            notes: lead.notes ?? undefined,
         });
     }
 

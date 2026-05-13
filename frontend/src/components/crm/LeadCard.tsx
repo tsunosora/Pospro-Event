@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Building2, CalendarClock, CalendarDays, ChevronDown, GripVertical, Loader2, PartyPopper, User } from "lucide-react";
+import {
+    Building2, CalendarClock, CalendarDays, ChevronDown, GripVertical, Loader2,
+    PartyPopper, User, MapPin, CheckCircle2, Image as ImageIcon,
+} from "lucide-react";
 import dayjs from "dayjs";
 import { LEAD_STATUS_META, updateLead, type Lead } from "@/lib/api/crm";
 import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
@@ -104,14 +107,41 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
     });
 
     const brandMeta = lead.brand ? BRAND_META[lead.brand] : null;
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const imageFullUrl = lead.imageUrl
+        ? (lead.imageUrl.startsWith("http") ? lead.imageUrl : `${apiBase}${lead.imageUrl}`)
+        : null;
+
+    const rabCount = lead.convertedCustomer?.rabPlans?.length ?? 0;
+    const quotationCount = lead.convertedCustomer?.invoices?.length ?? 0;
+    const isConverted = !!lead.convertedCustomerId;
 
     return (
         <div
             ref={setNodeRef}
             style={style}
             onClick={onClick}
-            className="group bg-card border border-border rounded-lg p-2.5 shadow-sm hover:shadow-md cursor-pointer space-y-1.5"
+            className="group bg-card border border-border rounded-lg shadow-sm hover:shadow-md cursor-pointer overflow-hidden"
         >
+            {/* Thumbnail header — kalau ada imageUrl */}
+            {imageFullUrl && (
+                <div className="relative w-full h-24 bg-slate-100 overflow-hidden border-b border-border">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={imageFullUrl}
+                        alt={`Referensi ${display}`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                    />
+                    {/* Gradient overlay supaya text di atas bisa kebaca */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                    <span className="absolute top-1 right-1 bg-white/80 backdrop-blur-sm rounded text-[9px] px-1.5 py-0.5 font-semibold text-slate-700 flex items-center gap-0.5">
+                        <ImageIcon className="h-2.5 w-2.5" /> Foto
+                    </span>
+                </div>
+            )}
+
+            <div className="p-2.5 space-y-1.5">
             <div className="flex items-start gap-1.5">
                 <button
                     {...attributes}
@@ -131,10 +161,21 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
                 <LevelBadge level={lead.level} />
             </div>
 
-            {lead.organization && (
-                <div className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
-                    <Building2 className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{lead.organization}</span>
+            {/* Organization + Kota baris kompak */}
+            {(lead.organization || lead.city) && (
+                <div className="space-y-0.5">
+                    {lead.organization && (
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                            <Building2 className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{lead.organization}</span>
+                        </div>
+                    )}
+                    {lead.city && (
+                        <div className="flex items-center gap-1 text-[11px] text-slate-700 font-semibold truncate">
+                            <MapPin className="h-3 w-3 shrink-0 text-rose-500" />
+                            <span className="truncate">{lead.city}</span>
+                        </div>
+                    )}
                 </div>
             )}
             {/* Marketing & Brand chips — inline editable */}
@@ -311,11 +352,29 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
                 })()}
             </div>
 
+            {/* Convert status indicator (compact) — detail chips di pindah ke LeadDrawer */}
+            {isConverted && (
+                <div className="flex items-center gap-1 pt-1 border-t border-dashed border-slate-200">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                        <CheckCircle2 className="h-2.5 w-2.5" />
+                        Sudah jadi Customer
+                    </span>
+                    {(rabCount > 0 || quotationCount > 0) && (
+                        <span className="text-[10px] text-slate-500">
+                            · {rabCount > 0 && `${rabCount} RAB`}
+                            {rabCount > 0 && quotationCount > 0 && ", "}
+                            {quotationCount > 0 && `${quotationCount} Penawaran`}
+                        </span>
+                    )}
+                </div>
+            )}
+
             <div className="flex items-center justify-between gap-1 pt-1">
                 <span className="text-[10px] text-muted-foreground font-mono truncate">
                     {lead.phone}
                 </span>
                 <WaButton phone={lead.phone} text={lead.greetingTemplate || undefined} label="WA" />
+            </div>
             </div>
         </div>
     );

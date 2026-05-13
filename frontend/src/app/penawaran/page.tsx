@@ -13,7 +13,8 @@ import {
     getQuotations, createQuotation, deleteQuotation,
     assignQuotationNumber, editQuotationNumber, reviseQuotation, downloadQuotationExport,
     backfillQuotationStatus,
-    type Quotation, type QuotationVariant,
+    markInvoiceSent, markInvoicePaid, cancelInvoice,
+    type Quotation, type QuotationVariant, type PaymentMethodType,
 } from "@/lib/api/quotations";
 import { ACTIVE_BRANDS, BRAND_META, listBrands, type Brand } from "@/lib/api/brands";
 import { BrandBadge } from "@/components/BrandBadge";
@@ -21,6 +22,9 @@ import { listQuotationVariants, type QuotationVariantConfig } from "@/lib/api/qu
 import { getWorkers, MARKETER_POSITIONS } from "@/lib/api/workers";
 import { getCustomer, type Customer } from "@/lib/api/customers";
 import { CustomerPickerModal } from "@/components/CustomerPickerModal";
+import { MarkPaidModal } from "@/components/MarkPaidModal";
+import { PaymentDetailModal } from "@/components/PaymentDetailModal";
+import { PhoneDuplicateBanner } from "@/components/PhoneDuplicateBanner";
 import { DateRangeFilter, presetToRange, type DateRange } from "@/components/DateRangeFilter";
 
 dayjs.locale("id");
@@ -33,9 +37,12 @@ const VARIANT_LABEL: Record<QuotationVariant, string> = {
 const STATUS_COLOR: Record<string, string> = {
     DRAFT: "bg-gray-100 text-gray-700",
     SENT: "bg-blue-100 text-blue-700",
+    PAID: "bg-emerald-100 text-emerald-800 font-bold",
+    PARTIALLY_PAID: "bg-amber-100 text-amber-800",
     ACCEPTED: "bg-green-100 text-green-700",
     REJECTED: "bg-red-100 text-red-700",
     EXPIRED: "bg-yellow-100 text-yellow-700",
+    CANCELLED: "bg-red-50 text-red-600 line-through",
 };
 
 function rp(v: string | number) {
@@ -228,6 +235,44 @@ function PenawaranListPageInner() {
             "Operasi ini aman dijalankan berkali-kali (idempotent). Status lain (ACCEPTED/REJECTED/CANCELLED/EXPIRED) tidak disentuh."
         )) return;
         backfillStatusMut.mutate();
+    };
+
+    // ─── Payment Status Actions ────────────────────────────────────
+    const [markPaidTarget, setMarkPaidTarget] = useState<Quotation | null>(null);
+    const [paymentDetailTarget, setPaymentDetailTarget] = useState<Quotation | null>(null);
+
+    const markSentMut = useMutation({
+        mutationFn: (id: number) => markInvoiceSent(id),
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ["quotations"] }); },
+        onError: (e: any) => alert(`❌ Mark Sent gagal: ${e?.response?.data?.message || e?.message}`),
+    });
+
+    const markPaidMut = useMutation({
+        mutationFn: (payload: { id: number; data: any }) => markInvoicePaid(payload.id, payload.data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["quotations"] });
+            qc.invalidateQueries({ queryKey: ["cashflows"] });   // refresh cashflow kalau ada di cache lain
+            setMarkPaidTarget(null);
+            alert("✅ Pembayaran tercatat. Cashflow IN sudah dibuat (kalau di-centang).");
+        },
+        onError: (e: any) => alert(`❌ Mark Paid gagal: ${e?.response?.data?.message || e?.message}`),
+    });
+
+    const cancelInvoiceMut = useMutation({
+        mutationFn: (payload: { id: number; reason: string | null }) => cancelInvoice(payload.id, payload.reason),
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ["quotations"] }); },
+        onError: (e: any) => alert(`❌ Cancel gagal: ${e?.response?.data?.message || e?.message}`),
+    });
+
+    const handleMarkSent = (q: Quotation) => {
+        if (!confirm(`Tandai invoice ${q.invoiceNumber} sebagai SENT (sudah dikirim ke klien)?`)) return;
+        markSentMut.mutate(q.id);
+    };
+    const handleCancelInvoice = (q: Quotation) => {
+        const reason = window.prompt(`Batalkan invoice ${q.invoiceNumber}?\n\nAlasan (opsional):`, "");
+        if (reason === null) return;
+        if (!confirm(`Konfirmasi: Cancel invoice ${q.invoiceNumber}?`)) return;
+        cancelInvoiceMut.mutate({ id: q.id, reason: reason.trim() || null });
     };
 
     const handleExport = async (id: number, format: "pdf" | "docx" | "spk-pdf", _invoiceNumber: string) => {
@@ -558,7 +603,7 @@ function PenawaranListPageInner() {
                                                     <Hash className="w-4 h-4" />
                                                 </button>
                                             )}
-                                            {!q.invoiceNumber.startsWith("DRAFT-") && (
+                                            {!q.invoiceNumber.startsWith("DRAFT-") && q.type !== "INVOICE" && (
                                                 <button
                                                     onClick={() => reviseMut.mutate(q.id)}
                                                     disabled={reviseMut.isPending}
@@ -566,6 +611,49 @@ function PenawaranListPageInner() {
                                                     className="p-1.5 text-amber-700 hover:bg-amber-50 rounded"
                                                 >
                                                     <GitBranch className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                            {/* Payment action buttons — cuma untuk INVOICE, non-DRAFT, non-CANCELLED, non-PAID */}
+                                            {q.type === "INVOICE" && !q.invoiceNumber.startsWith("DRAFT-") && q.status !== "CANCELLED" && q.status !== "PAID" && (
+                                                <>
+                                                    {q.status === "DRAFT" && (
+                                                        <button
+                                                            onClick={() => handleMarkSent(q)}
+                                                            disabled={markSentMut.isPending}
+                                                            title="Tandai Sent (sudah dikirim ke klien)"
+                                                            className="p-1.5 text-blue-700 hover:bg-blue-50 rounded"
+                                                        >
+                                                            📤
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => setMarkPaidTarget(q)}
+                                                        title="Tandai Pembayaran Masuk"
+                                                        className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded font-bold"
+                                                    >
+                                                        ✅
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleCancelInvoice(q)}
+                                                        disabled={cancelInvoiceMut.isPending}
+                                                        title="Cancel Invoice"
+                                                        className="p-1.5 text-red-700 hover:bg-red-50 rounded"
+                                                    >
+                                                        ❌
+                                                    </button>
+                                                </>
+                                            )}
+                                            {/* View Payment Detail — kalau invoice ada record pembayaran (PAID/PARTIAL atau ada paidAmount) */}
+                                            {q.type === "INVOICE" && (q.status === "PAID" || q.status === "PARTIALLY_PAID" || Number((q as any).paidAmount ?? 0) > 0) && (
+                                                <button
+                                                    onClick={() => setPaymentDetailTarget(q)}
+                                                    title={`Lihat Detail Pembayaran${q.paymentProofUrl ? " (ada bukti)" : ""}`}
+                                                    className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded relative"
+                                                >
+                                                    🧾
+                                                    {q.paymentProofUrl && (
+                                                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full border border-white" title="Bukti tersedia" />
+                                                    )}
                                                 </button>
                                             )}
                                             <button
@@ -726,6 +814,26 @@ function PenawaranListPageInner() {
                         )}
                     </div>
                 </div>
+            )}
+
+            {/* Mark Paid Modal — admin record pembayaran masuk untuk Invoice */}
+            {markPaidTarget && (
+                <MarkPaidModal
+                    invoice={markPaidTarget}
+                    onClose={() => setMarkPaidTarget(null)}
+                    pending={markPaidMut.isPending}
+                    onSubmit={async (payload) => {
+                        await markPaidMut.mutateAsync({ id: markPaidTarget.id, data: payload });
+                    }}
+                />
+            )}
+
+            {/* Payment Detail Modal — read-only view detail pembayaran + bukti transfer */}
+            {paymentDetailTarget && (
+                <PaymentDetailModal
+                    invoice={paymentDetailTarget}
+                    onClose={() => setPaymentDetailTarget(null)}
+                />
             )}
         </div>
     );
@@ -967,6 +1075,15 @@ function CreateQuotationModal(props: {
                             />
                         </div>
                     </div>
+                    {/* Anti-duplikat: instant lookup berdasarkan nama ATAU nomor HP yang sedang di-input */}
+                    {!pickedCustomer && (
+                        <PhoneDuplicateBanner
+                            phone={clientPhone}
+                            name={clientName || clientCompany}
+                            onUseCustomer={(c) => applyCustomer(c as unknown as Customer)}
+                            compact
+                        />
+                    )}
                     <div>
                         <label className="block text-sm font-medium mb-1">Alamat</label>
                         <input

@@ -437,6 +437,7 @@ enum InvoiceStatus {
   DRAFT
   SENT
   PAID
+  PARTIALLY_PAID // Sebagian sudah dibayar (paidAmount > 0 tapi < amountToPay)
   CANCELLED
   ACCEPTED // Quotation accepted
   REJECTED // Quotation rejected
@@ -512,6 +513,24 @@ model Invoice {
   // Batas pelunasan SPK — tanggal selambat-lambatnya pelunasan dibayar.
   // Kalau null, render SPK fallback ke validUntil (legacy behavior).
   spkPaymentDeadline   DateTime?       @map("spk_payment_deadline")
+  // ─── Payment tracking (Invoice) ─────────────────────────────────────────
+  // Total nominal yang sudah dibayar (akumulasi kalau partial). Null = belum bayar.
+  paidAmount           Decimal?        @map("paid_amount") @db.Decimal(15, 2)
+  // Tanggal pembayaran terakhir (untuk full) atau terakhir update (untuk partial).
+  paidAt               DateTime?       @map("paid_at")
+  // Metode: TRANSFER / CASH / QRIS / OTHER
+  paymentMethod        String?         @map("payment_method") @db.VarChar(20)
+  // No. referensi (no. transfer, no. cek, bukti pembayaran)
+  paymentRef           String?         @map("payment_ref") @db.VarChar(200)
+  // Catatan bebas pembayaran (mis. "Bayar tunai via Pak Budi", "Dipotong PPh 2.5%")
+  paymentNote          String?         @map("payment_note") @db.Text
+  // URL ke gambar bukti transfer (upload manual oleh admin saat Mark Paid)
+  paymentProofUrl      String?         @map("payment_proof_url") @db.VarChar(500)
+  // Cancel info — kalau status=CANCELLED
+  cancelledAt          DateTime?       @map("cancelled_at")
+  cancelReason         String?         @map("cancel_reason") @db.VarChar(255)
+  // FK ke Cashflow row yang auto-created saat Mark Paid (untuk traceability).
+  paymentCashflowId    Int?            @unique @map("payment_cashflow_id")
   // ---- Invoice-specific custom text (override saat render Invoice saja, tidak pengaruh penawaran) ----
   customOpeningInvoice    String?      @map("custom_opening_invoice") @db.Text
   customDisclaimerInvoice String?      @map("custom_disclaimer_invoice") @db.Text
@@ -558,6 +577,7 @@ model Invoice {
   children Invoice[] @relation("QuotationRevisions")
   rabPlan  RabPlan?  @relation("QuotationRabPlan", fields: [rabPlanId], references: [id], onDelete: SetNull)
   signedByWorker Worker? @relation("InvoiceSignedByWorker", fields: [signedByWorkerId], references: [id], onDelete: SetNull)
+  payments InvoicePayment[] @relation("InvoicePayments")
 
   @@index([type, quotationVariant])
   @@index([parentQuotationId])
@@ -782,8 +802,38 @@ model BankAccount {
 
   transactions Transaction[]
   cashflows    Cashflow[]
+  invoicePayments InvoicePayment[]
 
   @@map("bank_accounts")
+}
+
+/**
+ * InvoicePayment — record per-cicilan untuk Invoice yang dibayar bertahap.
+ * Setiap kali admin "Tandai Pembayaran Masuk", buat 1 row di tabel ini.
+ * Invoice.paidAmount = sum dari InvoicePayment.amount untuk invoice tsb.
+ * installmentNumber = 1, 2, 3, ... — auto-increment per invoice.
+ */
+model InvoicePayment {
+  id                Int       @id @default(autoincrement())
+  invoiceId         Int       @map("invoice_id")
+  installmentNumber Int       @map("installment_number") // urutan cicilan: 1, 2, 3, ...
+  amount            Decimal   @db.Decimal(15, 2)
+  paidAt            DateTime  @map("paid_at")
+  paymentMethod     String?   @map("payment_method") @db.VarChar(20) // CASH | QRIS | BANK_TRANSFER | OTHER
+  paymentRef        String?   @map("payment_ref") @db.VarChar(200)
+  paymentNote       String?   @map("payment_note") @db.Text
+  paymentProofUrl   String?   @map("payment_proof_url") @db.VarChar(500)
+  bankAccountId     Int?      @map("bank_account_id")
+  cashflowId        Int?      @unique @map("cashflow_id") // FK ke Cashflow yang auto-created
+  createdById       Int?      @map("created_by_id") // user yang record pembayaran
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  invoice     Invoice      @relation("InvoicePayments", fields: [invoiceId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([paidAt])
+  @@map("invoice_payments")
 }
 
 model Customer {
@@ -1654,6 +1704,9 @@ model Lead {
   eventDateStart      DateTime?  @map("event_date_start")
   eventDateEnd        DateTime?  @map("event_date_end")
   eventLocation       String?    @map("event_location") @db.VarChar(200)
+  /// Array event tambahan (multi-kota/multi-tanggal) — JSON: [{ name, location, dateStart, dateEnd }]
+  /// Event utama tetap pakai eventDateStart/End/Location di atas. Field ini untuk event 2, 3, dst.
+  additionalEvents    Json?      @map("additional_events")
   city                String?    @db.VarChar(100)
   notes               String?    @db.Text
   imageUrl            String?    @map("image_url") @db.Text  // Foto referensi/sketsa project lead (single image)

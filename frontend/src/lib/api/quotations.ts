@@ -2,7 +2,38 @@ import api from './client';
 import type { Brand } from './brands';
 
 export type QuotationVariant = 'SEWA' | 'PENGADAAN_BOOTH';
-export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'CANCELLED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'PARTIALLY_PAID' | 'CANCELLED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+export type PaymentMethodType = 'CASH' | 'QRIS' | 'BANK_TRANSFER' | 'OTHER';
+
+export interface MarkPaidPayload {
+    amount: number | string;
+    paidAt?: string;
+    paymentMethod?: PaymentMethodType;
+    paymentRef?: string | null;
+    paymentNote?: string | null;
+    paymentProofUrl?: string | null;
+    createCashflow?: boolean;
+    cashflowBankAccountId?: number | null;
+}
+
+export interface PaymentSummary {
+    quotationTotal: number;
+    totalInvoiced: number;
+    totalPaid: number;
+    sisaTagihan: number;
+    invoices: Array<{
+        id: number;
+        invoiceNumber: string;
+        invoicePart: string | null;
+        status: InvoiceStatus;
+        amountToPay: number;
+        paidAmount: number;
+        paidAt: string | null;
+        paymentMethod: PaymentMethodType | null;
+        paymentRef: string | null;
+        date: string;
+    }>;
+}
 
 export interface QuotationItem {
     id?: number;
@@ -71,6 +102,12 @@ export interface Quotation {
     signedByWorker?: { id: number; name: string; position: string | null; signatureImageUrl: string | null } | null;
     invoicePart?: string | null;            // "DP" | "PELUNASAN" | "FULL" (untuk type=INVOICE)
     amountToPay?: string | null;            // Decimal serialized
+    paidAmount?: string | null;             // Decimal — akumulasi yang sudah dibayar
+    paidAt?: string | null;
+    paymentMethod?: PaymentMethodType | null;
+    paymentRef?: string | null;
+    paymentNote?: string | null;
+    paymentProofUrl?: string | null;
     itemDisplayMode?: 'detailed' | 'category-summary' | null; // tampilan item di PDF/DOCX
     language?: 'id' | 'en';                                   // bahasa surat
     useUsdCurrency?: boolean;                                 // Toggle USD label (no conversion)
@@ -184,6 +221,130 @@ export const reviseQuotation = async (id: number) =>
 export const editQuotationNumber = async (id: number, invoiceNumber: string) =>
     (await api.patch<Quotation>(`/quotations/${id}/edit-number`, { invoiceNumber })).data;
 
+// ─── Payment Status APIs ────────────────────────────────────────────
+/** Mark Invoice as SENT. */
+export const markInvoiceSent = async (id: number) =>
+    (await api.patch<Quotation>(`/quotations/${id}/mark-sent`, {})).data;
+
+/** Mark Invoice as PAID atau PARTIALLY_PAID. Auto-create Cashflow IN entry. */
+export const markInvoicePaid = async (id: number, payload: MarkPaidPayload) =>
+    (await api.patch<Quotation>(`/quotations/${id}/mark-paid`, payload)).data;
+
+/** Upload bukti pembayaran (gambar/PDF). Return URL untuk disimpan di payload Mark Paid. */
+export const uploadPaymentProof = async (invoiceId: number, file: File): Promise<{ url: string }> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return (await api.post(`/quotations/${invoiceId}/upload-payment-proof`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    })).data;
+};
+
+/** Cancel Invoice. Tidak boleh kalau sudah PAID. */
+export const cancelInvoice = async (id: number, reason?: string | null) =>
+    (await api.patch<Quotation>(`/quotations/${id}/cancel`, { reason })).data;
+
+/** Get aggregate payment summary untuk Quotation (total, paid, sisa, list invoices). */
+export const getPaymentSummary = async (quotationId: number) =>
+    (await api.get<PaymentSummary>(`/quotations/${quotationId}/payment-summary`)).data;
+
+export interface PaymentInstallment {
+    id: number;
+    installmentNumber: number;
+    amount: number;
+    paidAt: string;
+    paymentMethod: PaymentMethodType | null;
+    paymentRef: string | null;
+    paymentNote: string | null;
+    paymentProofUrl: string | null;
+    bankAccount: {
+        id: number;
+        bankName: string;
+        accountNumber: string;
+        accountOwner: string;
+    } | null;
+    cashflowId: number | null;
+    createdAt: string;
+    isLegacy?: boolean;
+}
+
+export interface PaymentDetail {
+    invoiceId: number;
+    invoiceNumber: string;
+    status: InvoiceStatus;
+    amountToPay: number;
+    paidAmount: number;
+    paidAt: string | null;
+    paymentMethod: PaymentMethodType | null;
+    paymentRef: string | null;
+    paymentNote: string | null;
+    paymentProofUrl: string | null;
+    installments: PaymentInstallment[];
+    installmentCount: number;
+}
+
+/** Get detail pembayaran Invoice (include bank account info kalau transfer). */
+export const getPaymentDetail = async (invoiceId: number): Promise<PaymentDetail> =>
+    (await api.get<PaymentDetail>(`/quotations/${invoiceId}/payment-detail`)).data;
+
+// ─── Receivables Dashboard ───────────────────────────────────
+export interface ReceivablesDashboard {
+    kpi: {
+        totalOutstanding: number;
+        totalIncomeMonth: number;
+        totalIncomeYTD: number;
+        customersWithDebt: number;
+        overdueCount: number;
+        overdueAmount: number;
+        totalInvoices: number;
+    };
+    byCustomer: Array<{
+        customerId: number | null;
+        customerName: string;
+        companyName: string | null;
+        phone: string | null;
+        totalInvoiced: number;
+        totalPaid: number;
+        sisaTagihan: number;
+        invoiceCount: number;
+        unpaidCount: number;
+        partialCount: number;
+        overdueCount: number;
+        oldestUnpaidDays: number;
+        invoiceIds: number[];
+    }>;
+    overdueInvoices: Array<{
+        id: number;
+        invoiceNumber: string;
+        customerId: number | null;
+        customerName: string;
+        companyName: string | null;
+        phone: string | null;
+        amountToPay: number;
+        paidAmount: number;
+        sisa: number;
+        date: string;
+        dueDate: string | null;
+        daysOverdue: number;
+        status: string;
+    }>;
+    incomeMonthly: Array<{ month: string; label: string; amount: number }>;
+}
+
+export const getReceivablesDashboard = async (): Promise<ReceivablesDashboard> =>
+    (await api.get<ReceivablesDashboard>('/quotations/receivables/dashboard')).data;
+
+/**
+ * Edge case: Klien transfer langsung lunas padahal sudah ada Invoice DP.
+ * Admin pilih mode handling.
+ */
+export const markFullyPaidEdgeCase = async (
+    quotationId: number,
+    payload: {
+        sourceInvoiceId: number;
+        mode: 'auto_create_pelunasan' | 'convert_to_full' | 'cancel_and_new_full';
+    } & MarkPaidPayload,
+) => (await api.post(`/quotations/${quotationId}/mark-fully-paid`, payload)).data;
+
 export const generateInvoiceFromQuotation = async (
     quotationId: number,
     input: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string },
@@ -195,6 +356,10 @@ export const listInvoicesByQuotation = async (quotationId: number): Promise<Quot
 
 export const createQuotationFromCustomer = async (customerId: number, variant: QuotationVariant) =>
     (await api.post<Quotation>(`/quotations/from-customer/${customerId}`, { variant })).data;
+
+/** Create Penawaran langsung dari Lead — auto-pull customer + event utama + multi-event. */
+export const createQuotationFromLead = async (leadId: number, variant: QuotationVariant) =>
+    (await api.post<Quotation>(`/quotations/from-lead/${leadId}`, { variant })).data;
 
 export const deleteQuotation = async (id: number) =>
     (await api.delete(`/quotations/${id}`)).data;

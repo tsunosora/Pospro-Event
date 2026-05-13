@@ -105,6 +105,13 @@ export interface Lead {
     eventDateStart: string | null;
     eventDateEnd: string | null;
     eventLocation: string | null;
+    /** Multi-event tambahan (kalau lead 1 punya 3 kota/event berbeda). Event utama tetap di eventLocation/Date*. */
+    additionalEvents: Array<{
+        name: string | null;
+        location: string | null;
+        dateStart: string | null;
+        dateEnd: string | null;
+    }> | null;
     notes: string | null;
     imageUrl: string | null;
     leadCameAt: string;
@@ -116,7 +123,12 @@ export interface Lead {
     stage?: LeadStage;
     assignedWorker?: { id: number; name: string; position: string | null; photoUrl: string | null } | null;
     previousAssignedWorker?: { id: number; name: string; position: string | null; photoUrl: string | null } | null;
-    convertedCustomer?: { id: number; name: string } | null;
+    convertedCustomer?: {
+        id: number;
+        name: string;
+        rabPlans?: Array<{ id: number; code: string; title: string }>;
+        invoices?: Array<{ id: number; invoiceNumber: string; status: string }>;
+    } | null;
     labels?: { label: LeadLabel }[];
     activities?: LeadActivity[];
 }

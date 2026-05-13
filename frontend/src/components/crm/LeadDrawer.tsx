@@ -25,6 +25,9 @@ import { LevelBadge } from "./LevelBadge";
 import { WaButton } from "./WaButton";
 import { formatLeadEventDateRange } from "@/lib/utils/date-range";
 import { BrandBadge } from "@/components/BrandBadge";
+import { AdditionalEventsEditor, additionalEventsToEditor, editorToAdditionalEvents, type AdditionalEvent } from "./AdditionalEventsEditor";
+import { createQuotationFromLead } from "@/lib/api/quotations";
+import { useRouter } from "next/navigation";
 import { Building2, Check, ImagePlus, Loader2, MapPin, Pencil, Trash2, X, MessageCircle, FileText, Send, CheckCircle2 } from "lucide-react";
 
 const LEAD_LEVELS: Array<{ value: "" | "HOT" | "WARM" | "COLD" | "UNQUALIFIED"; label: string }> = [
@@ -67,8 +70,10 @@ export function LeadDrawer({
     onClose: () => void;
 }) {
     const qc = useQueryClient();
+    const router = useRouter();
     const [tab, setTab] = useState<"detail" | "activities" | "convert">("detail");
     const [noteText, setNoteText] = useState("");
+    const [editAdditionalEvents, setEditAdditionalEvents] = useState<AdditionalEvent[]>([]);
 
     // Edit mode state — controlled inputs untuk semua field yang bisa di-edit
     const [editMode, setEditMode] = useState(false);
@@ -150,6 +155,7 @@ export function LeadDrawer({
             greetingTemplate: lead.greetingTemplate ?? "",
             notes: lead.notes ?? "",
         });
+        setEditAdditionalEvents(additionalEventsToEditor(lead.additionalEvents));
         setEditMode(true);
     }
 
@@ -168,6 +174,7 @@ export function LeadDrawer({
             eventDateStart: editForm.eventDateStart ? new Date(editForm.eventDateStart).toISOString() : null,
             eventDateEnd: editForm.eventDateEnd ? new Date(editForm.eventDateEnd).toISOString() : null,
             eventLocation: editForm.eventLocation.trim() || null,
+            additionalEvents: editorToAdditionalEvents(editAdditionalEvents) as any,
             orderDescription: editForm.orderDescription.trim() || null,
             projectValueEst: editForm.projectValueEst.trim() || null,
             greetingTemplate: editForm.greetingTemplate.trim() || null,
@@ -294,6 +301,7 @@ export function LeadDrawer({
                                 Call {lead.phone}
                             </a>
                         </div>
+
 
                         {/* Image / Foto Referensi */}
                         <div className="space-y-1.5">
@@ -422,6 +430,23 @@ export function LeadDrawer({
                                 <Field label="Project Value Est." value={lead.projectValueEst ? `Rp ${Number(lead.projectValueEst).toLocaleString("id-ID")}` : null} />
                                 <Field label="Tanggal Event" value={formatLeadEventDateRange(lead)} />
                                 <Field label="Event Location" value={lead.eventLocation} icon={<MapPin className="h-3 w-3" />} />
+                                {lead.additionalEvents && lead.additionalEvents.length > 0 && (
+                                    <div className="space-y-1">
+                                        <div className="text-[10px] font-semibold text-muted-foreground uppercase">🎪 Event Tambahan ({lead.additionalEvents.length})</div>
+                                        {lead.additionalEvents.map((ev, idx) => (
+                                            <div key={idx} className="text-xs bg-slate-50 border border-slate-200 rounded p-2 space-y-0.5">
+                                                <div className="font-semibold text-slate-800">#{idx + 2} {ev.name || <span className="italic text-slate-400">(tanpa nama)</span>}</div>
+                                                {ev.location && <div className="flex items-center gap-1 text-[11px]"><MapPin className="h-3 w-3 text-slate-400" />{ev.location}</div>}
+                                                {(ev.dateStart || ev.dateEnd) && (
+                                                    <div className="text-[10px] text-slate-500">
+                                                        {ev.dateStart ? new Date(ev.dateStart).toLocaleDateString("id-ID") : "?"}
+                                                        {ev.dateEnd ? ` — ${new Date(ev.dateEnd).toLocaleDateString("id-ID")}` : ""}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                                 <Field label="Source" value={lead.source} />
                                 <Field label="Greeting Template" value={lead.greetingTemplate} />
                                 <Field label="Notes" value={lead.notes} multiline />
@@ -507,10 +532,109 @@ export function LeadDrawer({
                                     <p className="text-[9px] text-muted-foreground">💡 Untuk event multi-hari (mis. 1-3 Mei).</p>
                                 </div>
                                 <EditField label="Event Location" value={editForm.eventLocation} onChange={v => setEditForm(f => ({ ...f, eventLocation: v }))} />
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-medium text-muted-foreground">
+                                        🎪 Event Tambahan (multi-kota / multi-tanggal)
+                                    </label>
+                                    <AdditionalEventsEditor
+                                        value={editAdditionalEvents}
+                                        onChange={setEditAdditionalEvents}
+                                        compact
+                                    />
+                                </div>
                                 <EditField label="Project Value Est. (Rp)" value={editForm.projectValueEst} onChange={v => setEditForm(f => ({ ...f, projectValueEst: v.replace(/[^\d.]/g, "") }))} placeholder="50000000" />
                                 <EditField label="Order Description" value={editForm.orderDescription} onChange={v => setEditForm(f => ({ ...f, orderDescription: v }))} multiline />
                                 <EditField label="Greeting Template" value={editForm.greetingTemplate} onChange={v => setEditForm(f => ({ ...f, greetingTemplate: v }))} multiline placeholder="Pesan WhatsApp template" />
                                 <EditField label="Notes" value={editForm.notes} onChange={v => setEditForm(f => ({ ...f, notes: v }))} multiline />
+                            </div>
+                        )}
+
+                        {/* Status Dokumen — sebelum tombol Hapus Lead. Hanya kalau lead sudah converted. */}
+                        {lead.convertedCustomerId && (
+                            <div className="rounded-md border border-emerald-200 bg-emerald-50/30 p-3 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-700 flex items-center gap-1">
+                                        📊 Status Dokumen
+                                    </span>
+                                    <a
+                                        href={`/customers/${lead.convertedCustomerId}`}
+                                        className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 border border-violet-200 hover:bg-violet-200 font-semibold"
+                                    >
+                                        👤 Customer #{lead.convertedCustomerId}
+                                    </a>
+                                </div>
+
+                                {/* RAB section */}
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                                            🧮 RAB
+                                        </span>
+                                        <span className="text-[10px] text-slate-500">
+                                            {lead.convertedCustomer?.rabPlans?.length ?? 0} dokumen
+                                        </span>
+                                    </div>
+                                    {(lead.convertedCustomer?.rabPlans?.length ?? 0) > 0 ? (
+                                        <div className="space-y-1">
+                                            {lead.convertedCustomer!.rabPlans!.map((r) => (
+                                                <a
+                                                    key={r.id}
+                                                    href={`/rab/${r.id}`}
+                                                    className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-400 transition"
+                                                >
+                                                    <span className="text-[10px] font-mono font-bold text-emerald-800">{r.code}</span>
+                                                    <span className="text-[11px] text-slate-700 truncate flex-1">{r.title}</span>
+                                                    <span className="text-[10px] text-emerald-700">→</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <a
+                                            href={`/rab?customerId=${lead.convertedCustomerId}`}
+                                            className="block text-center px-2 py-1.5 rounded text-[11px] font-medium border-2 border-dashed border-slate-300 text-slate-500 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700"
+                                        >
+                                            + Belum ada RAB — klik untuk buat baru
+                                        </a>
+                                    )}
+                                </div>
+
+                                {/* Penawaran section */}
+                                <div className="space-y-1 pt-1 border-t border-dashed border-emerald-200">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                                            📄 Penawaran
+                                        </span>
+                                        <span className="text-[10px] text-slate-500">
+                                            {lead.convertedCustomer?.invoices?.length ?? 0} dokumen
+                                        </span>
+                                    </div>
+                                    {(lead.convertedCustomer?.invoices?.length ?? 0) > 0 ? (
+                                        <div className="space-y-1">
+                                            {lead.convertedCustomer!.invoices!.map((q) => (
+                                                <a
+                                                    key={q.id}
+                                                    href={`/penawaran/${q.id}`}
+                                                    className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-400 transition"
+                                                >
+                                                    <span className="text-[10px] font-mono font-bold text-blue-800">{q.invoiceNumber}</span>
+                                                    <span className="flex-1 text-right">
+                                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 font-semibold">
+                                                            {q.status}
+                                                        </span>
+                                                    </span>
+                                                    <span className="text-[10px] text-blue-700">→</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <a
+                                            href={`/penawaran?customerId=${lead.convertedCustomerId}`}
+                                            className="block text-center px-2 py-1.5 rounded text-[11px] font-medium border-2 border-dashed border-slate-300 text-slate-500 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700"
+                                        >
+                                            + Belum ada Penawaran — klik untuk buat baru
+                                        </a>
+                                    )}
+                                </div>
                             </div>
                         )}
 
@@ -635,11 +759,36 @@ export function LeadDrawer({
                                     </a>
                                 </div>
                                 <div className="text-xs text-muted-foreground">Langkah berikutnya:</div>
+                                {/* Tombol khusus: auto-pull event utama + additionalEvents dari Lead → Penawaran */}
+                                <button
+                                    onClick={async () => {
+                                        if (!lead.id) return;
+                                        const variant = window.confirm(
+                                            "Pilih jenis Penawaran:\n\n" +
+                                            "OK = SEWA (sewa booth/equipment)\n" +
+                                            "Batal = PENGADAAN_BOOTH (jual/buat booth)"
+                                        ) ? "SEWA" : "PENGADAAN_BOOTH";
+                                        try {
+                                            const q = await createQuotationFromLead(lead.id, variant as any);
+                                            router.push(`/penawaran/${q.id}`);
+                                        } catch (e: any) {
+                                            alert(`❌ Gagal: ${e?.response?.data?.message || e?.message}`);
+                                        }
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-md border-2 border-blue-300 bg-blue-50 text-sm hover:bg-blue-100 text-blue-800 font-medium"
+                                >
+                                    📄 Buat Penawaran (auto-pull event & multi-kota dari Lead)
+                                    {lead.additionalEvents && lead.additionalEvents.length > 0 && (
+                                        <span className="block text-[10px] mt-0.5 text-blue-600">
+                                            ✨ Lead ini punya {lead.additionalEvents.length + 1} event — semua akan ter-copy otomatis
+                                        </span>
+                                    )}
+                                </button>
                                 <a
                                     href={`/penawaran?customerId=${lead.convertedCustomerId}`}
-                                    className="block px-3 py-2 rounded-md border border-border bg-background text-sm hover:bg-muted"
+                                    className="block px-3 py-2 rounded-md border border-border bg-background text-xs hover:bg-muted text-muted-foreground"
                                 >
-                                    📄 Buat Penawaran untuk customer ini
+                                    📄 Atau buat Penawaran kosong dari customer ini
                                 </a>
                                 <a
                                     href={`/rab?customerId=${lead.convertedCustomerId}`}

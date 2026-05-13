@@ -127,6 +127,8 @@ export class PdfExportService implements OnModuleDestroy {
             label?: string;
             no?: number;
             description?: string;
+            quantity?: string;
+            unit?: string;
         }> = [];
         let runningNo = 0;
         for (const grp of ctx.itemGroups) {
@@ -135,9 +137,15 @@ export class PdfExportService implements OnModuleDestroy {
             }
             for (const it of grp.items) {
                 runningNo += 1;
+                // Skip quantity kalau 0 — gak perlu tampil "0 unit" di SPK.
+                // it.quantity adalah hasil formatQty() yang nge-return "X unit" atau "X" (kalau no unit).
+                const qtyStr = it.quantity?.trim() ?? '';
+                const qtyNum = parseFloat(qtyStr) || 0;
                 specItems.push({
                     no: runningNo,
                     description: it.description,
+                    quantity: qtyNum > 0 ? qtyStr : undefined,
+                    unit: it.unit,
                 });
             }
         }

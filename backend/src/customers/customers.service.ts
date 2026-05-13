@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { normalizePhone } from '../crm/utils/phone.util';
 
 @Injectable()
 export class CustomersService {
@@ -7,6 +8,63 @@ export class CustomersService {
 
     async create(data: { name: string; phone?: string; email?: string; address?: string; companyName?: string; companyPIC?: string }) {
         return this.prisma.customer.create({ data });
+    }
+
+    /**
+     * Lookup customer/lead by phone number (normalized). Untuk anti-duplikat saat
+     * admin input phone di form Lead / Penawaran / RAB — kalau nomor sudah ada, frontend
+     * tampilkan banner "Pakai data existing?" supaya gak input ulang.
+     */
+    async lookupByPhone(rawPhone: string) {
+        if (!rawPhone || !rawPhone.trim()) {
+            return { customer: null, lead: null };
+        }
+        const normalized = normalizePhone(rawPhone);
+        if (!normalized) return { customer: null, lead: null };
+
+        // Customer cocok berdasarkan phone field (normalized comparison via raw + normalize on fly)
+        const customers = await this.prisma.customer.findMany({
+            where: {
+                phone: { not: null },
+            },
+        });
+        const matchedCustomer = customers.find((c) => c.phone && normalizePhone(c.phone) === normalized) ?? null;
+
+        // Lead — pakai phoneNormalized column yang sudah ada
+        const matchedLead = await this.prisma.lead.findFirst({
+            where: { phoneNormalized: normalized },
+            include: {
+                stage: { select: { name: true } },
+                convertedCustomer: { select: { id: true, name: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        return {
+            customer: matchedCustomer
+                ? {
+                    id: matchedCustomer.id,
+                    name: matchedCustomer.name,
+                    phone: matchedCustomer.phone,
+                    email: matchedCustomer.email,
+                    address: matchedCustomer.address,
+                    companyName: matchedCustomer.companyName,
+                    companyPIC: matchedCustomer.companyPIC,
+                }
+                : null,
+            lead: matchedLead
+                ? {
+                    id: matchedLead.id,
+                    name: matchedLead.name,
+                    phone: matchedLead.phone,
+                    organization: matchedLead.organization,
+                    city: matchedLead.city,
+                    stageName: matchedLead.stage?.name ?? null,
+                    convertedCustomerId: matchedLead.convertedCustomerId,
+                    convertedCustomerName: matchedLead.convertedCustomer?.name ?? null,
+                }
+                : null,
+        };
     }
 
     async findAll() {

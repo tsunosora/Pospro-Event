@@ -23,6 +23,32 @@ export interface CustomerInput {
 
 export const getCustomers = async () => (await api.get<Customer[]>('/customers')).data;
 export const getCustomer = async (id: number) => (await api.get<Customer>(`/customers/${id}`)).data;
+
+export interface PhoneLookupResult {
+    customer: {
+        id: number;
+        name: string;
+        phone: string | null;
+        email: string | null;
+        address: string | null;
+        companyName: string | null;
+        companyPIC: string | null;
+    } | null;
+    lead: {
+        id: number;
+        name: string | null;
+        phone: string;
+        organization: string | null;
+        city: string | null;
+        stageName: string | null;
+        convertedCustomerId: number | null;
+        convertedCustomerName: string | null;
+    } | null;
+}
+
+/** Lookup customer + lead by phone number (anti-duplicate check). */
+export const lookupCustomerByPhone = async (phone: string): Promise<PhoneLookupResult> =>
+    (await api.get<PhoneLookupResult>(`/customers/lookup-by-phone`, { params: { phone } })).data;
 export const getCustomersWithStats = async () => (await api.get('/customers/with-stats')).data;
 export const getCustomerAnalytics = async (id: number) => (await api.get(`/customers/${id}/analytics`)).data;
 export const getCustomersExportData = async () => (await api.get('/customers/export-data')).data;

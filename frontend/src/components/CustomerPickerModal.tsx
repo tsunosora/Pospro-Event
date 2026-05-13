@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Search, UserPlus, X, ArrowLeft } from "lucide-react";
 import { createCustomer, getCustomers, type Customer } from "@/lib/api/customers";
+import { PhoneDuplicateBanner } from "./PhoneDuplicateBanner";
 
 /**
  * Reusable customer picker:
@@ -210,6 +211,15 @@ export function CustomerPickerModal({
                                     />
                                 </FormField>
                             </div>
+                            {/* Anti-duplicate: cek HP yang sedang di-input vs database existing */}
+                            <PhoneDuplicateBanner
+                                phone={form.phone}
+                                onUseCustomer={(c) => {
+                                    // Pilih customer existing langsung — tutup modal create, return ke pemanggil
+                                    onPick(c as unknown as Customer);
+                                }}
+                                compact
+                            />
                             <FormField label="Alamat">
                                 <textarea
                                     value={form.address}

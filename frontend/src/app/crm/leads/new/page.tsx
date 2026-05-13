@@ -8,6 +8,8 @@ import {
     ArrowLeft, Save, User, Phone, Building2, Tag,
     Calendar, MapPin, AlignLeft, Layers, Globe, UserCog, Plus, X,
 } from "lucide-react";
+import { AdditionalEventsEditor, editorToAdditionalEvents, type AdditionalEvent } from "@/components/crm/AdditionalEventsEditor";
+import { PhoneDuplicateBanner } from "@/components/PhoneDuplicateBanner";
 
 /** Format custom source preset — disimpan di localStorage. */
 type CustomSource = { name: string; emoji: string };
@@ -160,6 +162,7 @@ export default function NewLeadPage() {
         notes: "",
         labelIds: [] as number[],
     });
+    const [additionalEvents, setAdditionalEvents] = useState<AdditionalEvent[]>([]);
 
     const mut = useMutation({
         mutationFn: () =>
@@ -180,6 +183,7 @@ export default function NewLeadPage() {
                 eventDateStart: form.eventDateStart || null,
                 eventDateEnd: form.eventDateEnd || null,
                 eventLocation: form.eventLocation || null,
+                additionalEvents: editorToAdditionalEvents(additionalEvents) as any,
                 notes: form.notes || null,
                 labelIds: form.labelIds,
             }),
@@ -368,6 +372,29 @@ export default function NewLeadPage() {
                                 required
                             />
                         </InputWithIcon>
+                        {/* Anti-duplikat: instant lookup by name OR phone (tanpa debounce) */}
+                        <div className="mt-2">
+                            <PhoneDuplicateBanner
+                                phone={form.phone}
+                                name={form.name || form.organization}
+                                onUseCustomer={(c) => {
+                                    // Auto-fill data dari customer existing
+                                    setForm((f) => ({
+                                        ...f,
+                                        name: c.name || f.name,
+                                        phone: c.phone || f.phone,
+                                        organization: c.companyName || f.organization,
+                                        city: c.address || f.city,
+                                    }));
+                                }}
+                                onUseLead={(l) => {
+                                    // Redirect ke lead existing (jangan duplikat)
+                                    if (confirm(`Lead ini sudah ada di pipeline (${l.stageName || "?"}).\nBuka lead existing?`)) {
+                                        router.push(`/crm/pipeline?openLead=${l.id}`);
+                                    }
+                                }}
+                            />
+                        </div>
                     </Field>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -659,6 +686,13 @@ export default function NewLeadPage() {
                                 placeholder="JIExpo Kemayoran, ICE BSD, dll"
                             />
                         </InputWithIcon>
+                    </Field>
+                    <Field label="🎪 Event Tambahan (kalau klien punya event di kota/tanggal lain)">
+                        <AdditionalEventsEditor value={additionalEvents} onChange={setAdditionalEvents} />
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                            💡 Mis. klien butuh booth di Jakarta tgl 1-3 Mei DAN Surabaya tgl 10-12 Mei.
+                            Isi di sini → saat convert ke Penawaran, semua event ter-copy otomatis.
+                        </p>
                     </Field>
                 </Section>
 

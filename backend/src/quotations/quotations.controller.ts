@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     Body,
     Controller,
     Delete,
@@ -9,17 +10,40 @@ import {
     Patch,
     Post,
     Query,
+    Req,
     Res,
+    UploadedFile,
     UseGuards,
+    UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import type { Response } from 'express';
 import { InvoiceStatus, QuotationVariant } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { QuotationsService } from './quotations.service';
 import { PdfExportService } from '../exporters/pdf-export.service';
 import { DocxExportService } from '../exporters/docx-export.service';
+import { compressImage } from '../common/utils/compress-image.util';
 import type { CreateQuotationDto } from './dto/create-quotation.dto';
 import type { UpdateQuotationDto } from './dto/update-quotation.dto';
+
+// Storage untuk upload bukti pembayaran
+const paymentProofStorage = diskStorage({
+    destination: './public/uploads',
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `paymentproof-${uniqueSuffix}${extname(file.originalname)}`);
+    },
+});
+
+const paymentProofFilter = (req: any, file: any, cb: any) => {
+    if (!file.originalname.toLowerCase().match(/\.(jpg|jpeg|jfif|png|gif|webp|pdf)$/)) {
+        return cb(new BadRequestException('Hanya file gambar/PDF yang diizinkan'), false);
+    }
+    cb(null, true);
+};
 
 /**
  * Normalize karakter Unicode common ke ASCII equivalent supaya filename safe untuk
@@ -173,6 +197,106 @@ export class QuotationsController {
         return this.service.generateInvoiceFromQuotation(id, body);
     }
 
+    // ─── Payment Status Endpoints ──────────────────────────────────────
+    /** Mark Invoice as SENT (sudah dikirim ke klien). */
+    @Patch(':id/mark-sent')
+    markSent(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+        return this.service.markInvoiceSent(id, req.user?.id ?? null);
+    }
+
+    /** Mark Invoice as PAID atau PARTIALLY_PAID (kalau partial). Auto-create Cashflow IN. */
+    @Patch(':id/mark-paid')
+    markPaid(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: {
+            amount: number | string;
+            paidAt?: string;
+            paymentMethod?: 'CASH' | 'QRIS' | 'BANK_TRANSFER' | 'OTHER';
+            paymentRef?: string | null;
+            paymentNote?: string | null;
+            paymentProofUrl?: string | null;
+            createCashflow?: boolean;
+            cashflowBankAccountId?: number | null;
+        },
+        @Req() req: any,
+    ) {
+        return this.service.markInvoicePaid(id, body, req.user?.id ?? null);
+    }
+
+    /**
+     * Upload gambar/PDF bukti pembayaran. Return: { url: '/uploads/...' }
+     * Frontend simpan URL ini di payload Mark Paid (field paymentProofUrl).
+     */
+    @Post(':id/upload-payment-proof')
+    @UseInterceptors(FileInterceptor('file', {
+        storage: paymentProofStorage,
+        fileFilter: paymentProofFilter,
+        limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    }))
+    async uploadPaymentProof(
+        @Param('id', ParseIntPipe) id: number,
+        @UploadedFile() file?: Express.Multer.File,
+    ) {
+        if (!file) throw new BadRequestException('File bukti pembayaran wajib diupload');
+        // Kompres kalau gambar (skip PDF)
+        if (!file.originalname.toLowerCase().endsWith('.pdf')) {
+            try { await compressImage(file.path); } catch { /* ignore */ }
+        }
+        return { url: `/uploads/${file.filename}` };
+    }
+
+    /** Cancel Invoice. Tidak boleh kalau sudah PAID. */
+    @Patch(':id/cancel')
+    cancelInvoice(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { reason?: string | null },
+        @Req() req: any,
+    ) {
+        return this.service.cancelInvoice(id, body.reason ?? null, req.user?.id ?? null);
+    }
+
+    /** Dashboard piutang & pemasukan — aggregate per customer + KPI + overdue alerts. */
+    @Get('receivables/dashboard')
+    getReceivablesDashboard() {
+        return this.service.getReceivablesDashboard();
+    }
+
+    /** Get aggregate payment summary untuk Quotation (total, paid, sisa, list invoices). */
+    @Get(':id/payment-summary')
+    getPaymentSummary(@Param('id', ParseIntPipe) id: number) {
+        return this.service.getPaymentSummary(id);
+    }
+
+    /** Get detail pembayaran Invoice (include bank account info kalau transfer). */
+    @Get(':id/payment-detail')
+    getPaymentDetail(@Param('id', ParseIntPipe) id: number) {
+        return this.service.getPaymentDetail(id);
+    }
+
+    /**
+     * Edge case: Klien transfer langsung lunas padahal sudah ada Invoice DP.
+     * Admin pilih mode: auto_create_pelunasan / convert_to_full / cancel_and_new_full.
+     */
+    @Post(':id/mark-fully-paid')
+    markFullyPaid(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: {
+            sourceInvoiceId: number;
+            mode: 'auto_create_pelunasan' | 'convert_to_full' | 'cancel_and_new_full';
+            amount: number;
+            paidAt?: string;
+            paymentMethod?: 'CASH' | 'QRIS' | 'BANK_TRANSFER' | 'OTHER';
+            paymentRef?: string | null;
+            paymentNote?: string | null;
+            createCashflow?: boolean;
+            cashflowBankAccountId?: number | null;
+        },
+        @Req() req: any,
+    ) {
+        const { sourceInvoiceId, mode, ...payment } = body;
+        return this.service.markFullyPaidEdgeCase(id, sourceInvoiceId, mode, payment, req.user?.id ?? null);
+    }
+
     @Get(':id/invoices')
     listInvoices(@Param('id', ParseIntPipe) id: number) {
         return this.service.listInvoicesByQuotation(id);
@@ -189,6 +313,18 @@ export class QuotationsController {
         @Body('variant') variant: QuotationVariant,
     ) {
         return this.service.createFromCustomer(customerId, variant);
+    }
+
+    /**
+     * Create Penawaran dari Lead — auto-pull customer + event utama + multi-event (additionalEvents).
+     * Lead harus sudah di-convert ke Customer terlebih dahulu.
+     */
+    @Post('from-lead/:leadId')
+    fromLead(
+        @Param('leadId', ParseIntPipe) leadId: number,
+        @Body('variant') variant: QuotationVariant,
+    ) {
+        return this.service.createFromLead(leadId, variant);
     }
 
     @Get(':id/export/pdf')
