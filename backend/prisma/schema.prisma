@@ -1266,6 +1266,10 @@ model Worker {
   phone              String?  @db.VarChar(50)
   photoUrl           String?  @map("photo_url") @db.Text
   signatureImageUrl  String?  @map("signature_image_url") @db.Text   // Tanda tangan untuk surat penawaran
+  /// Nama custom yang tampil di bawah TTD (kalau beda dari "name").
+  /// Mis. `name`="Pak Budi" tapi di TTD perlu tampil "Budi Santoso, S.T." untuk formal letter.
+  /// Null = pakai `name` sebagai fallback.
+  signatureDisplayName String? @map("signature_display_name") @db.VarChar(150)
   stampImageUrl      String?  @map("stamp_image_url") @db.Text       // Stempel pribadi (optional, fallback ke brand stamp)
   isActive           Boolean  @default(true) @map("is_active")
   notes              String?  @db.Text

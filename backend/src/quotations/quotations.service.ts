@@ -252,7 +252,7 @@ export class QuotationsService {
                 items: { orderBy: { orderIndex: 'asc' } },
                 customer: true,
                 parent: { select: { id: true, invoiceNumber: true, revisionNumber: true } },
-                signedByWorker: { select: { id: true, name: true, position: true, signatureImageUrl: true } },
+                signedByWorker: true,
             },
         });
     }

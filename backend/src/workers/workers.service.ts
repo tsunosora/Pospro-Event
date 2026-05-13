@@ -29,6 +29,7 @@ export interface UpdateWorkerInput {
     phone?: string;
     photoUrl?: string;
     signatureImageUrl?: string | null;
+    signatureDisplayName?: string | null;
     stampImageUrl?: string | null;
     notes?: string;
     isActive?: boolean;
@@ -123,6 +124,7 @@ export class WorkersService {
         if (input.phone !== undefined) data.phone = input.phone?.trim() || null;
         if (input.photoUrl !== undefined) data.photoUrl = input.photoUrl || null;
         if (input.signatureImageUrl !== undefined) data.signatureImageUrl = input.signatureImageUrl;
+        if (input.signatureDisplayName !== undefined) (data as any).signatureDisplayName = input.signatureDisplayName?.trim() || null;
         if (input.stampImageUrl !== undefined) data.stampImageUrl = input.stampImageUrl;
         if (input.notes !== undefined) data.notes = input.notes?.trim() || null;
         if (input.isActive !== undefined) data.isActive = input.isActive;

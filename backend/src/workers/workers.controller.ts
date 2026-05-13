@@ -106,6 +106,7 @@ export class WorkersController {
         if (body.position !== undefined) input.position = body.position;
         if (body.phone !== undefined) input.phone = body.phone;
         if (body.notes !== undefined) input.notes = body.notes;
+        if (body.signatureDisplayName !== undefined) input.signatureDisplayName = body.signatureDisplayName || null;
         if (body.isActive !== undefined) {
             input.isActive = body.isActive === 'false' ? false : body.isActive === 'true' ? true : body.isActive;
         }

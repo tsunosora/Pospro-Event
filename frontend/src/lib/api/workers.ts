@@ -45,6 +45,7 @@ export interface Worker {
     phone: string | null;
     photoUrl: string | null;
     signatureImageUrl: string | null;
+    signatureDisplayName: string | null;
     stampImageUrl: string | null;
     notes: string | null;
     isActive: boolean;
@@ -70,6 +71,7 @@ export interface WorkerFormInput {
     notes?: string;
     isActive?: boolean;
     photo?: File | null;
+    signatureDisplayName?: string | null;
     // Payroll
     dailyWageRate?: string | number | null;
     overtimeRatePerHour?: string | number | null;
@@ -105,6 +107,7 @@ const toFormData = (input: WorkerFormInput) => {
     if (input.notes !== undefined) fd.append('notes', input.notes);
     if (input.isActive !== undefined) fd.append('isActive', String(input.isActive));
     if (input.photo) fd.append('photo', input.photo);
+    if (input.signatureDisplayName !== undefined) fd.append('signatureDisplayName', input.signatureDisplayName ?? '');
     if (input.dailyWageRate !== undefined && input.dailyWageRate !== null) fd.append('dailyWageRate', String(input.dailyWageRate));
     if (input.overtimeRatePerHour !== undefined && input.overtimeRatePerHour !== null) fd.append('overtimeRatePerHour', String(input.overtimeRatePerHour));
     if (input.isPic !== undefined) fd.append('isPic', String(input.isPic));
@@ -130,6 +133,7 @@ export const updateWorker = async (id: number, input: Partial<WorkerFormInput>) 
     if (input.notes !== undefined) fd.append('notes', input.notes);
     if (input.isActive !== undefined) fd.append('isActive', String(input.isActive));
     if (input.photo) fd.append('photo', input.photo);
+    if (input.signatureDisplayName !== undefined) fd.append('signatureDisplayName', input.signatureDisplayName ?? '');
     if (input.dailyWageRate !== undefined) fd.append('dailyWageRate', input.dailyWageRate === null ? '' : String(input.dailyWageRate));
     if (input.overtimeRatePerHour !== undefined) fd.append('overtimeRatePerHour', input.overtimeRatePerHour === null ? '' : String(input.overtimeRatePerHour));
     if (input.isPic !== undefined) fd.append('isPic', String(input.isPic));

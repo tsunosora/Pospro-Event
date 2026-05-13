@@ -630,12 +630,9 @@ export class QuotationContextBuilder {
             include: {
                 items: { orderBy: { orderIndex: 'asc' } },
                 customer: true,
-                signedByWorker: {
-                    select: {
-                        id: true, name: true, position: true,
-                        signatureImageUrl: true, stampImageUrl: true,
-                    },
-                },
+                // Pakai full include — supaya signatureDisplayName (column baru) ikut ke-fetch
+                // walaupun Prisma Client belum di-regenerate (cast as any saat akses).
+                signedByWorker: true,
             },
         });
         if (!quotation) throw new Error(`Penawaran id=${quotationId} tidak ditemukan`);
@@ -943,12 +940,13 @@ export class QuotationContextBuilder {
                 npwp: brandSettings?.npwp ?? null,
             },
             signedBy: {
-                // Kalau quotation punya signedByWorker → pakai itu (marketing yang handle)
-                // Kalau tidak → fallback ke directorName brand
-                name: quotation.signedByWorker?.name
-                    ?? brandSettings?.directorName
-                    ?? settings?.directorName
-                    ?? '',
+                // Kalau quotation punya signedByWorker → pakai signatureDisplayName (kalau di-set), else name
+                // Kalau tidak ada worker → fallback ke directorName brand
+                name: (quotation.signedByWorker as any)?.signatureDisplayName?.trim()
+                    || quotation.signedByWorker?.name
+                    || brandSettings?.directorName
+                    || settings?.directorName
+                    || '',
                 position: quotation.signedByWorker?.position ?? null,
                 signatureUrl: imageToDataUri(quotation.signedByWorker?.signatureImageUrl ?? null),
                 // Stempel: prioritas worker → brand fallback

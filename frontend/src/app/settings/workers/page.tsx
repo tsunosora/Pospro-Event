@@ -27,6 +27,7 @@ export default function WorkersSettingsPage() {
     const [position, setPosition] = useState("");
     const [phone, setPhone] = useState("");
     const [notes, setNotes] = useState("");
+    const [signatureDisplayName, setSignatureDisplayName] = useState("");
     const [photo, setPhoto] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     // Payroll fields
@@ -118,6 +119,7 @@ export default function WorkersSettingsPage() {
     function resetForm() {
         setShowForm(false); setEditId(null);
         setName(""); setPosition(""); setPhone(""); setNotes("");
+        setSignatureDisplayName("");
         setPhoto(null); setPhotoPreview(null); setError(null);
         setDailyWageRate(""); setOvertimeRatePerHour(""); setIsPic(false); setPicPin(""); setTeamId("");
         setDefaultCityKey(""); setDefaultDivisionKey("");
@@ -129,6 +131,7 @@ export default function WorkersSettingsPage() {
         setPosition(w.position ?? "");
         setPhone(w.phone ?? "");
         setNotes(w.notes ?? "");
+        setSignatureDisplayName(w.signatureDisplayName ?? "");
         setPhoto(null);
         setPhotoPreview(w.photoUrl ? `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}${w.photoUrl}` : null);
         setDailyWageRate(w.dailyWageRate ?? "");
@@ -174,6 +177,7 @@ export default function WorkersSettingsPage() {
         if (!name.trim()) { setError("Nama wajib diisi"); return; }
         const data: any = {
             name: name.trim(), position: position.trim(), phone: phone.trim(), notes: notes.trim(),
+            signatureDisplayName: signatureDisplayName.trim() || null,
             dailyWageRate: dailyWageRate.trim() || null,
             overtimeRatePerHour: overtimeRatePerHour.trim() || null,
             isPic,
@@ -275,6 +279,23 @@ export default function WorkersSettingsPage() {
                             <div>
                                 <label className="text-xs font-medium block mb-1">Catatan</label>
                                 <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="(opsional)" className="w-full border rounded px-3 py-2 text-sm" />
+                            </div>
+
+                            {/* ── Custom nama untuk TTD ── */}
+                            <div>
+                                <label className="text-xs font-medium block mb-1">
+                                    ✍️ Nama untuk TTD <span className="text-muted-foreground font-normal">(opsional)</span>
+                                </label>
+                                <input
+                                    value={signatureDisplayName}
+                                    onChange={(e) => setSignatureDisplayName(e.target.value)}
+                                    placeholder={name ? `Default: "${name}"` : "Mis. Budi Santoso, S.T."}
+                                    className="w-full border rounded px-3 py-2 text-sm"
+                                />
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                    💡 Nama formal yang tampil di bawah tanda tangan di Penawaran/Invoice/SPK.
+                                    Kosongkan kalau mau pakai nama panggilan di atas.
+                                </p>
                             </div>
 
                             {/* ── Payroll section ── */}
@@ -551,7 +572,14 @@ export default function WorkersSettingsPage() {
                                     <div className="grid grid-cols-2 gap-2">
                                         {/* Signature slot */}
                                         <div>
-                                            <div className="text-[10px] text-muted-foreground mb-0.5">Tanda Tangan</div>
+                                            <div className="text-[10px] text-muted-foreground mb-0.5 flex items-center justify-between gap-1">
+                                                <span>Tanda Tangan</span>
+                                                {w.signatureDisplayName && (
+                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold" title={`Nama di TTD: ${w.signatureDisplayName}`}>
+                                                        ✍️ {w.signatureDisplayName.length > 18 ? w.signatureDisplayName.slice(0, 16) + "…" : w.signatureDisplayName}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="aspect-[2/1] rounded border border-dashed bg-white overflow-hidden flex items-center justify-center">
                                                 {w.signatureImageUrl ? (
                                                     <img
