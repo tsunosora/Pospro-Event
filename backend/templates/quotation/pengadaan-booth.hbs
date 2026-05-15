@@ -265,12 +265,7 @@
     {{else if doc.isInvoice}}
     <p class="opening">
       {{i18n.denganHormat}}<br/>
-      {{i18n.bersamaInvoice}} <strong>{{company.name}}</strong> {{i18n.menagihkanPembayaran}}
-      {{#eq doc.invoicePart "DP"}}<strong>{{i18n.uangMuka}}</strong>{{/eq}}
-      {{#eq doc.invoicePart "PELUNASAN"}}<strong>{{i18n.pelunasan}}</strong>{{/eq}}
-      {{i18n.atas}} <strong>{{doc.variantLabel}}</strong>
-      {{#if hasMultipleEvents}} {{i18n.untukAcara}}{{#each events}} <strong>{{this.name}}</strong>{{#if this.location}} ({{this.location}}{{#if this.dateRange}}, {{this.dateRange}}{{/if}}){{else}}{{#if this.dateRange}} ({{this.dateRange}}){{/if}}{{/if}}{{#unless @last}};{{/unless}}{{/each}}.{{else}}{{#if project.name}} {{i18n.untukAcara}} <strong>{{project.name}}</strong>{{/if}}{{#if project.location}} {{i18n.di}} <strong>{{project.location}}</strong>{{/if}}{{#if project.dateRange}} {{i18n.padaTanggal}} <strong>{{project.dateRange}}</strong>{{/if}}.{{/if}}
-      {{i18n.rincianTagihan}}
+      {{#eq doc.invoicePart "DP"}}<strong>Down Payment</strong> {{/eq}}{{#eq doc.invoicePart "PELUNASAN"}}<strong>Final Payment</strong> {{/eq}}Pekerjaan pengadaan <strong>{{doc.variantLabel}}</strong>{{#if hasMultipleEvents}} untuk event{{#each events}} <strong>{{this.name}}</strong>{{#if this.dateRange}} tanggal <strong>{{this.dateRange}}</strong>{{/if}}{{#if this.location}} di <strong>{{this.location}}</strong>{{/if}}{{#unless @last}};{{/unless}}{{/each}}{{else}}{{#if project.name}} untuk event <strong>{{project.name}}</strong>{{/if}}{{#if project.dateRange}} pada tanggal <strong>{{project.dateRange}}</strong>{{/if}}{{#if project.location}} di <strong>{{project.location}}</strong>{{/if}}{{/if}}, dengan rincian sebagai berikut:
     </p>
     {{else}}
     <p class="opening">
