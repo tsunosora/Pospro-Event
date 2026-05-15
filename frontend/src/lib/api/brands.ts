@@ -50,6 +50,7 @@ export interface BrandSettings {
     email: string | null;
     npwp: string | null;
     bankAccountIds: string | null;
+    invoiceLabelOverrides: Record<string, string> | null;
     letterheadFooter: string | null;
     quotationDisclaimer: string | null;
     quotationPaymentTerms: string | null;
@@ -76,6 +77,7 @@ export interface UpsertBrandInput {
     email?: string | null;
     npwp?: string | null;
     bankAccountIds?: string | null;
+    invoiceLabelOverrides?: Record<string, string> | null;
     letterheadFooter?: string | null;
     quotationDisclaimer?: string | null;
     quotationPaymentTerms?: string | null;

@@ -11,18 +11,26 @@ import { downloadProjectReportPdf, downloadProjectReportsZip } from "@/lib/api/e
 import { Package } from "lucide-react";
 import dayjs from "dayjs";
 
-type PeriodKey = 'today' | 'this_month' | 'last_3_months' | 'this_year' | 'all' | 'custom';
+type PeriodKey = 'today' | 'yesterday' | 'this_week' | 'this_month' | 'last_month' | 'last_3_months' | 'this_year' | 'all' | 'custom';
 const PERIODS: { key: PeriodKey; label: string }[] = [
+    { key: 'today', label: 'Hari Ini' },
+    { key: 'yesterday', label: 'Kemarin' },
+    { key: 'this_week', label: 'Minggu Ini' },
     { key: 'this_month', label: 'Bulan Ini' },
+    { key: 'last_month', label: 'Bulan Lalu' },
     { key: 'last_3_months', label: '3 Bulan' },
-    { key: 'this_year', label: 'Tahun Ini' },
+    { key: 'this_year', label: '1 Tahun' },
     { key: 'all', label: 'Semua' },
     { key: 'custom', label: 'Kustom' },
 ];
 
 function getPeriodDates(period: PeriodKey, customStart?: string, customEnd?: string): { startDate?: string; endDate?: string } {
     const now = dayjs();
+    if (period === 'today') return { startDate: now.format('YYYY-MM-DD'), endDate: now.format('YYYY-MM-DD') };
+    if (period === 'yesterday') { const y = now.subtract(1, 'day'); return { startDate: y.format('YYYY-MM-DD'), endDate: y.format('YYYY-MM-DD') }; }
+    if (period === 'this_week') return { startDate: now.startOf('week').format('YYYY-MM-DD'), endDate: now.endOf('week').format('YYYY-MM-DD') };
     if (period === 'this_month') return { startDate: now.startOf('month').format('YYYY-MM-DD'), endDate: now.endOf('month').format('YYYY-MM-DD') };
+    if (period === 'last_month') { const lm = now.subtract(1, 'month'); return { startDate: lm.startOf('month').format('YYYY-MM-DD'), endDate: lm.endOf('month').format('YYYY-MM-DD') }; }
     if (period === 'last_3_months') return { startDate: now.subtract(2, 'month').startOf('month').format('YYYY-MM-DD'), endDate: now.endOf('month').format('YYYY-MM-DD') };
     if (period === 'this_year') return { startDate: now.startOf('year').format('YYYY-MM-DD'), endDate: now.endOf('year').format('YYYY-MM-DD') };
     if (period === 'custom') return { startDate: customStart || undefined, endDate: customEnd || undefined };

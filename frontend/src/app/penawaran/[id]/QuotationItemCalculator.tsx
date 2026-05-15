@@ -6,10 +6,11 @@ import {
 } from "lucide-react";
 
 export interface QuotationCalcResult {
-    quantity: number;          // hasil multiplier (Unit × Hari × Jam × m²)
-    unit: string;              // string satuan, mis. "unit-hari", "m²-hari"
-    pricePerUnit: number;      // harga satuan dasar
-    subtotal: number;          // quantity × pricePerUnit
+    quantity: number;          // PRIMARY factor value (mis. 2 unit)
+    unitMultiplier: number;    // SECONDARY multipliers gabungan (mis. 3 hari × 4 jam = 12). 1 = tidak ada secondary.
+    unit: string;              // string satuan, mis. "unit - 3 hari", "m²"
+    pricePerUnit: number;      // ORIGINAL harga satuan dasar (per primary factor, NOT scaled)
+    subtotal: number;          // quantity × unitMultiplier × pricePerUnit
     descriptionText: string;   // "Stand tenda sarnafil (3 unit × 3 hari)"
     factors: { unit?: number; hari?: number; jam?: number; m2?: number };
 }
@@ -34,7 +35,7 @@ function parseNum(v: string): number | undefined {
     return isFinite(n) ? n : undefined;
 }
 
-/** Bangun string "3 unit × 3 hari" dari faktor terisi. */
+/** Bangun string "3 unit × 3 hari" dari faktor terisi (untuk description suffix). */
 function buildFactorText(f: QuotationCalcResult["factors"]): string {
     const parts: string[] = [];
     if (f.unit !== undefined && f.unit > 0) parts.push(`${f.unit} unit`);
@@ -44,14 +45,22 @@ function buildFactorText(f: QuotationCalcResult["factors"]): string {
     return parts.join(" × ");
 }
 
-/** Bangun satuan otomatis: "unit-hari", "m²-hari", "jam", dll */
-function buildUnitText(f: QuotationCalcResult["factors"]): string {
-    const parts: string[] = [];
-    if (f.unit !== undefined && f.unit > 0) parts.push("unit");
-    if (f.m2 !== undefined && f.m2 > 0) parts.push("m²");
-    if (f.hari !== undefined && f.hari > 0) parts.push("hari");
-    if (f.jam !== undefined && f.jam > 0) parts.push("jam");
-    return parts.length > 0 ? parts.join("-") : "set";
+/**
+ * Buat string unit yang menampilkan SEMUA faktor secara terpisah dengan nilai-nilainya.
+ * Marketing minta format ini supaya kolom Qty tampil "2 unit - 3 hari" bukan "6 unit-hari".
+ * Contoh output: "2 unit - 3 hari", "3 unit - 4 jam", "10 m² - 2 hari".
+ * Kalau cuma 1 faktor → return label saja (mis. "unit", "hari").
+ */
+function buildUnitText(f: QuotationCalcResult["factors"], primaryLabel: 'unit' | 'm²'): string {
+    // Kumpulkan SECONDARY factors (selain primary) — hari/jam/m² atau unit
+    const secondary: string[] = [];
+    if (primaryLabel !== 'unit' && f.unit !== undefined && f.unit > 0) secondary.push(`${f.unit} unit`);
+    if (primaryLabel !== 'm²' && f.m2 !== undefined && f.m2 > 0) secondary.push(`${f.m2} m²`);
+    if (f.hari !== undefined && f.hari > 0) secondary.push(`${f.hari} hari`);
+    if (f.jam !== undefined && f.jam > 0) secondary.push(`${f.jam} jam`);
+    if (secondary.length === 0) return primaryLabel;
+    // Format: "unit - 3 hari" atau "unit - 3 hari - 2 jam"
+    return `${primaryLabel} - ${secondary.join(" - ")}`;
 }
 
 export function buildResult(state: {
@@ -64,15 +73,33 @@ export function buildResult(state: {
     existingDescription?: string;
 }): QuotationCalcResult {
     const factors = { unit: state.unit, hari: state.hari, jam: state.jam, m2: state.m2 };
-    const quantity =
-        (state.unit && state.unit > 0 ? state.unit : 1) *
-        (state.hari && state.hari > 0 ? state.hari : 1) *
-        (state.jam && state.jam > 0 ? state.jam : 1) *
-        (state.m2 && state.m2 > 0 ? state.m2 : 1);
-    const subtotal = quantity * (state.pricePerUnit || 0);
     const factorText = buildFactorText(factors);
-    const unitText = buildUnitText(factors);
     const label = state.label.trim();
+
+    // Tentukan PRIMARY factor — yang jadi nilai di kolom qty.
+    // Priority: unit > m² (kalau keduanya kosong → 1 sebagai fallback "set")
+    const hasUnit = state.unit !== undefined && state.unit > 0;
+    const hasM2 = state.m2 !== undefined && state.m2 > 0;
+    const primaryLabel: 'unit' | 'm²' = hasM2 && !hasUnit ? 'm²' : 'unit';
+    const primaryValue = primaryLabel === 'unit'
+        ? (hasUnit ? state.unit! : 1)
+        : (hasM2 ? state.m2! : 1);
+
+    // SECONDARY multiplier: gabungan semua factor selain primary
+    const secondaryMultiplier =
+        (primaryLabel !== 'unit' && hasUnit ? state.unit! : 1) *
+        (primaryLabel !== 'm²' && hasM2 ? state.m2! : 1) *
+        (state.hari && state.hari > 0 ? state.hari : 1) *
+        (state.jam && state.jam > 0 ? state.jam : 1);
+
+    // Subtotal = primary × secondary × harga
+    const subtotal = primaryValue * secondaryMultiplier * (state.pricePerUnit || 0);
+    // pricePerUnit TIDAK di-scale — marketing ingin tampil harga aslinya (mis. 350).
+    // unitMultiplier di-store terpisah supaya PDF render: qty × unitMultiplier × price = subtotal yang benar.
+    const effectivePricePerUnit = state.pricePerUnit || 0;
+
+    // Build unit text — "unit - 3 hari" supaya kolom Qty tampil "2 unit - 3 hari"
+    const unitText = factorText ? buildUnitText(factors, primaryLabel) : 'set';
 
     let descriptionText = "";
     if (state.existingDescription && state.existingDescription.trim()) {
@@ -89,9 +116,10 @@ export function buildResult(state: {
     }
 
     return {
-        quantity,
+        quantity: primaryValue,
+        unitMultiplier: secondaryMultiplier,
         unit: unitText,
-        pricePerUnit: state.pricePerUnit,
+        pricePerUnit: effectivePricePerUnit,
         subtotal,
         descriptionText,
         factors,
@@ -245,7 +273,7 @@ export default function QuotationItemCalculator({
                             />
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-2">
-                            💡 Contoh: <b>3 unit × 3 hari = 9 qty</b>. Kalau cuma "3 unit" saja, isi 1 field saja.
+                            💡 Contoh: isi <b>2 unit</b> + <b>3 hari</b> → tampil di Qty sebagai <b>&quot;2 unit - 3 hari&quot;</b> (terpisah, bukan digabung 6 unit-hari). Harga satuan di-scale otomatis.
                         </p>
                     </div>
 
@@ -279,10 +307,13 @@ export default function QuotationItemCalculator({
                         </div>
                         <div className="grid grid-cols-2 gap-3 mb-3">
                             <div>
-                                <div className="text-xs text-slate-500">Quantity</div>
-                                <div className="text-2xl font-bold font-mono text-slate-900">
+                                <div className="text-xs text-slate-500">Qty (tampil di tabel)</div>
+                                <div className="text-xl font-bold font-mono text-slate-900 leading-tight">
                                     {result.quantity || 0}{" "}
-                                    <span className="text-sm font-normal text-slate-500">{result.unit}</span>
+                                    <span className="text-sm font-normal text-slate-600">{result.unit}</span>
+                                </div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">
+                                    Harga satuan: <b>{fmtRp(result.pricePerUnit)}</b>
                                 </div>
                             </div>
                             <div>

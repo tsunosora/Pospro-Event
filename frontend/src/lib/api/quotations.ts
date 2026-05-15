@@ -40,6 +40,8 @@ export interface QuotationItem {
     description: string;
     unit?: string | null;
     quantity: number | string;
+    /** Multiplier tambahan untuk multi-faktor sewa (mis. hari). Subtotal = qty × unitMultiplier × price. Default 1. */
+    unitMultiplier?: number | string | null;
     price: number | string;
     orderIndex?: number;
     productVariantId?: number | null;

@@ -15,7 +15,7 @@ import dayjs from "dayjs";
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import EditTransactionModal from './EditTransactionModal';
 
-type SalesPeriodKey = 'today' | 'yesterday' | 'this_week' | 'this_month' | 'last_month' | 'this_year' | 'all' | 'custom';
+type SalesPeriodKey = 'today' | 'yesterday' | 'this_week' | 'this_month' | 'last_month' | 'last_3_months' | 'this_year' | 'all' | 'custom';
 type ReportTab = 'ringkasan' | 'trend' | 'histori';
 
 const SALES_PERIODS: { key: SalesPeriodKey; label: string }[] = [
@@ -24,7 +24,8 @@ const SALES_PERIODS: { key: SalesPeriodKey; label: string }[] = [
     { key: 'this_week', label: 'Minggu Ini' },
     { key: 'this_month', label: 'Bulan Ini' },
     { key: 'last_month', label: 'Bulan Lalu' },
-    { key: 'this_year', label: 'Tahun Ini' },
+    { key: 'last_3_months', label: '3 Bulan' },
+    { key: 'this_year', label: '1 Tahun' },
     { key: 'all', label: 'Semua' },
     { key: 'custom', label: 'Kustom' },
 ];
@@ -37,6 +38,7 @@ function getSalesPeriodDates(period: SalesPeriodKey, customStart: string, custom
         case 'this_week': return { startDate: now.startOf('week').format('YYYY-MM-DD'), endDate: now.endOf('week').format('YYYY-MM-DD') };
         case 'this_month': return { startDate: now.startOf('month').format('YYYY-MM-DD'), endDate: now.endOf('month').format('YYYY-MM-DD') };
         case 'last_month': { const lm = now.subtract(1, 'month'); return { startDate: lm.startOf('month').format('YYYY-MM-DD'), endDate: lm.endOf('month').format('YYYY-MM-DD') }; }
+        case 'last_3_months': return { startDate: now.subtract(2, 'month').startOf('month').format('YYYY-MM-DD'), endDate: now.endOf('month').format('YYYY-MM-DD') };
         case 'this_year': return { startDate: now.startOf('year').format('YYYY-MM-DD'), endDate: now.endOf('year').format('YYYY-MM-DD') };
         case 'custom': return { startDate: customStart || undefined, endDate: customEnd || undefined };
         default: return {};

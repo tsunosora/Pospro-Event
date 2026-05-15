@@ -132,6 +132,7 @@ function BrandForm({
     const [openingTemplateEn, setOpeningTemplateEn] = useState(initial?.openingTemplateEn ?? "");
     const [textLang, setTextLang] = useState<'id' | 'en'>('id');
     const [themeColor, setThemeColor] = useState<string>(initial?.themeColor ?? (brand === "EXINDO" ? "#1e40af" : brand === "XPOSER" ? "#0d9488" : "#c8203a"));
+    const [invoiceLabels, setInvoiceLabels] = useState<Record<string, string>>(initial?.invoiceLabelOverrides ?? {});
     const [isActive, setIsActive] = useState(initial?.isActive ?? true);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -160,6 +161,7 @@ function BrandForm({
         setInvoiceClosingTextEn(initial?.invoiceClosingTextEn ?? "");
         setOpeningTemplateEn(initial?.openingTemplateEn ?? "");
         setThemeColor(initial?.themeColor ?? (brand === "EXINDO" ? "#1e40af" : brand === "XPOSER" ? "#0d9488" : "#c8203a"));
+        setInvoiceLabels(initial?.invoiceLabelOverrides ?? {});
         setIsActive(initial?.isActive ?? true);
     }, [initial, brand]);
 
@@ -181,6 +183,7 @@ function BrandForm({
             invoiceClosingTextEn: invoiceClosingTextEn.trim() || null,
             openingTemplateEn: openingTemplateEn.trim() || null,
             themeColor: themeColor.trim() || null,
+            invoiceLabelOverrides: invoiceLabels,
             isActive,
         }),
         onSuccess: () => {
@@ -715,6 +718,110 @@ function BrandForm({
                 </div>
             </div>
 
+            <div className="border-2 border-amber-200 bg-amber-50/30 rounded p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                    <div className="text-amber-700 text-lg leading-none">✍️</div>
+                    <div className="flex-1">
+                        <div className="text-xs font-bold text-amber-900 uppercase tracking-wide">
+                            Label Invoice (Custom)
+                        </div>
+                        <div className="text-[10px] text-amber-700 mt-0.5">
+                            Override istilah di paragraf opening invoice. Kosongkan = pakai default.
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <LabelField
+                        label="Prefix DP"
+                        default_="Down Payment"
+                        value={invoiceLabels.dp ?? ""}
+                        onChange={(v) => setInvoiceLabels((m) => ({ ...m, dp: v }))}
+                    />
+                    <LabelField
+                        label="Prefix Pelunasan"
+                        default_="Final Payment"
+                        value={invoiceLabels.pelunasan ?? ""}
+                        onChange={(v) => setInvoiceLabels((m) => ({ ...m, pelunasan: v }))}
+                    />
+                    <LabelField
+                        label="Prefix Full"
+                        default_="Full Payment"
+                        value={invoiceLabels.full ?? ""}
+                        onChange={(v) => setInvoiceLabels((m) => ({ ...m, full: v }))}
+                    />
+                    <LabelField
+                        label="Kata kerja (Sewa)"
+                        default_="Pekerjaan pemasangan"
+                        value={invoiceLabels.verbSewa ?? ""}
+                        onChange={(v) => setInvoiceLabels((m) => ({ ...m, verbSewa: v }))}
+                    />
+                    <LabelField
+                        label="Kata kerja (Pengadaan)"
+                        default_="Pekerjaan pengadaan"
+                        value={invoiceLabels.verbPengadaan ?? ""}
+                        onChange={(v) => setInvoiceLabels((m) => ({ ...m, verbPengadaan: v }))}
+                    />
+                    <LabelField
+                        label="Penghubung event"
+                        default_="untuk event"
+                        value={invoiceLabels.untukEvent ?? ""}
+                        onChange={(v) => setInvoiceLabels((m) => ({ ...m, untukEvent: v }))}
+                    />
+                    <LabelField
+                        label="Penghubung tanggal"
+                        default_="pada tanggal"
+                        value={invoiceLabels.padaTanggal ?? ""}
+                        onChange={(v) => setInvoiceLabels((m) => ({ ...m, padaTanggal: v }))}
+                    />
+                    <LabelField
+                        label="Penghubung lokasi"
+                        default_="di"
+                        value={invoiceLabels.di ?? ""}
+                        onChange={(v) => setInvoiceLabels((m) => ({ ...m, di: v }))}
+                    />
+                    <div className="sm:col-span-2">
+                        <LabelField
+                            label="Penutup kalimat opening"
+                            default_=", dengan rincian sebagai berikut:"
+                            value={invoiceLabels.rincianSuffix ?? ""}
+                            onChange={(v) => setInvoiceLabels((m) => ({ ...m, rincianSuffix: v }))}
+                        />
+                    </div>
+                </div>
+
+                {/* Preview live */}
+                <div className="bg-white border border-amber-300 rounded p-2 text-[11px] mt-2">
+                    <div className="text-[9px] font-bold uppercase text-amber-700 mb-1">📄 Preview Opening Invoice DP:</div>
+                    <div className="italic leading-relaxed">
+                        <strong>{invoiceLabels.dp || "Down Payment"}</strong>{" "}
+                        {invoiceLabels.verbSewa || "Pekerjaan pemasangan"}{" "}
+                        <strong>Sewa Booth Special Design</strong>{" "}
+                        {invoiceLabels.untukEvent || "untuk event"}{" "}
+                        <strong>GPPE 2026</strong>{" "}
+                        {invoiceLabels.padaTanggal || "pada tanggal"}{" "}
+                        <strong>6 – 9 Mei 2026</strong>{" "}
+                        {invoiceLabels.di || "di"}{" "}
+                        <strong>NICE, PIK</strong>
+                        {invoiceLabels.rincianSuffix || ", dengan rincian sebagai berikut:"}
+                    </div>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (confirm("Reset semua label invoice ke default?")) {
+                                setInvoiceLabels({});
+                            }
+                        }}
+                        className="text-[10px] text-amber-700 hover:underline"
+                    >
+                        Reset semua ke default
+                    </button>
+                </div>
+            </div>
+
             <Field label="Footer Lama (legacy, optional)" hint="Tidak dipakai lagi — gunakan 'Penutup Surat' di atas.">
                 <textarea
                     value={letterheadFooter}
@@ -735,6 +842,27 @@ function BrandForm({
                     Simpan {meta.short}
                 </button>
             </div>
+        </div>
+    );
+}
+
+/** Mini input dengan placeholder default — untuk daftar label custom invoice. */
+function LabelField({ label, default_, value, onChange }: {
+    label: string;
+    default_: string;
+    value: string;
+    onChange: (v: string) => void;
+}) {
+    return (
+        <div>
+            <label className="block text-[10px] font-semibold text-amber-900 mb-0.5">{label}</label>
+            <input
+                type="text"
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={`Default: ${default_}`}
+                className="w-full px-2 py-1 text-xs border border-amber-300 rounded bg-white"
+            />
         </div>
     );
 }

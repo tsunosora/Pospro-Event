@@ -265,7 +265,7 @@
     {{else if doc.isInvoice}}
     <p class="opening">
       {{i18n.denganHormat}}<br/>
-      {{#eq doc.invoicePart "DP"}}<strong>Down Payment</strong> {{/eq}}{{#eq doc.invoicePart "PELUNASAN"}}<strong>Final Payment</strong> {{/eq}}Pekerjaan pengadaan <strong>{{doc.variantLabel}}</strong>{{#if hasMultipleEvents}} untuk event{{#each events}} <strong>{{this.name}}</strong>{{#if this.dateRange}} tanggal <strong>{{this.dateRange}}</strong>{{/if}}{{#if this.location}} di <strong>{{this.location}}</strong>{{/if}}{{#unless @last}};{{/unless}}{{/each}}{{else}}{{#if project.name}} untuk event <strong>{{project.name}}</strong>{{/if}}{{#if project.dateRange}} pada tanggal <strong>{{project.dateRange}}</strong>{{/if}}{{#if project.location}} di <strong>{{project.location}}</strong>{{/if}}{{/if}}, dengan rincian sebagai berikut:
+      {{{invoiceOpeningHtml}}}
     </p>
     {{else}}
     <p class="opening">

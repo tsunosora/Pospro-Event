@@ -2,6 +2,8 @@ export interface QuotationItemInput {
     description: string;
     unit?: string;
     quantity: number | string;      // decimal — diterima string biar presisi
+    /** Multiplier tambahan untuk multi-faktor (mis. hari sewa). Subtotal = qty × unitMultiplier × price. */
+    unitMultiplier?: number | string | null;
     price: number | string;
     orderIndex?: number;
     productVariantId?: number | null;

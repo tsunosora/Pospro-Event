@@ -72,6 +72,9 @@ export interface QuotationRenderContext {
     };
     // Custom opening paragraph — kalau quotation set customOpeningText, pakai itu (override template default)
     customOpening: string | null;
+    // Pre-built HTML untuk invoice opening paragraph — dengan custom label dari BrandSettings.invoiceLabelOverrides.
+    // Null kalau bukan invoice atau pakai customOpening manual.
+    invoiceOpeningHtml: string | null;
     // Lampiran info — jumlah angka + terbilang (mis. {count: 1, label: "1 (satu)"})
     attachment: { count: number; label: string };
     // Custom text per brand (override default ketentuan) — kalau quotation set customX, pakai itu
@@ -615,6 +618,91 @@ function buildInvoiceSubject(part: string | null | undefined, variantLabel: stri
     return `${base} — ${variantLabel}`;
 }
 
+/**
+ * Default labels untuk opening paragraph invoice. Bisa di-override per brand
+ * via BrandSettings.invoiceLabelOverrides (JSON).
+ */
+const INVOICE_OPENING_DEFAULTS = {
+    dp: 'Down Payment',
+    pelunasan: 'Final Payment',
+    full: 'Full Payment',
+    verbSewa: 'Pekerjaan pemasangan',
+    verbPengadaan: 'Pekerjaan pengadaan',
+    untukEvent: 'untuk event',
+    padaTanggal: 'pada tanggal',
+    di: 'di',
+    rincianSuffix: ', dengan rincian sebagai berikut:',
+};
+
+export type InvoiceOpeningLabelKey = keyof typeof INVOICE_OPENING_DEFAULTS;
+
+function escapeHtml(s: string): string {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c] as string));
+}
+
+/**
+ * Build HTML untuk paragraf opening invoice — dengan label custom dari brand (atau default).
+ * Format:
+ *   "{prefix} {verb} {variantLabel} untuk event {project.name} pada tanggal {dateRange} di {location}, dengan rincian sebagai berikut:"
+ *
+ * Multi-event: kalau ada >1 event, gabungkan dengan separator ";".
+ * Empty fields auto-skip (gak ke-render).
+ */
+function buildInvoiceOpeningHtml(opts: {
+    invoicePart: 'DP' | 'PELUNASAN' | 'FULL' | null;
+    templateKey: 'sewa' | 'pengadaan-booth';
+    variantLabel: string;
+    project: { name: string; location: string; dateRange: string };
+    events: Array<{ name: string; location: string; dateRange: string }>;
+    labelOverrides: Record<string, string> | null;
+}): string {
+    const L = (key: InvoiceOpeningLabelKey): string => {
+        const override = opts.labelOverrides?.[key]?.trim();
+        return override || INVOICE_OPENING_DEFAULTS[key];
+    };
+
+    // Prefix berdasarkan invoicePart
+    let prefix = '';
+    if (opts.invoicePart === 'DP') prefix = `<strong>${escapeHtml(L('dp'))}</strong> `;
+    else if (opts.invoicePart === 'PELUNASAN') prefix = `<strong>${escapeHtml(L('pelunasan'))}</strong> `;
+    else if (opts.invoicePart === 'FULL') prefix = `<strong>${escapeHtml(L('full'))}</strong> `;
+
+    // Verb per template
+    const verb = opts.templateKey === 'sewa' ? L('verbSewa') : L('verbPengadaan');
+
+    // Project / event text
+    const hasMultipleEvents = opts.events.length > 1;
+    let projectText = '';
+
+    if (hasMultipleEvents) {
+        // Multi-event: gabungkan dengan separator
+        projectText = ` ${escapeHtml(L('untukEvent'))}`;
+        const parts: string[] = [];
+        for (const ev of opts.events) {
+            let p = '';
+            if (ev.name) p += ` <strong>${escapeHtml(ev.name)}</strong>`;
+            if (ev.dateRange && ev.dateRange !== '-') p += ` ${escapeHtml(L('padaTanggal'))} <strong>${escapeHtml(ev.dateRange)}</strong>`;
+            if (ev.location) p += ` ${escapeHtml(L('di'))} <strong>${escapeHtml(ev.location)}</strong>`;
+            parts.push(p.trim());
+        }
+        projectText += ' ' + parts.join('; ');
+    } else {
+        if (opts.project.name) {
+            projectText += ` ${escapeHtml(L('untukEvent'))} <strong>${escapeHtml(opts.project.name)}</strong>`;
+        }
+        if (opts.project.dateRange && opts.project.dateRange !== '-') {
+            projectText += ` ${escapeHtml(L('padaTanggal'))} <strong>${escapeHtml(opts.project.dateRange)}</strong>`;
+        }
+        if (opts.project.location) {
+            projectText += ` ${escapeHtml(L('di'))} <strong>${escapeHtml(opts.project.location)}</strong>`;
+        }
+    }
+
+    return `${prefix}${escapeHtml(verb)} <strong>${escapeHtml(opts.variantLabel)}</strong>${projectText}${escapeHtml(L('rincianSuffix'))}`;
+}
+
 @Injectable()
 export class QuotationContextBuilder {
     constructor(private prisma: PrismaService) { }
@@ -700,7 +788,7 @@ export class QuotationContextBuilder {
             unit: it.unit ?? '',
             quantity: formatQty(it.quantity.toString(), it.unit),
             price: formatRp(it.price.toString(), useUsd),
-            subtotal: formatRp(Number(it.quantity) * Number(it.price), useUsd),
+            subtotal: formatRp(Number(it.quantity) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price), useUsd),
             categoryName: it.categoryName ?? null,
         }));
 
@@ -728,11 +816,11 @@ export class QuotationContextBuilder {
                 unit: it.unit ?? '',
                 quantity: formatQty(it.quantity.toString(), it.unit),
                 price: formatRp(it.price.toString(), useUsd),
-                subtotal: formatRp(Number(it.quantity) * Number(it.price), useUsd),
+                subtotal: formatRp(Number(it.quantity) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price), useUsd),
                 categoryName: effectiveCategory,
             });
             group.nextNo += 1;
-            group.subtotalNum += Number(it.quantity) * Number(it.price);
+            group.subtotalNum += Number(it.quantity) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price);
             // Update lastCategory hanya kalau item ini PUNYA categoryName eksplisit
             if (it.categoryName) {
                 lastCategory = it.categoryName;
@@ -782,11 +870,11 @@ export class QuotationContextBuilder {
                     unit: it.unit ?? '',
                     quantity: formatQty(it.quantity.toString(), it.unit),
                     price: formatRp(it.price.toString(), useUsd),
-                    subtotal: formatRp(Number(it.quantity) * Number(it.price), useUsd),
+                    subtotal: formatRp(Number(it.quantity) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price), useUsd),
                     categoryName: it.categoryName ?? null,
                 });
                 b.nextNo += 1;
-                b.subtotalNum += Number(it.quantity) * Number(it.price);
+                b.subtotalNum += Number(it.quantity) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price);
             }
             itemsByEvent = orderedIndices
                 .sort((a, b) => a - b)
@@ -831,11 +919,11 @@ export class QuotationContextBuilder {
                     unit: it.unit ?? '',
                     quantity: formatQty(it.quantity.toString(), it.unit),
                     price: formatRp(it.price.toString(), useUsd),
-                    subtotal: formatRp(Number(it.quantity) * Number(it.price), useUsd),
+                    subtotal: formatRp(Number(it.quantity) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price), useUsd),
                     categoryName: it.categoryName ?? null,
                 });
                 p.nextNo += 1;
-                p.subtotalNum += Number(it.quantity) * Number(it.price);
+                p.subtotalNum += Number(it.quantity) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price);
             }
             packages = pkgOrder.map((name, displayIdx) => {
                 const p = pkgMap.get(name)!;
@@ -966,6 +1054,23 @@ export class QuotationContextBuilder {
                     if (inv) return inv;
                 }
                 return quotation.customOpeningText?.trim() || null;
+            })(),
+            // Pre-built HTML untuk invoice opening — pakai labels custom dari BrandSettings.invoiceLabelOverrides
+            // Kalau quotation bukan invoice → null (template fallback ke quotation opening default).
+            invoiceOpeningHtml: (() => {
+                if (quotation.type !== 'INVOICE') return null;
+                return buildInvoiceOpeningHtml({
+                    invoicePart: quotation.invoicePart as 'DP' | 'PELUNASAN' | 'FULL' | null,
+                    templateKey,
+                    variantLabel,
+                    project: {
+                        name: quotation.projectName ?? '',
+                        location: quotation.eventLocation ?? '',
+                        dateRange: formatDateRange(quotation.eventDateStart, quotation.eventDateEnd, lang),
+                    },
+                    events: buildEventsList(quotation, lang),
+                    labelOverrides: ((brandSettings as any)?.invoiceLabelOverrides ?? null) as Record<string, string> | null,
+                });
             })(),
             // Helper untuk combine prepend + base + append (skip yang kosong)
             // Lokal scope, di-spread ke brandTexts di bawah

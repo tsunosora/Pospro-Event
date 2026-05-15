@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { getReceivablesDashboard, getQuotation, type ReceivablesDashboard, type Quotation } from "@/lib/api/quotations";
 import { PaymentDetailModal } from "@/components/PaymentDetailModal";
+import { DateRangeFilter, presetToRange, type DateRange } from "@/components/DateRangeFilter";
 
 const fmtRp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 const fmtShort = (n: number) => {
@@ -50,6 +51,53 @@ export default function InvoicesPiutangPage() {
     const [activeTab, setActiveTab] = useState<"customer" | "overdue" | "income">("customer");
     const [detailTargetId, setDetailTargetId] = useState<number | null>(null);
     const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+    const [dateRange, setDateRange] = useState<DateRange>({ preset: "ALL" });
+
+    // Compute date filter window
+    const { from: rangeFrom, to: rangeTo } = useMemo(
+        () => presetToRange(dateRange.preset, { from: dateRange.fromDate, to: dateRange.toDate }),
+        [dateRange]
+    );
+    const hasDateFilter = !!(rangeFrom || rangeTo);
+
+    // Filter overdueInvoices by date (issue date)
+    const filteredOverdueInvoices = useMemo(() => {
+        if (!data) return [];
+        if (!hasDateFilter) return data.overdueInvoices;
+        return data.overdueInvoices.filter((inv) => {
+            if (!inv.date) return false;
+            const d = new Date(inv.date);
+            if (rangeFrom && d < rangeFrom) return false;
+            if (rangeTo && d > rangeTo) return false;
+            return true;
+        });
+    }, [data, hasDateFilter, rangeFrom, rangeTo]);
+
+    // Filter incomeMonthly by date range (using month key)
+    const filteredIncomeMonthly = useMemo(() => {
+        if (!data) return [];
+        if (!hasDateFilter) return data.incomeMonthly;
+        return data.incomeMonthly.filter((m) => {
+            // m.month = "YYYY-MM" → parse to first of month
+            const [y, mo] = m.month.split("-");
+            const dt = new Date(parseInt(y), parseInt(mo) - 1, 1);
+            const dtEnd = new Date(parseInt(y), parseInt(mo), 0, 23, 59, 59);
+            // Hit kalau bulan beririsan dengan range
+            if (rangeFrom && dtEnd < rangeFrom) return false;
+            if (rangeTo && dt > rangeTo) return false;
+            return true;
+        });
+    }, [data, hasDateFilter, rangeFrom, rangeTo]);
+
+    // Filtered income totals
+    const filteredIncomeTotal = useMemo(
+        () => filteredIncomeMonthly.reduce((s, m) => s + m.amount, 0),
+        [filteredIncomeMonthly]
+    );
+    const filteredOverdueTotal = useMemo(
+        () => filteredOverdueInvoices.reduce((s, inv) => s + inv.sisa, 0),
+        [filteredOverdueInvoices]
+    );
 
     // Fetch invoice detail saat user klik row
     const { data: detailInvoice } = useQuery<Quotation>({
@@ -74,6 +122,9 @@ export default function InvoicesPiutangPage() {
         if (!data) return 0;
         return Math.max(1, ...data.incomeMonthly.map((m) => m.amount));
     }, [data]);
+    const filteredMaxIncome = useMemo(() => {
+        return Math.max(1, ...filteredIncomeMonthly.map((m) => m.amount));
+    }, [filteredIncomeMonthly]);
 
     if (isLoading) {
         return (
@@ -108,6 +159,14 @@ export default function InvoicesPiutangPage() {
                 </p>
             </div>
 
+            {/* Date filter — apply ke overdue & income chart */}
+            <div className="bg-white border rounded-lg p-3">
+                <DateRangeFilter value={dateRange} onChange={setDateRange} />
+                <p className="text-[10px] text-slate-500 mt-1.5">
+                    💡 Filter ini berlaku untuk <b>tab Overdue</b> &amp; <b>chart Pemasukan</b>. Rekap per-customer (di tab Per Customer) tetap menampilkan semua data karena aggregat per-pelanggan.
+                </p>
+            </div>
+
             {/* KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <KpiCard
@@ -119,11 +178,11 @@ export default function InvoicesPiutangPage() {
                     icon={<Wallet className="h-5 w-5" />}
                 />
                 <KpiCard
-                    title="🚨 Overdue"
-                    value={fmtShort(data.kpi.overdueAmount)}
-                    fullValue={fmtRp(data.kpi.overdueAmount)}
-                    sub={`${data.kpi.overdueCount} invoice lewat tempo`}
-                    color={data.kpi.overdueCount > 0 ? "red" : "slate"}
+                    title={hasDateFilter ? "🚨 Overdue (filtered)" : "🚨 Overdue"}
+                    value={fmtShort(hasDateFilter ? filteredOverdueTotal : data.kpi.overdueAmount)}
+                    fullValue={fmtRp(hasDateFilter ? filteredOverdueTotal : data.kpi.overdueAmount)}
+                    sub={`${hasDateFilter ? filteredOverdueInvoices.length : data.kpi.overdueCount} invoice lewat tempo`}
+                    color={(hasDateFilter ? filteredOverdueInvoices.length : data.kpi.overdueCount) > 0 ? "red" : "slate"}
                     icon={<AlertTriangle className="h-5 w-5" />}
                 />
                 <KpiCard
@@ -171,7 +230,7 @@ export default function InvoicesPiutangPage() {
                     <Users className="h-4 w-4" /> Per Customer ({data.byCustomer.length})
                 </TabButton>
                 <TabButton active={activeTab === "overdue"} onClick={() => setActiveTab("overdue")}>
-                    <AlertTriangle className="h-4 w-4" /> Overdue ({data.overdueInvoices.length})
+                    <AlertTriangle className="h-4 w-4" /> Overdue ({hasDateFilter ? filteredOverdueInvoices.length : data.overdueInvoices.length})
                 </TabButton>
                 <TabButton active={activeTab === "income"} onClick={() => setActiveTab("income")}>
                     <TrendingUp className="h-4 w-4" /> Pemasukan 12 Bulan
@@ -316,7 +375,7 @@ export default function InvoicesPiutangPage() {
             {/* TAB: Overdue */}
             {activeTab === "overdue" && (
                 <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                    {data.overdueInvoices.length === 0 ? (
+                    {filteredOverdueInvoices.length === 0 ? (
                         <div className="text-center py-10 text-slate-500">
                             <div className="text-4xl mb-2">🎉</div>
                             <div className="font-semibold text-emerald-700">Tidak ada invoice lewat tempo!</div>
@@ -334,7 +393,7 @@ export default function InvoicesPiutangPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {data.overdueInvoices.map((inv) => {
+                                {filteredOverdueInvoices.map((inv) => {
                                     const sev = severity(inv.daysOverdue);
                                     return (
                                         <tr key={inv.id} className="border-b hover:bg-red-50/30">
@@ -396,14 +455,14 @@ export default function InvoicesPiutangPage() {
                 <div className="bg-white rounded-lg shadow-sm border p-4">
                     <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
                         <TrendingUp className="h-5 w-5 text-emerald-600" />
-                        Pemasukan 12 Bulan Terakhir
+                        Pemasukan {hasDateFilter ? `(${filteredIncomeMonthly.length} bulan terfilter)` : "12 Bulan Terakhir"}
                     </h3>
                     <p className="text-xs text-slate-500 mb-4">
                         Sumber: Cashflow IN kategori &quot;Pembayaran Invoice&quot;. Auto-tercatat saat admin Tandai Lunas.
                     </p>
                     <div className="space-y-1.5">
-                        {data.incomeMonthly.map((m) => {
-                            const pct = (m.amount / maxIncome) * 100;
+                        {(hasDateFilter ? filteredIncomeMonthly : data.incomeMonthly).map((m) => {
+                            const pct = (m.amount / (hasDateFilter ? filteredMaxIncome : maxIncome)) * 100;
                             return (
                                 <div key={m.month} className="flex items-center gap-2 text-xs">
                                     <div className="w-14 text-slate-600 font-semibold text-right flex-shrink-0">
@@ -423,9 +482,11 @@ export default function InvoicesPiutangPage() {
                         })}
                     </div>
                     <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs">
-                        <span className="text-slate-600">Total pemasukan 12 bulan:</span>
+                        <span className="text-slate-600">
+                            Total pemasukan {hasDateFilter ? "(filtered)" : "12 bulan"}:
+                        </span>
                         <span className="font-mono font-bold text-emerald-700">
-                            {fmtRp(data.incomeMonthly.reduce((s, m) => s + m.amount, 0))}
+                            {fmtRp(hasDateFilter ? filteredIncomeTotal : data.incomeMonthly.reduce((s, m) => s + m.amount, 0))}
                         </span>
                     </div>
                 </div>

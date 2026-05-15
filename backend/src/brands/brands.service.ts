@@ -36,6 +36,7 @@ export interface UpsertBrandInput {
     invoiceClosingTextEn?: string | null;
     openingTemplateEn?: string | null;
     themeColor?: string | null;
+    invoiceLabelOverrides?: Record<string, string> | null;
     isActive?: boolean;
     logoImageUrl?: string | null;
     letterheadImageUrl?: string | null;
@@ -131,6 +132,21 @@ export class BrandsService {
             invoiceClosingTextEn: input.invoiceClosingTextEn ?? null,
             openingTemplateEn: input.openingTemplateEn?.trim() || null,
             themeColor: input.themeColor?.trim() || null,
+            // Sanitize invoiceLabelOverrides — keep only non-empty string values
+            ...(input.invoiceLabelOverrides !== undefined
+                ? {
+                    invoiceLabelOverrides: (() => {
+                        const raw = input.invoiceLabelOverrides;
+                        if (!raw || typeof raw !== 'object') return Prisma.JsonNull;
+                        const cleaned: Record<string, string> = {};
+                        for (const [k, v] of Object.entries(raw)) {
+                            const trimmed = typeof v === 'string' ? v.trim() : '';
+                            if (trimmed) cleaned[k] = trimmed;
+                        }
+                        return Object.keys(cleaned).length > 0 ? (cleaned as any) : Prisma.JsonNull;
+                    })(),
+                } as any
+                : {}),
             isActive: input.isActive ?? true,
             ...(input.logoImageUrl !== undefined ? { logoImageUrl: input.logoImageUrl } : {}),
             ...(input.letterheadImageUrl !== undefined ? { letterheadImageUrl: input.letterheadImageUrl } : {}),

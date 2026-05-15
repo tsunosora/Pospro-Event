@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTransactions, payOffTransaction, addDPTransaction, getSettings, getBankAccounts, getUsers } from '@/lib/api';
 import { mapTransactionToReceipt, handlePrintSnap, handleShareWA } from '@/lib/receipt';
@@ -9,6 +9,7 @@ import dayjs from "dayjs";
 import Link from 'next/link';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import EditTransactionModal from '@/app/reports/sales/EditTransactionModal';
+import { DateRangeFilter, presetToRange, type DateRange } from '@/components/DateRangeFilter';
 
 export default function DPTransactionsPage() {
     const queryClient = useQueryClient();
@@ -29,8 +30,27 @@ export default function DPTransactionsPage() {
 
     const [activeTab, setActiveTab] = useState<'Semua' | 'DP' | 'Kredit' | 'Bayar Nanti'>('Semua');
     const [search, setSearch] = useState('');
+    const [dateRange, setDateRange] = useState<DateRange>({ preset: 'ALL' });
 
-    const allUnpaid = transactions?.filter((t: any) => t.status === 'PARTIAL' || t.status === 'PENDING') || [];
+    // Date filter window
+    const { from: rangeFrom, to: rangeTo } = useMemo(
+        () => presetToRange(dateRange.preset, { from: dateRange.fromDate, to: dateRange.toDate }),
+        [dateRange]
+    );
+
+    const allUnpaidRaw = transactions?.filter((t: any) => t.status === 'PARTIAL' || t.status === 'PENDING') || [];
+    // Apply date filter on createdAt (atau date kalau ada)
+    const allUnpaid = useMemo(() => {
+        if (!rangeFrom && !rangeTo) return allUnpaidRaw;
+        return allUnpaidRaw.filter((t: any) => {
+            const ds = t.createdAt || t.date || t.transactionDate;
+            if (!ds) return false;
+            const d = new Date(ds);
+            if (rangeFrom && d < rangeFrom) return false;
+            if (rangeTo && d > rangeTo) return false;
+            return true;
+        });
+    }, [allUnpaidRaw, rangeFrom, rangeTo]);
     const bayarNantiList = allUnpaid.filter((t: any) => t.status === 'PENDING');
     const dpTransactions = allUnpaid.filter((t: any) => t.status === 'PARTIAL');
     const kreditList = dpTransactions.filter((t: any) => Number(t.downPayment) === 0);
@@ -162,6 +182,11 @@ export default function DPTransactionsPage() {
                         <X className="w-4 h-4" />
                     </button>
                 )}
+            </div>
+
+            {/* Date filter */}
+            <div className="bg-background border border-border rounded-xl p-3">
+                <DateRangeFilter value={dateRange} onChange={setDateRange} />
             </div>
 
             {/* Stats */}

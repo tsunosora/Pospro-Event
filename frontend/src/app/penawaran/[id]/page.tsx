@@ -216,6 +216,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             description: r.descriptionText,
             unit: r.unit,
             quantity: r.quantity,
+            unitMultiplier: r.unitMultiplier,
             price: r.pricePerUnit,
         } : it));
         setCalcOpenKey(null);
@@ -571,6 +572,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 description: it.description,
                 unit: it.unit || undefined,
                 quantity: it.quantity,
+                unitMultiplier: (it as any).unitMultiplier ?? null,
                 price: it.price,
                 orderIndex: idx,
                 productVariantId: it.productVariantId ?? null,

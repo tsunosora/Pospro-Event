@@ -9,6 +9,7 @@ export type DateRangePreset =
     | "TODAY"
     | "YESTERDAY"
     | "THIS_WEEK"
+    | "THIS_MONTH"
     | "LAST_MONTH"
     | "LAST_3_MONTHS"
     | "LAST_YEAR"
@@ -26,7 +27,8 @@ const PRESET_LABELS: Record<DateRangePreset, { label: string; emoji: string }> =
     TODAY: { label: "Hari Ini", emoji: "📍" },
     YESTERDAY: { label: "Kemarin", emoji: "🌙" },
     THIS_WEEK: { label: "Minggu Ini", emoji: "📆" },
-    LAST_MONTH: { label: "Bulan Lalu", emoji: "🗓️" },
+    THIS_MONTH: { label: "Bulan Ini", emoji: "🗓️" },
+    LAST_MONTH: { label: "Bulan Lalu", emoji: "📋" },
     LAST_3_MONTHS: { label: "3 Bulan", emoji: "📊" },
     LAST_YEAR: { label: "1 Tahun", emoji: "📈" },
     CUSTOM: { label: "Custom", emoji: "🎯" },
@@ -48,6 +50,8 @@ export function presetToRange(preset: DateRangePreset, custom?: { from?: string 
             };
         case "THIS_WEEK":
             return { from: now.startOf("week").toDate(), to: now.endOf("week").toDate() };
+        case "THIS_MONTH":
+            return { from: now.startOf("month").toDate(), to: now.endOf("month").toDate() };
         case "LAST_MONTH":
             return {
                 from: now.subtract(1, "month").startOf("month").toDate(),
@@ -108,7 +112,7 @@ export function DateRangeFilter({
     const [showCustom, setShowCustom] = useState(value.preset === "CUSTOM");
 
     const presets: DateRangePreset[] = [
-        "ALL", "TODAY", "YESTERDAY", "THIS_WEEK", "LAST_MONTH", "LAST_3_MONTHS", "LAST_YEAR", "CUSTOM",
+        "ALL", "TODAY", "YESTERDAY", "THIS_WEEK", "THIS_MONTH", "LAST_MONTH", "LAST_3_MONTHS", "LAST_YEAR", "CUSTOM",
     ];
 
     function handlePresetClick(p: DateRangePreset) {

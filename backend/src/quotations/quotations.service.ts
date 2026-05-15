@@ -84,8 +84,9 @@ function sanitizeAdditionalEvents(
 function calcTotals(items: QuotationItemInput[], taxRate: number, discount: number) {
     const subtotal = items.reduce((sum, it) => {
         const q = Number(it.quantity ?? 0);
+        const m = Number((it as any).unitMultiplier ?? 1) || 1;
         const p = Number(it.price ?? 0);
-        return sum + q * p;
+        return sum + q * m * p;
     }, 0);
     const taxAmount = (subtotal * (taxRate || 0)) / 100;
     const total = subtotal + taxAmount - (discount || 0);
@@ -212,6 +213,7 @@ export class QuotationsService {
                         description: it.description,
                         unit: it.unit,
                         quantity: toDecimal(it.quantity),
+                        ...(({ unitMultiplier: it.unitMultiplier != null && it.unitMultiplier !== '' ? toDecimal(it.unitMultiplier) : toDecimal(1) }) as any),
                         price: toDecimal(it.price),
                         orderIndex: it.orderIndex ?? idx,
                         productVariantId: it.productVariantId ?? null,
@@ -395,6 +397,7 @@ export class QuotationsService {
                                     description: it.description,
                                     unit: it.unit,
                                     quantity: toDecimal(it.quantity),
+                                    ...(({ unitMultiplier: it.unitMultiplier != null && it.unitMultiplier !== '' ? toDecimal(it.unitMultiplier) : toDecimal(1) }) as any),
                                     price: toDecimal(it.price),
                                     orderIndex: it.orderIndex ?? idx,
                                     productVariantId: it.productVariantId ?? null,

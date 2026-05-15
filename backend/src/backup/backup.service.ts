@@ -13,7 +13,17 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.15 (current) — Quotation format enhancements (multi-event pricing, package mode, payment schedule):
+// v2.16 (current) — Invoice payment tracking, multi-installment, signature display name, Lead multi-event:
+//   - New table: InvoicePayment (cicilan pembayaran per invoice — multi-payment tracking)
+//     Field: invoiceId, installmentNumber, amount, paidAt, paymentMethod, paymentRef, paymentNote,
+//     paymentProofUrl, bankAccountId, cashflowId, createdById
+//   - InvoiceStatus.PARTIALLY_PAID — enum baru, ter-include otomatis via Invoice.status
+//   - Invoice payment fields: paidAmount, paidAt, paymentMethod, paymentRef, paymentNote,
+//     paymentProofUrl, cancelledAt, cancelReason, paymentCashflowId
+//   - Worker.signatureDisplayName — nama formal untuk display di TTD dokumen
+//   - Lead.additionalEvents (Json?) — multi-event support per lead (untuk klien dengan beberapa kota/event)
+//   - Lead.eventDateStart/End (rename dari eventDate, sudah include sebelumnya)
+// v2.15 — Quotation format enhancements (multi-event pricing, package mode, payment schedule):
 //   - InvoiceItem.eventIndex (Int?) — link item ke event tertentu di additionalEvents.
 //     Mode 'event-grouped' (auto-aktif): items dipisah per event lokasi dengan harga berbeda
 //     (PDF Nukahiji EO style: booth Jogja Rp 11jt, Surabaya Rp 4.5jt, Riau Rp 8.5jt)
@@ -137,7 +147,9 @@ export const BACKUP_GROUPS = {
     invoices: {
         label: 'Invoice & Penawaran',
         // quotationVariantConfig: konfigurasi varian penawaran (SEWA, PENGADAAN_BOOTH, dll yang user-defined)
-        tables: ['quotationVariantConfig', 'invoice', 'invoiceItem'],
+        // invoicePayment: cicilan pembayaran per invoice (multi-installment, dengan bukti TF + bank tujuan)
+        // Invoice payment fields (paidAmount, paymentProofUrl, dll) sudah ter-include di tabel invoice.
+        tables: ['quotationVariantConfig', 'invoice', 'invoiceItem', 'invoicePayment'],
     },
     production: {
         label: 'Produksi',
@@ -218,6 +230,7 @@ const RESTORE_ORDER = [
     'transactionEditRequest',                   // → setelah transaction & user
     'rabPlan',                                  // → setelah customer
     'invoice', 'invoiceItem',                   // → setelah quotationVariantConfig (FK variantCode)
+    'invoicePayment',                           // → setelah invoice, bankAccount, cashflow, user (FK ke semuanya)
     'event',                                    // → setelah customer & rabPlan
     'crewTeam',                                 // → setelah worker (FK leaderWorkerId optional)
     'eventCrewAssignment',                      // → setelah event, worker, crewTeam
@@ -284,7 +297,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.15',
+                version: '2.16',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,
