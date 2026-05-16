@@ -21,7 +21,8 @@ import "dayjs/locale/id";
 import {
     getQuotation, updateQuotation, assignQuotationNumber, editQuotationNumber, reviseQuotation,
     downloadQuotationExport, generateInvoiceFromQuotation, listInvoicesByQuotation,
-    type Quotation, type QuotationItem,
+    getDueDateHistory,
+    type Quotation, type QuotationItem, type DueDateHistoryEntry,
 } from "@/lib/api/quotations";
 import { Receipt } from "lucide-react";
 import { ACTIVE_BRANDS, BRAND_META, getBrand, type Brand } from "@/lib/api/brands";
@@ -98,9 +99,20 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         dateEnd: string;
     }>>([]);
     const [validUntil, setValidUntil] = useState("");
+    // Jatuh tempo invoice — editable, support single date atau range (start+end)
+    const [dueDate, setDueDate] = useState("");
+    const [dueDateEnd, setDueDateEnd] = useState("");
+    const [dueDateMode, setDueDateMode] = useState<"single" | "range">("single");
+    const [dueDateChangeReason, setDueDateChangeReason] = useState("");
+    // Track original dueDate untuk detect change (perlu reason)
+    const [originalDueDate, setOriginalDueDate] = useState("");
+    const [originalDueDateEnd, setOriginalDueDateEnd] = useState("");
     const [docDate, setDocDate] = useState("");
     const [signCity, setSignCity] = useState("");
     const [taxRate, setTaxRate] = useState(0);
+    const [pphRate, setPphRate] = useState(0);
+    const [pphAmount, setPphAmount] = useState(0);
+    const [pphMode, setPphMode] = useState<"percent" | "amount">("percent");
     const [discount, setDiscount] = useState(0);
     const [dpPercent, setDpPercent] = useState(50);
     const [notes, setNotes] = useState("");
@@ -265,9 +277,24 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 : [],
         );
         setValidUntil(data.validUntil ? data.validUntil.slice(0, 10) : "");
+        // Hydrate due date — auto-detect mode dari ada/tidaknya dueDateEnd
+        const dd = (data as any).dueDate ? (data as any).dueDate.slice(0, 10) : "";
+        const dde = (data as any).dueDateEnd ? (data as any).dueDateEnd.slice(0, 10) : "";
+        setDueDate(dd);
+        setDueDateEnd(dde);
+        setDueDateMode(dde ? "range" : "single");
+        setOriginalDueDate(dd);
+        setOriginalDueDateEnd(dde);
+        setDueDateChangeReason("");
         setDocDate(data.date ? data.date.slice(0, 10) : "");
         setSignCity(data.signCity ?? "");
         setTaxRate(Number(data.taxRate ?? 0));
+        const loadedPphRate = Number((data as any).pphRate ?? 0);
+        const loadedPphAmount = Number((data as any).pphAmount ?? 0);
+        setPphRate(loadedPphRate);
+        setPphAmount(loadedPphAmount);
+        // Auto-detect mode: kalau pphRate=0 tapi pphAmount>0 → mode "amount" (admin input Rp langsung)
+        setPphMode(loadedPphRate === 0 && loadedPphAmount > 0 ? "amount" : "percent");
         setDiscount(Number(data.discount ?? 0));
         setDpPercent(Number(data.dpPercent ?? 50));
         setNotes(data.notes ?? "");
@@ -451,8 +478,17 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     });
 
     const subtotal = items.reduce((s, it) => s + Number(it.quantity || 0) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price || 0), 0);
-    const taxAmount = (subtotal * (taxRate || 0)) / 100;
-    const total = subtotal + taxAmount - (discount || 0);
+    const dpp = subtotal - (discount || 0);
+    const taxAmount = (dpp * (taxRate || 0)) / 100;
+    // PPh: mode percent → compute dari rate; mode amount → pakai nominal langsung
+    const computedPphAmount = pphMode === "amount"
+        ? (pphAmount || 0)
+        : (dpp * (pphRate || 0)) / 100;
+    // Effective PPh rate untuk display (kalau mode amount, hitung back-calculated %)
+    const effectivePphRate = pphMode === "amount"
+        ? (dpp > 0 ? (computedPphAmount / dpp) * 100 : 0)
+        : (pphRate || 0);
+    const total = dpp + taxAmount - computedPphAmount;
     const dpAmount = (total * dpPercent) / 100;
 
     const addItem = () =>
@@ -520,6 +556,16 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 }))
                 .filter((e) => e.name || e.location || e.dateStart || e.dateEnd),
             validUntil: validUntil || null,
+            // Jatuh tempo — kalau range mode, kirim keduanya. Kalau single, dueDateEnd=null
+            ...(data?.type === "INVOICE" ? {
+                dueDate: dueDate || null,
+                dueDateEnd: dueDateMode === "range" && dueDateEnd ? dueDateEnd : null,
+                // Sertakan reason kalau dueDate berubah dari original
+                dueDateChangeReason: (
+                    dueDate !== originalDueDate ||
+                    (dueDateMode === "range" ? dueDateEnd : "") !== originalDueDateEnd
+                ) ? (dueDateChangeReason.trim() || null) : null,
+            } : {}),
             date: docDate || undefined,
             signCity: signCity.trim() || null,
             variantCode: variantCode || null,
@@ -527,6 +573,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             itemDisplayMode,
             bankAccountIds: bankAccountIds || undefined,
             taxRate,
+            // PPh: kirim sesuai mode. Backend support kedua input.
+            ...(pphMode === "amount"
+                ? { pphRate: 0, pphAmount: pphAmount || 0 }
+                : { pphRate, pphAmount: 0 }),
             discount,
             dpPercent,
             notes,
@@ -1179,6 +1229,23 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     </div>
                     <Field label="Berlaku Sampai" value={validUntil} onChange={setValidUntil} type="date" />
 
+                    {/* Editable Jatuh Tempo (Invoice only) — support single date OR range mode + audit log */}
+                    {data?.type === "INVOICE" && (
+                        <DueDateEditor
+                            invoiceId={data.id}
+                            dueDate={dueDate}
+                            setDueDate={setDueDate}
+                            dueDateEnd={dueDateEnd}
+                            setDueDateEnd={setDueDateEnd}
+                            dueDateMode={dueDateMode}
+                            setDueDateMode={setDueDateMode}
+                            changeReason={dueDateChangeReason}
+                            setChangeReason={setDueDateChangeReason}
+                            originalDueDate={originalDueDate}
+                            originalDueDateEnd={originalDueDateEnd}
+                        />
+                    )}
+
                     {/* Multi-event: event tambahan dengan tanggal beda */}
                     <div className="border-t border-dashed border-slate-300 pt-3 mt-2">
                         <div className="flex items-center justify-between mb-2">
@@ -1449,6 +1516,89 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         <Field label="Diskon (Rp)" value={String(discount)} onChange={(v) => setDiscount(parseFloat(v) || 0)} type="number" />
                         <Field label="DP (%)" value={String(dpPercent)} onChange={(v) => setDpPercent(parseFloat(v) || 0)} type="number" />
                     </div>
+
+                    {/* PPh section dengan toggle mode % / Rp */}
+                    <div className="border-2 border-rose-200 bg-rose-50/40 rounded p-2 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                            <label className="text-xs font-bold text-rose-900">💸 PPh (Withholding Tax)</label>
+                            <div className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-white p-0.5 text-[10px] font-semibold">
+                                <button
+                                    type="button"
+                                    onClick={() => { setPphMode("percent"); setPphAmount(0); }}
+                                    className={`px-2 py-0.5 rounded-full transition ${pphMode === "percent" ? "bg-rose-600 text-white" : "text-rose-700 hover:bg-rose-100"}`}
+                                >
+                                    % Persen
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setPphMode("amount"); setPphRate(0); }}
+                                    className={`px-2 py-0.5 rounded-full transition ${pphMode === "amount" ? "bg-rose-600 text-white" : "text-rose-700 hover:bg-rose-100"}`}
+                                >
+                                    Rp Nominal
+                                </button>
+                            </div>
+                        </div>
+                        {pphMode === "percent" ? (
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        value={pphRate}
+                                        onChange={(e) => setPphRate(parseFloat(e.target.value) || 0)}
+                                        placeholder="0"
+                                        className="w-20 border-2 border-rose-200 rounded px-2 py-1.5 text-sm bg-white"
+                                    />
+                                    <span className="text-sm font-bold text-rose-700">%</span>
+                                    <span className="text-[11px] text-slate-600">
+                                        ≈ <b className="font-mono text-rose-700">Rp {Math.round(computedPphAmount).toLocaleString("id-ID")}</b>
+                                    </span>
+                                </div>
+                                <div className="flex gap-1 mt-1 flex-wrap">
+                                    {[0, 0.5, 1.5, 2].map((rate) => (
+                                        <button
+                                            key={rate}
+                                            type="button"
+                                            onClick={() => setPphRate(rate)}
+                                            className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${pphRate === rate ? "bg-rose-600 text-white border-rose-600" : "bg-white text-rose-700 border-rose-300 hover:bg-rose-100"}`}
+                                            title={rate === 0 ? "Tidak ada PPh" : rate === 0.5 ? "UMKM Final" : rate === 1.5 ? "Sewa / Jasa konstruksi" : "Jasa lain"}
+                                        >
+                                            {rate}%{rate === 0 ? " (off)" : rate === 0.5 ? " (UMKM)" : rate === 1.5 ? " (PPh 4(2))" : " (PPh 23)"}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-rose-700">Rp</span>
+                                    <input
+                                        type="number"
+                                        value={pphAmount}
+                                        onChange={(e) => setPphAmount(parseFloat(e.target.value) || 0)}
+                                        placeholder="0"
+                                        className="flex-1 border-2 border-rose-200 rounded px-2 py-1.5 text-sm bg-white font-mono text-right"
+                                    />
+                                    {dpp > 0 && pphAmount > 0 && (
+                                        <span className="text-[11px] text-slate-600 whitespace-nowrap">
+                                            ≈ <b className="text-rose-700">{effectivePphRate.toFixed(2)}%</b>
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-[10px] text-slate-500 mt-0.5">
+                                    Input nominal Rp langsung — % auto-hitung dari DPP.
+                                </p>
+                            </div>
+                        )}
+                        {(pphRate > 0 || pphAmount > 0) && (
+                            <div className="text-[10px] text-rose-700 bg-white border border-rose-200 rounded p-1.5">
+                                💡 PPh ini akan <b>dipotong klien</b> dari pembayaran.
+                                Net diterima = Total − Rp {Math.round(computedPphAmount).toLocaleString("id-ID")}
+                                <br />
+                                Preset: <b>0.5%</b> UMKM Final · <b>1.5%</b> PPh 4(2) sewa/konstruksi · <b>2%</b> PPh 23 jasa
+                            </div>
+                        )}
+                    </div>
+
                     <Field label="Catatan / Terms" value={notes} onChange={setNotes} multiline />
                 </section>
 
@@ -2204,9 +2354,17 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         <tbody>
                             <Row label="Subtotal" value={rp(subtotal)} />
                             {discount > 0 && <Row label="Diskon" value={`- ${rp(discount)}`} />}
-                            <Row label={`PPN ${taxRate}%`} value={rp(taxAmount)} />
+                            {taxRate > 0 && <Row label={`PPN ${taxRate}%`} value={rp(taxAmount)} />}
+                            {computedPphAmount > 0 && (
+                                <tr className="text-rose-700">
+                                    <td className="py-1">
+                                        PPh{effectivePphRate > 0 ? ` ${effectivePphRate.toFixed(2)}%` : ""} (potong)
+                                    </td>
+                                    <td className="py-1 text-right font-mono">- {rp(computedPphAmount)}</td>
+                                </tr>
+                            )}
                             <tr className="border-t font-bold text-lg">
-                                <td className="py-2">Grand Total</td>
+                                <td className="py-2">Grand Total {computedPphAmount > 0 && <span className="text-[10px] font-normal text-rose-600">(setelah potong PPh)</span>}</td>
                                 <td className="py-2 text-right">{rp(total)}</td>
                             </tr>
                             <Row label={`DP ${dpPercent}%`} value={rp(dpAmount)} />
@@ -3197,6 +3355,162 @@ function PrependAppendField({
                         Format final di PDF: [Atas] + [Default Brand] + [Bawah] (yang kosong di-skip).
                     </p>
                 </>
+            )}
+        </div>
+    );
+}
+
+/**
+ * Editor jatuh tempo invoice — support single date / range mode,
+ * reason field saat perubahan, dan tampilkan audit log history extend.
+ */
+function DueDateEditor({
+    invoiceId, dueDate, setDueDate, dueDateEnd, setDueDateEnd,
+    dueDateMode, setDueDateMode, changeReason, setChangeReason,
+    originalDueDate, originalDueDateEnd,
+}: {
+    invoiceId: number;
+    dueDate: string; setDueDate: (v: string) => void;
+    dueDateEnd: string; setDueDateEnd: (v: string) => void;
+    dueDateMode: "single" | "range"; setDueDateMode: (v: "single" | "range") => void;
+    changeReason: string; setChangeReason: (v: string) => void;
+    originalDueDate: string; originalDueDateEnd: string;
+}) {
+    const [showHistory, setShowHistory] = useState(false);
+    const { data: history = [], isLoading } = useQuery<DueDateHistoryEntry[]>({
+        queryKey: ["duedate-history", invoiceId],
+        queryFn: () => getDueDateHistory(invoiceId),
+        enabled: !!invoiceId,
+        staleTime: 30_000,
+    });
+
+    const isChanged = dueDate !== originalDueDate
+        || (dueDateMode === "range" ? dueDateEnd : "") !== originalDueDateEnd;
+
+    const formatDate = (s: string | null) => s
+        ? new Date(s).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+        : "—";
+
+    return (
+        <div className="border-2 border-amber-200 bg-amber-50/40 rounded p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-semibold text-amber-900 flex items-center gap-1">
+                    ⏰ Jatuh Tempo Invoice
+                </label>
+                <div className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-white p-0.5 text-[10px] font-semibold">
+                    <button
+                        type="button"
+                        onClick={() => { setDueDateMode("single"); setDueDateEnd(""); }}
+                        className={`px-2.5 py-0.5 rounded-full transition ${dueDateMode === "single" ? "bg-amber-600 text-white" : "text-amber-700 hover:bg-amber-100"}`}
+                    >
+                        📅 1 Tanggal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setDueDateMode("range")}
+                        className={`px-2.5 py-0.5 rounded-full transition ${dueDateMode === "range" ? "bg-amber-600 text-white" : "text-amber-700 hover:bg-amber-100"}`}
+                    >
+                        📆 Range
+                    </button>
+                </div>
+            </div>
+            {dueDateMode === "single" ? (
+                <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full border-2 border-amber-200 rounded px-3 py-2 text-sm bg-white focus:border-amber-500 outline-none"
+                />
+            ) : (
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <label className="text-[10px] text-amber-800 font-semibold uppercase">Dari</label>
+                        <input
+                            type="date"
+                            value={dueDate}
+                            onChange={(e) => setDueDate(e.target.value)}
+                            className="w-full border-2 border-amber-200 rounded px-3 py-2 text-sm bg-white focus:border-amber-500 outline-none"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-amber-800 font-semibold uppercase">Sampai</label>
+                        <input
+                            type="date"
+                            value={dueDateEnd}
+                            onChange={(e) => setDueDateEnd(e.target.value)}
+                            min={dueDate || undefined}
+                            className="w-full border-2 border-amber-200 rounded px-3 py-2 text-sm bg-white focus:border-amber-500 outline-none"
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* Reason field — muncul kalau dueDate berubah dari original */}
+            {isChanged && (
+                <div className="bg-rose-50 border-2 border-rose-300 rounded p-2 space-y-1">
+                    <label className="text-[11px] font-bold text-rose-900 flex items-center gap-1">
+                        ⚠️ Alasan perubahan jatuh tempo <span className="text-rose-700">(wajib untuk audit log)</span>
+                    </label>
+                    <textarea
+                        value={changeReason}
+                        onChange={(e) => setChangeReason(e.target.value)}
+                        placeholder="Mis. 'Klien belum ada uang, minta tunda 1 minggu' atau 'Cashflow klien telat, extend ke akhir bulan'"
+                        rows={2}
+                        className="w-full px-2 py-1.5 text-xs border border-rose-300 rounded bg-white resize-y"
+                    />
+                    <p className="text-[10px] text-rose-700">
+                        💡 Owner akan lihat alasan ini di history audit — untuk tracking kenapa pembayaran tertunda.
+                    </p>
+                </div>
+            )}
+
+            {dueDate && (
+                <div className="text-[11px] bg-white border border-amber-300 rounded px-2 py-1 font-mono">
+                    Display: <b>{dueDateMode === "range" && dueDateEnd
+                        ? `${new Date(dueDate).toLocaleDateString("id-ID", { day: "numeric", month: "short" })} – ${new Date(dueDateEnd).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`
+                        : new Date(dueDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</b>
+                </div>
+            )}
+
+            {/* History toggle */}
+            <button
+                type="button"
+                onClick={() => setShowHistory((s) => !s)}
+                className="w-full text-left text-[11px] font-semibold text-amber-800 hover:text-amber-900 flex items-center justify-between bg-white border border-amber-300 rounded px-2 py-1.5"
+            >
+                <span>📜 History Perubahan Jatuh Tempo ({history.length})</span>
+                <span className="text-amber-600">{showHistory ? "▲" : "▼"}</span>
+            </button>
+
+            {showHistory && (
+                <div className="bg-white border border-amber-200 rounded p-2 space-y-1.5 max-h-64 overflow-y-auto">
+                    {isLoading ? (
+                        <div className="text-[11px] text-slate-500 italic">Memuat history...</div>
+                    ) : history.length === 0 ? (
+                        <div className="text-[11px] text-slate-500 italic text-center py-2">
+                            Belum ada perubahan tanggal. History akan muncul setelah dueDate di-edit.
+                        </div>
+                    ) : history.map((h) => (
+                        <div key={h.id} className="border-l-2 border-amber-400 bg-amber-50/30 pl-2 py-1 text-[11px]">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold text-amber-900">
+                                    {new Date(h.changedAt).toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                            </div>
+                            <div className="text-slate-700 mt-0.5">
+                                <span className="text-slate-500">Dari: </span>
+                                <span className="font-mono">{formatDate(h.oldDueDate)}{h.oldDueDateEnd ? ` – ${formatDate(h.oldDueDateEnd)}` : ""}</span>
+                                <span className="text-slate-400 mx-1">→</span>
+                                <span className="font-mono font-semibold text-amber-800">{formatDate(h.newDueDate)}{h.newDueDateEnd ? ` – ${formatDate(h.newDueDateEnd)}` : ""}</span>
+                            </div>
+                            {h.reason && (
+                                <div className="mt-1 bg-white border border-amber-200 rounded px-1.5 py-1 italic text-slate-700 text-[10px]">
+                                    💬 &ldquo;{h.reason}&rdquo;
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
             )}
         </div>
     );

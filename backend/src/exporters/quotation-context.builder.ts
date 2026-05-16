@@ -182,6 +182,9 @@ export interface QuotationRenderContext {
         subtotal: string;
         taxRate: string;     // "11"
         taxAmount: string;
+        pphRate: string;     // "2" — kalau 0, frontend hide barisnya
+        pphAmount: string;   // Rp formatted
+        hasPph: boolean;     // helper untuk Handlebars {{#if hasPph}}
         discount: string;
         total: string;
         totalTerbilang: string;
@@ -467,6 +470,7 @@ export const I18N: Record<'id' | 'en', Record<string, string>> = {
         subtotalKeseluruhan: 'Subtotal Keseluruhan',
         diskon: 'Diskon',
         ppn: 'PPN',
+        pph: 'PPh',
         grandTotal: 'Grand Total',
         terbilang: 'Terbilang',
         // Sections
@@ -523,6 +527,7 @@ export const I18N: Record<'id' | 'en', Record<string, string>> = {
         subtotalKeseluruhan: 'Total Subtotal',
         diskon: 'Discount',
         ppn: 'VAT',
+        pph: 'WHT',
         grandTotal: 'Grand Total',
         terbilang: 'In words',
         // Sections
@@ -1240,6 +1245,9 @@ export class QuotationContextBuilder {
                 subtotal: formatRp(subtotalNum, useUsd),
                 taxRate: Number(quotation.taxRate).toString(),
                 taxAmount: formatRp(Number(quotation.taxAmount), useUsd),
+                pphRate: Number((quotation as any).pphRate ?? 0).toString(),
+                pphAmount: formatRp(Number((quotation as any).pphAmount ?? 0), useUsd),
+                hasPph: Number((quotation as any).pphRate ?? 0) > 0 || Number((quotation as any).pphAmount ?? 0) > 0,
                 discount: formatRp(Number(quotation.discount), useUsd),
                 total: formatRp(totalNum, useUsd),
                 totalTerbilang: rupiahInWords(totalNum, lang, useUsd),

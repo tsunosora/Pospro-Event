@@ -465,12 +465,21 @@ model Invoice {
   clientEmail   String?       @map("client_email") @db.VarChar(150) // Email Perusahaan
   customerId    Int?          @map("customer_id")
   date          DateTime      @default(now())
-  dueDate       DateTime?     @map("due_date")
+  dueDate       DateTime?     @map("due_date") // Tanggal jatuh tempo (mode single date)
+  /// Tanggal akhir jatuh tempo — kalau di-set, dueDate→dueDateEnd jadi RANGE.
+  /// Mis. dueDate=15 Mei, dueDateEnd=20 Mei → "Jatuh tempo: 15-20 Mei 2026".
+  /// Null = mode single date (cuma pakai dueDate).
+  dueDateEnd    DateTime?     @map("due_date_end")
   validUntil    DateTime?     @map("valid_until") // Quotation: masa berlaku penawaran
   status        InvoiceStatus @default(DRAFT)
   subtotal      Decimal       @default(0) @db.Decimal(15, 2)
   taxRate       Decimal       @default(0) @map("tax_rate") @db.Decimal(5, 2) // % PPN
   taxAmount     Decimal       @default(0) @map("tax_amount") @db.Decimal(15, 2) // Rp PPN
+  /// PPh (Pajak Penghasilan / withholding tax) — biasanya PPh 23 (2%) atau PPh 4 ayat 2 (1.5%).
+  /// PPh DIPOTONG dari total (klien transfer = total - PPh), jadi mengurangi nominal yang diterima vendor.
+  /// Mis. event Rp 100jt + PPN 11% = Rp 111jt, dipotong PPh 2% = Rp 2.22jt → diterima Rp 108.78jt
+  pphRate       Decimal       @default(0) @map("pph_rate") @db.Decimal(5, 2) // % PPh
+  pphAmount     Decimal       @default(0) @map("pph_amount") @db.Decimal(15, 2) // Rp PPh (dipotong dari klien)
   discount      Decimal       @default(0) @db.Decimal(15, 2) // Diskon (Rp)
   total         Decimal       @default(0) @db.Decimal(15, 2) // Grand Total (Subtotal + PPN - Diskon)
   notes         String?       @db.Text // Syarat & Ketentuan, Garansi, dll
@@ -578,6 +587,7 @@ model Invoice {
   rabPlan  RabPlan?  @relation("QuotationRabPlan", fields: [rabPlanId], references: [id], onDelete: SetNull)
   signedByWorker Worker? @relation("InvoiceSignedByWorker", fields: [signedByWorkerId], references: [id], onDelete: SetNull)
   payments InvoicePayment[] @relation("InvoicePayments")
+  dueDateHistory InvoiceDueDateHistory[] @relation("InvoiceDueDateHistory")
 
   @@index([type, quotationVariant])
   @@index([parentQuotationId])
@@ -839,6 +849,29 @@ model InvoicePayment {
   @@index([invoiceId])
   @@index([paidAt])
   @@map("invoice_payments")
+}
+
+/**
+ * History perubahan jatuh tempo invoice (audit trail untuk owner).
+ * Dibuat setiap kali admin extend tanggal pembayaran (mis. klien minta perpanjangan).
+ * Owner bisa cek: berapa kali invoice ini di-extend, alasan apa, oleh siapa.
+ */
+model InvoiceDueDateHistory {
+  id             Int       @id @default(autoincrement())
+  invoiceId      Int       @map("invoice_id")
+  oldDueDate     DateTime? @map("old_due_date")
+  oldDueDateEnd  DateTime? @map("old_due_date_end")
+  newDueDate     DateTime? @map("new_due_date")
+  newDueDateEnd  DateTime? @map("new_due_date_end")
+  /// Alasan perubahan — mis. "Klien belum ada uang, minta tunda 1 minggu"
+  reason         String?   @db.Text
+  changedById    Int?      @map("changed_by_id") // user yang ubah
+  changedAt      DateTime  @default(now()) @map("changed_at")
+
+  invoice Invoice @relation("InvoiceDueDateHistory", fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, changedAt])
+  @@map("invoice_due_date_history")
 }
 
 model Customer {

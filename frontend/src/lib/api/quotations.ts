@@ -94,9 +94,11 @@ export interface Quotation {
     bankAccountIds: string | null;
     notes: string | null;
     taxRate: string;
+    pphRate?: string;            // % PPh (withholding tax) — string Decimal
     discount: string;
     subtotal: string;
     taxAmount: string;
+    pphAmount?: string;          // Rp PPh
     total: string;
     items: QuotationItem[];
     rabPlanId?: number | null;
@@ -104,6 +106,8 @@ export interface Quotation {
     signedByWorker?: { id: number; name: string; position: string | null; signatureImageUrl: string | null } | null;
     invoicePart?: string | null;            // "DP" | "PELUNASAN" | "FULL" (untuk type=INVOICE)
     amountToPay?: string | null;            // Decimal serialized
+    dueDate?: string | null;                // Jatuh tempo (single date atau range start)
+    dueDateEnd?: string | null;             // Jatuh tempo end (kalau range)
     paidAmount?: string | null;             // Decimal — akumulasi yang sudah dibayar
     paidAt?: string | null;
     paymentMethod?: PaymentMethodType | null;
@@ -176,10 +180,14 @@ export interface CreateQuotationInput {
     date?: string;
     signCity?: string | null;
     validUntil?: string;
+    dueDate?: string | null;
+    dueDateEnd?: string | null;
     dpPercent?: number;
     bankAccountIds?: string;
     notes?: string;
     taxRate?: number;
+    /** PPh rate (%) — withholding tax, dipotong dari total. Default 0 = tidak pakai PPh. */
+    pphRate?: number;
     discount?: number;
     items?: QuotationItem[];
     // Field baru — multi-event/package support
@@ -288,6 +296,21 @@ export interface PaymentDetail {
 export const getPaymentDetail = async (invoiceId: number): Promise<PaymentDetail> =>
     (await api.get<PaymentDetail>(`/quotations/${invoiceId}/payment-detail`)).data;
 
+export interface DueDateHistoryEntry {
+    id: number;
+    oldDueDate: string | null;
+    oldDueDateEnd: string | null;
+    newDueDate: string | null;
+    newDueDateEnd: string | null;
+    reason: string | null;
+    changedById: number | null;
+    changedAt: string;
+}
+
+/** Get history perubahan dueDate invoice (audit log untuk owner). */
+export const getDueDateHistory = async (invoiceId: number): Promise<DueDateHistoryEntry[]> =>
+    (await api.get<DueDateHistoryEntry[]>(`/quotations/${invoiceId}/duedate-history`)).data;
+
 // ─── Receivables Dashboard ───────────────────────────────────
 export interface ReceivablesDashboard {
     kpi: {
@@ -298,6 +321,10 @@ export interface ReceivablesDashboard {
         overdueCount: number;
         overdueAmount: number;
         totalInvoices: number;
+        /** Total PPh dipotong klien (untuk laporan pajak). */
+        totalPphPotongan?: number;
+        /** Total gross (sebelum potong PPh) — net = gross - pph. */
+        totalGrossBeforePph?: number;
     };
     byCustomer: Array<{
         customerId: number | null;
@@ -326,14 +353,52 @@ export interface ReceivablesDashboard {
         sisa: number;
         date: string;
         dueDate: string | null;
+        dueDateEnd: string | null;
         daysOverdue: number;
         status: string;
     }>;
     incomeMonthly: Array<{ month: string; label: string; amount: number }>;
+    /** Grouping invoice per Penawaran induk — supaya admin gampang lihat "1 event = brp invoice". */
+    byQuotation?: Array<{
+        quotationId: number;
+        quotationNumber: string;
+        projectName: string | null;
+        eventLocation: string | null;
+        eventDateStart: string | null;
+        eventDateEnd: string | null;
+        quotationTotal: number;
+        customerId: number | null;
+        customerName: string;
+        companyName: string | null;
+        totalInvoiced: number;
+        totalPaid: number;
+        sisaTagihan: number;
+        invoiceCount: number;
+        invoices: Array<{
+            id: number;
+            invoiceNumber: string;
+            invoicePart: string | null;
+            amountToPay: number;
+            paidAmount: number;
+            sisa: number;
+            status: string;
+            date: string;
+            dueDate: string | null;
+            dueDateEnd: string | null;
+            isOverdue: boolean;
+            daysOverdue: number;
+        }>;
+    }>;
+    filter?: { from: string | null; to: string | null } | null;
 }
 
-export const getReceivablesDashboard = async (): Promise<ReceivablesDashboard> =>
-    (await api.get<ReceivablesDashboard>('/quotations/receivables/dashboard')).data;
+export const getReceivablesDashboard = async (filter?: { from?: string; to?: string }): Promise<ReceivablesDashboard> => {
+    const params = new URLSearchParams();
+    if (filter?.from) params.set('from', filter.from);
+    if (filter?.to) params.set('to', filter.to);
+    const qs = params.toString();
+    return (await api.get<ReceivablesDashboard>(`/quotations/receivables/dashboard${qs ? `?${qs}` : ''}`)).data;
+};
 
 /**
  * Edge case: Klien transfer langsung lunas padahal sudah ada Invoice DP.

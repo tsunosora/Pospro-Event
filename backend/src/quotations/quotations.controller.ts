@@ -255,10 +255,19 @@ export class QuotationsController {
         return this.service.cancelInvoice(id, body.reason ?? null, req.user?.id ?? null);
     }
 
-    /** Dashboard piutang & pemasukan — aggregate per customer + KPI + overdue alerts. */
+    /**
+     * Dashboard piutang & pemasukan — aggregate per customer + KPI + overdue alerts.
+     * Filter: ?from=YYYY-MM-DD&to=YYYY-MM-DD (optional) — filter Invoice by date.
+     */
     @Get('receivables/dashboard')
-    getReceivablesDashboard() {
-        return this.service.getReceivablesDashboard();
+    getReceivablesDashboard(
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+    ) {
+        return this.service.getReceivablesDashboard({
+            from: from || undefined,
+            to: to || undefined,
+        });
     }
 
     /** Get aggregate payment summary untuk Quotation (total, paid, sisa, list invoices). */
@@ -271,6 +280,12 @@ export class QuotationsController {
     @Get(':id/payment-detail')
     getPaymentDetail(@Param('id', ParseIntPipe) id: number) {
         return this.service.getPaymentDetail(id);
+    }
+
+    /** Get history perubahan jatuh tempo invoice (audit log). */
+    @Get(':id/duedate-history')
+    getDueDateHistory(@Param('id', ParseIntPipe) id: number) {
+        return this.service.getDueDateHistory(id);
     }
 
     /**

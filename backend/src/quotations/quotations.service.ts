@@ -81,16 +81,24 @@ function sanitizeAdditionalEvents(
     return cleaned as unknown as Prisma.InputJsonValue;
 }
 
-function calcTotals(items: QuotationItemInput[], taxRate: number, discount: number) {
+function calcTotals(items: QuotationItemInput[], taxRate: number, discount: number, pphRate = 0, pphAmountOverride?: number) {
     const subtotal = items.reduce((sum, it) => {
         const q = Number(it.quantity ?? 0);
         const m = Number((it as any).unitMultiplier ?? 1) || 1;
         const p = Number(it.price ?? 0);
         return sum + q * m * p;
     }, 0);
-    const taxAmount = (subtotal * (taxRate || 0)) / 100;
-    const total = subtotal + taxAmount - (discount || 0);
-    return { subtotal, taxAmount, total };
+    // DPP = subtotal setelah diskon (base untuk PPN dan PPh)
+    const dpp = subtotal - (discount || 0);
+    const taxAmount = (dpp * (taxRate || 0)) / 100;
+    // PPh: kalau override Rp di-set, pakai itu; else compute dari rate %.
+    // Sesuai praktik akuntansi Indonesia, PPh dipotong dari DPP (bukan dari DPP+PPN).
+    const pphAmount = (pphAmountOverride !== undefined && pphAmountOverride > 0)
+        ? pphAmountOverride
+        : (dpp * (pphRate || 0)) / 100;
+    // Total = DPP + PPN - PPh (PPh dipotong klien sebelum transfer)
+    const total = dpp + taxAmount - pphAmount;
+    return { subtotal, taxAmount, pphAmount, total };
 }
 
 @Injectable()
@@ -123,8 +131,10 @@ export class QuotationsService {
 
         const items = dto.items ?? [];
         const taxRate = Number(dto.taxRate ?? 0);
+        const pphRate = Number(dto.pphRate ?? 0);
+        const pphAmountOverride = dto.pphAmount !== undefined ? Number(dto.pphAmount) : undefined;
         const discount = Number(dto.discount ?? 0);
-        const { subtotal, taxAmount, total } = calcTotals(items, taxRate, discount);
+        const { subtotal, taxAmount, pphAmount, total } = calcTotals(items, taxRate, discount, pphRate, pphAmountOverride);
 
         // Nomor draft — belum di-reserve. Pakai prefix agar unik & mudah dideteksi.
         const draftNumber = `${DRAFT_NUMBER_PREFIX}${Date.now()}`;
@@ -203,6 +213,7 @@ export class QuotationsService {
                 showGrandTotal: dto.showGrandTotal === false ? false : true,
 
                 taxRate: toDecimal(taxRate),
+                ...(({ pphRate: toDecimal(pphRate), pphAmount: toDecimal(pphAmount) }) as any),
                 discount: toDecimal(discount),
                 subtotal: toDecimal(subtotal),
                 taxAmount: toDecimal(taxAmount),
@@ -284,17 +295,33 @@ export class QuotationsService {
             throw new NotFoundException(`Dokumen id=${id} tidak ditemukan`);
         }
 
-        // Hitung ulang totals kalau items dikirim, else pakai existing.
+        // Hitung ulang totals kalau items dikirim ATAU pph/tax/discount berubah.
         let recomputed:
-            | { subtotal: Prisma.Decimal; taxAmount: Prisma.Decimal; total: Prisma.Decimal }
+            | { subtotal: Prisma.Decimal; taxAmount: Prisma.Decimal; pphAmount: Prisma.Decimal; total: Prisma.Decimal }
             | null = null;
-        if (dto.items !== undefined) {
+        const needsRecompute = dto.items !== undefined
+            || dto.taxRate !== undefined
+            || dto.pphRate !== undefined
+            || dto.pphAmount !== undefined
+            || dto.discount !== undefined;
+        if (needsRecompute) {
+            const itemsForCalc = dto.items ?? (await this.prisma.invoiceItem.findMany({ where: { invoiceId: id } })).map((it: any) => ({
+                description: it.description,
+                quantity: it.quantity,
+                unitMultiplier: it.unitMultiplier,
+                price: it.price,
+            }));
             const taxRate = Number(dto.taxRate ?? existing.taxRate);
+            const pphRate = Number(dto.pphRate ?? (existing as any).pphRate ?? 0);
+            // pphAmount override: kalau DTO supply pphAmount, pakai itu. Kalau hanya pphRate yang dikirim,
+            // pphAmount akan di-recompute dari rate (existing pphAmount diabaikan supaya konsisten).
+            const pphAmountOverride = dto.pphAmount !== undefined ? Number(dto.pphAmount) : undefined;
             const discount = Number(dto.discount ?? existing.discount);
-            const { subtotal, taxAmount, total } = calcTotals(dto.items, taxRate, discount);
+            const { subtotal, taxAmount, pphAmount, total } = calcTotals(itemsForCalc as any, taxRate, discount, pphRate, pphAmountOverride);
             recomputed = {
                 subtotal: toDecimal(subtotal),
                 taxAmount: toDecimal(taxAmount),
+                pphAmount: toDecimal(pphAmount),
                 total: toDecimal(total),
             };
         }
@@ -302,6 +329,28 @@ export class QuotationsService {
         return this.prisma.$transaction(async (tx) => {
             if (dto.items !== undefined) {
                 await tx.invoiceItem.deleteMany({ where: { invoiceId: id } });
+            }
+
+            // Audit log: kalau dueDate atau dueDateEnd berubah, simpan history sebelum update.
+            // Owner bisa cek riwayat extend pembayaran lewat endpoint /:id/duedate-history.
+            const dueDateChanged = dto.dueDate !== undefined
+                && (dto.dueDate ? new Date(dto.dueDate).getTime() : null)
+                    !== (existing.dueDate ? new Date(existing.dueDate).getTime() : null);
+            const dueDateEndChanged = dto.dueDateEnd !== undefined
+                && (dto.dueDateEnd ? new Date(dto.dueDateEnd).getTime() : null)
+                    !== ((existing as any).dueDateEnd ? new Date((existing as any).dueDateEnd).getTime() : null);
+            if (dueDateChanged || dueDateEndChanged) {
+                await (tx as any).invoiceDueDateHistory.create({
+                    data: {
+                        invoiceId: id,
+                        oldDueDate: existing.dueDate,
+                        oldDueDateEnd: (existing as any).dueDateEnd ?? null,
+                        newDueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+                        newDueDateEnd: dto.dueDateEnd ? new Date(dto.dueDateEnd) : null,
+                        reason: dto.dueDateChangeReason?.trim() || null,
+                        changedById: null, // TODO: pass current user id dari controller kalau diperlukan
+                    },
+                });
             }
 
             await tx.invoice.update({
@@ -334,7 +383,11 @@ export class QuotationsService {
                     ...(dto.bankAccountIds !== undefined ? { bankAccountIds: dto.bankAccountIds } : {}),
                     ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
                     ...(dto.taxRate !== undefined ? { taxRate: toDecimal(dto.taxRate) } : {}),
+                    ...((dto.pphRate !== undefined ? { pphRate: toDecimal(dto.pphRate) } : {}) as any),
                     ...(dto.discount !== undefined ? { discount: toDecimal(dto.discount) } : {}),
+                    // Jatuh tempo invoice — editable (single date atau range start+end)
+                    ...(dto.dueDate !== undefined ? { dueDate: dto.dueDate ? new Date(dto.dueDate) : null } : {}),
+                    ...((dto.dueDateEnd !== undefined ? { dueDateEnd: dto.dueDateEnd ? new Date(dto.dueDateEnd) : null } : {}) as any),
                     ...(dto.brand !== undefined ? { brand: dto.brand } : {}),
                     ...(dto.variantCode !== undefined ? { variantCode: dto.variantCode || null } : {}),
                     ...(dto.signedByWorkerId !== undefined ? { signedByWorkerId: dto.signedByWorkerId } : {}),
@@ -389,7 +442,7 @@ export class QuotationsService {
                     ...(dto.showGrandTotal !== undefined
                         ? { showGrandTotal: dto.showGrandTotal === false ? false : true }
                         : {}),
-                    ...(recomputed ?? {}),
+                    ...((recomputed ?? {}) as any),
                     ...(dto.items !== undefined
                         ? {
                             items: {
@@ -526,6 +579,12 @@ export class QuotationsService {
                 notes: quotation.notes,
 
                 taxRate: quotation.taxRate,
+                // Carry forward PPh fields supaya invoice juga punya PPh sama dengan penawaran.
+                // Klien potong PPh dari pembayaran → amountToPay & total invoice harus sudah net (sesudah PPh).
+                ...(({
+                    pphRate: (quotation as any).pphRate ?? 0,
+                    pphAmount: (quotation as any).pphAmount ?? 0,
+                }) as any),
                 discount: quotation.discount,
                 subtotal: quotation.subtotal,
                 taxAmount: quotation.taxAmount,
@@ -536,6 +595,7 @@ export class QuotationsService {
                         description: it.description,
                         unit: it.unit,
                         quantity: it.quantity,
+                        ...(({ unitMultiplier: (it as any).unitMultiplier ?? 1 }) as any),
                         price: it.price,
                         orderIndex: it.orderIndex,
                         productVariantId: it.productVariantId,
@@ -880,6 +940,27 @@ export class QuotationsService {
      * Return: total invoiced, total paid, sisa tagihan, list invoices dengan status.
      */
     /**
+     * Get history perubahan dueDate invoice (audit log owner).
+     * Sorted dari yang paling baru.
+     */
+    async getDueDateHistory(invoiceId: number) {
+        const list = await (this.prisma as any).invoiceDueDateHistory.findMany({
+            where: { invoiceId },
+            orderBy: { changedAt: 'desc' },
+        });
+        return list.map((h: any) => ({
+            id: h.id,
+            oldDueDate: h.oldDueDate,
+            oldDueDateEnd: h.oldDueDateEnd,
+            newDueDate: h.newDueDate,
+            newDueDateEnd: h.newDueDateEnd,
+            reason: h.reason,
+            changedById: h.changedById,
+            changedAt: h.changedAt,
+        }));
+    }
+
+    /**
      * Dashboard piutang & pemasukan — aggregate per customer + total.
      *
      * Output:
@@ -888,15 +969,27 @@ export class QuotationsService {
      *  - overdueInvoices: list invoice yang lewat tempo, untuk warning
      *  - incomeMonthly: 12 bulan terakhir, untuk chart pemasukan
      */
-    async getReceivablesDashboard() {
-        // Ambil semua invoice yang status-nya bukan CANCELLED
+    async getReceivablesDashboard(filter?: { from?: string; to?: string }) {
+        // Parse range filter — kalau di-set, batasi invoice & cashflow by date
+        const fromDate = filter?.from ? new Date(filter.from + 'T00:00:00') : null;
+        const toDate = filter?.to ? new Date(filter.to + 'T23:59:59') : null;
+        const hasDateFilter = !!(fromDate || toDate);
+
+        // Ambil semua invoice yang status-nya bukan CANCELLED — DENGAN filter date kalau ada
+        const invoiceWhere: any = {
+            type: InvoiceType.INVOICE,
+            status: { not: InvoiceStatus.CANCELLED },
+        };
+        if (hasDateFilter) {
+            invoiceWhere.date = {};
+            if (fromDate) invoiceWhere.date.gte = fromDate;
+            if (toDate) invoiceWhere.date.lte = toDate;
+        }
         const invoices = await this.prisma.invoice.findMany({
-            where: {
-                type: InvoiceType.INVOICE,
-                status: { not: InvoiceStatus.CANCELLED },
-            },
+            where: invoiceWhere,
             include: {
                 customer: { select: { id: true, name: true, companyName: true, phone: true } },
+                parent: { select: { id: true, invoiceNumber: true, projectName: true, total: true, eventDateStart: true, eventDateEnd: true, eventLocation: true } },
             },
             orderBy: { date: 'desc' },
         });
@@ -905,6 +998,10 @@ export class QuotationsService {
         const todayMs = today.getTime();
         const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
         const yearStart = new Date(today.getFullYear(), 0, 1);
+
+        // Aggregate PPh — total PPh yang dipotong klien (untuk laporan pajak owner)
+        let totalPphPotonganGross = 0;     // PPh dari nilai invoice gross
+        let totalGrossBeforePph = 0;       // total + pphAmount (gross sebelum potong)
 
         // Aggregate per customer
         type CustomerAgg = {
@@ -936,6 +1033,7 @@ export class QuotationsService {
             sisa: number;
             date: string;
             dueDate: string | null;
+            dueDateEnd: string | null;
             daysOverdue: number;
             status: string;
         }> = [];
@@ -952,11 +1050,14 @@ export class QuotationsService {
             const isPaid = inv.status === InvoiceStatus.PAID;
             const isPartial = (inv.status as any) === 'PARTIALLY_PAID';
 
-            // Overdue check: dueDate < today AND status bukan PAID
+            // Overdue check: pakai dueDateEnd kalau ada (range mode), else dueDate (single).
+            // Klien dianggap overdue kalau lewat tanggal AKHIR dari range.
             const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
-            const isOverdue = dueDate && dueDate.getTime() < todayMs && !isPaid && sisa > 0;
-            const daysOverdue = isOverdue && dueDate
-                ? Math.floor((todayMs - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+            const dueDateEnd = (inv as any).dueDateEnd ? new Date((inv as any).dueDateEnd) : null;
+            const effectiveDueDate = dueDateEnd ?? dueDate;
+            const isOverdue = effectiveDueDate && effectiveDueDate.getTime() < todayMs && !isPaid && sisa > 0;
+            const daysOverdue = isOverdue && effectiveDueDate
+                ? Math.floor((todayMs - effectiveDueDate.getTime()) / (1000 * 60 * 60 * 24))
                 : 0;
 
             // Days since invoice issued (untuk oldestUnpaidDays kalau dueDate kosong)
@@ -981,6 +1082,12 @@ export class QuotationsService {
             }
             const agg = customerMap.get(key)!;
             agg.totalInvoiced += amountToPay;
+            // PPh aggregation (untuk laporan pajak owner)
+            const invPph = Number((inv as any).pphAmount ?? 0);
+            if (invPph > 0) {
+                totalPphPotonganGross += invPph;
+                totalGrossBeforePph += amountToPay + invPph;
+            }
             agg.totalPaid += paidAmount;
             agg.sisaTagihan += sisa;
             agg.invoiceCount += 1;
@@ -1007,6 +1114,7 @@ export class QuotationsService {
                     sisa,
                     date: inv.date.toISOString(),
                     dueDate: dueDate?.toISOString() ?? null,
+                    dueDateEnd: dueDateEnd?.toISOString() ?? null,
                     daysOverdue,
                     status: inv.status,
                 });
@@ -1018,18 +1126,132 @@ export class QuotationsService {
             .filter((c) => c.sisaTagihan > 0 || c.invoiceCount > 0)
             .sort((a, b) => b.sisaTagihan - a.sisaTagihan);
 
+        // ─── byQuotation: group invoice per Penawaran induk ───
+        // Ini buat owner monitoring "1 event ada brp invoice, total terbayar berapa, sisa berapa"
+        // Tidak perlu scroll-scroll list panjang — semua invoice 1 event dalam 1 row collapse-able.
+        type QuotationAgg = {
+            quotationId: number;
+            quotationNumber: string;
+            projectName: string | null;
+            eventLocation: string | null;
+            eventDateStart: string | null;
+            eventDateEnd: string | null;
+            quotationTotal: number;
+            customerId: number | null;
+            customerName: string;
+            companyName: string | null;
+            totalInvoiced: number;
+            totalPaid: number;
+            sisaTagihan: number;
+            invoiceCount: number;
+            invoices: Array<{
+                id: number;
+                invoiceNumber: string;
+                invoicePart: string | null;
+                amountToPay: number;
+                paidAmount: number;
+                sisa: number;
+                status: string;
+                date: string;
+                dueDate: string | null;
+                dueDateEnd: string | null;
+                isOverdue: boolean;
+                daysOverdue: number;
+            }>;
+        };
+        const quotationMap = new Map<number, QuotationAgg>();
+
+        for (const inv of invoices) {
+            const parent = (inv as any).parent;
+            // Skip invoice tanpa parent quotation (orphan / standalone) — gak relevant grouping
+            if (!parent || !inv.parentQuotationId) continue;
+
+            const amountToPay = Number(inv.amountToPay ?? inv.total ?? 0);
+            const paidAmount = Number((inv as any).paidAmount ?? 0);
+            const sisa = Math.max(0, amountToPay - paidAmount);
+            const isPaid = inv.status === InvoiceStatus.PAID;
+            const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+            const dueDateEnd = (inv as any).dueDateEnd ? new Date((inv as any).dueDateEnd) : null;
+            const effectiveDueDate = dueDateEnd ?? dueDate;
+            const isOverdue = !!(effectiveDueDate && effectiveDueDate.getTime() < todayMs && !isPaid && sisa > 0);
+            const daysOverdue = isOverdue && effectiveDueDate
+                ? Math.floor((todayMs - effectiveDueDate.getTime()) / (1000 * 60 * 60 * 24))
+                : 0;
+
+            if (!quotationMap.has(inv.parentQuotationId)) {
+                quotationMap.set(inv.parentQuotationId, {
+                    quotationId: inv.parentQuotationId,
+                    quotationNumber: parent.invoiceNumber,
+                    projectName: parent.projectName,
+                    eventLocation: parent.eventLocation,
+                    eventDateStart: parent.eventDateStart ? new Date(parent.eventDateStart).toISOString() : null,
+                    eventDateEnd: parent.eventDateEnd ? new Date(parent.eventDateEnd).toISOString() : null,
+                    quotationTotal: Number(parent.total ?? 0),
+                    customerId: inv.customerId,
+                    customerName: inv.customer?.name ?? inv.clientName,
+                    companyName: inv.customer?.companyName ?? inv.clientCompany,
+                    totalInvoiced: 0,
+                    totalPaid: 0,
+                    sisaTagihan: 0,
+                    invoiceCount: 0,
+                    invoices: [],
+                });
+            }
+            const agg = quotationMap.get(inv.parentQuotationId)!;
+            agg.totalInvoiced += amountToPay;
+            agg.totalPaid += paidAmount;
+            agg.sisaTagihan += sisa;
+            agg.invoiceCount += 1;
+            agg.invoices.push({
+                id: inv.id,
+                invoiceNumber: inv.invoiceNumber,
+                invoicePart: inv.invoicePart,
+                amountToPay,
+                paidAmount,
+                sisa,
+                status: inv.status,
+                date: inv.date.toISOString(),
+                dueDate: dueDate?.toISOString() ?? null,
+                dueDateEnd: dueDateEnd?.toISOString() ?? null,
+                isOverdue,
+                daysOverdue,
+            });
+        }
+        // Sort: sisaTagihan terbanyak duluan (yang perlu attention)
+        const byQuotation = Array.from(quotationMap.values())
+            .map((q) => ({
+                ...q,
+                // Sort invoices dalam group: berdasarkan invoicePart (DP duluan), lalu tanggal
+                invoices: q.invoices.sort((a, b) => {
+                    const order: Record<string, number> = { 'DP': 1, 'PELUNASAN': 2, 'FULL': 0 };
+                    const oa = order[a.invoicePart ?? ''] ?? 99;
+                    const ob = order[b.invoicePart ?? ''] ?? 99;
+                    if (oa !== ob) return oa - ob;
+                    return new Date(a.date).getTime() - new Date(b.date).getTime();
+                }),
+            }))
+            .sort((a, b) => b.sisaTagihan - a.sisaTagihan);
+
         // Income aggregation — dari Cashflow IN kategori "Pembayaran Invoice"
+        // Kalau ada date filter, batasi range Cashflow juga.
+        const cashflowDateFilter: any = hasDateFilter
+            ? {
+                ...(fromDate ? { gte: fromDate } : {}),
+                ...(toDate ? { lte: toDate } : {}),
+            }
+            : { gte: new Date(today.getFullYear() - 1, today.getMonth(), 1) };
         const cashflows = await this.prisma.cashflow.findMany({
             where: {
                 type: 'INCOME',
                 category: 'Pembayaran Invoice',
-                date: { gte: new Date(today.getFullYear() - 1, today.getMonth(), 1) },
+                date: cashflowDateFilter,
             },
             orderBy: { date: 'asc' },
         });
 
         let totalIncomeMonth = 0;
         let totalIncomeYTD = 0;
+        let totalIncomeFiltered = 0;  // total dalam range filter
         // Monthly aggregation — 12 bulan terakhir
         const monthlyMap = new Map<string, number>();
         for (const cf of cashflows) {
@@ -1037,6 +1259,7 @@ export class QuotationsService {
             const d = new Date(cf.date);
             if (d >= monthStart) totalIncomeMonth += amt;
             if (d >= yearStart) totalIncomeYTD += amt;
+            totalIncomeFiltered += amt;
             const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             monthlyMap.set(monthKey, (monthlyMap.get(monthKey) ?? 0) + amt);
         }
@@ -1059,16 +1282,26 @@ export class QuotationsService {
         return {
             kpi: {
                 totalOutstanding,
-                totalIncomeMonth,
-                totalIncomeYTD,
+                // Kalau filter aktif → pakai totalIncomeFiltered untuk "Bulan Ini" placeholder (kontekstual ke range)
+                totalIncomeMonth: hasDateFilter ? totalIncomeFiltered : totalIncomeMonth,
+                totalIncomeYTD: hasDateFilter ? totalIncomeFiltered : totalIncomeYTD,
                 customersWithDebt: byCustomer.filter((c) => c.sisaTagihan > 0).length,
                 overdueCount: overdueInvoices.length,
                 overdueAmount,
                 totalInvoices: invoices.length,
+                // PPh tracking — untuk laporan pajak owner
+                totalPphPotongan: totalPphPotonganGross,
+                totalGrossBeforePph: totalGrossBeforePph,
             },
             byCustomer,
+            byQuotation,
             overdueInvoices: overdueInvoices.sort((a, b) => b.daysOverdue - a.daysOverdue),
             incomeMonthly,
+            // Metadata filter — frontend bisa display "Filtered: X to Y"
+            filter: hasDateFilter ? {
+                from: fromDate?.toISOString() ?? null,
+                to: toDate?.toISOString() ?? null,
+            } : null,
         };
     }
 

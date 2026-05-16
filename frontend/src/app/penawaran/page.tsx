@@ -585,7 +585,30 @@ function PenawaranListPageInner() {
                                         )}
                                     </td>
                                     <td className="px-3 py-2 text-gray-600">{dayjs(q.date).format("DD MMM YYYY")}</td>
-                                    <td className="px-3 py-2 text-right font-medium">{rp(q.total)}</td>
+                                    <td className="px-3 py-2 text-right font-medium">
+                                        {/* Untuk Invoice → tampil amountToPay (DP/Pelunasan/Full sesuai invoicePart),
+                                            karena total quotation utuh tidak relevan saat ini invoice cuma menagih sebagian.
+                                            Untuk Penawaran → tampil total grand quotation. */}
+                                        {q.type === "INVOICE" ? (
+                                            <div className="flex flex-col items-end">
+                                                <span>{rp(q.amountToPay ?? q.total)}</span>
+                                                {q.invoicePart && (
+                                                    <span className="text-[10px] text-slate-500 font-normal">
+                                                        {q.invoicePart === "DP" ? "Down Payment" :
+                                                         q.invoicePart === "PELUNASAN" ? "Final Payment" :
+                                                         q.invoicePart === "FULL" ? "Full Payment" : q.invoicePart}
+                                                    </span>
+                                                )}
+                                                {Number((q as any).paidAmount ?? 0) > 0 && (
+                                                    <span className="text-[10px] text-emerald-700 font-normal">
+                                                        Terbayar: {rp((q as any).paidAmount)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            rp(q.total)
+                                        )}
+                                    </td>
                                     <td className="px-3 py-2">
                                         <span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLOR[q.status] || "bg-gray-100"}`}>
                                             {q.status}

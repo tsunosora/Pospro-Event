@@ -33,6 +33,12 @@ export interface CreateQuotationDto {
     date?: string | Date;
     signCity?: string | null;          // Kota lokasi surat dibuat (header surat: "Semarang, 28 April 2026")
     validUntil?: string | Date;
+    /** Tanggal jatuh tempo Invoice (editable, bisa di-extend kalau klien telat bayar). */
+    dueDate?: string | Date | null;
+    /** Tanggal akhir jatuh tempo — kalau di-set, jadi range "dueDate–dueDateEnd". Null = single date mode. */
+    dueDateEnd?: string | Date | null;
+    /** Alasan perubahan dueDate — wajib di-isi kalau dueDate berubah (untuk audit log owner). */
+    dueDateChangeReason?: string | null;
     dpPercent?: number;
     bankAccountIds?: string;           // CSV: "1,3,7"
     notes?: string;
@@ -97,6 +103,10 @@ export interface CreateQuotationDto {
 
     // Angka
     taxRate?: number;
+    /** PPh rate (%) — withholding tax, dipotong dari total. Default 0 = tidak pakai PPh. */
+    pphRate?: number;
+    /** PPh dalam Rp — kalau di-set > 0, override calculation dari pphRate. Admin input langsung nominal. */
+    pphAmount?: number;
     discount?: number;
 
     items?: QuotationItemInput[];
