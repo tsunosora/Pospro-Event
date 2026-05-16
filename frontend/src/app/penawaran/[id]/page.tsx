@@ -436,7 +436,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         onError: showErr("Gagal buat revisi"),
     });
 
-    const subtotal = items.reduce((s, it) => s + Number(it.quantity || 0) * Number(it.price || 0), 0);
+    const subtotal = items.reduce((s, it) => s + Number(it.quantity || 0) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price || 0), 0);
     const taxAmount = (subtotal * (taxRate || 0)) / 100;
     const total = subtotal + taxAmount - (discount || 0);
     const dpAmount = (total * dpPercent) / 100;
@@ -1396,7 +1396,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         <SortableContext items={items.map((i) => i._key)} strategy={verticalListSortingStrategy}>
                             <tbody>
                                 {items.map((it) => {
-                                    const sub = Number(it.quantity || 0) * Number(it.price || 0);
+                                    const sub = Number(it.quantity || 0) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price || 0);
                                     return (
                                         <SortableItemRow
                                             key={it._key}
