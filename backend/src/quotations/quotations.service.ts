@@ -81,7 +81,7 @@ function sanitizeAdditionalEvents(
     return cleaned as unknown as Prisma.InputJsonValue;
 }
 
-function calcTotals(items: QuotationItemInput[], taxRate: number, discount: number, pphRate = 0, pphAmountOverride?: number) {
+function calcTotals(items: QuotationItemInput[], taxRate: number, discount: number, pphRate = 0, pphAmountOverride?: number, taxAmountOverride?: number) {
     const subtotal = items.reduce((sum, it) => {
         const q = Number(it.quantity ?? 0);
         const m = Number((it as any).unitMultiplier ?? 1) || 1;
@@ -90,7 +90,10 @@ function calcTotals(items: QuotationItemInput[], taxRate: number, discount: numb
     }, 0);
     // DPP = subtotal setelah diskon (base untuk PPN dan PPh)
     const dpp = subtotal - (discount || 0);
-    const taxAmount = (dpp * (taxRate || 0)) / 100;
+    // PPN: kalau override Rp di-set, pakai itu; else compute dari rate %.
+    const taxAmount = (taxAmountOverride !== undefined && taxAmountOverride > 0)
+        ? taxAmountOverride
+        : (dpp * (taxRate || 0)) / 100;
     // PPh: kalau override Rp di-set, pakai itu; else compute dari rate %.
     // Sesuai praktik akuntansi Indonesia, PPh dipotong dari DPP (bukan dari DPP+PPN).
     const pphAmount = (pphAmountOverride !== undefined && pphAmountOverride > 0)
@@ -131,10 +134,11 @@ export class QuotationsService {
 
         const items = dto.items ?? [];
         const taxRate = Number(dto.taxRate ?? 0);
+        const taxAmountOverride = dto.taxAmount !== undefined ? Number(dto.taxAmount) : undefined;
         const pphRate = Number(dto.pphRate ?? 0);
         const pphAmountOverride = dto.pphAmount !== undefined ? Number(dto.pphAmount) : undefined;
         const discount = Number(dto.discount ?? 0);
-        const { subtotal, taxAmount, pphAmount, total } = calcTotals(items, taxRate, discount, pphRate, pphAmountOverride);
+        const { subtotal, taxAmount, pphAmount, total } = calcTotals(items, taxRate, discount, pphRate, pphAmountOverride, taxAmountOverride);
 
         // Nomor draft — belum di-reserve. Pakai prefix agar unik & mudah dideteksi.
         const draftNumber = `${DRAFT_NUMBER_PREFIX}${Date.now()}`;
@@ -301,6 +305,7 @@ export class QuotationsService {
             | null = null;
         const needsRecompute = dto.items !== undefined
             || dto.taxRate !== undefined
+            || dto.taxAmount !== undefined
             || dto.pphRate !== undefined
             || dto.pphAmount !== undefined
             || dto.discount !== undefined;
@@ -312,12 +317,13 @@ export class QuotationsService {
                 price: it.price,
             }));
             const taxRate = Number(dto.taxRate ?? existing.taxRate);
+            // taxAmount override: kalau DTO supply taxAmount, pakai itu. Kalau hanya taxRate dikirim,
+            // taxAmount akan di-recompute dari rate (existing taxAmount diabaikan supaya konsisten).
+            const taxAmountOverride = dto.taxAmount !== undefined ? Number(dto.taxAmount) : undefined;
             const pphRate = Number(dto.pphRate ?? (existing as any).pphRate ?? 0);
-            // pphAmount override: kalau DTO supply pphAmount, pakai itu. Kalau hanya pphRate yang dikirim,
-            // pphAmount akan di-recompute dari rate (existing pphAmount diabaikan supaya konsisten).
             const pphAmountOverride = dto.pphAmount !== undefined ? Number(dto.pphAmount) : undefined;
             const discount = Number(dto.discount ?? existing.discount);
-            const { subtotal, taxAmount, pphAmount, total } = calcTotals(itemsForCalc as any, taxRate, discount, pphRate, pphAmountOverride);
+            const { subtotal, taxAmount, pphAmount, total } = calcTotals(itemsForCalc as any, taxRate, discount, pphRate, pphAmountOverride, taxAmountOverride);
             recomputed = {
                 subtotal: toDecimal(subtotal),
                 taxAmount: toDecimal(taxAmount),

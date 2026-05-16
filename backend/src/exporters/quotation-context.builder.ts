@@ -182,6 +182,7 @@ export interface QuotationRenderContext {
         subtotal: string;
         taxRate: string;     // "11"
         taxAmount: string;
+        hasPpn: boolean;     // helper Handlebars — true kalau taxRate>0 atau taxAmount>0
         pphRate: string;     // "2" — kalau 0, frontend hide barisnya
         pphAmount: string;   // Rp formatted
         hasPph: boolean;     // helper untuk Handlebars {{#if hasPph}}
@@ -1245,6 +1246,7 @@ export class QuotationContextBuilder {
                 subtotal: formatRp(subtotalNum, useUsd),
                 taxRate: Number(quotation.taxRate).toString(),
                 taxAmount: formatRp(Number(quotation.taxAmount), useUsd),
+                hasPpn: Number(quotation.taxRate ?? 0) > 0 || Number(quotation.taxAmount ?? 0) > 0,
                 pphRate: Number((quotation as any).pphRate ?? 0).toString(),
                 pphAmount: formatRp(Number((quotation as any).pphAmount ?? 0), useUsd),
                 hasPph: Number((quotation as any).pphRate ?? 0) > 0 || Number((quotation as any).pphAmount ?? 0) > 0,

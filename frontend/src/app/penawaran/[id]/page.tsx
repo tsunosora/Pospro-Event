@@ -110,6 +110,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [docDate, setDocDate] = useState("");
     const [signCity, setSignCity] = useState("");
     const [taxRate, setTaxRate] = useState(0);
+    const [taxAmount, setTaxAmount] = useState(0);
+    const [taxMode, setTaxMode] = useState<"percent" | "amount">("percent");
     const [pphRate, setPphRate] = useState(0);
     const [pphAmount, setPphAmount] = useState(0);
     const [pphMode, setPphMode] = useState<"percent" | "amount">("percent");
@@ -288,7 +290,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setDueDateChangeReason("");
         setDocDate(data.date ? data.date.slice(0, 10) : "");
         setSignCity(data.signCity ?? "");
-        setTaxRate(Number(data.taxRate ?? 0));
+        const loadedTaxRate = Number(data.taxRate ?? 0);
+        const loadedTaxAmount = Number(data.taxAmount ?? 0);
+        setTaxRate(loadedTaxRate);
+        setTaxAmount(loadedTaxAmount);
+        // Auto-detect mode: kalau taxRate=0 tapi taxAmount>0 → mode "amount"
+        setTaxMode(loadedTaxRate === 0 && loadedTaxAmount > 0 ? "amount" : "percent");
         const loadedPphRate = Number((data as any).pphRate ?? 0);
         const loadedPphAmount = Number((data as any).pphAmount ?? 0);
         setPphRate(loadedPphRate);
@@ -479,7 +486,13 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
     const subtotal = items.reduce((s, it) => s + Number(it.quantity || 0) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price || 0), 0);
     const dpp = subtotal - (discount || 0);
-    const taxAmount = (dpp * (taxRate || 0)) / 100;
+    // PPN: mode percent → compute dari rate; mode amount → pakai nominal langsung
+    const computedTaxAmount = taxMode === "amount"
+        ? (taxAmount || 0)
+        : (dpp * (taxRate || 0)) / 100;
+    const effectiveTaxRate = taxMode === "amount"
+        ? (dpp > 0 ? (computedTaxAmount / dpp) * 100 : 0)
+        : (taxRate || 0);
     // PPh: mode percent → compute dari rate; mode amount → pakai nominal langsung
     const computedPphAmount = pphMode === "amount"
         ? (pphAmount || 0)
@@ -488,7 +501,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const effectivePphRate = pphMode === "amount"
         ? (dpp > 0 ? (computedPphAmount / dpp) * 100 : 0)
         : (pphRate || 0);
-    const total = dpp + taxAmount - computedPphAmount;
+    const total = dpp + computedTaxAmount - computedPphAmount;
     const dpAmount = (total * dpPercent) / 100;
 
     const addItem = () =>
@@ -572,7 +585,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             signedByWorkerId: signedByWorkerId ?? null,
             itemDisplayMode,
             bankAccountIds: bankAccountIds || undefined,
-            taxRate,
+            // PPN: kirim sesuai mode
+            ...(taxMode === "amount"
+                ? { taxRate: 0, taxAmount: taxAmount || 0 }
+                : { taxRate, taxAmount: 0 }),
             // PPh: kirim sesuai mode. Backend support kedua input.
             ...(pphMode === "amount"
                 ? { pphRate: 0, pphAmount: pphAmount || 0 }
@@ -1511,10 +1527,82 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             <div className="grid md:grid-cols-2 gap-6 mt-6 auto-rows-min items-start">
                 <section className="bg-white rounded-lg border p-3 space-y-2">
                     <h3 className="font-semibold text-sm">💵 Pajak &amp; Pembayaran</h3>
-                    <div className="grid grid-cols-3 gap-2">
-                        <Field label="PPN (%)" value={String(taxRate)} onChange={(v) => setTaxRate(parseFloat(v) || 0)} type="number" />
+                    <div className="grid grid-cols-2 gap-2">
                         <Field label="Diskon (Rp)" value={String(discount)} onChange={(v) => setDiscount(parseFloat(v) || 0)} type="number" />
                         <Field label="DP (%)" value={String(dpPercent)} onChange={(v) => setDpPercent(parseFloat(v) || 0)} type="number" />
+                    </div>
+
+                    {/* PPN section dengan toggle mode % / Rp */}
+                    <div className="border-2 border-blue-200 bg-blue-50/40 rounded p-2 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                            <label className="text-xs font-bold text-blue-900">📊 PPN (Pajak Pertambahan Nilai)</label>
+                            <div className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-white p-0.5 text-[10px] font-semibold">
+                                <button
+                                    type="button"
+                                    onClick={() => { setTaxMode("percent"); setTaxAmount(0); }}
+                                    className={`px-2 py-0.5 rounded-full transition ${taxMode === "percent" ? "bg-blue-600 text-white" : "text-blue-700 hover:bg-blue-100"}`}
+                                >
+                                    % Persen
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setTaxMode("amount"); setTaxRate(0); }}
+                                    className={`px-2 py-0.5 rounded-full transition ${taxMode === "amount" ? "bg-blue-600 text-white" : "text-blue-700 hover:bg-blue-100"}`}
+                                >
+                                    Rp Nominal
+                                </button>
+                            </div>
+                        </div>
+                        {taxMode === "percent" ? (
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        value={taxRate}
+                                        onChange={(e) => setTaxRate(parseFloat(e.target.value) || 0)}
+                                        placeholder="0"
+                                        className="w-20 border-2 border-blue-200 rounded px-2 py-1.5 text-sm bg-white"
+                                    />
+                                    <span className="text-sm font-bold text-blue-700">%</span>
+                                    <span className="text-[11px] text-slate-600">
+                                        ≈ <b className="font-mono text-blue-700">Rp {Math.round(computedTaxAmount).toLocaleString("id-ID")}</b>
+                                    </span>
+                                </div>
+                                <div className="flex gap-1 mt-1 flex-wrap">
+                                    {[0, 10, 11, 12].map((rate) => (
+                                        <button
+                                            key={rate}
+                                            type="button"
+                                            onClick={() => setTaxRate(rate)}
+                                            className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${taxRate === rate ? "bg-blue-600 text-white border-blue-600" : "bg-white text-blue-700 border-blue-300 hover:bg-blue-100"}`}
+                                        >
+                                            {rate}%{rate === 0 ? " (off)" : rate === 11 ? " (default)" : ""}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-blue-700">Rp</span>
+                                    <input
+                                        type="number"
+                                        value={taxAmount}
+                                        onChange={(e) => setTaxAmount(parseFloat(e.target.value) || 0)}
+                                        placeholder="0"
+                                        className="flex-1 border-2 border-blue-200 rounded px-2 py-1.5 text-sm bg-white font-mono text-right"
+                                    />
+                                    {dpp > 0 && taxAmount > 0 && (
+                                        <span className="text-[11px] text-slate-600 whitespace-nowrap">
+                                            ≈ <b className="text-blue-700">{effectiveTaxRate.toFixed(2)}%</b>
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-[10px] text-slate-500 mt-0.5">
+                                    Input nominal Rp langsung — % auto-hitung dari DPP.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* PPh section dengan toggle mode % / Rp */}
@@ -2354,7 +2442,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         <tbody>
                             <Row label="Subtotal" value={rp(subtotal)} />
                             {discount > 0 && <Row label="Diskon" value={`- ${rp(discount)}`} />}
-                            {taxRate > 0 && <Row label={`PPN ${taxRate}%`} value={rp(taxAmount)} />}
+                            {computedTaxAmount > 0 && (
+                                <Row
+                                    label={`PPN${effectiveTaxRate > 0 ? ` ${effectiveTaxRate.toFixed(2)}%` : ""}`}
+                                    value={rp(computedTaxAmount)}
+                                />
+                            )}
                             {computedPphAmount > 0 && (
                                 <tr className="text-rose-700">
                                     <td className="py-1">

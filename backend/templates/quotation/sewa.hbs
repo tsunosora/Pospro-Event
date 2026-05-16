@@ -322,9 +322,9 @@
           <td class="rp">({{totals.discount}})</td>
         </tr>
         {{/if}}
-        {{#if totals.taxRate}}
+        {{#if totals.hasPpn}}
         <tr>
-          <td colspan="4" class="label">{{i18n.ppn}} {{totals.taxRate}}%</td>
+          <td colspan="4" class="label">{{i18n.ppn}}{{#if totals.taxRate}} {{totals.taxRate}}%{{/if}}</td>
           <td class="rp">{{totals.taxAmount}}</td>
         </tr>
         {{/if}}
@@ -442,9 +442,9 @@
           <td class="rp">({{totals.discount}})</td>
         </tr>
         {{/if}}
-        {{#if totals.taxRate}}
+        {{#if totals.hasPpn}}
         <tr>
-          <td colspan="2" class="label">{{i18n.ppn}} {{totals.taxRate}}%</td>
+          <td colspan="2" class="label">{{i18n.ppn}}{{#if totals.taxRate}} {{totals.taxRate}}%{{/if}}</td>
           <td class="rp">{{totals.taxAmount}}</td>
         </tr>
         {{/if}}
@@ -509,9 +509,9 @@
           <td class="rp">({{totals.discount}})</td>
         </tr>
         {{/if}}
-        {{#if totals.taxRate}}
+        {{#if totals.hasPpn}}
         <tr>
-          <td colspan="4" class="label">{{i18n.ppn}} {{totals.taxRate}}%</td>
+          <td colspan="4" class="label">{{i18n.ppn}}{{#if totals.taxRate}} {{totals.taxRate}}%{{/if}}</td>
           <td class="rp">{{totals.taxAmount}}</td>
         </tr>
         {{/if}}

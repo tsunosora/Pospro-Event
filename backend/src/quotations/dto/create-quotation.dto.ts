@@ -103,6 +103,8 @@ export interface CreateQuotationDto {
 
     // Angka
     taxRate?: number;
+    /** PPN dalam Rp — kalau di-set > 0, override calculation dari taxRate. Admin input langsung nominal. */
+    taxAmount?: number;
     /** PPh rate (%) — withholding tax, dipotong dari total. Default 0 = tidak pakai PPh. */
     pphRate?: number;
     /** PPh dalam Rp — kalau di-set > 0, override calculation dari pphRate. Admin input langsung nominal. */
