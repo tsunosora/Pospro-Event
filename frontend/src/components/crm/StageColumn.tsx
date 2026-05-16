@@ -3,24 +3,37 @@
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import type { Lead, LeadStage } from "@/lib/api/crm";
-import { LeadCard } from "./LeadCard";
+import { LeadCard, type LeadCardDensity } from "./LeadCard";
+
+export type StageColumnWidth = "narrow" | "normal" | "wide";
 
 export function StageColumn({
     stage,
     leads,
     onCardClick,
+    density = "comfortable",
+    columnWidth = "normal",
 }: {
     stage: LeadStage;
     leads: Lead[];
     onCardClick: (lead: Lead) => void;
+    density?: LeadCardDensity;
+    columnWidth?: StageColumnWidth;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: `stage-${stage.id}`,
         data: { type: "stage", stageId: stage.id },
     });
 
+    // Width responsive berdasarkan setting user
+    const widthCls = columnWidth === "narrow"
+        ? "w-[220px] sm:w-56"
+        : columnWidth === "wide"
+            ? "w-[320px] sm:w-80"
+            : "w-[280px] sm:w-72";
+
     return (
-        <div className="flex flex-col w-[280px] sm:w-72 shrink-0 h-full max-h-full bg-muted/40 rounded-lg border border-border overflow-hidden">
+        <div className={`flex flex-col ${widthCls} shrink-0 h-full max-h-full bg-muted/40 rounded-lg border border-border overflow-hidden`}>
             {/* Header — sticky di top column */}
             <div
                 className="flex items-center justify-between px-3 py-2 rounded-t-lg border-b border-border shrink-0"
@@ -49,7 +62,7 @@ export function StageColumn({
                     strategy={verticalListSortingStrategy}
                 >
                     {leads.map((lead) => (
-                        <LeadCard key={lead.id} lead={lead} onClick={() => onCardClick(lead)} />
+                        <LeadCard key={lead.id} lead={lead} onClick={() => onCardClick(lead)} density={density} />
                     ))}
                 </SortableContext>
                 {leads.length === 0 && (

@@ -1667,6 +1667,122 @@ export class QuotationsService {
     }
 
     /**
+     * Duplicate Penawaran — buat row baru independen dari source (BUKAN revisi).
+     * Use case: marketing mau bikin penawaran serupa untuk event/klien lain (template).
+     * Beda dengan revise():
+     *   - revise() → row baru dengan parentQuotationId & revisionNumber+1 (linked sebagai revisi)
+     *   - duplicate() → row baru standalone (parentQuotationId=null, revisionNumber=0)
+     */
+    async duplicateQuotation(sourceId: number) {
+        const source = await this.prisma.invoice.findUnique({
+            where: { id: sourceId },
+            include: { items: true },
+        });
+        if (!source || source.type !== InvoiceType.QUOTATION) {
+            throw new NotFoundException(`Penawaran id=${sourceId} tidak ditemukan`);
+        }
+
+        const draftNumber = `${DRAFT_NUMBER_PREFIX}${Date.now()}`;
+        return this.prisma.invoice.create({
+            data: {
+                invoiceNumber: draftNumber,
+                type: InvoiceType.QUOTATION,
+                status: InvoiceStatus.DRAFT,
+                quotationVariant: source.quotationVariant,
+                // Standalone — BUKAN revisi
+                parentQuotationId: null,
+                revisionNumber: 0,
+
+                customerId: source.customerId,
+                clientName: source.clientName,
+                clientCompany: source.clientCompany,
+                clientAddress: source.clientAddress,
+                clientPhone: source.clientPhone,
+                clientEmail: source.clientEmail,
+
+                // Append "(Copy)" suffix ke projectName supaya kelihatan jelas ini hasil duplicate
+                projectName: source.projectName ? `${source.projectName} (Copy)` : 'Copy',
+                eventLocation: source.eventLocation,
+                eventDateStart: source.eventDateStart,
+                eventDateEnd: source.eventDateEnd,
+                additionalEvents: (source.additionalEvents ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+
+                date: new Date(),
+                validUntil: source.validUntil,
+                dpPercent: source.dpPercent,
+                bankAccountIds: source.bankAccountIds,
+                notes: source.notes,
+
+                taxRate: source.taxRate,
+                ...(({
+                    pphRate: (source as any).pphRate ?? 0,
+                    pphAmount: (source as any).pphAmount ?? 0,
+                }) as any),
+                discount: source.discount,
+                subtotal: source.subtotal,
+                taxAmount: source.taxAmount,
+                total: source.total,
+                brand: source.brand,
+                variantCode: source.variantCode,
+                signedByWorkerId: source.signedByWorkerId,
+
+                customSubject: source.customSubject,
+                paymentSchedule: (source.paymentSchedule ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                specifications: (source.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                packagePrice: source.packagePrice,
+                showGrandTotal: source.showGrandTotal,
+                // Carry forward semua custom text
+                customOpeningText: source.customOpeningText,
+                customDisclaimer: source.customDisclaimer,
+                customPaymentTerms: source.customPaymentTerms,
+                customClosing: source.customClosing,
+                customOpeningSpk: source.customOpeningSpk,
+                customDisclaimerSpk: source.customDisclaimerSpk,
+                customPaymentTermsSpk: source.customPaymentTermsSpk,
+                customClosingSpk: source.customClosingSpk,
+                customOpeningInvoice: source.customOpeningInvoice,
+                customDisclaimerInvoice: source.customDisclaimerInvoice,
+                customPaymentTermsInvoice: source.customPaymentTermsInvoice,
+                customClosingInvoice: source.customClosingInvoice,
+                disclaimerPrepend: source.disclaimerPrepend,
+                disclaimerAppend: source.disclaimerAppend,
+                paymentTermsPrepend: source.paymentTermsPrepend,
+                paymentTermsAppend: source.paymentTermsAppend,
+                closingPrepend: source.closingPrepend,
+                closingAppend: source.closingAppend,
+                language: source.language,
+                useUsdCurrency: source.useUsdCurrency,
+                attachmentCount: source.attachmentCount,
+                customAttachmentText: source.customAttachmentText,
+                ...(({
+                    spkPicName: (source as any).spkPicName,
+                    spkPicPosition: (source as any).spkPicPosition,
+                    spkPicPhone: (source as any).spkPicPhone,
+                    spkPaymentDeadline: (source as any).spkPaymentDeadline,
+                    invoicePicName: (source as any).invoicePicName,
+                    invoicePicPosition: (source as any).invoicePicPosition,
+                    invoicePicPhone: (source as any).invoicePicPhone,
+                }) as any),
+                items: {
+                    create: source.items.map((it) => ({
+                        description: it.description,
+                        unit: it.unit,
+                        quantity: it.quantity,
+                        ...(({ unitMultiplier: (it as any).unitMultiplier ?? 1 }) as any),
+                        price: it.price,
+                        orderIndex: it.orderIndex,
+                        productVariantId: it.productVariantId,
+                        categoryName: it.categoryName,
+                        eventIndex: it.eventIndex,
+                        packageGroup: it.packageGroup,
+                    })),
+                },
+            },
+            include: { items: true },
+        });
+    }
+
+    /**
      * Helper untuk FE: init draft dari data Customer existing (prefill client fields).
      */
     async createFromCustomer(customerId: number, variant: QuotationVariant) {

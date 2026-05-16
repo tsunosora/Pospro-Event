@@ -58,7 +58,9 @@ function eventDateColor(iso: string): { bg: string; text: string; border: string
     return { bg: "bg-green-50", text: "text-green-700", border: "border-green-200", label: "Jangka panjang" };
 }
 
-export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }) {
+export type LeadCardDensity = "comfortable" | "compact" | "minimal";
+
+export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lead; onClick?: () => void; density?: LeadCardDensity }) {
     const qc = useQueryClient();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: lead.id,
@@ -123,8 +125,8 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
             onClick={onClick}
             className="group bg-card border border-border rounded-lg shadow-sm hover:shadow-md cursor-pointer overflow-hidden"
         >
-            {/* Thumbnail header — kalau ada imageUrl */}
-            {imageFullUrl && (
+            {/* Thumbnail header — kalau ada imageUrl, hidden in compact/minimal density */}
+            {imageFullUrl && density === "comfortable" && (
                 <div className="relative w-full h-24 bg-slate-100 overflow-hidden border-b border-border">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -141,7 +143,7 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
                 </div>
             )}
 
-            <div className="p-2.5 space-y-1.5">
+            <div className={density === "minimal" ? "p-1.5 space-y-1" : density === "compact" ? "p-2 space-y-1" : "p-2.5 space-y-1.5"}>
             <div className="flex items-start gap-1.5">
                 <button
                     {...attributes}
@@ -284,7 +286,7 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
                 );
             })()}
 
-            {labels.length > 0 && (
+            {density !== "minimal" && labels.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                     {labels.map((l) => (
                         <span
@@ -302,10 +304,10 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
                 </div>
             )}
 
-            {/* Event Date — TAMPIL PALING DULU & MENONJOL kalau ada.
+            {/* Event Date — hide di minimal density.
                 Kasus umum: deal sudah closed tapi event masih 1-2 bulan lagi → harus visible biar owner tau prioritas persiapan.
                 Display smart range: 1 hari = "18 Mei", multi-hari = "18-21 Mei" atau "29 Mei - 3 Jun". */}
-            {lead.eventDateStart && (() => {
+            {density !== "minimal" && lead.eventDateStart && (() => {
                 const c = eventDateColor(lead.eventDateStart);
                 const d = dayjs(lead.eventDateStart).startOf("day");
                 const today = dayjs().startOf("day");
@@ -330,30 +332,32 @@ export function LeadCard({ lead, onClick }: { lead: Lead; onClick?: () => void }
             })()}
 
             {/* Date row — Lead masuk + Follow-up (kalau ada) */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-600 border border-slate-200"
-                    title={`Lead masuk: ${dayjs(lead.leadCameAt).format("DD MMM YYYY HH:mm")}`}
-                >
-                    <CalendarDays className="h-2.5 w-2.5" />
-                    {formatShortDate(lead.leadCameAt)}
-                </span>
-                {lead.followUpDate && (() => {
-                    const c = followUpColor(lead.followUpDate);
-                    return (
-                        <span
-                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${c.bg} ${c.text} border ${c.border}`}
-                            title={`Follow-up: ${dayjs(lead.followUpDate).format("DD MMM YYYY")}`}
-                        >
-                            <CalendarClock className="h-2.5 w-2.5" />
-                            FU: {formatShortDate(lead.followUpDate)}
-                        </span>
-                    );
-                })()}
-            </div>
+            {density !== "minimal" && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-600 border border-slate-200"
+                        title={`Lead masuk: ${dayjs(lead.leadCameAt).format("DD MMM YYYY HH:mm")}`}
+                    >
+                        <CalendarDays className="h-2.5 w-2.5" />
+                        {formatShortDate(lead.leadCameAt)}
+                    </span>
+                    {lead.followUpDate && (() => {
+                        const c = followUpColor(lead.followUpDate);
+                        return (
+                            <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${c.bg} ${c.text} border ${c.border}`}
+                                title={`Follow-up: ${dayjs(lead.followUpDate).format("DD MMM YYYY")}`}
+                            >
+                                <CalendarClock className="h-2.5 w-2.5" />
+                                FU: {formatShortDate(lead.followUpDate)}
+                            </span>
+                        );
+                    })()}
+                </div>
+            )}
 
             {/* Convert status indicator (compact) — detail chips di pindah ke LeadDrawer */}
-            {isConverted && (
+            {density !== "minimal" && isConverted && (
                 <div className="flex items-center gap-1 pt-1 border-t border-dashed border-slate-200">
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200">
                         <CheckCircle2 className="h-2.5 w-2.5" />

@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Plus, FileText, FileDown, Pencil, Trash2, Loader2, GitBranch, Hash, Eye, X, Download, Users, Search, ScrollText,
+    Plus, FileText, FileDown, Pencil, Trash2, Loader2, GitBranch, Hash, Eye, X, Download, Users, Search, ScrollText, Copy,
 } from "lucide-react";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 import {
     getQuotations, createQuotation, deleteQuotation,
-    assignQuotationNumber, editQuotationNumber, reviseQuotation, downloadQuotationExport,
+    assignQuotationNumber, editQuotationNumber, reviseQuotation, duplicateQuotation, downloadQuotationExport,
     backfillQuotationStatus,
     markInvoiceSent, markInvoicePaid, cancelInvoice,
     type Quotation, type QuotationVariant, type PaymentMethodType,
@@ -215,6 +215,15 @@ function PenawaranListPageInner() {
             qc.invalidateQueries({ queryKey: ["quotations"] });
             window.location.href = `/penawaran/${q.id}`;
         },
+    });
+
+    const duplicateMut = useMutation({
+        mutationFn: duplicateQuotation,
+        onSuccess: (q: Quotation) => {
+            qc.invalidateQueries({ queryKey: ["quotations"] });
+            window.location.href = `/penawaran/${q.id}`;
+        },
+        onError: (e: any) => alert(`❌ Duplicate gagal: ${e?.response?.data?.message || e?.message}`),
     });
 
     /** One-time admin backfill — fix penawaran lama yang status-nya masih DRAFT padahal sudah punya nomor resmi. */
@@ -630,10 +639,25 @@ function PenawaranListPageInner() {
                                                 <button
                                                     onClick={() => reviseMut.mutate(q.id)}
                                                     disabled={reviseMut.isPending}
-                                                    title="Buat Revisi"
+                                                    title="Buat Revisi (linked ke penawaran ini)"
                                                     className="p-1.5 text-amber-700 hover:bg-amber-50 rounded"
                                                 >
                                                     <GitBranch className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                            {/* Duplicate — buat penawaran baru standalone berdasarkan ini (template) */}
+                                            {q.type !== "INVOICE" && (
+                                                <button
+                                                    onClick={() => {
+                                                        if (confirm(`Duplicate Penawaran ${q.invoiceNumber}?\n\nAkan dibuat Penawaran BARU (terpisah) dengan data yang sama. Cocok untuk klien lain dengan kebutuhan serupa.`)) {
+                                                            duplicateMut.mutate(q.id);
+                                                        }
+                                                    }}
+                                                    disabled={duplicateMut.isPending}
+                                                    title="Duplicate Penawaran (jadi template, standalone)"
+                                                    className="p-1.5 text-cyan-700 hover:bg-cyan-50 rounded"
+                                                >
+                                                    <Copy className="w-4 h-4" />
                                                 </button>
                                             )}
                                             {/* Payment action buttons — cuma untuk INVOICE, non-DRAFT, non-CANCELLED, non-PAID */}

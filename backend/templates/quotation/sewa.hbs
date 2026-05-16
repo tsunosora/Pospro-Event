@@ -244,8 +244,8 @@
     <div class="doc-meta">
       <div class="nomor">
         <div><strong>{{#if doc.isInvoice}}{{i18n.noInvoice}}{{else}}{{i18n.nomor}}{{/if}}</strong>: {{doc.number}}</div>
-        {{#unless doc.isInvoice}}<div style="white-space: pre-line;"><strong>{{i18n.lampiran}}</strong>: {{attachment.label}}</div>{{/unless}}
         <div><strong>{{i18n.perihal}}</strong>: <u><strong>{{doc.subject}}</strong></u></div>
+        {{#unless doc.isInvoice}}<div style="white-space: pre-line;"><strong>{{i18n.lampiran}}</strong>: {{attachment.label}}</div>{{/unless}}
         {{#if doc.dueDateFormatted}}
         <div><strong>Jatuh Tempo</strong>: <span style="color:{{theme.primary}}; font-weight:700">{{doc.dueDateFormatted}}</span></div>
         {{/if}}

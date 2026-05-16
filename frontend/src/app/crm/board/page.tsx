@@ -17,8 +17,10 @@ import { getBoard, listLabels, reorderLead, LEAD_STATUS_META, LEAD_STATUS_ORDER,
 import { StageColumn } from "@/components/crm/StageColumn";
 import { LeadCard } from "@/components/crm/LeadCard";
 import { LeadDrawer } from "@/components/crm/LeadDrawer";
-import { Plus, Upload, RefreshCw, Search, X } from "lucide-react";
+import { Plus, Upload, RefreshCw, Search, X, LayoutGrid, Rows3, Maximize2, Settings2, Eye, EyeOff } from "lucide-react";
 import { DateRangeFilter, presetToRange, type DateRange } from "@/components/DateRangeFilter";
+import type { LeadCardDensity } from "@/components/crm/LeadCard";
+import type { StageColumnWidth } from "@/components/crm/StageColumn";
 
 export default function CrmBoardPage() {
     const qc = useQueryClient();
@@ -40,6 +42,36 @@ export default function CrmBoardPage() {
      */
     const [dateField, setDateField] = useState<"leadCameAt" | "eventDateStart" | "followUpDate">("leadCameAt");
     const [dateRange, setDateRange] = useState<DateRange>({ preset: "ALL" });
+
+    /**
+     * View options — disimpan di localStorage supaya preferensi user persisten across sessions.
+     * - density: comfortable (full info) / compact (minus foto) / minimal (cuma nama + level + WA)
+     * - columnWidth: narrow / normal / wide
+     * - hideEmptyStages: sembunyikan kolom yang gak ada lead-nya (fokus stage aktif)
+     */
+    const [density, setDensity] = useState<LeadCardDensity>("comfortable");
+    const [columnWidth, setColumnWidth] = useState<StageColumnWidth>("normal");
+    const [hideEmptyStages, setHideEmptyStages] = useState(false);
+    const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
+
+    // Hydrate dari localStorage
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem("pospro:crm:viewOpts");
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed.density) setDensity(parsed.density);
+                if (parsed.columnWidth) setColumnWidth(parsed.columnWidth);
+                if (typeof parsed.hideEmptyStages === "boolean") setHideEmptyStages(parsed.hideEmptyStages);
+            }
+        } catch { /* ignore */ }
+    }, []);
+    // Persist
+    useEffect(() => {
+        try {
+            localStorage.setItem("pospro:crm:viewOpts", JSON.stringify({ density, columnWidth, hideEmptyStages }));
+        } catch { /* ignore */ }
+    }, [density, columnWidth, hideEmptyStages]);
 
     const { data, isLoading, refetch, isFetching } = useQuery({
         queryKey: ["crm-board"],
@@ -200,6 +232,151 @@ export default function CrmBoardPage() {
                     >
                         <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
                     </button>
+                    {/* Quick density toggle — 3 icon button (Lengkap / Padat / Minimal) */}
+                    <div className="hidden md:inline-flex items-center gap-0 rounded-md border border-border bg-background p-0.5">
+                        <button
+                            type="button"
+                            onClick={() => setDensity("comfortable")}
+                            title="Tampilan Lengkap (foto + semua info)"
+                            className={`px-1.5 py-1 rounded text-xs transition ${density === "comfortable" ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-muted"}`}
+                        >
+                            🃏
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setDensity("compact")}
+                            title="Tampilan Padat (tanpa foto)"
+                            className={`px-1.5 py-1 rounded text-xs transition ${density === "compact" ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-muted"}`}
+                        >
+                            📋
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setDensity("minimal")}
+                            title="Tampilan Minimal (cuma nama)"
+                            className={`px-1.5 py-1 rounded text-xs transition ${density === "minimal" ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-muted"}`}
+                        >
+                            📝
+                        </button>
+                    </div>
+
+                    {/* View Options popover */}
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => setViewOptionsOpen((o) => !o)}
+                            className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-md border border-border bg-background text-xs sm:text-sm hover:bg-muted"
+                            title="Opsi tampilan board"
+                        >
+                            <Settings2 className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Tampilan</span>
+                        </button>
+                        {viewOptionsOpen && (
+                            <>
+                                <div className="fixed inset-0 z-30" onClick={() => setViewOptionsOpen(false)} />
+                                <div className="absolute z-40 mt-1 right-0 w-72 rounded-lg border border-input bg-card shadow-xl">
+                                    <div className="p-3 border-b border-border">
+                                        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">🎨 Opsi Tampilan Board</div>
+                                    </div>
+
+                                    {/* Density */}
+                                    <div className="p-3 border-b border-border space-y-1.5">
+                                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                                            <LayoutGrid className="h-3 w-3" /> Kepadatan Card
+                                        </label>
+                                        <div className="grid grid-cols-3 gap-1">
+                                            {(["comfortable", "compact", "minimal"] as LeadCardDensity[]).map((d) => (
+                                                <button
+                                                    key={d}
+                                                    type="button"
+                                                    onClick={() => setDensity(d)}
+                                                    className={`text-[10px] px-2 py-1.5 rounded border-2 font-semibold transition ${density === d
+                                                        ? "bg-indigo-600 text-white border-indigo-600"
+                                                        : "bg-white text-slate-700 border-slate-200 hover:border-indigo-400"
+                                                        }`}
+                                                >
+                                                    {d === "comfortable" ? "🃏 Lengkap" :
+                                                     d === "compact" ? "📋 Padat" :
+                                                     "📝 Minimal"}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            {density === "comfortable" && "Foto + semua info"}
+                                            {density === "compact" && "Tanpa foto, info ringkas"}
+                                            {density === "minimal" && "Hanya nama + brand + status"}
+                                        </p>
+                                    </div>
+
+                                    {/* Column width */}
+                                    <div className="p-3 border-b border-border space-y-1.5">
+                                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                                            <Maximize2 className="h-3 w-3" /> Lebar Kolom
+                                        </label>
+                                        <div className="grid grid-cols-3 gap-1">
+                                            {(["narrow", "normal", "wide"] as StageColumnWidth[]).map((w) => (
+                                                <button
+                                                    key={w}
+                                                    type="button"
+                                                    onClick={() => setColumnWidth(w)}
+                                                    className={`text-[10px] px-2 py-1.5 rounded border-2 font-semibold transition ${columnWidth === w
+                                                        ? "bg-indigo-600 text-white border-indigo-600"
+                                                        : "bg-white text-slate-700 border-slate-200 hover:border-indigo-400"
+                                                        }`}
+                                                >
+                                                    {w === "narrow" ? "🔹 Sempit" : w === "normal" ? "🔸 Normal" : "🔺 Lebar"}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            {columnWidth === "narrow" && "Lebih banyak kolom muat di layar"}
+                                            {columnWidth === "normal" && "Default, balance antara density & info"}
+                                            {columnWidth === "wide" && "Info card lebih luas, gampang dibaca"}
+                                        </p>
+                                    </div>
+
+                                    {/* Hide empty stages */}
+                                    <div className="p-3 space-y-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setHideEmptyStages((h) => !h)}
+                                            className={`w-full inline-flex items-center justify-between gap-2 px-3 py-2 rounded-md border-2 text-xs font-semibold transition ${hideEmptyStages
+                                                ? "bg-amber-100 text-amber-800 border-amber-400"
+                                                : "bg-white text-slate-700 border-slate-200 hover:border-amber-300"
+                                                }`}
+                                        >
+                                            <span className="inline-flex items-center gap-1.5">
+                                                {hideEmptyStages ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                                Sembunyikan Stage Kosong
+                                            </span>
+                                            <span className="text-[10px]">
+                                                {hideEmptyStages ? "✓ Aktif" : "Off"}
+                                            </span>
+                                        </button>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            Fokus ke stage yang ada lead-nya, kolom kosong di-hide.
+                                        </p>
+                                    </div>
+
+                                    {/* Reset */}
+                                    <div className="p-2 border-t border-border bg-slate-50/50">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setDensity("comfortable");
+                                                setColumnWidth("normal");
+                                                setHideEmptyStages(false);
+                                            }}
+                                            className="w-full text-[10px] text-slate-600 hover:text-slate-900 hover:bg-white rounded px-2 py-1.5"
+                                        >
+                                            ↺ Reset ke default
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
                     <Link
                         href="/crm/import"
                         className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-md border border-border bg-background text-xs sm:text-sm hover:bg-muted"
@@ -357,18 +534,22 @@ export default function CrmBoardPage() {
             >
                 <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden [scrollbar-width:thin]">
                     <div className="flex gap-3 p-3 sm:p-4 h-full min-h-0">
-                        {stages.map((stage) => (
-                            <StageColumn
-                                key={stage.id}
-                                stage={stage}
-                                leads={leadsByStage[stage.id] ?? []}
-                                onCardClick={(lead) => setDrawerLeadId(lead.id)}
-                            />
-                        ))}
+                        {stages
+                            .filter((stage) => !hideEmptyStages || (leadsByStage[stage.id]?.length ?? 0) > 0)
+                            .map((stage) => (
+                                <StageColumn
+                                    key={stage.id}
+                                    stage={stage}
+                                    leads={leadsByStage[stage.id] ?? []}
+                                    onCardClick={(lead) => setDrawerLeadId(lead.id)}
+                                    density={density}
+                                    columnWidth={columnWidth}
+                                />
+                            ))}
                     </div>
                 </div>
                 <DragOverlay>
-                    {activeLead && <LeadCard lead={activeLead} />}
+                    {activeLead && <LeadCard lead={activeLead} density={density} />}
                 </DragOverlay>
             </DndContext>
 

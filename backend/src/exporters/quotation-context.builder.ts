@@ -441,7 +441,7 @@ export const I18N: Record<'id' | 'en', Record<string, string>> = {
         nomor: 'Nomor',
         noInvoice: 'No. Invoice',
         lampiran: 'Lampiran',
-        perihal: 'Perihal',
+        perihal: 'Hal',
         // Doc title
         suratPenawaran: 'SURAT PENAWARAN',
         invoice: 'INVOICE',

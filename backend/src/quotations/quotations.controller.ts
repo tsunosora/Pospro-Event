@@ -322,6 +322,12 @@ export class QuotationsController {
         return this.service.revise(id);
     }
 
+    /** Duplicate Penawaran — buat row baru standalone (bukan revisi). */
+    @Post(':id/duplicate')
+    duplicate(@Param('id', ParseIntPipe) id: number) {
+        return this.service.duplicateQuotation(id);
+    }
+
     @Post('from-customer/:customerId')
     fromCustomer(
         @Param('customerId', ParseIntPipe) customerId: number,
