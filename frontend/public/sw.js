@@ -3,7 +3,7 @@
 
 // Version string — bump manual saat deploy major changes, atau replace via build script
 // Contoh build script: sed -i "s/__BUILD_ID__/$(date +%s)/" public/sw.js
-const CACHE_VERSION = 'pospro-v2-1778614188031';
+const CACHE_VERSION = 'pospro-v2-1778906650804';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

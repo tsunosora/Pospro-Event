@@ -50,8 +50,22 @@ const STATUS_COLOR: Record<string, string> = {
 
 type ItemRow = QuotationItem & { _key: string };
 
+/**
+ * Normalisasi item dari DB:
+ * - unit: separator legacy " - " → " x " (mis. "unit - 3 hari" → "unit x 3 hari")
+ * - description: strip suffix faktor "(... unit/hari/jam/m²)" yang dulu di-append calculator
+ * Apply saat load supaya saat user save lagi, data juga tersimpan dalam format baru.
+ */
+function normalizeItem(it: QuotationItem): QuotationItem {
+    const unit = typeof it.unit === 'string' ? it.unit.replace(/\s+-\s+/g, ' x ') : it.unit;
+    const description = typeof it.description === 'string'
+        ? it.description.replace(/\s*\([^()]*(?:unit|hari|jam|m²|m2)[^()]*\)\s*$/i, '').trim()
+        : it.description;
+    return { ...it, unit, description };
+}
+
 function keyed(items: QuotationItem[]): ItemRow[] {
-    return items.map((it, idx) => ({ ...it, _key: `${it.id ?? "new"}-${idx}-${Math.random()}` }));
+    return items.map((it, idx) => ({ ...normalizeItem(it), _key: `${it.id ?? "new"}-${idx}-${Math.random()}` }));
 }
 
 export default function PenawaranDetailPage({ params }: { params: Promise<{ id: string }> }) {

@@ -290,7 +290,21 @@ function formatRp(n: number | string, useUsd: boolean = false): string {
 function formatQty(n: number | string, unit: string | null | undefined): string {
     const num = Number(n || 0);
     const rounded = Number.isInteger(num) ? num.toString() : num.toFixed(2).replace(/\.?0+$/, '');
-    return unit ? `${rounded} ${unit}` : rounded;
+    // Normalisasi separator legacy " - " jadi " x " untuk item yang dibuat sebelum perubahan format.
+    const normalizedUnit = unit ? unit.replace(/\s+-\s+/g, ' x ') : unit;
+    return normalizedUnit ? `${rounded} ${normalizedUnit}` : rounded;
+}
+
+/**
+ * Bersihkan suffix faktor di uraian (legacy data).
+ * Marketing tidak ingin "(3 unit × 3 hari)" di description — qty/faktor tampil di kolom Qty saja.
+ * Strip pola "(...unit...)", "(...hari...)", "(...jam...)", "(...m²...)" di akhir string.
+ */
+function cleanDescription(desc: string | null | undefined): string {
+    if (!desc) return '';
+    return desc
+        .replace(/\s*\([^()]*(?:unit|hari|jam|m²|m2)[^()]*\)\s*$/i, '')
+        .trim();
 }
 
 // Terbilang Rupiah sederhana (sampai triliun).
@@ -784,7 +798,7 @@ export class QuotationContextBuilder {
 
         const items: QuotationRenderItem[] = quotation.items.map((it, idx) => ({
             no: idx + 1,
-            description: it.description,
+            description: cleanDescription(it.description),
             unit: it.unit ?? '',
             quantity: formatQty(it.quantity.toString(), it.unit),
             price: formatRp(it.price.toString(), useUsd),
@@ -812,7 +826,7 @@ export class QuotationContextBuilder {
             // Per-kategori numbering — restart dari 1 di setiap kategori
             group.items.push({
                 no: group.nextNo,
-                description: it.description,
+                description: cleanDescription(it.description),
                 unit: it.unit ?? '',
                 quantity: formatQty(it.quantity.toString(), it.unit),
                 price: formatRp(it.price.toString(), useUsd),
@@ -866,7 +880,7 @@ export class QuotationContextBuilder {
                 const b = buckets.get(idx)!;
                 b.items.push({
                     no: b.nextNo,
-                    description: it.description,
+                    description: cleanDescription(it.description),
                     unit: it.unit ?? '',
                     quantity: formatQty(it.quantity.toString(), it.unit),
                     price: formatRp(it.price.toString(), useUsd),
@@ -915,7 +929,7 @@ export class QuotationContextBuilder {
                 const p = pkgMap.get(grp)!;
                 p.items.push({
                     no: p.nextNo,
-                    description: it.description,
+                    description: cleanDescription(it.description),
                     unit: it.unit ?? '',
                     quantity: formatQty(it.quantity.toString(), it.unit),
                     price: formatRp(it.price.toString(), useUsd),

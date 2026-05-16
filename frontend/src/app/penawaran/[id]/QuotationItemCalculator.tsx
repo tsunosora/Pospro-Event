@@ -47,8 +47,8 @@ function buildFactorText(f: QuotationCalcResult["factors"]): string {
 
 /**
  * Buat string unit yang menampilkan SEMUA faktor secara terpisah dengan nilai-nilainya.
- * Marketing minta format ini supaya kolom Qty tampil "2 unit - 3 hari" bukan "6 unit-hari".
- * Contoh output: "2 unit - 3 hari", "3 unit - 4 jam", "10 m² - 2 hari".
+ * Marketing minta format ini supaya kolom Qty tampil "2 unit x 3 hari" bukan "6 unit-hari".
+ * Contoh output: "2 unit x 3 hari", "3 unit x 4 jam", "10 m² x 2 hari".
  * Kalau cuma 1 faktor → return label saja (mis. "unit", "hari").
  */
 function buildUnitText(f: QuotationCalcResult["factors"], primaryLabel: 'unit' | 'm²'): string {
@@ -59,8 +59,8 @@ function buildUnitText(f: QuotationCalcResult["factors"], primaryLabel: 'unit' |
     if (f.hari !== undefined && f.hari > 0) secondary.push(`${f.hari} hari`);
     if (f.jam !== undefined && f.jam > 0) secondary.push(`${f.jam} jam`);
     if (secondary.length === 0) return primaryLabel;
-    // Format: "unit - 3 hari" atau "unit - 3 hari - 2 jam"
-    return `${primaryLabel} - ${secondary.join(" - ")}`;
+    // Format: "unit x 3 hari" atau "unit x 3 hari x 2 jam"
+    return `${primaryLabel} x ${secondary.join(" x ")}`;
 }
 
 export function buildResult(state: {
@@ -101,16 +101,15 @@ export function buildResult(state: {
     // Build unit text — "unit - 3 hari" supaya kolom Qty tampil "2 unit - 3 hari"
     const unitText = factorText ? buildUnitText(factors, primaryLabel) : 'set';
 
+    // Uraian: HANYA nama item, tanpa qty/faktor (qty tampil terpisah di kolom Qty).
+    // Strip suffix "(... unit/hari/jam/m²)" dari data legacy.
+    const stripFactorSuffix = (s: string) =>
+        s.replace(/\s*\([^()]*(?:unit|hari|jam|m²|m2)[^()]*\)\s*$/i, '').trim();
     let descriptionText = "";
-    if (state.existingDescription && state.existingDescription.trim()) {
-        // Append faktor di belakang description user existing
-        descriptionText = factorText
-            ? `${state.existingDescription.trim()} (${factorText})`
-            : state.existingDescription.trim();
-    } else if (label && factorText) {
-        descriptionText = `${label} (${factorText})`;
-    } else if (label) {
-        descriptionText = label;
+    if (label) {
+        descriptionText = stripFactorSuffix(label);
+    } else if (state.existingDescription && state.existingDescription.trim()) {
+        descriptionText = stripFactorSuffix(state.existingDescription);
     } else {
         descriptionText = factorText;
     }
@@ -134,7 +133,9 @@ export default function QuotationItemCalculator({
     onApply,
     onCancel,
 }: Props) {
-    const [label, setLabel] = useState(initialDescription?.trim() ?? "");
+    const [label, setLabel] = useState(
+        (initialDescription ?? "").replace(/\s*\([^()]*(?:unit|hari|jam|m²|m2)[^()]*\)\s*$/i, '').trim()
+    );
     const [unitCount, setUnitCount] = useState<string>(
         initialQuantity && initialQuantity > 0 ? String(initialQuantity) : ""
     );
@@ -273,7 +274,7 @@ export default function QuotationItemCalculator({
                             />
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-2">
-                            💡 Contoh: isi <b>2 unit</b> + <b>3 hari</b> → tampil di Qty sebagai <b>&quot;2 unit - 3 hari&quot;</b> (terpisah, bukan digabung 6 unit-hari). Harga satuan di-scale otomatis.
+                            💡 Contoh: isi <b>2 unit</b> + <b>3 hari</b> → tampil di Qty sebagai <b>&quot;2 unit x 3 hari&quot;</b> (terpisah, bukan digabung 6 unit-hari). Harga satuan di-scale otomatis.
                         </p>
                     </div>
 
