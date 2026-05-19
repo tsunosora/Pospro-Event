@@ -112,9 +112,13 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [taxRate, setTaxRate] = useState(0);
     const [taxAmount, setTaxAmount] = useState(0);
     const [taxMode, setTaxMode] = useState<"percent" | "amount">("percent");
+    // Pricing mode: false (default) = harga item belum termasuk PPN. true = sudah termasuk.
+    const [priceIncludesTax, setPriceIncludesTax] = useState(false);
     const [pphRate, setPphRate] = useState(0);
     const [pphAmount, setPphAmount] = useState(0);
     const [pphMode, setPphMode] = useState<"percent" | "amount">("percent");
+    // Auto gross-up: kalau ON, harga items dianggap target net (vendor terima sesuai input setelah PPh)
+    const [grossUpPph, setGrossUpPph] = useState(false);
     const [discount, setDiscount] = useState(0);
     const [dpPercent, setDpPercent] = useState(50);
     const [notes, setNotes] = useState("");
@@ -197,6 +201,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [packagePrice, setPackagePrice] = useState<number>(0);
     /** Tampilkan grand total di footer? Default true. False untuk mode 'package'. */
     const [showGrandTotal, setShowGrandTotal] = useState<boolean>(true);
+    /** Tampilkan baris Diskon di PDF invoice. Default true. */
+    const [showDiscount, setShowDiscount] = useState<boolean>(true);
+    /** Tampilkan baris PPh di PDF invoice. Default true. */
+    const [showPph, setShowPph] = useState<boolean>(true);
 
     // Bank accounts dari /settings/bank-accounts
     // Brand settings — untuk button "Salin dari Brand" di custom text section
@@ -296,12 +304,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setTaxAmount(loadedTaxAmount);
         // Auto-detect mode: kalau taxRate=0 tapi taxAmount>0 → mode "amount"
         setTaxMode(loadedTaxRate === 0 && loadedTaxAmount > 0 ? "amount" : "percent");
+        setPriceIncludesTax(!!(data as any).priceIncludesTax);
         const loadedPphRate = Number((data as any).pphRate ?? 0);
         const loadedPphAmount = Number((data as any).pphAmount ?? 0);
         setPphRate(loadedPphRate);
         setPphAmount(loadedPphAmount);
         // Auto-detect mode: kalau pphRate=0 tapi pphAmount>0 → mode "amount" (admin input Rp langsung)
         setPphMode(loadedPphRate === 0 && loadedPphAmount > 0 ? "amount" : "percent");
+        setGrossUpPph(!!(data as any).grossUpPph);
         setDiscount(Number(data.discount ?? 0));
         setDpPercent(Number(data.dpPercent ?? 50));
         setNotes(data.notes ?? "");
@@ -361,6 +371,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         );
         setPackagePrice(Number((data as any).packagePrice) || 0);
         setShowGrandTotal((data as any).showGrandTotal !== false);
+        setShowDiscount((data as any).showDiscount !== false);
+        setShowPph((data as any).showPph !== false);
         setItems(keyed(data.items ?? []));
     }, [data]);
 
@@ -485,11 +497,29 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     });
 
     const subtotal = items.reduce((s, it) => s + Number(it.quantity || 0) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price || 0), 0);
-    const dpp = subtotal - (discount || 0);
-    // PPN: mode percent → compute dari rate; mode amount → pakai nominal langsung
-    const computedTaxAmount = taxMode === "amount"
-        ? (taxAmount || 0)
-        : (dpp * (taxRate || 0)) / 100;
+    const grossAfterDiscount = subtotal - (discount || 0);
+
+    // Gross-up factor — kalau ON dan PPh > 0, scale DPP supaya setelah PPh, net = target
+    const effectivePphRateForGrossUp = pphMode === "percent" ? (pphRate || 0) : 0;
+    const grossUpFactor = (grossUpPph && effectivePphRateForGrossUp > 0 && effectivePphRateForGrossUp < 100)
+        ? 100 / (100 - effectivePphRateForGrossUp)
+        : 1;
+
+    // DPP & PPN tergantung mode pricing:
+    //  Exclusive (default): DPP = (subtotal - discount) × grossUpFactor
+    //  Inclusive: DPP = gross / (1 + rate%), PPN = gross - DPP (back-calc)
+    let dpp: number;
+    let computedTaxAmount: number;
+    if (priceIncludesTax && (taxRate || 0) > 0 && taxMode === "percent") {
+        const grossUpped = grossAfterDiscount * grossUpFactor;
+        dpp = grossUpped / (1 + (taxRate || 0) / 100);
+        computedTaxAmount = grossUpped - dpp;
+    } else {
+        dpp = grossAfterDiscount * grossUpFactor;
+        computedTaxAmount = taxMode === "amount"
+            ? (taxAmount || 0)
+            : (dpp * (taxRate || 0)) / 100;
+    }
     const effectiveTaxRate = taxMode === "amount"
         ? (dpp > 0 ? (computedTaxAmount / dpp) * 100 : 0)
         : (taxRate || 0);
@@ -501,7 +531,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const effectivePphRate = pphMode === "amount"
         ? (dpp > 0 ? (computedPphAmount / dpp) * 100 : 0)
         : (pphRate || 0);
-    const total = dpp + computedTaxAmount - computedPphAmount;
+    // Total = harga yang DITAGIH ke klien (DPP + PPN, sebelum potong PPh).
+    // PPh = info potongan yang dilakukan klien saat bayar — TIDAK mengurangi total/DP/Pelunasan.
+    //  Exclusive: DPP + PPN
+    //  Inclusive: gross (PPN sudah didalam gross)
+    const total = priceIncludesTax
+        ? grossAfterDiscount
+        : dpp + computedTaxAmount;
+    const netReceived = total - computedPphAmount; // info: jumlah diterima setelah klien potong PPh
     const dpAmount = (total * dpPercent) / 100;
 
     const addItem = () =>
@@ -585,14 +622,16 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             signedByWorkerId: signedByWorkerId ?? null,
             itemDisplayMode,
             bankAccountIds: bankAccountIds || undefined,
-            // PPN: kirim sesuai mode
+            // PPN: kirim sesuai mode + pricing mode (inclusive/exclusive)
             ...(taxMode === "amount"
                 ? { taxRate: 0, taxAmount: taxAmount || 0 }
                 : { taxRate, taxAmount: 0 }),
+            priceIncludesTax,
             // PPh: kirim sesuai mode. Backend support kedua input.
             ...(pphMode === "amount"
                 ? { pphRate: 0, pphAmount: pphAmount || 0 }
                 : { pphRate, pphAmount: 0 }),
+            grossUpPph,
             discount,
             dpPercent,
             notes,
@@ -647,6 +686,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 .filter((g) => g.items.length > 0),
             packagePrice: packagePrice > 0 ? packagePrice : null,
             showGrandTotal,
+            showDiscount,
+            showPph,
             brand,
             items: items.map((it, idx) => ({
                 description: it.description,
@@ -1534,7 +1575,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
                     {/* PPN section dengan toggle mode % / Rp */}
                     <div className="border-2 border-blue-200 bg-blue-50/40 rounded p-2 space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
                             <label className="text-xs font-bold text-blue-900">📊 PPN (Pajak Pertambahan Nilai)</label>
                             <div className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-white p-0.5 text-[10px] font-semibold">
                                 <button
@@ -1552,6 +1593,38 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     Rp Nominal
                                 </button>
                             </div>
+                        </div>
+
+                        {/* Pricing mode toggle — harga belum / sudah termasuk PPN */}
+                        <div className="bg-white border border-blue-200 rounded p-1.5 space-y-1">
+                            <div className="text-[10px] font-bold uppercase tracking-wide text-blue-800">Mode Pricing</div>
+                            <div className="grid grid-cols-2 gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setPriceIncludesTax(false)}
+                                    className={`text-[10px] px-2 py-1.5 rounded border-2 font-semibold transition ${!priceIncludesTax
+                                        ? "bg-blue-600 text-white border-blue-600"
+                                        : "bg-white text-blue-700 border-blue-200 hover:border-blue-400"
+                                        }`}
+                                >
+                                    ➕ Harga belum termasuk PPN
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPriceIncludesTax(true)}
+                                    className={`text-[10px] px-2 py-1.5 rounded border-2 font-semibold transition ${priceIncludesTax
+                                        ? "bg-blue-600 text-white border-blue-600"
+                                        : "bg-white text-blue-700 border-blue-200 hover:border-blue-400"
+                                        }`}
+                                >
+                                    📦 Harga sudah termasuk PPN
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-slate-600">
+                                {priceIncludesTax
+                                    ? "📦 Harga item adalah GROSS (sudah include PPN). DPP & PPN di-back-calc dari gross."
+                                    : "➕ Harga item adalah NET (belum include PPN). PPN ditambah di atas subtotal."}
+                            </p>
                         </div>
                         {taxMode === "percent" ? (
                             <div>
@@ -1685,6 +1758,47 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 Preset: <b>0.5%</b> UMKM Final · <b>1.5%</b> PPh 4(2) sewa/konstruksi · <b>2%</b> PPh 23 jasa
                             </div>
                         )}
+
+                        {/* AUTO GROSS-UP toggle — fitur paling sering dipakai marketing */}
+                        {pphMode === "percent" && pphRate > 0 && (
+                            <div className={`border-2 rounded p-2 space-y-1 transition ${grossUpPph ? "border-emerald-400 bg-emerald-50" : "border-slate-200 bg-slate-50"}`}>
+                                <label className="flex items-start gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={grossUpPph}
+                                        onChange={(e) => setGrossUpPph(e.target.checked)}
+                                        className="mt-0.5 w-4 h-4"
+                                    />
+                                    <div className="flex-1">
+                                        <div className="text-xs font-bold text-slate-900">
+                                            🤖 Auto Gross-Up PPh
+                                            {grossUpPph && <span className="ml-1 text-emerald-700">✓ AKTIF</span>}
+                                        </div>
+                                        <p className="text-[10px] text-slate-600 mt-0.5">
+                                            Harga items dianggap <b>target net</b> yang ingin diterima vendor.
+                                            Sistem auto gross-up DPP supaya setelah PPh dipotong klien,
+                                            vendor terima persis sesuai target.
+                                        </p>
+                                    </div>
+                                </label>
+                                {grossUpPph && (
+                                    <div className="bg-white border border-emerald-300 rounded p-2 mt-1 text-[10px] space-y-0.5">
+                                        <div className="font-mono">
+                                            Sum items: <b className="text-slate-700">Rp {Math.round(subtotal).toLocaleString("id-ID")}</b>
+                                            <span className="text-slate-400 mx-1">→</span>
+                                            DPP gross-up: <b className="text-emerald-700">Rp {Math.round(dpp).toLocaleString("id-ID")}</b>
+                                            <span className="text-slate-400"> (× {grossUpFactor.toFixed(4)})</span>
+                                        </div>
+                                        <div className="text-emerald-700 font-semibold">
+                                            ✅ Setelah PPh {pphRate}% dipotong, vendor terima net = <b>Rp {Math.round(subtotal - (discount || 0)).toLocaleString("id-ID")}</b>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Gross-up PPh Calculator Helper — convert target net ke DPP yang harus dipasang */}
+                        <GrossUpHelper effectivePphRate={effectivePphRate} />
                     </div>
 
                     <Field label="Catatan / Terms" value={notes} onChange={setNotes} multiline />
@@ -2438,13 +2552,48 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
                 <section className="bg-white rounded-lg border p-4">
                     <h3 className="font-semibold mb-2">Ringkasan</h3>
+                    {isInvoiceMode && (
+                        <div className="flex flex-wrap gap-3 mb-3 p-2 bg-slate-50 rounded text-xs">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showDiscount}
+                                    onChange={(e) => setShowDiscount(e.target.checked)}
+                                    className="w-3.5 h-3.5"
+                                />
+                                <span>Tampilkan Diskon</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showPph}
+                                    onChange={(e) => setShowPph(e.target.checked)}
+                                    className="w-3.5 h-3.5"
+                                />
+                                <span>Tampilkan PPh</span>
+                            </label>
+                            <span className="text-slate-500 ml-auto">Toggle untuk PDF invoice</span>
+                        </div>
+                    )}
                     <table className="w-full text-sm">
                         <tbody>
-                            <Row label="Subtotal" value={rp(subtotal)} />
+                            <Row
+                                label={grossUpPph ? "Target Net (sum items)" : priceIncludesTax ? "Subtotal (gross, termasuk PPN)" : "Subtotal"}
+                                value={rp(subtotal)}
+                            />
                             {discount > 0 && <Row label="Diskon" value={`- ${rp(discount)}`} />}
+                            {grossUpPph && (
+                                <tr className="text-emerald-700">
+                                    <td className="py-1 text-xs">DPP gross-up (× {grossUpFactor.toFixed(4)})</td>
+                                    <td className="py-1 text-right font-mono">{rp(dpp)}</td>
+                                </tr>
+                            )}
+                            {priceIncludesTax && !grossUpPph && computedTaxAmount > 0 && (
+                                <Row label="DPP (back-calc)" value={rp(dpp)} />
+                            )}
                             {computedTaxAmount > 0 && (
                                 <Row
-                                    label={`PPN${effectiveTaxRate > 0 ? ` ${effectiveTaxRate.toFixed(2)}%` : ""}`}
+                                    label={`PPN${effectiveTaxRate > 0 ? ` ${effectiveTaxRate.toFixed(2)}%` : ""}${priceIncludesTax ? " (sudah include)" : ""}`}
                                     value={rp(computedTaxAmount)}
                                 />
                             )}
@@ -2457,11 +2606,17 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 </tr>
                             )}
                             <tr className="border-t font-bold text-lg">
-                                <td className="py-2">Grand Total {computedPphAmount > 0 && <span className="text-[10px] font-normal text-rose-600">(setelah potong PPh)</span>}</td>
+                                <td className="py-2">Grand Total {computedTaxAmount > 0 && <span className="text-[10px] font-normal text-slate-500">(termasuk PPN)</span>}</td>
                                 <td className="py-2 text-right">{rp(total)}</td>
                             </tr>
                             <Row label={`DP ${dpPercent}%`} value={rp(dpAmount)} />
                             <Row label="Pelunasan" value={rp(total - dpAmount)} />
+                            {computedPphAmount > 0 && (
+                                <tr className="text-emerald-700 border-t">
+                                    <td className="py-1 text-xs">Jumlah diterima <span className="text-[10px] font-normal">(setelah klien potong PPh)</span></td>
+                                    <td className="py-1 text-right font-mono text-xs">{rp(netReceived)}</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </section>
@@ -3448,6 +3603,98 @@ function PrependAppendField({
                         Format final di PDF: [Atas] + [Default Brand] + [Bawah] (yang kosong di-skip).
                     </p>
                 </>
+            )}
+        </div>
+    );
+}
+
+/**
+ * Helper "Gross-Up PPh" — kalkulator buat marketing yang punya target net
+ * (mis. harga target marketing 47jt), dan butuh tahu berapa DPP yang harus dipasang
+ * supaya setelah PPh dipotong, target tetap tercapai.
+ *
+ * Rumus: DPP gross-up = target × 100 / (100 − pphRate%)
+ *  - PPh 2% → ÷ 0.98 (× 100/98)
+ *  - PPh 1.5% → ÷ 0.985
+ *  - PPh 0.5% → ÷ 0.995
+ *
+ * Tool ini info-only — tidak auto-apply ke item. Marketing pakai hasilnya sebagai
+ * referensi untuk pasang harga item.
+ */
+function GrossUpHelper({ effectivePphRate }: { effectivePphRate: number }) {
+    const [target, setTarget] = useState<string>("");
+    const [open, setOpen] = useState(false);
+
+    const targetNum = parseFloat(target) || 0;
+    const rate = effectivePphRate || 0;
+    const grossUp = rate > 0 && rate < 100
+        ? targetNum * 100 / (100 - rate)
+        : targetNum;
+    const pphDeducted = grossUp - targetNum;
+
+    return (
+        <div className="bg-white border border-rose-200 rounded">
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="w-full px-2 py-1.5 text-left text-[11px] font-semibold text-rose-800 hover:bg-rose-50 flex items-center justify-between rounded"
+            >
+                <span>🧮 Helper Gross-Up dari Target Net</span>
+                <span className="text-rose-600">{open ? "▲" : "▼"}</span>
+            </button>
+            {open && (
+                <div className="px-2 py-2 border-t border-rose-200 space-y-2 text-[11px]">
+                    <p className="text-slate-700">
+                        Marketing punya <b>target harga net</b> (yang ingin diterima setelah PPh)?
+                        Tool ini ngitung DPP yang harus dipasang supaya net tetap sesuai target.
+                    </p>
+                    <div>
+                        <label className="text-[10px] font-semibold text-rose-900 block mb-0.5">
+                            Target net (Rp)
+                        </label>
+                        <input
+                            type="number"
+                            value={target}
+                            onChange={(e) => setTarget(e.target.value)}
+                            placeholder="mis. 47000000"
+                            className="w-full px-2 py-1.5 text-xs border border-rose-300 rounded font-mono"
+                        />
+                    </div>
+                    {targetNum > 0 && rate > 0 && (
+                        <div className="bg-rose-50 border border-rose-200 rounded p-2 space-y-1">
+                            <div className="font-mono text-[10px] text-slate-600">
+                                Rumus: {targetNum.toLocaleString("id-ID")} × 100 / {(100 - rate).toFixed(2)} = …
+                            </div>
+                            <div className="flex items-center justify-between text-[12px]">
+                                <span className="text-slate-700">DPP yang harus dipasang:</span>
+                                <span className="font-mono font-bold text-rose-800">
+                                    Rp {Math.round(grossUp).toLocaleString("id-ID")}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px]">
+                                <span className="text-slate-600">PPh {rate.toFixed(1)}% yang dipotong:</span>
+                                <span className="font-mono text-rose-700">
+                                    Rp {Math.round(pphDeducted).toLocaleString("id-ID")}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] pt-1 border-t border-rose-300">
+                                <span className="text-emerald-700 font-semibold">✅ Net yang diterima:</span>
+                                <span className="font-mono font-bold text-emerald-700">
+                                    Rp {Math.round(targetNum).toLocaleString("id-ID")}
+                                </span>
+                            </div>
+                            <p className="text-[9px] text-slate-500 italic mt-1">
+                                💡 Pasang harga item total = <b>Rp {Math.round(grossUp).toLocaleString("id-ID")}</b> di tabel items
+                                (boleh dipecah per-item, asal sum = nilai ini). Otomatis setelah PPh dipotong klien, vendor terima <b>Rp {Math.round(targetNum).toLocaleString("id-ID")}</b>.
+                            </p>
+                        </div>
+                    )}
+                    {targetNum > 0 && rate === 0 && (
+                        <div className="text-[10px] text-amber-700 italic">
+                            ⚠️ PPh rate = 0%. Set PPh rate dulu di atas untuk hitung gross-up.
+                        </div>
+                    )}
+                </div>
             )}
         </div>
     );

@@ -100,15 +100,23 @@ export interface CreateQuotationDto {
     packagePrice?: number | string | null;
     /** Tampilkan grand total di footer. Default true. False untuk mode 'package'. */
     showGrandTotal?: boolean;
+    /** Tampilkan baris Diskon di PDF invoice. Default true. */
+    showDiscount?: boolean;
+    /** Tampilkan baris PPh di PDF invoice. Default true. */
+    showPph?: boolean;
 
     // Angka
     taxRate?: number;
     /** PPN dalam Rp — kalau di-set > 0, override calculation dari taxRate. Admin input langsung nominal. */
     taxAmount?: number;
+    /** Mode pricing PPN: false (default) = harga belum termasuk PPN. true = harga sudah termasuk PPN (back-calc). */
+    priceIncludesTax?: boolean;
     /** PPh rate (%) — withholding tax, dipotong dari total. Default 0 = tidak pakai PPh. */
     pphRate?: number;
     /** PPh dalam Rp — kalau di-set > 0, override calculation dari pphRate. Admin input langsung nominal. */
     pphAmount?: number;
+    /** Auto gross-up untuk PPh — kalau true, harga items dianggap target net (vendor tetap terima sesuai input). */
+    grossUpPph?: boolean;
     discount?: number;
 
     items?: QuotationItemInput[];

@@ -475,6 +475,16 @@ model Invoice {
   subtotal      Decimal       @default(0) @db.Decimal(15, 2)
   taxRate       Decimal       @default(0) @map("tax_rate") @db.Decimal(5, 2) // % PPN
   taxAmount     Decimal       @default(0) @map("tax_amount") @db.Decimal(15, 2) // Rp PPN
+  /// Pricing mode untuk PPN:
+  ///   false (default) = harga item BELUM termasuk PPN (mode exclusive).
+  ///     Subtotal = sum items, PPN = subtotal × rate%, Total = subtotal + PPN
+  ///   true = harga item SUDAH termasuk PPN (mode inclusive).
+  ///     Subtotal = gross (sum items), DPP = subtotal / (1+rate%), PPN = subtotal - DPP, Total = subtotal
+  priceIncludesTax Boolean @default(false) @map("price_includes_tax")
+  /// Auto gross-up untuk PPh — kalau ON, harga items dianggap "target net" (yg ingin diterima).
+  /// Sistem otomatis hitung DPP = target / (1 - pphRate%) sehingga setelah klien potong PPh,
+  /// vendor terima persis target net. Tanpa flag ini, marketing harus manual gross-up sendiri.
+  grossUpPph Boolean @default(false) @map("gross_up_pph")
   /// PPh (Pajak Penghasilan / withholding tax) — biasanya PPh 23 (2%) atau PPh 4 ayat 2 (1.5%).
   /// PPh DIPOTONG dari total (klien transfer = total - PPh), jadi mengurangi nominal yang diterima vendor.
   /// Mis. event Rp 100jt + PPN 11% = Rp 111jt, dipotong PPh 2% = Rp 2.22jt → diterima Rp 108.78jt
@@ -577,6 +587,10 @@ model Invoice {
   packagePrice       Decimal?          @map("package_price") @db.Decimal(15, 2)
   // Tampilkan grand total di footer? Default true. Set false untuk mode 'package' (PDF Jalakx).
   showGrandTotal     Boolean           @default(true) @map("show_grand_total")
+  // Tampilkan baris Diskon di PDF invoice? Default true. Toggle di UI invoice.
+  showDiscount       Boolean           @default(true) @map("show_discount")
+  // Tampilkan baris PPh di PDF invoice? Default true. Toggle di UI invoice.
+  showPph            Boolean           @default(true) @map("show_pph")
   createdAt     DateTime?     @default(now()) @map("created_at")
   updatedAt     DateTime?     @default(now()) @updatedAt @map("updated_at")
 

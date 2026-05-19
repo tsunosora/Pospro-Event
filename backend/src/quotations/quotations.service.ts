@@ -81,27 +81,71 @@ function sanitizeAdditionalEvents(
     return cleaned as unknown as Prisma.InputJsonValue;
 }
 
-function calcTotals(items: QuotationItemInput[], taxRate: number, discount: number, pphRate = 0, pphAmountOverride?: number, taxAmountOverride?: number) {
-    const subtotal = items.reduce((sum, it) => {
+function calcTotals(
+    items: QuotationItemInput[],
+    taxRate: number,
+    discount: number,
+    pphRate = 0,
+    pphAmountOverride?: number,
+    taxAmountOverride?: number,
+    priceIncludesTax = false,
+    grossUpPph = false,
+) {
+    // rawSum = jumlah baris item (qty × multiplier × price)
+    const rawSum = items.reduce((sum, it) => {
         const q = Number(it.quantity ?? 0);
         const m = Number((it as any).unitMultiplier ?? 1) || 1;
         const p = Number(it.price ?? 0);
         return sum + q * m * p;
     }, 0);
-    // DPP = subtotal setelah diskon (base untuk PPN dan PPh)
-    const dpp = subtotal - (discount || 0);
-    // PPN: kalau override Rp di-set, pakai itu; else compute dari rate %.
-    const taxAmount = (taxAmountOverride !== undefined && taxAmountOverride > 0)
-        ? taxAmountOverride
-        : (dpp * (taxRate || 0)) / 100;
-    // PPh: kalau override Rp di-set, pakai itu; else compute dari rate %.
-    // Sesuai praktik akuntansi Indonesia, PPh dipotong dari DPP (bukan dari DPP+PPN).
+
+    const taxRateNum = Number(taxRate || 0);
+    const pphRateNum = Number(pphRate || 0);
+    const discountNum = Number(discount || 0);
+
+    let subtotal: number;   // yang ditampilkan di tabel sebagai "Subtotal" (sum line items)
+    let dpp: number;        // Dasar Pengenaan Pajak — untuk hitung PPh
+    let taxAmount: number;
+
+    // GROSS-UP MODE: harga items dianggap "target net" (yang ingin diterima vendor).
+    // Sistem otomatis hitung DPP gross-up supaya setelah PPh dipotong, vendor terima target.
+    // Rumus: DPP gross-up = target × 100 / (100 - pphRate%)
+    const grossUpFactor = (grossUpPph && pphRateNum > 0 && pphRateNum < 100)
+        ? 100 / (100 - pphRateNum)
+        : 1;
+
+    if (priceIncludesTax && taxRateNum > 0) {
+        // MODE INCLUSIVE — harga item sudah termasuk PPN.
+        subtotal = rawSum;
+        const grossAfterDiscount = rawSum - discountNum;
+        const grossUpped = grossAfterDiscount * grossUpFactor;
+        dpp = grossUpped / (1 + taxRateNum / 100);
+        taxAmount = (taxAmountOverride !== undefined && taxAmountOverride > 0)
+            ? taxAmountOverride
+            : grossUpped - dpp;
+    } else {
+        // MODE EXCLUSIVE (default) — harga item BELUM termasuk PPN.
+        subtotal = rawSum;
+        dpp = (rawSum - discountNum) * grossUpFactor;
+        taxAmount = (taxAmountOverride !== undefined && taxAmountOverride > 0)
+            ? taxAmountOverride
+            : (dpp * taxRateNum) / 100;
+    }
+
+    // PPh dipotong dari DPP (bukan dari DPP+PPN), sesuai praktik akuntansi Indonesia.
     const pphAmount = (pphAmountOverride !== undefined && pphAmountOverride > 0)
         ? pphAmountOverride
-        : (dpp * (pphRate || 0)) / 100;
-    // Total = DPP + PPN - PPh (PPh dipotong klien sebelum transfer)
-    const total = dpp + taxAmount - pphAmount;
-    return { subtotal, taxAmount, pphAmount, total };
+        : (dpp * pphRateNum) / 100;
+
+    // Total = harga yang DITAGIH ke klien (DPP + PPN). PPh = info potongan klien,
+    // TIDAK dikurangi dari total — supaya DP/Pelunasan yang dikirim ke klien sesuai gross invoice.
+    //  - Exclusive: DPP + PPN
+    //  - Inclusive: gross (PPN sudah masuk gross-upped)
+    const total = priceIncludesTax
+        ? ((rawSum - discountNum) * grossUpFactor)
+        : (dpp + taxAmount);
+
+    return { subtotal, dpp, taxAmount, pphAmount, total };
 }
 
 @Injectable()
@@ -135,10 +179,12 @@ export class QuotationsService {
         const items = dto.items ?? [];
         const taxRate = Number(dto.taxRate ?? 0);
         const taxAmountOverride = dto.taxAmount !== undefined ? Number(dto.taxAmount) : undefined;
+        const priceIncludesTax = !!dto.priceIncludesTax;
+        const grossUpPph = !!dto.grossUpPph;
         const pphRate = Number(dto.pphRate ?? 0);
         const pphAmountOverride = dto.pphAmount !== undefined ? Number(dto.pphAmount) : undefined;
         const discount = Number(dto.discount ?? 0);
-        const { subtotal, taxAmount, pphAmount, total } = calcTotals(items, taxRate, discount, pphRate, pphAmountOverride, taxAmountOverride);
+        const { subtotal, taxAmount, pphAmount, total } = calcTotals(items, taxRate, discount, pphRate, pphAmountOverride, taxAmountOverride, priceIncludesTax, grossUpPph);
 
         // Nomor draft — belum di-reserve. Pakai prefix agar unik & mudah dideteksi.
         const draftNumber = `${DRAFT_NUMBER_PREFIX}${Date.now()}`;
@@ -217,6 +263,7 @@ export class QuotationsService {
                 showGrandTotal: dto.showGrandTotal === false ? false : true,
 
                 taxRate: toDecimal(taxRate),
+                ...(({ priceIncludesTax, grossUpPph }) as any),
                 ...(({ pphRate: toDecimal(pphRate), pphAmount: toDecimal(pphAmount) }) as any),
                 discount: toDecimal(discount),
                 subtotal: toDecimal(subtotal),
@@ -306,6 +353,8 @@ export class QuotationsService {
         const needsRecompute = dto.items !== undefined
             || dto.taxRate !== undefined
             || dto.taxAmount !== undefined
+            || dto.priceIncludesTax !== undefined
+            || dto.grossUpPph !== undefined
             || dto.pphRate !== undefined
             || dto.pphAmount !== undefined
             || dto.discount !== undefined;
@@ -317,19 +366,46 @@ export class QuotationsService {
                 price: it.price,
             }));
             const taxRate = Number(dto.taxRate ?? existing.taxRate);
-            // taxAmount override: kalau DTO supply taxAmount, pakai itu. Kalau hanya taxRate dikirim,
-            // taxAmount akan di-recompute dari rate (existing taxAmount diabaikan supaya konsisten).
             const taxAmountOverride = dto.taxAmount !== undefined ? Number(dto.taxAmount) : undefined;
+            const priceIncludesTax = dto.priceIncludesTax !== undefined
+                ? !!dto.priceIncludesTax
+                : !!((existing as any).priceIncludesTax ?? false);
+            const grossUpPph = dto.grossUpPph !== undefined
+                ? !!dto.grossUpPph
+                : !!((existing as any).grossUpPph ?? false);
             const pphRate = Number(dto.pphRate ?? (existing as any).pphRate ?? 0);
             const pphAmountOverride = dto.pphAmount !== undefined ? Number(dto.pphAmount) : undefined;
             const discount = Number(dto.discount ?? existing.discount);
-            const { subtotal, taxAmount, pphAmount, total } = calcTotals(itemsForCalc as any, taxRate, discount, pphRate, pphAmountOverride, taxAmountOverride);
+            const { subtotal, taxAmount, pphAmount, total } = calcTotals(itemsForCalc as any, taxRate, discount, pphRate, pphAmountOverride, taxAmountOverride, priceIncludesTax, grossUpPph);
             recomputed = {
                 subtotal: toDecimal(subtotal),
                 taxAmount: toDecimal(taxAmount),
                 pphAmount: toDecimal(pphAmount),
                 total: toDecimal(total),
             };
+        }
+
+        // Untuk INVOICE: kalau total atau dpPercent berubah, recompute amountToPay sesuai invoicePart.
+        // Tanpa ini, DP yang ter-generate sebelumnya tetap pakai angka lama meskipun total quotation berubah.
+        let recomputedAmountToPay: Prisma.Decimal | null = null;
+        if (existing.type === InvoiceType.INVOICE) {
+            const newTotal = recomputed ? Number(recomputed.total) : Number(existing.total ?? 0);
+            const newDpPercent = dto.dpPercent !== undefined
+                ? Number(dto.dpPercent)
+                : Number(existing.dpPercent ?? 50);
+            const totalChanged = recomputed !== null;
+            const dpChanged = dto.dpPercent !== undefined;
+            if (totalChanged || dpChanged) {
+                const part = (existing as any).invoicePart as string | null;
+                const dpAmount = (newTotal * newDpPercent) / 100;
+                let newAmountToPay: number | null = null;
+                if (part === 'DP') newAmountToPay = dpAmount;
+                else if (part === 'PELUNASAN') newAmountToPay = newTotal - dpAmount;
+                else if (part === 'FULL') newAmountToPay = newTotal;
+                if (newAmountToPay !== null) {
+                    recomputedAmountToPay = toDecimal(newAmountToPay);
+                }
+            }
         }
 
         return this.prisma.$transaction(async (tx) => {
@@ -363,7 +439,9 @@ export class QuotationsService {
                 where: { id },
                 data: {
                     ...(dto.quotationVariant !== undefined ? { quotationVariant: dto.quotationVariant } : {}),
-                    ...(dto.customerId !== undefined ? { customerId: dto.customerId } : {}),
+                    ...(dto.customerId !== undefined
+                        ? { customer: dto.customerId ? { connect: { id: dto.customerId } } : { disconnect: true } }
+                        : {}),
                     ...(dto.clientName !== undefined ? { clientName: dto.clientName } : {}),
                     ...(dto.clientCompany !== undefined ? { clientCompany: dto.clientCompany } : {}),
                     ...(dto.clientAddress !== undefined ? { clientAddress: dto.clientAddress } : {}),
@@ -389,6 +467,8 @@ export class QuotationsService {
                     ...(dto.bankAccountIds !== undefined ? { bankAccountIds: dto.bankAccountIds } : {}),
                     ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
                     ...(dto.taxRate !== undefined ? { taxRate: toDecimal(dto.taxRate) } : {}),
+                    ...((dto.priceIncludesTax !== undefined ? { priceIncludesTax: !!dto.priceIncludesTax } : {}) as any),
+                    ...((dto.grossUpPph !== undefined ? { grossUpPph: !!dto.grossUpPph } : {}) as any),
                     ...((dto.pphRate !== undefined ? { pphRate: toDecimal(dto.pphRate) } : {}) as any),
                     ...(dto.discount !== undefined ? { discount: toDecimal(dto.discount) } : {}),
                     // Jatuh tempo invoice — editable (single date atau range start+end)
@@ -396,7 +476,9 @@ export class QuotationsService {
                     ...((dto.dueDateEnd !== undefined ? { dueDateEnd: dto.dueDateEnd ? new Date(dto.dueDateEnd) : null } : {}) as any),
                     ...(dto.brand !== undefined ? { brand: dto.brand } : {}),
                     ...(dto.variantCode !== undefined ? { variantCode: dto.variantCode || null } : {}),
-                    ...(dto.signedByWorkerId !== undefined ? { signedByWorkerId: dto.signedByWorkerId } : {}),
+                    ...(dto.signedByWorkerId !== undefined
+                        ? { signedByWorker: dto.signedByWorkerId ? { connect: { id: dto.signedByWorkerId } } : { disconnect: true } }
+                        : {}),
                     ...(dto.itemDisplayMode !== undefined ? { itemDisplayMode: dto.itemDisplayMode } : {}),
                     ...(dto.customOpeningText !== undefined ? { customOpeningText: dto.customOpeningText?.trim() || null } : {}),
                     ...(dto.customDisclaimer !== undefined ? { customDisclaimer: dto.customDisclaimer?.trim() || null } : {}),
@@ -448,7 +530,10 @@ export class QuotationsService {
                     ...(dto.showGrandTotal !== undefined
                         ? { showGrandTotal: dto.showGrandTotal === false ? false : true }
                         : {}),
+                    ...((dto.showDiscount !== undefined ? { showDiscount: dto.showDiscount !== false } : {}) as any),
+                    ...((dto.showPph !== undefined ? { showPph: dto.showPph !== false } : {}) as any),
                     ...((recomputed ?? {}) as any),
+                    ...(recomputedAmountToPay !== null ? { amountToPay: recomputedAmountToPay } : {}),
                     ...(dto.items !== undefined
                         ? {
                             items: {
@@ -586,7 +671,7 @@ export class QuotationsService {
 
                 taxRate: quotation.taxRate,
                 // Carry forward PPh fields supaya invoice juga punya PPh sama dengan penawaran.
-                // Klien potong PPh dari pembayaran → amountToPay & total invoice harus sudah net (sesudah PPh).
+                // amountToPay & total invoice = GROSS (DPP+PPN, sebelum potong PPh). PPh hanya info bagi klien.
                 ...(({
                     pphRate: (quotation as any).pphRate ?? 0,
                     pphAmount: (quotation as any).pphAmount ?? 0,
@@ -616,6 +701,10 @@ export class QuotationsService {
                 specifications: (quotation.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 packagePrice: quotation.packagePrice,
                 showGrandTotal: quotation.showGrandTotal,
+                ...(({
+                    showDiscount: (quotation as any).showDiscount ?? true,
+                    showPph: (quotation as any).showPph ?? true,
+                }) as any),
                 // Carry forward Penawaran-level custom text (fallback chain di context builder)
                 customOpeningText: quotation.customOpeningText,
                 customDisclaimer: quotation.customDisclaimer,
@@ -1088,11 +1177,13 @@ export class QuotationsService {
             }
             const agg = customerMap.get(key)!;
             agg.totalInvoiced += amountToPay;
-            // PPh aggregation (untuk laporan pajak owner)
+            // PPh aggregation (untuk laporan pajak owner).
+            // CATATAN: sejak rumus diubah ke "total = DPP+PPN (gross sebelum PPh)",
+            // amountToPay sudah merepresentasikan nilai gross — tidak perlu +pphAmount lagi.
             const invPph = Number((inv as any).pphAmount ?? 0);
             if (invPph > 0) {
                 totalPphPotonganGross += invPph;
-                totalGrossBeforePph += amountToPay + invPph;
+                totalGrossBeforePph += amountToPay;
             }
             agg.totalPaid += paidAmount;
             agg.sisaTagihan += sisa;

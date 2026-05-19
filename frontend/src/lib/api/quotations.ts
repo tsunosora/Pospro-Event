@@ -94,6 +94,10 @@ export interface Quotation {
     bankAccountIds: string | null;
     notes: string | null;
     taxRate: string;
+    /** true = harga item sudah termasuk PPN (mode inclusive, back-calc DPP). Default false. */
+    priceIncludesTax?: boolean;
+    /** true = auto gross-up DPP supaya net vendor = sum items target. */
+    grossUpPph?: boolean;
     pphRate?: string;            // % PPh (withholding tax) — string Decimal
     discount: string;
     subtotal: string;
@@ -186,6 +190,10 @@ export interface CreateQuotationInput {
     bankAccountIds?: string;
     notes?: string;
     taxRate?: number;
+    /** Mode pricing PPN: false (default) = harga belum termasuk PPN. true = harga sudah termasuk PPN. */
+    priceIncludesTax?: boolean;
+    /** Auto gross-up DPP supaya net vendor sesuai target. */
+    grossUpPph?: boolean;
     /** PPh rate (%) — withholding tax, dipotong dari total. Default 0 = tidak pakai PPh. */
     pphRate?: number;
     discount?: number;

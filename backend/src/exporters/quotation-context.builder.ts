@@ -180,15 +180,29 @@ export interface QuotationRenderContext {
     items: QuotationRenderItem[];
     totals: {
         subtotal: string;
+        /** DPP (Dasar Pengenaan Pajak) — di mode inclusive, ini back-calc dari subtotal/(1+rate). */
+        dpp: string;
+        /** True = harga item sudah termasuk PPN (mode inclusive, back-calc DPP & PPN dari gross). */
+        priceIncludesTax: boolean;
         taxRate: string;     // "11"
         taxAmount: string;
         hasPpn: boolean;     // helper Handlebars — true kalau taxRate>0 atau taxAmount>0
         pphRate: string;     // "2" — kalau 0, frontend hide barisnya
         pphAmount: string;   // Rp formatted
         hasPph: boolean;     // helper untuk Handlebars {{#if hasPph}}
+        /** Toggle dari UI — apakah baris PPh ditampilkan di PDF invoice. Default true. */
+        showPph: boolean;
+        /** Toggle dari UI — apakah baris Diskon ditampilkan di PDF invoice. Default true. */
+        showDiscount: boolean;
+        /** Display gate (gabungan toggle + isInvoice) — template pakai ini. */
+        displayDiscountRow: boolean;
+        displayPphRow: boolean;
+        displayNetReceivedRow: boolean;
         discount: string;
         total: string;
         totalTerbilang: string;
+        /** Jumlah diterima setelah klien potong PPh (= total - pphAmount). Display-only. */
+        netReceived: string;
     };
     // Pembayaran
     payment: {
@@ -1242,18 +1256,46 @@ export class QuotationContextBuilder {
             events: buildEventsList(quotation, lang),
             hasMultipleEvents: buildEventsList(quotation, lang).length > 1,
             items,
-            totals: {
-                subtotal: formatRp(subtotalNum, useUsd),
-                taxRate: Number(quotation.taxRate).toString(),
-                taxAmount: formatRp(Number(quotation.taxAmount), useUsd),
-                hasPpn: Number(quotation.taxRate ?? 0) > 0 || Number(quotation.taxAmount ?? 0) > 0,
-                pphRate: Number((quotation as any).pphRate ?? 0).toString(),
-                pphAmount: formatRp(Number((quotation as any).pphAmount ?? 0), useUsd),
-                hasPph: Number((quotation as any).pphRate ?? 0) > 0 || Number((quotation as any).pphAmount ?? 0) > 0,
-                discount: formatRp(Number(quotation.discount), useUsd),
-                total: formatRp(totalNum, useUsd),
-                totalTerbilang: rupiahInWords(totalNum, lang, useUsd),
-            },
+            totals: (() => {
+                const inclusive = !!(quotation as any).priceIncludesTax;
+                const rate = Number(quotation.taxRate ?? 0);
+                const tax = Number(quotation.taxAmount ?? 0);
+                const discountNum = Number(quotation.discount ?? 0);
+                const isInvoice = quotation.type === 'INVOICE';
+                const showPphFlag = (quotation as any).showPph !== false;
+                const showDiscountFlag = (quotation as any).showDiscount !== false;
+                const hasPph = Number((quotation as any).pphRate ?? 0) > 0 || Number((quotation as any).pphAmount ?? 0) > 0;
+                // DPP: di mode inclusive, di-back-calc dari subtotal. Di exclusive, sama dengan subtotal-discount.
+                const dppNum = inclusive && rate > 0
+                    ? (subtotalNum - discountNum) / (1 + rate / 100)
+                    : (subtotalNum - discountNum);
+                // Kalau di invoice & diskon disembunyikan → Subtotal yang ditampilkan = subtotal-diskon
+                // (klien tidak tahu ada diskon, cuma lihat 1 angka utuh). Quotation/penawaran tetap apa adanya.
+                const hideDiscount = isInvoice && !showDiscountFlag && discountNum > 0;
+                const subtotalDisplayNum = hideDiscount ? subtotalNum - discountNum : subtotalNum;
+                return {
+                    subtotal: formatRp(subtotalDisplayNum, useUsd),
+                    dpp: formatRp(dppNum, useUsd),
+                    priceIncludesTax: inclusive,
+                    taxRate: rate.toString(),
+                    taxAmount: formatRp(tax, useUsd),
+                    hasPpn: rate > 0 || tax > 0,
+                    pphRate: Number((quotation as any).pphRate ?? 0).toString(),
+                    pphAmount: formatRp(Number((quotation as any).pphAmount ?? 0), useUsd),
+                    hasPph,
+                    discount: formatRp(discountNum, useUsd),
+                    total: formatRp(totalNum, useUsd),
+                    totalTerbilang: rupiahInWords(totalNum, lang, useUsd),
+                    netReceived: formatRp(totalNum - Number((quotation as any).pphAmount ?? 0), useUsd),
+                    showPph: showPphFlag,
+                    showDiscount: showDiscountFlag,
+                    // Display flags — gabungan toggle + isInvoice. Template pakai ini.
+                    displayDiscountRow: discountNum > 0 && (!isInvoice || showDiscountFlag),
+                    displayPphRow: hasPph && (!isInvoice || showPphFlag),
+                    // Jumlah Diterima: hanya di penawaran (tidak pernah di invoice).
+                    displayNetReceivedRow: hasPph && !isInvoice,
+                };
+            })(),
             payment: {
                 dpPercent: dpPercentNum.toString(),
                 dpAmount: formatRp(dpAmount, useUsd),

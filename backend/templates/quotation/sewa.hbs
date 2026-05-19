@@ -316,7 +316,7 @@
           <td colspan="4" class="label">Total Harga Penawaran</td>
           <td class="rp">{{totals.subtotal}}</td>
         </tr>
-        {{#if totals.discount}}
+        {{#if totals.displayDiscountRow}}
         <tr>
           <td colspan="4" class="label">{{i18n.diskon}}</td>
           <td class="rp">({{totals.discount}})</td>
@@ -328,12 +328,6 @@
           <td class="rp">{{totals.taxAmount}}</td>
         </tr>
         {{/if}}
-        {{#if totals.hasPph}}
-        <tr>
-          <td colspan="4" class="label" style="color:#b91c1c;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} (potong)</td>
-          <td class="rp" style="color:#b91c1c;">-{{totals.pphAmount}}</td>
-        </tr>
-        {{/if}}
         {{#if packagePriceFormatted}}
         <tr class="grand-total" style="background:{{theme.primarySubtle}};">
           <td colspan="4" class="label">Harga Paket</td>
@@ -343,6 +337,18 @@
         <tr class="grand-total">
           <td colspan="4" class="label">{{i18n.grandTotal}}</td>
           <td class="rp">{{totals.total}}</td>
+        </tr>
+        {{/if}}
+        {{#if totals.displayPphRow}}
+        <tr>
+          <td colspan="4" class="label" style="color:#b91c1c; font-weight:500;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} (dipotong klien)</td>
+          <td class="rp" style="color:#b91c1c;">-{{totals.pphAmount}}</td>
+        </tr>
+        {{/if}}
+        {{#if totals.displayNetReceivedRow}}
+        <tr>
+          <td colspan="4" class="label" style="color:#047857;">Jumlah Diterima</td>
+          <td class="rp" style="color:#047857;">{{totals.netReceived}}</td>
         </tr>
         {{/if}}
         {{/if}}
@@ -436,7 +442,7 @@
           <td colspan="2" class="label">{{i18n.subtotalKeseluruhan}}</td>
           <td class="rp">{{totals.subtotal}}</td>
         </tr>
-        {{#if totals.discount}}
+        {{#if totals.displayDiscountRow}}
         <tr>
           <td colspan="2" class="label">{{i18n.diskon}}</td>
           <td class="rp">({{totals.discount}})</td>
@@ -448,16 +454,22 @@
           <td class="rp">{{totals.taxAmount}}</td>
         </tr>
         {{/if}}
-        {{#if totals.hasPph}}
-        <tr>
-          <td colspan="2" class="label" style="color:#b91c1c;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} (potong)</td>
-          <td class="rp" style="color:#b91c1c;">-{{totals.pphAmount}}</td>
-        </tr>
-        {{/if}}
         <tr class="grand-total">
           <td colspan="2" class="label">{{i18n.grandTotal}}</td>
           <td class="rp">{{totals.total}}</td>
         </tr>
+        {{#if totals.displayPphRow}}
+        <tr>
+          <td colspan="2" class="label" style="color:#b91c1c; font-weight:500;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} (dipotong klien)</td>
+          <td class="rp" style="color:#b91c1c;">-{{totals.pphAmount}}</td>
+        </tr>
+        {{/if}}
+        {{#if totals.displayNetReceivedRow}}
+        <tr>
+          <td colspan="2" class="label" style="color:#047857;">Jumlah Diterima</td>
+          <td class="rp" style="color:#047857;">{{totals.netReceived}}</td>
+        </tr>
+        {{/if}}
       </tbody>
     </table>
     {{else}}
@@ -503,7 +515,7 @@
           <td colspan="4" class="label">Subtotal</td>
           <td class="rp">{{totals.subtotal}}</td>
         </tr>
-        {{#if totals.discount}}
+        {{#if totals.displayDiscountRow}}
         <tr>
           <td colspan="4" class="label">{{i18n.diskon}}</td>
           <td class="rp">({{totals.discount}})</td>
@@ -513,12 +525,6 @@
         <tr>
           <td colspan="4" class="label">{{i18n.ppn}}{{#if totals.taxRate}} {{totals.taxRate}}%{{/if}}</td>
           <td class="rp">{{totals.taxAmount}}</td>
-        </tr>
-        {{/if}}
-        {{#if totals.hasPph}}
-        <tr>
-          <td colspan="4" class="label" style="color:#b91c1c;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} (potong)</td>
-          <td class="rp" style="color:#b91c1c;">-{{totals.pphAmount}}</td>
         </tr>
         {{/if}}
         {{#if packagePriceFormatted}}
@@ -535,6 +541,18 @@
           <td colspan="4" class="label">{{i18n.grandTotal}}</td>
           <td class="rp">{{totals.total}}</td>
         </tr>
+        {{#if totals.displayPphRow}}
+        <tr>
+          <td colspan="4" class="label" style="color:#b91c1c; font-weight:500;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} (dipotong klien)</td>
+          <td class="rp" style="color:#b91c1c;">-{{totals.pphAmount}}</td>
+        </tr>
+        {{/if}}
+        {{#if totals.displayNetReceivedRow}}
+        <tr>
+          <td colspan="4" class="label" style="color:#047857;">Jumlah Diterima</td>
+          <td class="rp" style="color:#047857;">{{totals.netReceived}}</td>
+        </tr>
+        {{/if}}
         {{/if}}
       </tbody>
     </table>
