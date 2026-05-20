@@ -31,6 +31,9 @@ export default function CrmBoardPage() {
     const [search, setSearch] = useState("");
     const [workerFilter, setWorkerFilter] = useState<number | "">("");
     const [labelFilter, setLabelFilter] = useState<number | "">("");
+    /** Filter lokasi (city) & venue (eventLocation) — client-side. "" = semua. */
+    const [cityFilter, setCityFilter] = useState<string>("");
+    const [venueFilter, setVenueFilter] = useState<string>("");
     /** Multi-select status filter — Set kosong = tampil semua. Set berisi = whitelist. */
     const [statusFilter, setStatusFilter] = useState<Set<LeadStatus>>(new Set());
     const [statusOpen, setStatusOpen] = useState(false);
@@ -53,6 +56,18 @@ export default function CrmBoardPage() {
     const [columnWidth, setColumnWidth] = useState<StageColumnWidth>("normal");
     const [hideEmptyStages, setHideEmptyStages] = useState(false);
     const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
+
+    // Deep-link: /crm/board?leadId=123 → otomatis buka drawer lead tsb.
+    // Dipakai dari modal "Lead Stuck" di halaman Performa Marketing.
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const leadId = params.get("leadId");
+        if (leadId && /^\d+$/.test(leadId)) {
+            setDrawerLeadId(Number(leadId));
+            // Bersihkan query supaya refresh tidak buka drawer lagi.
+            window.history.replaceState(null, "", "/crm/board");
+        }
+    }, []);
 
     // Hydrate dari localStorage
     useEffect(() => {
@@ -108,7 +123,28 @@ export default function CrmBoardPage() {
         return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
     }, [leadsByStageRaw]);
 
-    const filtersActive = !!search || workerFilter !== "" || labelFilter !== "" || dateRange.preset !== "ALL" || statusFilter.size > 0;
+    // Opsi lokasi & venue diturunkan dari lead yang ada di board.
+    const cityOptions = useMemo(() => {
+        const seen = new Set<string>();
+        for (const sid in leadsByStageRaw) {
+            for (const l of leadsByStageRaw[sid]) {
+                if (l.city?.trim()) seen.add(l.city.trim());
+            }
+        }
+        return Array.from(seen).sort((a, b) => a.localeCompare(b, "id"));
+    }, [leadsByStageRaw]);
+
+    const venueOptions = useMemo(() => {
+        const seen = new Set<string>();
+        for (const sid in leadsByStageRaw) {
+            for (const l of leadsByStageRaw[sid]) {
+                if (l.eventLocation?.trim()) seen.add(l.eventLocation.trim());
+            }
+        }
+        return Array.from(seen).sort((a, b) => a.localeCompare(b, "id"));
+    }, [leadsByStageRaw]);
+
+    const filtersActive = !!search || workerFilter !== "" || labelFilter !== "" || cityFilter !== "" || venueFilter !== "" || dateRange.preset !== "ALL" || statusFilter.size > 0;
 
     const leadsByStage = useMemo(() => {
         if (!filtersActive) return leadsByStageRaw;
@@ -121,6 +157,8 @@ export default function CrmBoardPage() {
             out[sid] = leadsByStageRaw[sid].filter((l) => {
                 if (workerFilter !== "" && l.assignedWorkerId !== workerFilter) return false;
                 if (labelFilter !== "" && !l.labels?.some((x) => x.label.id === labelFilter)) return false;
+                if (cityFilter !== "" && (l.city?.trim() ?? "") !== cityFilter) return false;
+                if (venueFilter !== "" && (l.eventLocation?.trim() ?? "") !== venueFilter) return false;
                 if (statusFilter.size > 0 && !statusFilter.has(l.status)) return false;
                 if (q) {
                     const hay = [l.name, l.phone, l.organization, l.productCategory, l.orderDescription, l.notes]
@@ -140,7 +178,7 @@ export default function CrmBoardPage() {
             });
         }
         return out;
-    }, [leadsByStageRaw, search, workerFilter, labelFilter, statusFilter, dateField, dateRange, filtersActive]);
+    }, [leadsByStageRaw, search, workerFilter, labelFilter, cityFilter, venueFilter, statusFilter, dateField, dateRange, filtersActive]);
 
     const allLeads = useMemo(() => {
         const arr: Lead[] = [];
@@ -425,6 +463,28 @@ export default function CrmBoardPage() {
                         <option key={l.id} value={l.id}>{l.name}</option>
                     ))}
                 </select>
+                <select
+                    value={cityFilter}
+                    onChange={(e) => setCityFilter(e.target.value)}
+                    className="text-xs sm:text-sm rounded-md border border-border bg-background py-1.5 px-2 max-w-[140px]"
+                    title="Filter lokasi (kota)"
+                >
+                    <option value="">Semua lokasi</option>
+                    {cityOptions.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                    ))}
+                </select>
+                <select
+                    value={venueFilter}
+                    onChange={(e) => setVenueFilter(e.target.value)}
+                    className="text-xs sm:text-sm rounded-md border border-border bg-background py-1.5 px-2 max-w-[140px]"
+                    title="Filter venue (event location)"
+                >
+                    <option value="">Semua venue</option>
+                    {venueOptions.map((v) => (
+                        <option key={v} value={v}>{v}</option>
+                    ))}
+                </select>
                 {/* Multi-select Status filter — popover dengan checkbox per status */}
                 <div className="relative">
                     <button
@@ -506,6 +566,8 @@ export default function CrmBoardPage() {
                             setSearch("");
                             setWorkerFilter("");
                             setLabelFilter("");
+                            setCityFilter("");
+                            setVenueFilter("");
                             setStatusFilter(new Set());
                             setDateRange({ preset: "ALL" });
                             setDateField("leadCameAt");

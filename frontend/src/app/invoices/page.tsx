@@ -26,6 +26,42 @@ const fmtDate = (s: string | null | undefined) => {
     } catch { return s; }
 };
 
+/** Tanggal tempo terdekat (paling awal) dari invoice yang masih ada sisa tagihan. */
+function nearestUnpaidDue(
+    invoices: Array<{ dueDate: string | null; dueDateEnd: string | null; sisa: number }>,
+): string | null {
+    let nearestMs: number | null = null;
+    let nearestStr: string | null = null;
+    for (const iv of invoices) {
+        if (iv.sisa <= 0) continue;
+        const eff = iv.dueDateEnd ?? iv.dueDate;
+        if (!eff) continue;
+        const t = new Date(eff).getTime();
+        if (nearestMs === null || t < nearestMs) {
+            nearestMs = t;
+            nearestStr = eff;
+        }
+    }
+    return nearestStr;
+}
+
+/** Badge tanggal jatuh tempo — warna berubah kalau sudah/hampir lewat tempo. */
+function DueBadge({ date }: { date: string | null }) {
+    if (!date) return <span className="text-slate-400">—</span>;
+    const ms = new Date(date).getTime();
+    const days = Math.floor((ms - Date.now()) / (1000 * 60 * 60 * 24));
+    let cls = "text-slate-600";
+    let note = "";
+    if (days < 0) { cls = "text-red-700 font-bold"; note = `telat ${-days}h`; }
+    else if (days <= 7) { cls = "text-amber-700 font-semibold"; note = `${days}h lagi`; }
+    return (
+        <span className={`text-xs ${cls}`}>
+            {fmtDate(date)}
+            {note && <span className="block text-[9px] font-normal">{note}</span>}
+        </span>
+    );
+}
+
 function severity(days: number) {
     if (days <= 7) return { cls: "bg-amber-100 text-amber-800 border-amber-300", label: "Hampir Tempo" };
     if (days <= 30) return { cls: "bg-orange-100 text-orange-800 border-orange-300", label: "Lewat Tempo" };
@@ -260,6 +296,7 @@ export default function InvoicesPiutangPage() {
                                         <th className="text-right px-3 py-2 font-semibold text-slate-700">Total Tagihan</th>
                                         <th className="text-right px-3 py-2 font-semibold text-slate-700">Terbayar</th>
                                         <th className="text-right px-3 py-2 font-semibold text-slate-700">Sisa</th>
+                                        <th className="text-center px-3 py-2 font-semibold text-slate-700">Jatuh Tempo</th>
                                         <th className="px-3 py-2"></th>
                                     </tr>
                                 </thead>
@@ -319,6 +356,11 @@ export default function InvoicesPiutangPage() {
                                                             {q.sisaTagihan > 0 ? fmtShort(q.sisaTagihan) : "✅ LUNAS"}
                                                         </div>
                                                     </td>
+                                                    <td className="px-3 py-2 text-center">
+                                                        {q.sisaTagihan > 0
+                                                            ? <DueBadge date={nearestUnpaidDue(q.invoices)} />
+                                                            : <span className="text-slate-400">—</span>}
+                                                    </td>
                                                     <td className="px-3 py-2 text-right">
                                                         <Link
                                                             href={`/penawaran/${q.quotationId}`}
@@ -331,7 +373,7 @@ export default function InvoicesPiutangPage() {
                                                 </tr>
                                                 {isExpanded && (
                                                     <tr className="bg-slate-50/70">
-                                                        <td colSpan={6} className="px-3 py-2">
+                                                        <td colSpan={7} className="px-3 py-2">
                                                             <div className="text-[10px] font-bold text-slate-600 uppercase mb-1.5">
                                                                 Breakdown Invoice ({q.invoices.length}):
                                                             </div>
@@ -442,13 +484,14 @@ export default function InvoicesPiutangPage() {
                                     <th className="text-right px-3 py-2 font-semibold text-slate-700">Total Invoice</th>
                                     <th className="text-right px-3 py-2 font-semibold text-slate-700">Sudah Bayar</th>
                                     <th className="text-right px-3 py-2 font-semibold text-slate-700">Sisa Piutang</th>
+                                    <th className="text-center px-3 py-2 font-semibold text-slate-700">Jatuh Tempo</th>
                                     <th className="text-center px-3 py-2 font-semibold text-slate-700">Status</th>
                                     <th className="px-3 py-2"></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredCustomers.length === 0 ? (
-                                    <tr><td colSpan={6} className="text-center py-6 text-slate-500 text-xs">
+                                    <tr><td colSpan={7} className="text-center py-6 text-slate-500 text-xs">
                                         {filter ? "Tidak ada customer cocok dengan filter." : "Belum ada data invoice."}
                                     </td></tr>
                                 ) : filteredCustomers.map((c) => {
@@ -504,6 +547,11 @@ export default function InvoicesPiutangPage() {
                                                 )}
                                             </td>
                                             <td className="px-3 py-2 text-center">
+                                                {c.sisaTagihan > 0
+                                                    ? <DueBadge date={c.nearestUnpaidDueDate} />
+                                                    : <span className="text-slate-400">—</span>}
+                                            </td>
+                                            <td className="px-3 py-2 text-center">
                                                 <div className="inline-flex flex-col gap-0.5">
                                                     {c.overdueCount > 0 && (
                                                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-300 font-semibold">
@@ -539,7 +587,7 @@ export default function InvoicesPiutangPage() {
                                         </tr>
                                         {isExpanded && (
                                             <tr className="bg-slate-50/70">
-                                                <td colSpan={6} className="px-3 py-2">
+                                                <td colSpan={7} className="px-3 py-2">
                                                     <CustomerInvoices invoiceIds={c.invoiceIds} onOpenDetail={setDetailTargetId} />
                                                 </td>
                                             </tr>

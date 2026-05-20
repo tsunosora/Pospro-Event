@@ -183,11 +183,33 @@ export const listLeads = async (params: {
     (await api.get('/crm/leads', { params })).data;
 
 export const getDistinctValues = async (
-    field: 'city' | 'productCategory',
+    field: 'city' | 'productCategory' | 'eventLocation',
 ): Promise<string[]> => (await api.get(`/crm/distinct/${field}`)).data;
 
 export const getMarketerPerformance = async (params: { from?: string; to?: string; brand?: Brand } = {}): Promise<MarketerPerformance[]> =>
     (await api.get('/crm/performance/by-marketer', { params })).data;
+
+/** Satu lead yang stuck — dipakai di modal peringatan halaman Performa Marketing. */
+export interface StuckLead {
+    id: number;
+    name: string | null;
+    phone: string;
+    organization: string | null;
+    eventLocation: string | null;
+    city: string | null;
+    status: LeadStatus;
+    stageId: number;
+    leadCameAt: string;
+    lastContactedAt: string | null;
+    stage: { id: number; name: string; color: string } | null;
+    assignedWorker: { id: number; name: string } | null;
+    daysStuck: number;
+}
+
+export const getStuckLeads = async (
+    params: { from?: string; to?: string; brand?: Brand; workerId?: number } = {},
+): Promise<StuckLead[]> =>
+    (await api.get('/crm/performance/stuck-leads', { params })).data;
 
 export interface DashboardSummary {
     period: { from: string | null; to: string | null; days: number };
@@ -221,10 +243,16 @@ export interface DashboardSummary {
         valueWon: number;
         valueLost: number;
     }[];
+    /** Frekuensi event per lokasi/venue + daftar tanggal event-nya. */
+    byVenue: {
+        venue: string;
+        count: number;
+        events: { name: string | null; dateStart: string | null; dateEnd: string | null }[];
+    }[];
 }
 
 export const getDashboardSummary = async (
-    params: { from?: string; to?: string; brand?: Brand } = {},
+    params: { from?: string; to?: string; brand?: Brand; city?: string; eventLocation?: string } = {},
 ): Promise<DashboardSummary> =>
     (await api.get('/crm/dashboard/summary', { params })).data;
 

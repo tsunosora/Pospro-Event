@@ -11,6 +11,7 @@ import {
     BarChart3,
     Repeat,
     MapPin,
+    Building2,
     Tag,
     Users as UsersIcon,
     X,
@@ -235,6 +236,7 @@ export default function CrmLeadsListPage() {
                                 <th className="px-3 py-2.5 text-left">Phone</th>
                                 <th className="px-3 py-2.5 text-left">Organisasi</th>
                                 <th className="px-3 py-2.5 text-left">Kota</th>
+                                <th className="px-3 py-2.5 text-left">Venue</th>
                                 <th className="px-3 py-2.5 text-left">Produk</th>
                                 <th className="px-3 py-2.5 text-left">Stage</th>
                                 <th className="px-3 py-2.5 text-left">Level</th>
@@ -245,14 +247,14 @@ export default function CrmLeadsListPage() {
                         <tbody>
                             {isLoading && (
                                 <tr>
-                                    <td colSpan={10} className="px-3 py-6 text-center text-muted-foreground text-xs">
+                                    <td colSpan={11} className="px-3 py-6 text-center text-muted-foreground text-xs">
                                         Memuat...
                                     </td>
                                 </tr>
                             )}
                             {!isLoading && data?.items.length === 0 && (
                                 <tr>
-                                    <td colSpan={9} className="px-3 py-10 text-center text-muted-foreground text-sm">
+                                    <td colSpan={11} className="px-3 py-10 text-center text-muted-foreground text-sm">
                                         Tidak ada lead. <Link href="/crm/import" className="underline">Import dari XLSX</Link> atau <Link href="/crm/leads/new" className="underline">tambah manual</Link>.
                                     </td>
                                 </tr>
@@ -278,6 +280,16 @@ export default function CrmLeadsListPage() {
                                             <span className="inline-flex items-center gap-1">
                                                 <MapPin className="h-3 w-3 text-slate-400" />
                                                 {l.city}
+                                            </span>
+                                        ) : (
+                                            "—"
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-2.5 text-xs">
+                                        {l.eventLocation ? (
+                                            <span className="inline-flex items-center gap-1">
+                                                <Building2 className="h-3 w-3 text-slate-400" />
+                                                {l.eventLocation}
                                             </span>
                                         ) : (
                                             "—"

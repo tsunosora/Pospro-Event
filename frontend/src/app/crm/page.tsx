@@ -19,6 +19,7 @@ import {
     Wallet,
     Activity,
     Calendar,
+    MapPin,
 } from "lucide-react";
 import {
     AreaChart,
@@ -35,7 +36,7 @@ import {
     Pie,
     Cell,
 } from "recharts";
-import { getDashboardSummary, type DashboardSummary } from "@/lib/api/crm";
+import { getDashboardSummary, getDistinctValues, type DashboardSummary } from "@/lib/api/crm";
 import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
 import dayjs from "dayjs";
 
@@ -107,12 +108,28 @@ export default function CrmDashboardPage() {
     const [customFrom, setCustomFrom] = useState<string>(dayjs().subtract(30, "day").format("YYYY-MM-DD"));
     const [customTo, setCustomTo] = useState<string>(dayjs().format("YYYY-MM-DD"));
     const [brandFilter, setBrandFilter] = useState<Brand | "">("");
+    const [cityFilter, setCityFilter] = useState<string>("");
+    const [venueFilter, setVenueFilter] = useState<string>("");
 
     const range = useMemo(() => periodRange(period, customFrom, customTo), [period, customFrom, customTo]);
 
+    const { data: cityOptions } = useQuery({
+        queryKey: ["crm-distinct", "city"],
+        queryFn: () => getDistinctValues("city"),
+    });
+    const { data: venueOptions } = useQuery({
+        queryKey: ["crm-distinct", "eventLocation"],
+        queryFn: () => getDistinctValues("eventLocation"),
+    });
+
     const { data, isLoading } = useQuery({
-        queryKey: ["crm-dashboard", range, brandFilter],
-        queryFn: () => getDashboardSummary({ ...range, brand: brandFilter || undefined }),
+        queryKey: ["crm-dashboard", range, brandFilter, cityFilter, venueFilter],
+        queryFn: () => getDashboardSummary({
+            ...range,
+            brand: brandFilter || undefined,
+            city: cityFilter || undefined,
+            eventLocation: venueFilter || undefined,
+        }),
     });
 
     return (
@@ -240,6 +257,45 @@ export default function CrmDashboardPage() {
                             </button>
                         );
                     })}
+                </div>
+
+                {/* Filter lokasi & venue */}
+                <div className="flex items-center gap-3 flex-wrap pt-2 border-t">
+                    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
+                        Lokasi:
+                        <select
+                            value={cityFilter}
+                            onChange={(e) => setCityFilter(e.target.value)}
+                            className="text-xs font-normal normal-case rounded-md border-2 border-slate-200 bg-white py-1 px-2"
+                        >
+                            <option value="">Semua lokasi</option>
+                            {(cityOptions ?? []).map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
+                        Venue:
+                        <select
+                            value={venueFilter}
+                            onChange={(e) => setVenueFilter(e.target.value)}
+                            className="text-xs font-normal normal-case rounded-md border-2 border-slate-200 bg-white py-1 px-2"
+                        >
+                            <option value="">Semua venue</option>
+                            {(venueOptions ?? []).map((v) => (
+                                <option key={v} value={v}>{v}</option>
+                            ))}
+                        </select>
+                    </label>
+                    {(cityFilter || venueFilter) && (
+                        <button
+                            type="button"
+                            onClick={() => { setCityFilter(""); setVenueFilter(""); }}
+                            className="text-xs text-red-600 hover:underline"
+                        >
+                            Reset lokasi/venue
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -470,6 +526,24 @@ export default function CrmDashboardPage() {
                 </div>
             </div>
 
+            {/* Frekuensi Lokasi / Venue Event */}
+            <div className="rounded-xl border-2 border-slate-200 bg-white p-4">
+                <div className="flex items-center gap-2 mb-3">
+                    <MapPin className="h-5 w-5 text-rose-600" />
+                    <h2 className="font-bold text-slate-900">Frekuensi Lokasi / Venue Event</h2>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                        Seberapa sering event terjadi di tiap lokasi
+                    </span>
+                </div>
+                {data && data.byVenue.length > 0 ? (
+                    <VenueFrequency byVenue={data.byVenue} />
+                ) : (
+                    <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
+                        {isLoading ? "Memuat..." : "Belum ada lead dengan lokasi/venue event"}
+                    </div>
+                )}
+            </div>
+
             {/* Quick links */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <QuickLink href="/crm/board" icon={<KanbanSquare className="h-4 w-4" />} label="Pipeline Kanban" />
@@ -596,5 +670,157 @@ function QuickLink({ href, icon, label }: { href: string; icon: React.ReactNode;
             {icon}
             {label}
         </Link>
+    );
+}
+
+/** Format tanggal event — range kalau dateEnd beda hari, single kalau sama. */
+function fmtEventDate(dateStart: string | null, dateEnd: string | null): string {
+    if (!dateStart) return "tanggal belum di-set";
+    const s = dayjs(dateStart);
+    if (dateEnd && !dayjs(dateEnd).isSame(s, "day")) {
+        return `${s.format("DD MMM")} – ${dayjs(dateEnd).format("DD MMM YYYY")}`;
+    }
+    return s.format("DD MMM YYYY");
+}
+
+type VenueTier = "high" | "mid" | "low";
+
+/** Maksimal kartu venue yang dirender di daftar (sisanya "+N lainnya"). */
+const VENUE_LIST_RENDER_CAP = 60;
+
+function VenueFrequency({ byVenue }: { byVenue: DashboardSummary["byVenue"] }) {
+    const [tier, setTier] = useState<"all" | VenueTier>("all");
+    const [search, setSearch] = useState("");
+
+    // Klasifikasi tier berdasarkan count relatif ke venue tersering.
+    const { tierOf, hiThreshold, midThreshold } = useMemo(() => {
+        const maxCount = byVenue.length > 0 ? byVenue[0].count : 0;
+        const hi = Math.max(2, Math.ceil((maxCount * 2) / 3));
+        const mid = Math.max(2, Math.ceil(maxCount / 3));
+        const fn = (count: number): VenueTier => {
+            if (count <= 1) return "low";        // dipakai 1× = sedikit
+            if (count >= hi) return "high";
+            if (count >= mid) return "mid";
+            return "low";
+        };
+        return { tierOf: fn, hiThreshold: hi, midThreshold: mid };
+    }, [byVenue]);
+
+    const tierCounts = useMemo(() => {
+        const c = { high: 0, mid: 0, low: 0 };
+        for (const v of byVenue) c[tierOf(v.count)]++;
+        return c;
+    }, [byVenue, tierOf]);
+
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return byVenue.filter((v) => {
+            if (tier !== "all" && tierOf(v.count) !== tier) return false;
+            if (q && !v.venue.toLowerCase().includes(q)) return false;
+            return true;
+        });
+    }, [byVenue, tier, search, tierOf]);
+
+    const shown = filtered.slice(0, VENUE_LIST_RENDER_CAP);
+    const chartData = filtered.slice(0, 12).map((v) => ({ name: v.venue, count: v.count }));
+
+    const TIERS: { key: "all" | VenueTier; label: string; cls: string }[] = [
+        { key: "all", label: `Semua (${byVenue.length})`, cls: "bg-slate-700 text-white border-slate-700" },
+        { key: "high", label: `🔥 Banyak (${tierCounts.high})`, cls: "bg-rose-100 text-rose-700 border-rose-300" },
+        { key: "mid", label: `🔸 Medium (${tierCounts.mid})`, cls: "bg-amber-100 text-amber-700 border-amber-300" },
+        { key: "low", label: `🔹 Sedikit (${tierCounts.low})`, cls: "bg-sky-100 text-sky-700 border-sky-300" },
+    ];
+
+    return (
+        <div className="space-y-3">
+            {/* Filter tier + search */}
+            <div className="flex items-center gap-2 flex-wrap">
+                {TIERS.map((t) => (
+                    <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => setTier(t.key)}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition ${
+                            tier === t.key ? t.cls : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                        }`}
+                    >
+                        {t.label}
+                    </button>
+                ))}
+                <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Cari venue..."
+                    className="ml-auto text-xs rounded-md border-2 border-slate-200 bg-white py-1 px-2 w-40 focus:border-blue-500 outline-none"
+                />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+                Tier dihitung dari jumlah event: <b>Banyak</b> ≥ {hiThreshold}×, <b>Medium</b> ≥ {midThreshold}×, <b>Sedikit</b> sisanya.
+            </p>
+
+            {filtered.length === 0 ? (
+                <div className="h-[160px] flex items-center justify-center text-sm text-muted-foreground">
+                    Tidak ada venue pada filter ini.
+                </div>
+            ) : (
+                <div className="grid lg:grid-cols-2 gap-4">
+                    {/* Bar chart — top 12 dari hasil filter */}
+                    <ResponsiveContainer width="100%" height={Math.max(220, chartData.length * 34)}>
+                        <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                            <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                            <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={130} />
+                            <Tooltip
+                                formatter={(value: any) => [`${value} event`, "Jumlah"]}
+                                contentStyle={{ borderRadius: 8, fontSize: 12 }}
+                            />
+                            <Bar dataKey="count" name="Jumlah event" fill="#e11d48" radius={[0, 6, 6, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+
+                    {/* Daftar venue + tanggal event */}
+                    <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                        {shown.map((v) => {
+                            const hiddenEvents = v.count - v.events.length;
+                            return (
+                                <div key={v.venue} className="rounded-lg border border-slate-200 p-2.5">
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className="h-3.5 w-3.5 text-rose-500 flex-shrink-0" />
+                                        <span className="font-semibold text-sm text-slate-900 flex-1 truncate">
+                                            {v.venue}
+                                        </span>
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold whitespace-nowrap">
+                                            {v.count}× event
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {v.events.map((e, i) => (
+                                            <span
+                                                key={i}
+                                                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600"
+                                                title={e.name ?? undefined}
+                                            >
+                                                <Calendar className="h-2.5 w-2.5" />
+                                                {fmtEventDate(e.dateStart, e.dateEnd)}
+                                            </span>
+                                        ))}
+                                        {hiddenEvents > 0 && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-500">
+                                                +{hiddenEvents} tanggal lagi
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {filtered.length > VENUE_LIST_RENDER_CAP && (
+                            <div className="text-center text-[11px] text-muted-foreground py-1.5">
+                                +{filtered.length - VENUE_LIST_RENDER_CAP} venue lainnya — pakai kotak cari atau filter tier untuk mempersempit.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

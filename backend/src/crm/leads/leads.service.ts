@@ -551,7 +551,7 @@ export class LeadsService {
     }
 
     /** Untuk autocomplete: return nilai unik dari kolom tertentu yang sudah pernah dipakai. */
-    async distinctValues(field: 'city' | 'productCategory' | 'sourceDetail'): Promise<string[]> {
+    async distinctValues(field: 'city' | 'productCategory' | 'sourceDetail' | 'eventLocation'): Promise<string[]> {
         const rows = await this.prisma.lead.findMany({
             where: { [field]: { not: null } },
             select: { [field]: true },
@@ -572,11 +572,13 @@ export class LeadsService {
      * - Project value: won / lost / pipeline
      * - Series harian untuk chart
      */
-    async dashboardSummary(params: { from?: string; to?: string; brand?: EventBrand }) {
+    async dashboardSummary(params: { from?: string; to?: string; brand?: EventBrand; city?: string; eventLocation?: string }) {
         const fromDate = params.from ? new Date(params.from) : null;
         const toDate = params.to ? new Date(params.to) : null;
         const where: Prisma.LeadWhereInput = {};
         if (params.brand) where.brand = params.brand;
+        if (params.city) where.city = params.city;
+        if (params.eventLocation) where.eventLocation = params.eventLocation;
         if (fromDate || toDate) {
             where.leadCameAt = {};
             if (fromDate) (where.leadCameAt as any).gte = fromDate;
@@ -636,6 +638,10 @@ export class LeadsService {
                         leadCameAt: true,
                         status: true,
                         projectValueEst: true,
+                        name: true,
+                        eventLocation: true,
+                        eventDateStart: true,
+                        eventDateEnd: true,
                     },
                     take: 5000,
                     orderBy: { leadCameAt: 'asc' },
@@ -671,6 +677,43 @@ export class LeadsService {
 
         const days = Math.max(1, dailySeries.length);
         const avgPerDay = Math.round((total / days) * 10) / 10;
+
+        // Frekuensi lokasi/venue event — hitung berapa sering event di tiap lokasi + daftar tanggalnya.
+        const venueMap = new Map<string, {
+            count: number;
+            events: Array<{ name: string | null; dateStart: string | null; dateEnd: string | null }>;
+        }>();
+        for (const l of leads) {
+            const venue = l.eventLocation?.trim();
+            if (!venue) continue;
+            if (!venueMap.has(venue)) venueMap.set(venue, { count: 0, events: [] });
+            const v = venueMap.get(venue)!;
+            v.count += 1;
+            v.events.push({
+                name: l.name,
+                dateStart: l.eventDateStart ? l.eventDateStart.toISOString() : null,
+                dateEnd: l.eventDateEnd ? l.eventDateEnd.toISOString() : null,
+            });
+        }
+        // Cap payload supaya aman kalau venue sangat banyak:
+        //  - events per venue maksimal 30 (count tetap angka penuh → frontend bisa tampil "+N lagi")
+        //  - byVenue maksimal 500 venue tersering
+        const VENUE_EVENT_CAP = 30;
+        const VENUE_LIST_CAP = 500;
+        const byVenue = Array.from(venueMap, ([venue, v]) => ({
+            venue,
+            count: v.count,
+            // Tanggal event diurutkan dari paling awal; event tanpa tanggal ditaruh paling belakang.
+            events: v.events
+                .sort((a, b) => {
+                    if (!a.dateStart) return 1;
+                    if (!b.dateStart) return -1;
+                    return a.dateStart.localeCompare(b.dateStart);
+                })
+                .slice(0, VENUE_EVENT_CAP),
+        }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, VENUE_LIST_CAP);
 
         // Stage labels
         const stages = await this.prisma.leadStage.findMany({
@@ -716,6 +759,7 @@ export class LeadsService {
                 winRate,
             },
             dailySeries,
+            byVenue,
         };
     }
 
@@ -806,5 +850,63 @@ export class LeadsService {
         // Urutkan: yang paling produktif (nilai closing) di atas
         rows.sort((a, b) => b.totalValueClosed - a.totalValueClosed);
         return rows;
+    }
+
+    /**
+     * Daftar lead yang "stuck" — masih open & belum di-follow up >7 hari.
+     * Kriteria sama dengan stuck count di performanceByMarketer().
+     * Dipakai untuk modal peringatan di halaman Performa Marketing.
+     */
+    async stuckLeads(params: { from?: string; to?: string; brand?: EventBrand; workerId?: number }) {
+        const where: Prisma.LeadWhereInput = {};
+        if (params.brand) where.brand = params.brand;
+        if (params.workerId) where.assignedWorkerId = params.workerId;
+        if (params.from || params.to) {
+            where.leadCameAt = {};
+            if (params.from) (where.leadCameAt as any).gte = new Date(params.from);
+            if (params.to) (where.leadCameAt as any).lte = new Date(params.to);
+        }
+
+        const STUCK_DAYS = 7;
+        const stuckThreshold = new Date(Date.now() - STUCK_DAYS * 24 * 60 * 60 * 1000);
+        const openStatuses: LeadStatus[] = [
+            'NEW', 'CONTACTED', 'RESPONDED', 'NO_RESPONSE', 'WAITING', 'IN_PROGRESS',
+        ];
+
+        const leads = await this.prisma.lead.findMany({
+            where: {
+                ...where,
+                status: { in: openStatuses },
+                OR: [
+                    { lastContactedAt: null, leadCameAt: { lt: stuckThreshold } },
+                    { lastContactedAt: { lt: stuckThreshold } },
+                ],
+            },
+            select: {
+                id: true,
+                name: true,
+                phone: true,
+                organization: true,
+                eventLocation: true,
+                city: true,
+                status: true,
+                stageId: true,
+                leadCameAt: true,
+                lastContactedAt: true,
+                stage: { select: { id: true, name: true, color: true } },
+                assignedWorker: { select: { id: true, name: true } },
+            },
+            orderBy: [{ lastContactedAt: 'asc' }, { leadCameAt: 'asc' }],
+        });
+
+        const now = Date.now();
+        return leads.map((l) => {
+            const ref = l.lastContactedAt ?? l.leadCameAt;
+            return {
+                ...l,
+                // Berapa hari sejak kontak terakhir (atau sejak lead masuk kalau belum pernah dikontak)
+                daysStuck: Math.floor((now - ref.getTime()) / (24 * 60 * 60 * 1000)),
+            };
+        });
     }
 }

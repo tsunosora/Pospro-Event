@@ -86,7 +86,7 @@ export class LeadsController {
 
     @Get('distinct/:field')
     distinct(@Param('field') field: string) {
-        if (field !== 'city' && field !== 'productCategory' && field !== 'sourceDetail') {
+        if (field !== 'city' && field !== 'productCategory' && field !== 'sourceDetail' && field !== 'eventLocation') {
             return [];
         }
         return this.svc.distinctValues(field);
@@ -101,13 +101,30 @@ export class LeadsController {
         return this.svc.performanceByMarketer({ from, to, brand });
     }
 
+    @Get('performance/stuck-leads')
+    stuckLeads(
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+        @Query('brand') brand?: EventBrand,
+        @Query('workerId') workerId?: string,
+    ) {
+        return this.svc.stuckLeads({
+            from,
+            to,
+            brand,
+            workerId: workerId ? Number(workerId) : undefined,
+        });
+    }
+
     @Get('dashboard/summary')
     dashboardSummary(
         @Query('from') from?: string,
         @Query('to') to?: string,
         @Query('brand') brand?: EventBrand,
+        @Query('city') city?: string,
+        @Query('eventLocation') eventLocation?: string,
     ) {
-        return this.svc.dashboardSummary({ from, to, brand });
+        return this.svc.dashboardSummary({ from, to, brand, city, eventLocation });
     }
 
     @Get('leads/:id')

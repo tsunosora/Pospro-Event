@@ -1114,6 +1114,7 @@ export class QuotationsService {
             partialCount: number;
             overdueCount: number;
             oldestUnpaidDays: number; // hari sejak invoice terlama yang belum lunas
+            nearestUnpaidDueDate: string | null; // tanggal tempo terdekat dari invoice yang belum lunas
             invoiceIds: number[];
         };
         const customerMap = new Map<string, CustomerAgg>();
@@ -1174,6 +1175,7 @@ export class QuotationsService {
                     partialCount: 0,
                     overdueCount: 0,
                     oldestUnpaidDays: 0,
+                    nearestUnpaidDueDate: null,
                     invoiceIds: [],
                 });
             }
@@ -1197,6 +1199,13 @@ export class QuotationsService {
                 if (isOverdue) agg.overdueCount += 1;
                 if (daysSinceIssued > agg.oldestUnpaidDays) {
                     agg.oldestUnpaidDays = daysSinceIssued;
+                }
+                // Tempo terdekat = effectiveDueDate paling awal di antara invoice yang belum lunas.
+                if (effectiveDueDate) {
+                    const prev = agg.nearestUnpaidDueDate ? new Date(agg.nearestUnpaidDueDate) : null;
+                    if (!prev || effectiveDueDate.getTime() < prev.getTime()) {
+                        agg.nearestUnpaidDueDate = effectiveDueDate.toISOString();
+                    }
                 }
             }
 

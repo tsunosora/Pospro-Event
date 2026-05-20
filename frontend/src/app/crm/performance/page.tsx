@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -14,6 +14,7 @@ import {
     Target,
 } from "lucide-react";
 import { getMarketerPerformance, type MarketerPerformance } from "@/lib/api/crm";
+import { StuckLeadsModal } from "@/components/crm/StuckLeadsModal";
 
 function fmtRp(v: number) {
     if (!isFinite(v) || v === 0) return "Rp 0";
@@ -48,6 +49,10 @@ function periodPreset(key: string): { from?: string; to?: string } {
 
 export default function CrmPerformancePage() {
     const [period, setPeriod] = useState<"today" | "week" | "month" | "all">("month");
+    /** Modal stuck leads — null = tertutup. workerId null = tampilkan semua marketing. */
+    const [stuckModal, setStuckModal] = useState<{ workerId: number | null; workerName: string | null } | null>(null);
+    /** Auto-popup peringatan hanya muncul sekali per buka halaman. */
+    const [autoShown, setAutoShown] = useState(false);
 
     const { data, isLoading } = useQuery({
         queryKey: ["crm-performance", period],
@@ -58,9 +63,18 @@ export default function CrmPerformancePage() {
     const totalLeads = rows.reduce((a, r) => a + r.totalLeads, 0);
     const totalConverted = rows.reduce((a, r) => a + r.convertedLeads, 0);
     const totalValue = rows.reduce((a, r) => a + r.totalValueClosed, 0);
+    const totalStuck = rows.reduce((a, r) => a + r.stuckLeads, 0);
     const avgConvRate = totalLeads > 0 ? Math.round((totalConverted / totalLeads) * 1000) / 10 : 0;
 
     const top = rows.length > 0 ? rows[0] : null;
+
+    // Auto-popup peringatan: kalau ada lead stuck, tampilkan modal semua marketing saat halaman dibuka.
+    useEffect(() => {
+        if (!isLoading && !autoShown && totalStuck > 0) {
+            setStuckModal({ workerId: null, workerName: null });
+            setAutoShown(true);
+        }
+    }, [isLoading, autoShown, totalStuck]);
 
     return (
         <div className="p-4 space-y-5 max-w-6xl mx-auto">
@@ -168,7 +182,12 @@ export default function CrmPerformancePage() {
                                 </tr>
                             )}
                             {rows.map((r, i) => (
-                                <PerformanceRow key={r.workerId} rank={i + 1} row={r} />
+                                <PerformanceRow
+                                    key={r.workerId}
+                                    rank={i + 1}
+                                    row={r}
+                                    onStuckClick={() => setStuckModal({ workerId: r.workerId, workerName: r.name })}
+                                />
                             ))}
                         </tbody>
                     </table>
@@ -190,11 +209,19 @@ export default function CrmPerformancePage() {
                     Conversion rate = closing dibagi total lead masuk pada periode terpilih.
                 </p>
             </div>
+
+            <StuckLeadsModal
+                open={stuckModal !== null}
+                onClose={() => setStuckModal(null)}
+                workerId={stuckModal?.workerId ?? null}
+                workerName={stuckModal?.workerName ?? null}
+                period={periodPreset(period)}
+            />
         </div>
     );
 }
 
-function PerformanceRow({ rank, row }: { rank: number; row: MarketerPerformance }) {
+function PerformanceRow({ rank, row, onStuckClick }: { rank: number; row: MarketerPerformance; onStuckClick: () => void }) {
     const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
     const convCls =
         row.conversionRate >= 30
@@ -249,10 +276,14 @@ function PerformanceRow({ rank, row }: { rank: number; row: MarketerPerformance 
             </td>
             <td className="px-3 py-3 text-right">
                 {row.stuckLeads > 0 ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-mono text-xs font-bold">
+                    <button
+                        onClick={onStuckClick}
+                        title="Klik untuk lihat daftar lead stuck"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-mono text-xs font-bold hover:bg-red-200 transition cursor-pointer"
+                    >
                         <AlertTriangle className="h-3 w-3" />
                         {row.stuckLeads}
-                    </span>
+                    </button>
                 ) : (
                     <span className="text-slate-400 font-mono">0</span>
                 )}

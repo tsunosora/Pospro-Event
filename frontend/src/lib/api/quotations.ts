@@ -351,6 +351,7 @@ export interface ReceivablesDashboard {
         partialCount: number;
         overdueCount: number;
         oldestUnpaidDays: number;
+        nearestUnpaidDueDate: string | null;
         invoiceIds: number[];
     }>;
     overdueInvoices: Array<{
