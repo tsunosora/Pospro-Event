@@ -497,7 +497,7 @@ model Invoice {
   quotationVariant  QuotationVariant? @map("quotation_variant")
   parentQuotationId Int?              @map("parent_quotation_id") // revisi merujuk ke penawaran induk
   revisionNumber    Int               @default(0) @map("revision_number") // 0 = original, 1,2,... = revisi ke-n
-  projectName       String?           @map("project_name") @db.VarChar(200) // Nama event/proyek
+  projectName       String?           @map("project_name") @db.VarChar(500) // Nama event/proyek
   eventLocation     String?           @map("event_location") @db.VarChar(200)
   eventDateStart    DateTime?         @map("event_date_start")
   eventDateEnd      DateTime?         @map("event_date_end")
