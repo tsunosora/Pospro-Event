@@ -1932,13 +1932,11 @@ export class QuotationsService {
             | null
             | undefined;
 
-        // projectName disalin dari orderDescription. Kolom project_name = VarChar(500),
-        // jadi potong defensif ke 500 char supaya invoice.create tidak pernah gagal P2000.
+        // Lead tidak punya field "Nama Proyek" — projectName sengaja dibiarkan kosong
+        // saat convert, marketing mengisinya sendiri di penawaran. orderDescription
+        // (teks spesifikasi) cukup disimpan di notes supaya tidak ada data hilang.
         const fullOrderDesc = lead.orderDescription?.trim() || null;
         const leadNotes = lead.notes?.trim() || null;
-        const safeProjectName = fullOrderDesc ? fullOrderDesc.slice(0, 500) : undefined;
-        // Notes menyimpan teks penuh order description + notes lead — supaya tidak ada
-        // data hilang walau orderDescription melebihi kapasitas kolom projectName.
         const combinedNotes = [fullOrderDesc, leadNotes].filter(Boolean).join('\n\n') || undefined;
 
         return this.create({
@@ -1950,8 +1948,8 @@ export class QuotationsService {
             clientAddress: cust.address ?? undefined,
             clientPhone: cust.phone ?? undefined,
             clientEmail: cust.email ?? undefined,
-            // Event utama — dari Lead
-            projectName: safeProjectName,
+            // Event utama — dari Lead. projectName dikosongkan (lihat catatan di atas).
+            projectName: undefined,
             eventLocation: lead.eventLocation ?? undefined,
             eventDateStart: (lead as any).eventDateStart
                 ? new Date((lead as any).eventDateStart).toISOString()
