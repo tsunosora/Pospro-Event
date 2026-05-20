@@ -591,6 +591,8 @@ model Invoice {
   showDiscount       Boolean           @default(true) @map("show_discount")
   // Tampilkan baris PPh di PDF invoice? Default true. Toggle di UI invoice.
   showPph            Boolean           @default(true) @map("show_pph")
+  // Tampilkan baris Harga Paket di PDF invoice? Default true. Toggle di UI invoice.
+  showPackagePrice   Boolean           @default(true) @map("show_package_price")
   createdAt     DateTime?     @default(now()) @map("created_at")
   updatedAt     DateTime?     @default(now()) @updatedAt @map("updated_at")
 

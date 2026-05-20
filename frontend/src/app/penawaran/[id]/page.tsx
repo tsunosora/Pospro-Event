@@ -205,6 +205,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [showDiscount, setShowDiscount] = useState<boolean>(true);
     /** Tampilkan baris PPh di PDF invoice. Default true. */
     const [showPph, setShowPph] = useState<boolean>(true);
+    /** Tampilkan baris Harga Paket di PDF invoice. Default true. */
+    const [showPackagePrice, setShowPackagePrice] = useState<boolean>(true);
 
     // Bank accounts dari /settings/bank-accounts
     // Brand settings — untuk button "Salin dari Brand" di custom text section
@@ -373,6 +375,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setShowGrandTotal((data as any).showGrandTotal !== false);
         setShowDiscount((data as any).showDiscount !== false);
         setShowPph((data as any).showPph !== false);
+        setShowPackagePrice((data as any).showPackagePrice !== false);
         setItems(keyed(data.items ?? []));
     }, [data]);
 
@@ -688,6 +691,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             showGrandTotal,
             showDiscount,
             showPph,
+            showPackagePrice,
             brand,
             items: items.map((it, idx) => ({
                 description: it.description,
@@ -2571,6 +2575,15 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     className="w-3.5 h-3.5"
                                 />
                                 <span>Tampilkan PPh</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showPackagePrice}
+                                    onChange={(e) => setShowPackagePrice(e.target.checked)}
+                                    className="w-3.5 h-3.5"
+                                />
+                                <span>Tampilkan Harga Paket</span>
                             </label>
                             <span className="text-slate-500 ml-auto">Toggle untuk PDF invoice</span>
                         </div>

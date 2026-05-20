@@ -1040,7 +1040,9 @@ export class QuotationContextBuilder {
         // Harga paket — kalau di-set & > 0 → tampil "Total / Harga Paket" di footer
         // ─────────────────────────────────────────────────────────────────
         const packagePriceNum = (quotation as any).packagePrice ? Number((quotation as any).packagePrice) : null;
-        const packagePriceFormatted = packagePriceNum && packagePriceNum > 0
+        const isInvoiceForPkg = quotation.type === 'INVOICE';
+        const showPackagePriceFlag = (quotation as any).showPackagePrice !== false;
+        const packagePriceFormatted = packagePriceNum && packagePriceNum > 0 && (!isInvoiceForPkg || showPackagePriceFlag)
             ? formatRp(packagePriceNum, useUsd)
             : null;
 

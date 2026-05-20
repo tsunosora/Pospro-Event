@@ -104,6 +104,8 @@ export interface CreateQuotationDto {
     showDiscount?: boolean;
     /** Tampilkan baris PPh di PDF invoice. Default true. */
     showPph?: boolean;
+    /** Tampilkan baris Harga Paket di PDF invoice. Default true. */
+    showPackagePrice?: boolean;
 
     // Angka
     taxRate?: number;

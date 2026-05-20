@@ -532,6 +532,7 @@ export class QuotationsService {
                         : {}),
                     ...((dto.showDiscount !== undefined ? { showDiscount: dto.showDiscount !== false } : {}) as any),
                     ...((dto.showPph !== undefined ? { showPph: dto.showPph !== false } : {}) as any),
+                    ...((dto.showPackagePrice !== undefined ? { showPackagePrice: dto.showPackagePrice !== false } : {}) as any),
                     ...((recomputed ?? {}) as any),
                     ...(recomputedAmountToPay !== null ? { amountToPay: recomputedAmountToPay } : {}),
                     ...(dto.items !== undefined
@@ -704,6 +705,7 @@ export class QuotationsService {
                 ...(({
                     showDiscount: (quotation as any).showDiscount ?? true,
                     showPph: (quotation as any).showPph ?? true,
+                    showPackagePrice: (quotation as any).showPackagePrice ?? true,
                 }) as any),
                 // Carry forward Penawaran-level custom text (fallback chain di context builder)
                 customOpeningText: quotation.customOpeningText,
