@@ -415,8 +415,42 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [brandSettings, language]);
 
-    const showErr = (label: string) => (err: any) =>
-        alert(`${label}: ${err?.response?.data?.message || err?.message || "gagal"}`);
+    /**
+     * Pesan error verbose — dipakai oleh semua mutation di halaman ini.
+     * Menampilkan status code + URL + response body supaya gampang di-diagnose saat user lapor bug.
+     * Full error object juga di-log ke console.error untuk inspeksi lebih dalam.
+     */
+    const showErr = (label: string) => (err: any) => {
+        // Selalu log full error ke console — termasuk stack trace, request config, response headers.
+        console.error(`[${label}]`, err);
+
+        const status = err?.response?.status;
+        const statusText = err?.response?.statusText;
+        const method = err?.config?.method?.toUpperCase();
+        const url = err?.config?.url;
+        const respData = err?.response?.data;
+        // Coba ambil pesan dari berbagai bentuk response body (NestJS, plain string, dll).
+        const bodyMessage = typeof respData === 'string'
+            ? respData
+            : Array.isArray(respData?.message)
+                ? respData.message.join('; ')
+                : respData?.message || respData?.error;
+        const baseMsg = bodyMessage || err?.message || "gagal";
+
+        const lines: string[] = [`❌ ${label}`, '', baseMsg];
+        if (status) lines.push('', `Status: ${status}${statusText ? ' ' + statusText : ''}`);
+        if (method && url) lines.push(`URL: ${method} ${url}`);
+        // Hint untuk kasus paling sering (network / timeout / payload)
+        if (!err?.response && err?.message?.toLowerCase().includes('network')) {
+            lines.push('', 'Hint: jaringan terputus atau server sedang restart. Coba refresh & save ulang.');
+        } else if (status === 413) {
+            lines.push('', 'Hint: payload terlalu besar (>100kb). Coba hapus beberapa item atau perpendek catatan.');
+        } else if (status === 504 || status === 502) {
+            lines.push('', 'Hint: server timeout. Data mungkin sudah ter-save — refresh untuk konfirmasi sebelum save ulang.');
+        }
+        lines.push('', 'Lihat console (F12) untuk detail lengkap.');
+        alert(lines.join('\n'));
+    };
 
     const saveMut = useMutation({
         mutationFn: (payload: any) => updateQuotation(id, payload),
