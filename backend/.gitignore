@@ -56,3 +56,8 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
+
+# Prisma migrations — pakai `prisma db push` untuk dev & prod ini.
+# Folder migrations lokal sering ter-generate accidental oleh `migrate dev`,
+# jangan ke-push supaya tidak konflik dengan database prod yang sudah ada datanya.
+prisma/migrations/
