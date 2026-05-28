@@ -13,7 +13,25 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.16 (current) — Invoice payment tracking, multi-installment, signature display name, Lead multi-event:
+// v2.17 (current) — Invoice due-date audit + per-doctype PIC override + invoice display toggle:
+//   - NEW TABLE: InvoiceDueDateHistory — audit trail setiap kali admin extend tanggal pembayaran invoice.
+//     Field: invoiceId, oldDueDate/Range, newDueDate/Range, reason ("Klien minta tunda 1 minggu"),
+//     changedById, changedAt. Owner bisa cek riwayat extend pembayaran lewat tombol di invoice detail.
+//   - Invoice.dueDateEnd (DateTime?) — range mode jatuh tempo invoice ("15-20 Mei 2026" vs single date).
+//   - Invoice.invoicePart ('DP'|'PELUNASAN'|'FULL') + amountToPay — tracking apa yang ditagihkan
+//     di tiap invoice yang ter-generate dari quotation (penagihan bertahap).
+//   - Invoice.spkPicName/Position/Phone + spkPaymentDeadline — override PIC & batas pelunasan
+//     khusus SPK, terpisah dari PIC quotation utama (untuk handover ke finance lain di SPK).
+//   - Invoice.invoicePicName/Position/Phone — override PIC khusus invoice (ke finance team klien).
+//   - Invoice.itemDisplayMode ('detailed'|'category-summary') — toggle tampilan tabel item PDF
+//     (detail per row vs ringkas per kategori). Berlaku untuk Penawaran/Invoice & SPK preview.
+//   - Invoice.priceIncludesTax + grossUpPph — PPN exclusive/inclusive + auto gross-up PPh.
+//   - Invoice.showDiscount, showPph, showPackagePrice — toggle row di PDF invoice.
+//   - Invoice signed-by + variant config sudah ada di v2.5/2.14, tetap ter-backup.
+//   - Semua field baru di model existing otomatis ter-include karena backup pakai
+//     findMany() tanpa select — TIDAK perlu update kode kalau cuma field baru.
+//   - SPK render & tabel item: cuma ubah backend renderer/template, TIDAK ubah data model.
+// v2.16 — Invoice payment tracking, multi-installment, signature display name, Lead multi-event:
 //   - New table: InvoicePayment (cicilan pembayaran per invoice — multi-payment tracking)
 //     Field: invoiceId, installmentNumber, amount, paidAt, paymentMethod, paymentRef, paymentNote,
 //     paymentProofUrl, bankAccountId, cashflowId, createdById
@@ -148,8 +166,9 @@ export const BACKUP_GROUPS = {
         label: 'Invoice & Penawaran',
         // quotationVariantConfig: konfigurasi varian penawaran (SEWA, PENGADAAN_BOOTH, dll yang user-defined)
         // invoicePayment: cicilan pembayaran per invoice (multi-installment, dengan bukti TF + bank tujuan)
+        // invoiceDueDateHistory: audit trail extend tanggal jatuh tempo (lihat changelog v2.17)
         // Invoice payment fields (paidAmount, paymentProofUrl, dll) sudah ter-include di tabel invoice.
-        tables: ['quotationVariantConfig', 'invoice', 'invoiceItem', 'invoicePayment'],
+        tables: ['quotationVariantConfig', 'invoice', 'invoiceItem', 'invoicePayment', 'invoiceDueDateHistory'],
     },
     production: {
         label: 'Produksi',
@@ -231,6 +250,7 @@ const RESTORE_ORDER = [
     'rabPlan',                                  // → setelah customer
     'invoice', 'invoiceItem',                   // → setelah quotationVariantConfig (FK variantCode)
     'invoicePayment',                           // → setelah invoice, bankAccount, cashflow, user (FK ke semuanya)
+    'invoiceDueDateHistory',                    // → setelah invoice & user (FK invoiceId + changedById)
     'event',                                    // → setelah customer & rabPlan
     'crewTeam',                                 // → setelah worker (FK leaderWorkerId optional)
     'eventCrewAssignment',                      // → setelah event, worker, crewTeam
@@ -297,7 +317,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.16',
+                version: '2.17',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,

@@ -31,11 +31,11 @@ Pospro Event mem-backup **semua data** yang Anda input. Dikelompokkan jadi beber
 | **Pelanggan** | Master customer (nama, kontak, perusahaan) |
 | **HPP & Costing** | Worksheet hitung modal produk |
 | **Transaksi & Penjualan** | Transaksi POS kasir + cashflow |
-| **Invoice & Penawaran** | SPH (penawaran) & invoice |
+| **Invoice & Penawaran** | SPH (penawaran), invoice, cicilan pembayaran + bukti TF, history extend tanggal jatuh tempo, varian penawaran |
 | **Produksi** | Job produksi booth, batch cetak |
 | **Stok Opname** | Sesi audit stok |
 | **Laporan Shift** | Tutup shift kasir + kompetitor |
-| **Petugas / Worker** | Daftar crew/karyawan |
+| **Petugas / Worker** | Daftar crew/karyawan + payroll (absensi, tarif kota+divisi, tunjangan/potongan/bonus/kasbon, audit log perubahan absen) |
 | **Gudang & Lokasi** | Master gudang + rak penyimpanan |
 | **Event & Packing** | Event + packing list + peminjaman barang |
 | **Crew Lapangan & Team** ⭐ | Team Kepuh/Sawah + check-in/out crew |
@@ -44,7 +44,15 @@ Pospro Event mem-backup **semua data** yang Anda input. Dikelompokkan jadi beber
 | **Printing & Antrian** | Job cetak paper |
 | **Sales Order & Designer** | Surat order ke designer |
 
-> **Versi backup saat ini: 2.6** ⭐ — sudah include semua tabel & field-level additions terbaru (Brand Settings, Quotation Variants, Inventory Acquisition, Worker fullName, Variant description/notes/defaultWarehouseId, RabPlan tags).
+> **Versi backup saat ini: 2.17** ⭐ — sudah include 68 tabel + semua field terbaru:
+> Invoice payment tracking (DP/Pelunasan/Full + cicilan multi-installment + bukti TF),
+> Invoice due-date history (audit trail extend pembayaran), per-doctype custom text
+> (Penawaran/SPK/Invoice masing-masing punya opening/disclaimer/payment-terms/closing sendiri),
+> per-doctype PIC override (PIC Penanggung Jawab beda untuk Penawaran vs SPK vs Invoice),
+> multi-event quotation (1 penawaran untuk beberapa event di kota berbeda), payment schedule
+> multi-step (DP1/DP2/Pelunasan dengan persentase custom), bahasa & mata uang per penawaran
+> (Indonesia/English + Rp/USD), payroll matrix (kota+divisi), payroll adjustment (bonus/kasbon/
+> tunjangan/potongan), attendance audit log, dan brand-aware document numbering.
 
 ## Cara Backup (Bikin Foto Kopi)
 

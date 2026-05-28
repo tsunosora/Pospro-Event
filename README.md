@@ -69,7 +69,7 @@ Crew ambil barang dari gudang via link PIN publik. **Wajib upload foto** saat pi
 Untuk lini digital printing: order cetak banner/poster → kirim ke designer via WA → designer upload proof → approve → cetak. Convert ke transaksi POS saat klien bayar.
 
 ### 💾 Backup & Restore
-Export ZIP semua data (CRM + RAB + Penawaran + Stok + Crew + dll) dalam 1 klik. Restore juga 1 klik. Versi backup saat ini **2.6**.
+Export ZIP semua data (CRM + RAB + Penawaran + Stok + Crew + Payroll + dll) dalam 1 klik. Restore juga 1 klik. Versi backup saat ini **2.17** (68 tabel ter-cover, lengkap dengan invoice payment tracking, due-date history, multi-event quotation, payroll matrix, dan attendance audit).
 
 ### 📚 Dokumentasi Lengkap
 Wiki VitePress yang bisa diakses online untuk training tim.
