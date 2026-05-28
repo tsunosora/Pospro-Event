@@ -16,17 +16,23 @@ type Props = {
     initial?: EventRecord;
 };
 
-const toLocalDate = (iso: string | null | undefined): string => {
+/**
+ * Ambil bagian tanggal "YYYY-MM-DD" dari ISO string untuk display di <input type="date">.
+ * Slice langsung dari string (tanpa konversi Date) supaya tidak shift karena timezone.
+ * Event lama yang punya jam → jam-nya disembunyikan (akan ter-reset ke 00:00 saat save ulang).
+ */
+const toDateOnly = (iso: string | null | undefined): string => {
     if (!iso) return "";
-    const d = new Date(iso);
-    const off = d.getTimezoneOffset();
-    const local = new Date(d.getTime() - off * 60 * 1000);
-    return local.toISOString().slice(0, 16);
+    return iso.slice(0, 10);
 };
 
-const toIso = (local: string): string | null => {
+/**
+ * Encode "YYYY-MM-DD" jadi ISO UTC midnight. Marketing hanya input tanggal, jam tidak relevan.
+ * Disimpan sebagai 00:00 UTC supaya konsisten & tidak ada shift saat di-render ulang di timezone berbeda.
+ */
+const dateOnlyToIso = (local: string): string | null => {
     if (!local) return null;
-    return new Date(local).toISOString();
+    return `${local}T00:00:00.000Z`;
 };
 
 export default function EventForm({ mode, initial }: Props) {
@@ -42,14 +48,14 @@ export default function EventForm({ mode, initial }: Props) {
         customerName: initial?.customerName ?? "",
         picWorkerId: initial?.picWorkerId ?? null,
         picName: initial?.picName ?? "",
-        departureStart: toLocalDate(initial?.departureStart),
-        departureEnd: toLocalDate(initial?.departureEnd),
-        setupStart: toLocalDate(initial?.setupStart),
-        setupEnd: toLocalDate(initial?.setupEnd),
-        loadingStart: toLocalDate(initial?.loadingStart),
-        loadingEnd: toLocalDate(initial?.loadingEnd),
-        eventStart: toLocalDate(initial?.eventStart),
-        eventEnd: toLocalDate(initial?.eventEnd),
+        departureStart: toDateOnly(initial?.departureStart),
+        departureEnd: toDateOnly(initial?.departureEnd),
+        setupStart: toDateOnly(initial?.setupStart),
+        setupEnd: toDateOnly(initial?.setupEnd),
+        loadingStart: toDateOnly(initial?.loadingStart),
+        loadingEnd: toDateOnly(initial?.loadingEnd),
+        eventStart: toDateOnly(initial?.eventStart),
+        eventEnd: toDateOnly(initial?.eventEnd),
         notes: initial?.notes ?? "",
         dailyWageRate: initial?.dailyWageRate ?? "",
         overtimeRatePerHour: initial?.overtimeRatePerHour ?? "",
@@ -78,14 +84,14 @@ export default function EventForm({ mode, initial }: Props) {
                 customerName: form.customerName?.trim() || null,
                 picWorkerId: form.picWorkerId || null,
                 picName: form.picName?.trim() || null,
-                departureStart: toIso(form.departureStart as string),
-                departureEnd: toIso(form.departureEnd as string),
-                setupStart: toIso(form.setupStart as string),
-                setupEnd: toIso(form.setupEnd as string),
-                loadingStart: toIso(form.loadingStart as string),
-                loadingEnd: toIso(form.loadingEnd as string),
-                eventStart: toIso(form.eventStart as string),
-                eventEnd: toIso(form.eventEnd as string),
+                departureStart: dateOnlyToIso(form.departureStart as string),
+                departureEnd: dateOnlyToIso(form.departureEnd as string),
+                setupStart: dateOnlyToIso(form.setupStart as string),
+                setupEnd: dateOnlyToIso(form.setupEnd as string),
+                loadingStart: dateOnlyToIso(form.loadingStart as string),
+                loadingEnd: dateOnlyToIso(form.loadingEnd as string),
+                eventStart: dateOnlyToIso(form.eventStart as string),
+                eventEnd: dateOnlyToIso(form.eventEnd as string),
                 notes: form.notes?.toString().trim() || null,
                 dailyWageRate: form.dailyWageRate ? String(form.dailyWageRate).trim() || null : null,
                 overtimeRatePerHour: form.overtimeRatePerHour ? String(form.overtimeRatePerHour).trim() || null : null,
@@ -388,7 +394,7 @@ function PhaseRow({ label, colorClass, start, end, onChange }: {
                 <label className="text-[11px]">
                     Mulai
                     <input
-                        type="datetime-local"
+                        type="date"
                         value={start}
                         onChange={(e) => onChange(e.target.value, end)}
                         className="w-full border rounded px-1 py-1 text-xs mt-0.5 bg-white"
@@ -397,7 +403,7 @@ function PhaseRow({ label, colorClass, start, end, onChange }: {
                 <label className="text-[11px]">
                     Selesai
                     <input
-                        type="datetime-local"
+                        type="date"
                         value={end}
                         onChange={(e) => onChange(start, e.target.value)}
                         className="w-full border rounded px-1 py-1 text-xs mt-0.5 bg-white"
