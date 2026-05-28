@@ -69,52 +69,29 @@
     margin: 8pt 0 6pt 0;
   }
 
-  /* List spesifikasi — table 2 kolom (no. urut + deskripsi) untuk penataan rapi & sejajar.
-     Nomor di kolom sempit di kiri, deskripsi mengisi sisa lebar. Kalau deskripsi wrap,
-     baris berikutnya rata dengan baris pertama (bukan dengan nomor). */
-  table.spec-list {
+  /* Tabel item — struktur sama dengan preview Penawaran (table.items di sewa.hbs /
+     pengadaan-booth.hbs). Beda SPK: tidak ada kolom harga/jumlah & tidak ada grand totals. */
+  table.items {
     width: 100%;
     border-collapse: collapse;
-    margin: 8pt 0 12pt 24pt;     /* tab-indent dari kiri */
+    margin: 8pt 0 12pt 0;
     font-size: 11pt;
-    line-height: 1.55;
+    line-height: 1.5;
   }
-  table.spec-list td {
-    vertical-align: top;
-    padding: 3pt 4pt;
-  }
-  table.spec-list td.no-col {
-    width: 26pt;
-    text-align: right;
-    padding-right: 8pt;
+  table.items th, table.items td { border: 0.75pt solid #999; padding: 4pt 6pt; }
+  table.items thead { background: {{theme.primary}}; color: #fff; }
+  table.items th { font-weight: 600; text-align: center; }
+  table.items td.num { text-align: center; width: 28pt; }
+  table.items td.qty { text-align: right; white-space: nowrap; }
+  /* Header kategori — full-width row, bold, kontras (sama style dengan penawaran) */
+  table.items tr.cat-header td {
+    background: {{theme.primaryLight}};
     color: {{theme.primaryDark}};
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  table.spec-list td.desc-col {
-    text-align: left;
-  }
-  /* Unit text — tampil di-bawah deskripsi, abu-abu kecil (sama style dengan RAB preview) */
-  table.spec-list td.desc-col .item-unit {
-    display: block;
-    margin-top: 1pt;
-    font-size: 9.5pt;
-    color: #6b7280;
-    font-style: italic;
-  }
-  /* Striping zebra tipis biar enak dibaca */
-  table.spec-list tbody tr:nth-child(odd) td { background: {{theme.primarySubtle}}; }
-  /* Header kategori — full-width, bold, kontras */
-  table.spec-list tr.cat-row td {
-    background: {{theme.primary}} !important;
-    color: #fff;
-    font-weight: 700;
-    font-size: 10pt;
-    letter-spacing: .4pt;
+    font-size: 10.5pt;
     text-transform: uppercase;
-    padding: 4pt 8pt;
-    margin-top: 6pt;
+    letter-spacing: .3pt;
+    padding: 5pt 8pt;
   }
 
   /* Catatan dengan prefix "#" */
@@ -254,25 +231,66 @@
   </div>
   {{/if}}
 
-  {{!-- List spesifikasi — table 2 kolom (no. urut + deskripsi). Nomor urut consecutive
-       di seluruh list (1, 2, 3, ...) supaya enak dibaca, bukan reset per kategori. --}}
-  <table class="spec-list">
+  {{!-- Tabel item — struktur sama dengan preview Penawaran (lihat sewa.hbs / pengadaan-booth.hbs).
+       2 mode (sinkron dengan toggle Detail/Ringkas di UI):
+         - DETAIL (default): 3 kolom (No, Uraian, Qty) — kolom Qty terpisah
+         - RINGKAS: 2 kolom (No, Uraian) — qty inline di Uraian
+       SPK TIDAK menampilkan kolom harga, subtotal kategori, atau grand total
+       (sesuai konvensi SPK: lingkup pekerjaan only, harga di-summary di paragraf pembayaran). --}}
+  {{#if spk.isCategorySummary}}
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:28pt">{{i18n.no}}</th>
+        <th>{{i18n.uraian}}</th>
+      </tr>
+    </thead>
     <tbody>
-      {{#each spk.specItems}}
-        {{#if this.isCategoryHeader}}
-        <tr class="cat-row"><td colspan="2">{{this.label}}</td></tr>
-        {{else}}
-        <tr>
-          <td class="no-col">{{this.no}}.</td>
-          <td class="desc-col">
-            {{this.description}}
-            {{#if this.quantity}}<span class="item-unit">{{this.quantity}}</span>{{/if}}
-          </td>
+      {{#each itemGroups}}
+        {{#if this.categoryName}}
+        <tr class="cat-header">
+          <td colspan="2">{{this.categoryName}}</td>
         </tr>
         {{/if}}
+        {{#each this.items}}
+        <tr>
+          <td class="num">{{this.no}}</td>
+          <td>
+            {{this.description}}
+            {{#if this.unit}}<span style="color:#666; font-size:9.5pt;"> · {{this.quantity}}</span>{{/if}}
+          </td>
+        </tr>
+        {{/each}}
       {{/each}}
     </tbody>
   </table>
+  {{else}}
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:28pt">{{i18n.no}}</th>
+        <th>{{i18n.uraian}}</th>
+        <th style="width:90pt">{{i18n.qty}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each itemGroups}}
+        {{#if this.categoryName}}
+        <tr class="cat-header">
+          <td colspan="3">{{this.categoryName}}</td>
+        </tr>
+        {{/if}}
+        {{#each this.items}}
+        <tr>
+          <td class="num">{{this.no}}</td>
+          <td>{{this.description}}</td>
+          <td class="qty">{{this.quantity}}</td>
+        </tr>
+        {{/each}}
+      {{/each}}
+    </tbody>
+  </table>
+  {{/if}}
 
   {{!-- Specifications section — render kalau di-set di Quotation (PDF Nukahiji style).
        Group dengan judul (Booth/Stage/Totem) + bullet checkmarks. --}}

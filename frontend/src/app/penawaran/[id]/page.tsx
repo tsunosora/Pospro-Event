@@ -2748,33 +2748,32 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 </button>
                             </div>
 
-                            {/* Live toggle Tampilan Item — cuma untuk Penawaran/Invoice, hide saat SPK */}
-                            {previewType === "pdf" && (
-                                <div className="inline-flex gap-0.5 bg-slate-100 p-0.5 rounded-md border" title="Pilih tampilan item: detail per row atau ringkas per kategori">
-                                    <button
-                                        type="button"
-                                        onClick={() => itemDisplayMode !== 'detailed' && togglePreviewMode('detailed')}
-                                        disabled={previewLoading}
-                                        className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'detailed'
-                                            ? 'bg-white text-blue-700 shadow-sm'
-                                            : 'text-slate-600 hover:text-slate-900'
-                                            }`}
-                                    >
-                                        📋 Detail
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => itemDisplayMode !== 'category-summary' && togglePreviewMode('category-summary')}
-                                        disabled={previewLoading}
-                                        className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'category-summary'
-                                            ? 'bg-white text-blue-700 shadow-sm'
-                                            : 'text-slate-600 hover:text-slate-900'
-                                            }`}
-                                    >
-                                        📊 Ringkas
-                                    </button>
-                                </div>
-                            )}
+                            {/* Live toggle Tampilan Item — berlaku untuk Penawaran/Invoice & SPK.
+                                Di SPK, mode Ringkas = 1 baris per kategori (nama + jumlah item). */}
+                            <div className="inline-flex gap-0.5 bg-slate-100 p-0.5 rounded-md border" title="Pilih tampilan item: detail per row atau ringkas per kategori">
+                                <button
+                                    type="button"
+                                    onClick={() => itemDisplayMode !== 'detailed' && togglePreviewMode('detailed')}
+                                    disabled={previewLoading}
+                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'detailed'
+                                        ? 'bg-white text-blue-700 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                >
+                                    📋 Detail
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => itemDisplayMode !== 'category-summary' && togglePreviewMode('category-summary')}
+                                    disabled={previewLoading}
+                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'category-summary'
+                                        ? 'bg-white text-blue-700 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                >
+                                    📊 Ringkas
+                                </button>
+                            </div>
                             <button
                                 onClick={() => handleExport(previewType)}
                                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${previewType === 'spk-pdf' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'} text-white rounded-md text-sm font-semibold`}

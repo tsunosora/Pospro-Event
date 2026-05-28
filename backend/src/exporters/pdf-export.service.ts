@@ -120,35 +120,13 @@ export class PdfExportService implements OnModuleDestroy {
             .map((line: string) => (line.startsWith('#') ? line : `# ${line}`))
             .join('\n');
 
-        // Flatten itemGroups jadi list rapih untuk SPK: nomor urut consecutive (1,2,3,..)
-        // di seluruh list. Kategori (kalau ada) di-insert sebagai row header.
-        const specItems: Array<{
-            isCategoryHeader?: boolean;
-            label?: string;
-            no?: number;
-            description?: string;
-            quantity?: string;
-            unit?: string;
-        }> = [];
-        let runningNo = 0;
-        for (const grp of ctx.itemGroups) {
-            if (grp.categoryName) {
-                specItems.push({ isCategoryHeader: true, label: grp.categoryName });
-            }
-            for (const it of grp.items) {
-                runningNo += 1;
-                // Skip quantity kalau 0 — gak perlu tampil "0 unit" di SPK.
-                // it.quantity adalah hasil formatQty() yang nge-return "X unit" atau "X" (kalau no unit).
-                const qtyStr = it.quantity?.trim() ?? '';
-                const qtyNum = parseFloat(qtyStr) || 0;
-                specItems.push({
-                    no: runningNo,
-                    description: it.description,
-                    quantity: qtyNum > 0 ? qtyStr : undefined,
-                    unit: it.unit,
-                });
-            }
-        }
+        // Mode tampilan tabel SPK — mengikuti itemDisplayMode quotation (sama dengan preview Penawaran).
+        //   - 'detailed': tabel 3 kolom (No, Uraian, Qty) — kolom Qty terpisah
+        //   - 'category-summary': tabel 2 kolom (No, Uraian) — qty inline di Uraian
+        // SPK tidak punya kolom harga / subtotal / grand total (sesuai konvensi SPK).
+        // Tabel pakai ctx.itemGroups langsung — penomoran restart per kategori (group.nextNo
+        // di builder), konsisten dengan render Penawaran.
+        const isCategorySummary = rawQuotation?.itemDisplayMode === 'category-summary';
 
         const spkCtx = {
             ...ctx,
@@ -187,7 +165,7 @@ export class PdfExportService implements OnModuleDestroy {
                 disclaimerHashed,
                 customPaymentTerms: spkCustomPaymentTerms,    // available di template kalau perlu
                 customClosing: spkCustomClosing,
-                specItems,
+                isCategorySummary,
                 paymentDeadlineFormatted: spkPaymentDeadlineFormatted,
             },
         };
