@@ -1,6 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { BookOpen } from "lucide-react";
 import { getSettings } from "@/lib/api";
 
 export function Footer() {
@@ -17,8 +19,16 @@ export function Footer() {
             <p className="text-sm font-semibold text-foreground/70 tracking-wide">
                 {storeName}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-                &copy; 2026 Muhammad Faisal Abdul Hakim
+            <p className="text-xs text-muted-foreground mt-0.5 flex items-center justify-center gap-2 flex-wrap">
+                <span>&copy; 2026 Muhammad Faisal Abdul Hakim</span>
+                <span className="text-border">·</span>
+                <Link
+                    href="/help"
+                    className="inline-flex items-center gap-1 text-violet-600 hover:text-violet-700 hover:underline transition"
+                >
+                    <BookOpen className="h-3 w-3" />
+                    Bantuan
+                </Link>
             </p>
         </footer>
     );
