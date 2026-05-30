@@ -7,6 +7,7 @@ import {
     CalendarDays, Plus, MapPin, User as UserIcon, Loader2, Search,
 } from "lucide-react";
 import { getEvents, type EventBrand, type EventRecord, type EventStatus } from "@/lib/api/events";
+import { DateRangeFilter, presetToRange, type DateRange } from "@/components/DateRangeFilter";
 
 const MONTHS_ID = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -63,6 +64,7 @@ export default function EventsListPage() {
     const [statusFilter, setStatusFilter] = useState<EventStatus | "ALL">("ALL");
     const [brandFilter, setBrandFilter] = useState<EventBrand | "ALL">("ALL");
     const [search, setSearch] = useState("");
+    const [dateRange, setDateRange] = useState<DateRange>({ preset: "ALL" });
 
     const { data: events = [], isLoading } = useQuery({
         queryKey: ["events", statusFilter, brandFilter, search],
@@ -73,7 +75,29 @@ export default function EventsListPage() {
         }),
     });
 
-    const groups = useMemo(() => groupByMonth(events), [events]);
+    // Filter date range — client-side karena dataset event biasanya tidak ribuan.
+    // Field acuan: eventStart > setupStart > departureStart > createdAt (sama dgn groupByMonth).
+    // Event di-include kalau ada OVERLAP dgn range yang dipilih (start≤rangeTo & end≥rangeFrom).
+    const filteredEvents = useMemo(() => {
+        const { from, to } = presetToRange(dateRange.preset, {
+            from: dateRange.fromDate,
+            to: dateRange.toDate,
+        });
+        if (!from && !to) return events;
+        return events.filter((ev) => {
+            const startRef = ev.eventStart ?? ev.setupStart ?? ev.departureStart ?? ev.createdAt;
+            const endRef = ev.eventEnd ?? ev.setupEnd ?? ev.departureEnd ?? startRef;
+            if (!startRef) return false;
+            const evStart = new Date(startRef);
+            const evEnd = new Date(endRef);
+            // Overlap: event yang melintasi range ikut tampil
+            if (from && evEnd < from) return false;
+            if (to && evStart > to) return false;
+            return true;
+        });
+    }, [events, dateRange]);
+
+    const groups = useMemo(() => groupByMonth(filteredEvents), [filteredEvents]);
 
     return (
         <div className="space-y-5">
@@ -122,15 +146,39 @@ export default function EventsListPage() {
                         </button>
                     ))}
                 </div>
+                {/* Date range filter — preset (Hari Ini/Bulan Ini/3 Bulan/dll) atau Custom tanggal */}
+                <DateRangeFilter value={dateRange} onChange={setDateRange} label="Periode" />
+                {dateRange.preset !== "ALL" && (
+                    <span className="text-xs text-muted-foreground">
+                        {filteredEvents.length} dari {events.length} event
+                    </span>
+                )}
             </div>
 
             {isLoading ? (
                 <div className="text-muted-foreground text-sm py-10 text-center">
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Memuat…
                 </div>
-            ) : events.length === 0 ? (
+            ) : filteredEvents.length === 0 ? (
                 <div className="border rounded-lg py-10 text-center text-muted-foreground text-sm">
-                    Belum ada event. Klik <b>Event Baru</b> untuk mulai.
+                    {dateRange.preset !== "ALL" || statusFilter !== "ALL" || brandFilter !== "ALL" || search.trim() ? (
+                        <>
+                            Tidak ada event yang cocok dengan filter.
+                            <button
+                                onClick={() => {
+                                    setDateRange({ preset: "ALL" });
+                                    setStatusFilter("ALL");
+                                    setBrandFilter("ALL");
+                                    setSearch("");
+                                }}
+                                className="block mx-auto mt-3 text-xs text-primary hover:underline"
+                            >
+                                Reset semua filter
+                            </button>
+                        </>
+                    ) : (
+                        <>Belum ada event. Klik <b>Event Baru</b> untuk mulai.</>
+                    )}
                 </div>
             ) : (
                 <div className="space-y-6">
@@ -156,8 +204,8 @@ function EventCard({ ev }: { ev: EventRecord }) {
     const phases: Array<{ key: string; label: string; cls: string; a: string | null; b: string | null }> = [
         { key: "dep", label: "Berangkat", cls: "bg-yellow-400", a: ev.departureStart, b: ev.departureEnd },
         { key: "setup", label: "Pasang", cls: "bg-orange-400", a: ev.setupStart, b: ev.setupEnd },
-        { key: "load", label: "Loading", cls: "bg-sky-400", a: ev.loadingStart, b: ev.loadingEnd },
         { key: "event", label: "Event", cls: "bg-emerald-500", a: ev.eventStart, b: ev.eventEnd },
+        { key: "dismantle", label: "Bongkar", cls: "bg-sky-400", a: ev.loadingStart, b: ev.loadingEnd },
     ];
 
     return (

@@ -36,7 +36,7 @@ const BRAND_STRIP: Record<EventBrand, string> = {
     OTHER:  "bg-gray-400",
 };
 
-type ZoomLevel = "day" | "week" | "quarter";
+type ZoomLevel = "day" | "week" | "2-month" | "quarter";
 type GroupBy = "none" | "client" | "pic" | "brand" | "venue" | "team";
 type ColorMode = "phase" | "brand" | "team";
 
@@ -98,6 +98,65 @@ export default function EventTimelinePage() {
     const [activeBar, setActiveBar] = useState<{ event: EventRecord; phase: Phase } | null>(null);
     const [editMode, setEditMode] = useState(false);
     const qc = useQueryClient();
+    // Custom date range — popover untuk pilih tanggal start-end manual.
+    const [showRangePopover, setShowRangePopover] = useState(false);
+    const [rangeStart, setRangeStart] = useState("");
+    const [rangeEnd, setRangeEnd] = useState("");
+
+    /**
+     * Template preset jump — set cursor & zoom dalam 1 klik.
+     * Berguna untuk view yg paling sering dipakai (planning bulan ini & 2 bulan ke depan).
+     */
+    const setBulanIni = () => {
+        const now = new Date();
+        setCursor(new Date(now.getFullYear(), now.getMonth(), 1));
+        setZoom("day");
+        setRangeStart("");
+        setRangeEnd("");
+    };
+    const set2Bulan = () => {
+        const now = new Date();
+        setCursor(new Date(now.getFullYear(), now.getMonth(), 1));
+        setZoom("2-month");
+        setRangeStart("");
+        setRangeEnd("");
+    };
+    // Active state untuk highlight preset button — match kondisi cursor+zoom saat ini
+    const isBulanIni = useMemo(() => {
+        const now = new Date();
+        return cursor.getFullYear() === now.getFullYear()
+            && cursor.getMonth() === now.getMonth()
+            && zoom === "day";
+    }, [cursor, zoom]);
+    const is2Bulan = useMemo(() => {
+        const now = new Date();
+        return cursor.getFullYear() === now.getFullYear()
+            && cursor.getMonth() === now.getMonth()
+            && zoom === "2-month";
+    }, [cursor, zoom]);
+
+    /**
+     * Apply custom date range — set cursor ke bulan dari start date,
+     * pick zoom level otomatis berdasarkan duration:
+     *   ≤31 hari → Hari (cocok 1 bulan)
+     *   32-90 hari → Minggu (12 minggu view)
+     *   >90 hari → Kuartal (3 bulan view)
+     */
+    const applyCustomRange = () => {
+        if (!rangeStart) return;
+        const startD = new Date(rangeStart);
+        setCursor(new Date(startD.getFullYear(), startD.getMonth(), 1));
+        if (rangeEnd) {
+            const endD = new Date(rangeEnd);
+            const days = Math.floor((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+            if (days <= 31) setZoom("day");
+            else if (days <= 90) setZoom("week");
+            else setZoom("quarter");
+        }
+        setShowRangePopover(false);
+    };
+
+    const hasCustomRange = Boolean(rangeStart);
 
     // Range — based on zoom
     const range = useMemo(() => {
@@ -111,6 +170,12 @@ export default function EventTimelinePage() {
             const start = new Date(cursor); start.setDate(cursor.getDate() - 42);
             const end = new Date(cursor); end.setDate(cursor.getDate() + 42);
             return { start, end, days: 84, cellW: 12, label: `${fmtDateID(start)} → ${fmtDateID(end)}` };
+        } else if (zoom === "2-month") {
+            // 2 months — bulan dari cursor + bulan berikutnya
+            const start = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+            const end = new Date(cursor.getFullYear(), cursor.getMonth() + 2, 0);
+            const days = daysBetween(start, end) + 1;
+            return { start, end, days, cellW: 20, label: `${MONTHS_ID[start.getMonth()]} - ${MONTHS_ID[end.getMonth()]} ${end.getFullYear()}` };
         } else {
             // quarter — 3 months centered
             const start = new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1);
@@ -330,7 +395,7 @@ export default function EventTimelinePage() {
 
     // ── Drag-drop resize state ──
     const gridContainerRef = useRef<HTMLDivElement | null>(null);
-    const FIXED_COLS_W = 200 + 180 + 140 + 220; // 4 sticky columns
+    const FIXED_COLS_W = 160 + 130 + 110 + 140; // 4 sticky columns (kompak, prioritas ke grid kanan)
     const [drag, setDrag] = useState<null | {
         eventId: number;
         phase: Phase;
@@ -393,9 +458,10 @@ export default function EventTimelinePage() {
 
     function shift(delta: number) {
         const next = new Date(cursor);
-        if (zoom === "day")        next.setMonth(next.getMonth() + delta);
-        else if (zoom === "week")  next.setDate(next.getDate() + delta * 28);
-        else                       next.setMonth(next.getMonth() + delta * 3);
+        if (zoom === "day")             next.setMonth(next.getMonth() + delta);
+        else if (zoom === "week")       next.setDate(next.getDate() + delta * 28);
+        else if (zoom === "2-month")    next.setMonth(next.getMonth() + delta * 2);
+        else                            next.setMonth(next.getMonth() + delta * 3);
         setCursor(next);
     }
 
@@ -480,7 +546,23 @@ export default function EventTimelinePage() {
                         Gantt view per phase · Tekan <kbd className="px-1 border rounded text-[10px]">←</kbd>/<kbd className="px-1 border rounded text-[10px]">→</kbd> navigasi · <kbd className="px-1 border rounded text-[10px]">T</kbd> hari ini · <kbd className="px-1 border rounded text-[10px]">1</kbd>/<kbd className="px-1 border rounded text-[10px]">2</kbd>/<kbd className="px-1 border rounded text-[10px]">3</kbd> zoom
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+<div className="flex items-center gap-2 flex-wrap">
+                    {/* Template preset — 1-klik jump ke view paling sering dipakai */}
+                    <div className="flex items-center gap-1 rounded-md border border-border p-0.5 bg-background">
+                        <button
+                            onClick={setBulanIni}
+                            className={`px-2 py-1 text-xs rounded ${isBulanIni ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                        >
+                            Bulan Ini
+                        </button>
+                        <button
+                            onClick={set2Bulan}
+                            className={`px-2 py-1 text-xs rounded ${is2Bulan ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                        >
+                            2 Bulan
+                        </button>
+                    </div>
+                    {/* Zoom level — Hari (1 bulan), Minggu (12 minggu), Kuartal (3 bulan) */}
                     <div className="flex items-center gap-1 rounded-md border border-border p-0.5 bg-background">
                         {(["day","week","quarter"] as ZoomLevel[]).map((z) => (
                             <button
@@ -492,11 +574,72 @@ export default function EventTimelinePage() {
                             </button>
                         ))}
                     </div>
+                    {/* Custom date range — kalau zoom preset di atas gak cukup, pilih range manual */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowRangePopover((v) => !v)}
+                            className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border border-border ${hasCustomRange ? "bg-primary text-primary-foreground hover:opacity-90" : "bg-background hover:bg-muted"}`}
+                            title="Pilih range tanggal/bulan custom"
+                        >
+                            <Calendar className="h-3.5 w-3.5" />
+                            {hasCustomRange ? `${rangeStart || "..."} → ${rangeEnd || "..."}` : "Range"}
+                        </button>
+                        {showRangePopover && (
+                            <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-border rounded-md shadow-lg p-3 min-w-[280px]">
+                                <div className="text-xs font-semibold text-muted-foreground mb-2">Pilih rentang tanggal</div>
+                                <div className="space-y-2">
+                                    <label className="block">
+                                        <span className="text-[11px] text-muted-foreground">Mulai</span>
+                                        <input
+                                            type="date"
+                                            value={rangeStart}
+                                            onChange={(e) => setRangeStart(e.target.value)}
+                                            className="w-full mt-0.5 border border-border rounded px-2 py-1 text-sm"
+                                        />
+                                    </label>
+                                    <label className="block">
+                                        <span className="text-[11px] text-muted-foreground">Selesai</span>
+                                        <input
+                                            type="date"
+                                            value={rangeEnd}
+                                            onChange={(e) => setRangeEnd(e.target.value)}
+                                            min={rangeStart || undefined}
+                                            className="w-full mt-0.5 border border-border rounded px-2 py-1 text-sm"
+                                        />
+                                    </label>
+                                </div>
+                                <div className="flex gap-2 mt-3">
+                                    <button
+                                        onClick={applyCustomRange}
+                                        disabled={!rangeStart}
+                                        className="flex-1 bg-primary text-primary-foreground text-xs py-1.5 rounded hover:opacity-90 disabled:opacity-40"
+                                    >
+                                        Terapkan
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setRangeStart("");
+                                            setRangeEnd("");
+                                            setShowRangePopover(false);
+                                        }}
+                                        className="px-3 text-xs py-1.5 rounded border border-border hover:bg-muted"
+                                    >
+                                        Reset
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     <button onClick={() => shift(-1)} className="p-1.5 rounded-md border border-border hover:bg-muted"><ChevronLeft className="h-4 w-4" /></button>
                     <span className="text-sm font-semibold min-w-[10rem] text-center">{range.label}</span>
                     <button onClick={() => shift(1)} className="p-1.5 rounded-md border border-border hover:bg-muted"><ChevronRight className="h-4 w-4" /></button>
                     <button
-                        onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))}
+                        onClick={() => {
+                            setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
+                            setZoom("day");
+                            setRangeStart("");
+                            setRangeEnd("");
+                        }}
                         className="px-2 py-1.5 text-xs rounded-md border border-border hover:bg-muted"
                     >
                         Today
@@ -702,29 +845,29 @@ function GanttTable({
             {todayIdx >= 0 && (
                 <div
                     className="absolute top-0 bottom-0 w-px bg-blue-500/60 z-10 pointer-events-none"
-                    style={{ left: 200 + 180 + 140 + 220 + (todayIdx * cellW) + cellW / 2 }}
+                    style={{ left: 160 + 130 + 110 + 140 + (todayIdx * cellW) + cellW / 2 }}
                 />
             )}
 
             <table className="border-collapse">
                 <thead className="sticky top-0 bg-white z-20">
                     <tr className="border-b border-border">
-                        <th className="text-left text-xs font-semibold text-foreground px-3 py-2 sticky left-0 bg-white border-r border-border" style={{ width: 200 }}>Event Name</th>
-                        <th className="text-left text-xs font-semibold text-foreground px-3 py-2" style={{ width: 180 }}>Client</th>
-                        <th className="text-left text-xs font-semibold text-foreground px-3 py-2" style={{ width: 140 }}>PIC / Team</th>
-                        <th className="text-left text-xs font-semibold text-foreground px-3 py-2" style={{ width: 220 }}>Venue</th>
+                        <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2 sticky left-0 bg-white border-r border-border" style={{ width: 160 }}>Event</th>
+                        <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2" style={{ width: 130 }}>Client</th>
+                        <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2" style={{ width: 110 }}>PIC</th>
+                        <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2" style={{ width: 140 }}>Venue</th>
                         {dayCells.map((d) => (
                             <th
                                 key={d.idx}
-                                className={`text-center text-[10px] font-medium py-1 border-l border-border/50 ${
+                                className={`text-center font-medium py-2 border-l border-border/50 ${
                                     d.isToday ? "bg-blue-100" : d.isWeekend ? "bg-muted/30" : ""
                                 } ${d.isMonthStart && zoom !== "day" ? "border-l-2 border-l-foreground/30" : ""}`}
                                 style={{ width: cellW, minWidth: cellW }}
                             >
-                                {(zoom === "day" || zoom === "week") && <div className="text-muted-foreground">{d.dow}</div>}
-                                <div className="text-foreground/80">{d.day}</div>
+                                {(zoom === "day" || zoom === "week") && <div className="text-[10px] text-muted-foreground leading-tight">{d.dow}</div>}
+                                <div className="text-sm font-bold text-foreground leading-tight">{d.day}</div>
                                 {d.isMonthStart && zoom !== "day" && (
-                                    <div className="text-[8px] text-foreground/60 font-semibold">{MONTHS_ID[d.date.getMonth()].slice(0, 3)}</div>
+                                    <div className="text-[10px] text-foreground/70 font-bold leading-tight">{MONTHS_ID[d.date.getMonth()].slice(0, 3)}</div>
                                 )}
                             </th>
                         ))}
@@ -855,33 +998,46 @@ function EventRow({
 
     return (
         <tr className={`border-b border-border/50 hover:bg-muted/30 ${searchHit ? "bg-yellow-50" : ""}`}>
-            <td className="px-3 py-2 text-sm font-medium sticky left-0 bg-white border-r border-border relative" style={{ width: 200 }}>
+            <td className="px-2 py-1.5 text-xs font-medium sticky left-0 bg-white border-r border-border relative" style={{ width: 160 }}>
                 {/* Brand strip */}
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${brandStrip}`} />
                 <div className="pl-2">
-                    <Link href={`/events/${ev.id}`} className="hover:text-primary block truncate" title={ev.name}>{ev.name}</Link>
-                    <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                        <span className={`inline-block px-1.5 py-0.5 text-[9px] rounded ${status.cls} font-medium`}>{status.label}</span>
+                    <Link href={`/events/${ev.id}`} className="hover:text-primary block truncate text-xs leading-tight" title={ev.name}>{ev.name}</Link>
+                    {/* Label organisasi/klien — asalnya dari Lead.organization → Customer.companyName,
+                        atau dari Event.customerName (teks bebas) kalau tidak link ke customer */}
+                    {(() => {
+                        const org = ev.customer?.companyName?.trim() || ev.customerName?.trim();
+                        return org ? (
+                            <div
+                                className="inline-block mt-0.5 px-1 py-0 text-[9px] text-foreground/70 bg-muted/60 rounded truncate max-w-full"
+                                title={org}
+                            >
+                                🏢 {org}
+                            </div>
+                        ) : null;
+                    })()}
+                    <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
+                        <span className={`inline-block px-1 py-0 text-[8px] rounded ${status.cls} font-medium`}>{status.label}</span>
                         {ev._count?.withdrawals ? (
-                            <span className="text-[9px] text-muted-foreground" title={`${ev._count.withdrawals} pinjaman`}>📦 {ev._count.withdrawals}</span>
+                            <span className="text-[8px] text-muted-foreground" title={`${ev._count.withdrawals} pinjaman`}>📦{ev._count.withdrawals}</span>
                         ) : null}
                         {ev._count?.crewAssignments ? (
-                            <span className="text-[9px] text-muted-foreground" title={`${ev._count.crewAssignments} crew ditugaskan`}>👷 {ev._count.crewAssignments}</span>
+                            <span className="text-[8px] text-muted-foreground" title={`${ev._count.crewAssignments} crew ditugaskan`}>👷{ev._count.crewAssignments}</span>
                         ) : null}
                         {getTeamBreakdown(ev).map((t) => (
                             <span
                                 key={t.id}
-                                className="inline-flex items-center gap-0.5 text-[9px] font-medium px-1 py-0.5 rounded"
+                                className="inline-flex items-center gap-0.5 text-[8px] font-medium px-1 py-0 rounded"
                                 style={{ backgroundColor: t.color + "33", color: t.color }}
                                 title={`${t.count} crew dari Team ${t.name}`}
                             >
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: t.color }} />
+                                <span className="w-1 h-1 rounded-full" style={{ backgroundColor: t.color }} />
                                 {t.name} {t.count}
                             </span>
                         ))}
                         {rabSummary && (
                             <span
-                                className={`inline-block px-1.5 py-0.5 text-[9px] rounded font-bold ${
+                                className={`inline-block px-1 py-0 text-[8px] rounded font-bold ${
                                     rabSummary.margin >= 30
                                         ? "bg-green-100 text-green-700"
                                         : rabSummary.margin >= 15
@@ -896,9 +1052,9 @@ function EventRow({
                     </div>
                 </div>
             </td>
-            <td className="px-3 py-2 text-sm text-foreground/80 truncate" style={{ width: 180 }} title={clientName(ev)}>{clientName(ev)}</td>
-            <td className="px-3 py-2 text-sm text-foreground/80 truncate" style={{ width: 140 }}>{picName(ev)}</td>
-            <td className="px-3 py-2 text-sm text-foreground/70 truncate" style={{ width: 220 }} title={ev.venue ?? ""}>{ev.venue ?? "—"}</td>
+            <td className="px-2 py-1.5 text-[11px] text-foreground/80 truncate" style={{ width: 130 }} title={clientName(ev)}>{clientName(ev)}</td>
+            <td className="px-2 py-1.5 text-[11px] text-foreground/80 truncate" style={{ width: 110 }} title={picName(ev)}>{picName(ev)}</td>
+            <td className="px-2 py-1.5 text-[11px] text-foreground/70 truncate" style={{ width: 140 }} title={ev.venue ?? ""}>{ev.venue ?? "—"}</td>
 
             {dayCells.map((d) => {
                 const phase = dayPhase.get(d.idx);
@@ -931,11 +1087,11 @@ function EventRow({
                     <td
                         key={d.idx}
                         className={`p-0 border-l border-border/50 relative ${d.isToday ? "bg-blue-50" : d.isWeekend ? "bg-muted/20" : ""}`}
-                        style={{ width: cellW, minWidth: cellW, height: 38 }}
+                        style={{ width: cellW, minWidth: cellW, height: 48 }}
                     >
                         {phase && (
                             <div
-                                className={`${bg} h-[60%] mx-0 my-[20%] ${editMode ? "cursor-default" : "cursor-pointer"} relative ${isConflict ? "ring-2 ring-amber-500 ring-inset" : ""}`}
+                                className={`${bg} h-[78%] mx-0 my-[11%] ${editMode ? "cursor-default" : "cursor-pointer"} relative ${isConflict ? "ring-2 ring-amber-500 ring-inset" : ""}`}
                                 style={bgStyle}
                                 onClick={() => !editMode && onBarClick(ev, phase)}
                                 title={

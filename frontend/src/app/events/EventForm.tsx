@@ -184,7 +184,21 @@ export default function EventForm({ mode, initial }: Props) {
                     <label className="text-xs font-medium">Klien (dari database)</label>
                     <select
                         value={form.customerId ?? ""}
-                        onChange={(e) => setForm((f) => ({ ...f, customerId: e.target.value ? Number(e.target.value) : null }))}
+                        onChange={(e) => {
+                            const id = e.target.value ? Number(e.target.value) : null;
+                            setForm((f) => {
+                                const next = { ...f, customerId: id };
+                                // Auto-fill Nama Klien dari companyName (asalnya dari Lead.organization).
+                                // Fallback ke customer.name kalau companyName kosong (klien individu).
+                                if (id) {
+                                    const c = (customers as Array<{ id: number; name: string; companyName: string | null }>).find((x) => x.id === id);
+                                    if (c) {
+                                        next.customerName = (c.companyName?.trim() || c.name).trim();
+                                    }
+                                }
+                                return next;
+                            });
+                        }}
                         className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
                     >
                         <option value="">— Pilih —</option>
@@ -196,13 +210,16 @@ export default function EventForm({ mode, initial }: Props) {
                     </select>
                 </div>
                 <div>
-                    <label className="text-xs font-medium">Nama Klien (teks bebas)</label>
+                    <label className="text-xs font-medium">Perusahaan / Instansi</label>
                     <input
                         value={form.customerName ?? ""}
                         onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))}
                         className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
-                        placeholder="mis. UniMA / Indohose"
+                        placeholder="PT JAPURA / CV ..."
                     />
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Otomatis terisi dari organisasi klien yang dipilih. Bisa di-edit.
+                    </p>
                 </div>
                 <div>
                     <label className="text-xs font-medium">PIC (dari pekerja)</label>
@@ -220,12 +237,12 @@ export default function EventForm({ mode, initial }: Props) {
                     </select>
                 </div>
                 <div>
-                    <label className="text-xs font-medium">Nama PIC (teks bebas)</label>
+                    <label className="text-xs font-medium">Nama Marketing</label>
                     <input
                         value={form.picName ?? ""}
                         onChange={(e) => setForm((f) => ({ ...f, picName: e.target.value }))}
                         className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
-                        placeholder="mis. Pak Kuat / Mas Yoan"
+                        placeholder="mis. Mbak Sari / Pak Andi"
                     />
                 </div>
             </div>
@@ -239,18 +256,11 @@ export default function EventForm({ mode, initial }: Props) {
                     onChange={(a, b) => setForm((f) => ({ ...f, departureStart: a, departureEnd: b }))}
                 />
                 <PhaseRow
-                    label="Pasang"
+                    label="Pasang / Setup"
                     colorClass="bg-orange-200 border-orange-300"
                     start={form.setupStart as string}
                     end={form.setupEnd as string}
                     onChange={(a, b) => setForm((f) => ({ ...f, setupStart: a, setupEnd: b }))}
-                />
-                <PhaseRow
-                    label="Loading Peserta"
-                    colorClass="bg-sky-200 border-sky-300"
-                    start={form.loadingStart as string}
-                    end={form.loadingEnd as string}
-                    onChange={(a, b) => setForm((f) => ({ ...f, loadingStart: a, loadingEnd: b }))}
                 />
                 <PhaseRow
                     label="Event"
@@ -258,6 +268,13 @@ export default function EventForm({ mode, initial }: Props) {
                     start={form.eventStart as string}
                     end={form.eventEnd as string}
                     onChange={(a, b) => setForm((f) => ({ ...f, eventStart: a, eventEnd: b }))}
+                />
+                <PhaseRow
+                    label="Bongkar / Dismantle"
+                    colorClass="bg-sky-200 border-sky-300"
+                    start={form.loadingStart as string}
+                    end={form.loadingEnd as string}
+                    onChange={(a, b) => setForm((f) => ({ ...f, loadingStart: a, loadingEnd: b }))}
                 />
             </div>
 

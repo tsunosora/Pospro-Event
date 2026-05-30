@@ -148,9 +148,9 @@ export default function PublicEventSharePage() {
     const brand = BRAND_CFG[ev.brand] ?? BRAND_CFG.OTHER;
     const phases: Phase[] = [
         { label: "Berangkat", cls: "bg-yellow-100 border-yellow-300", a: ev.departureStart, b: ev.departureEnd },
-        { label: "Pasang", cls: "bg-orange-100 border-orange-300", a: ev.setupStart, b: ev.setupEnd },
-        { label: "Loading Peserta", cls: "bg-sky-100 border-sky-300", a: ev.loadingStart, b: ev.loadingEnd },
+        { label: "Pasang / Setup", cls: "bg-orange-100 border-orange-300", a: ev.setupStart, b: ev.setupEnd },
         { label: "Event", cls: "bg-emerald-100 border-emerald-300", a: ev.eventStart, b: ev.eventEnd },
+        { label: "Bongkar / Dismantle", cls: "bg-sky-100 border-sky-300", a: ev.loadingStart, b: ev.loadingEnd },
     ];
 
     const submitCheck = async (itemId: number, isChecked: boolean, disposition?: Disposition | null) => {

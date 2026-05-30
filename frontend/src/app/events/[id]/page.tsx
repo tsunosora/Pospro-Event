@@ -252,9 +252,9 @@ export default function EventDetailPage() {
                     <div className="border rounded-lg p-3 space-y-2 text-sm">
                         <div className="font-semibold text-xs text-muted-foreground mb-2">Jadwal Fase</div>
                         <PhaseRow label="Berangkat" cls="bg-yellow-100 border-yellow-300" a={ev.departureStart} b={ev.departureEnd} />
-                        <PhaseRow label="Pasang" cls="bg-orange-100 border-orange-300" a={ev.setupStart} b={ev.setupEnd} />
-                        <PhaseRow label="Loading Peserta" cls="bg-sky-100 border-sky-300" a={ev.loadingStart} b={ev.loadingEnd} />
+                        <PhaseRow label="Pasang / Setup" cls="bg-orange-100 border-orange-300" a={ev.setupStart} b={ev.setupEnd} />
                         <PhaseRow label="Event" cls="bg-emerald-100 border-emerald-300" a={ev.eventStart} b={ev.eventEnd} />
+                        <PhaseRow label="Bongkar / Dismantle" cls="bg-sky-100 border-sky-300" a={ev.loadingStart} b={ev.loadingEnd} />
                     </div>
                 </div>
             )}
