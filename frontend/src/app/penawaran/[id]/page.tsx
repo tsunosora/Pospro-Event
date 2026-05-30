@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useRef, useState, type CSSProperties } from "react";
+import { use, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -535,6 +535,22 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
     const subtotal = items.reduce((s, it) => s + Number(it.quantity || 0) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price || 0), 0);
     const grossAfterDiscount = subtotal - (discount || 0);
+
+    // ─── DP Terbayar (info & customable) ─────────────────────────────────────
+    // Auto: sum paidAmount dari child invoice DP yg sudah PAID/PARTIALLY_PAID.
+    // Custom: user override manual (mis. DP dibayar di luar sistem / penyesuaian).
+    // Tidak di-save ke backend — cuma untuk preview & ke-passing ke modal Generate Invoice.
+    const autoDpPaid = useMemo(() => {
+        return childInvoices
+            .filter((inv) => inv.invoicePart === 'DP' && (inv.status === 'PAID' || inv.status === 'PARTIALLY_PAID'))
+            .reduce((sum, inv) => sum + Number(inv.paidAmount ?? 0), 0);
+    }, [childInvoices]);
+    const dpPaidInvoiceCount = useMemo(() => {
+        return childInvoices.filter((inv) => inv.invoicePart === 'DP' && (inv.status === 'PAID' || inv.status === 'PARTIALLY_PAID')).length;
+    }, [childInvoices]);
+    const [dpPaidMode, setDpPaidMode] = useState<'auto' | 'custom'>('auto');
+    const [dpPaidCustom, setDpPaidCustom] = useState<string>("");
+    const effectiveDpPaid = dpPaidMode === 'auto' ? autoDpPaid : (parseFloat(dpPaidCustom) || 0);
 
     // Gross-up factor — kalau ON dan PPh > 0, scale DPP supaya setelah PPh, net = target
     const effectivePphRateForGrossUp = pphMode === "percent" ? (pphRate || 0) : 0;
@@ -1609,6 +1625,63 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     <div className="grid grid-cols-2 gap-2">
                         <Field label="Diskon (Rp)" value={String(discount)} onChange={(v) => setDiscount(parseFloat(v) || 0)} type="number" />
                         <Field label="DP (%)" value={String(dpPercent)} onChange={(v) => setDpPercent(parseFloat(v) || 0)} type="number" />
+                    </div>
+
+                    {/* DP Sudah Dibayar — auto dari child invoice DP yang sudah PAID, bisa di-override custom */}
+                    <div className="border-2 border-amber-200 bg-amber-50/60 rounded p-2 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                            <label className="text-xs font-bold text-amber-900">💰 DP Sudah Dibayar</label>
+                            <div className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-white p-0.5 text-[10px] font-semibold">
+                                <button
+                                    type="button"
+                                    onClick={() => setDpPaidMode('auto')}
+                                    className={`px-2 py-0.5 rounded-full transition ${dpPaidMode === 'auto' ? 'bg-amber-500 text-white' : 'text-amber-700 hover:bg-amber-100'}`}
+                                >
+                                    Auto
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDpPaidMode('custom')}
+                                    className={`px-2 py-0.5 rounded-full transition ${dpPaidMode === 'custom' ? 'bg-amber-500 text-white' : 'text-amber-700 hover:bg-amber-100'}`}
+                                >
+                                    Custom
+                                </button>
+                            </div>
+                        </div>
+                        {dpPaidMode === 'auto' ? (
+                            <div>
+                                <div className="font-mono text-base font-bold text-amber-900">{rp(autoDpPaid)}</div>
+                                <p className="text-[10px] text-amber-700">
+                                    {dpPaidInvoiceCount === 0
+                                        ? "Belum ada invoice DP yang sudah dibayar."
+                                        : `Auto dari ${dpPaidInvoiceCount} invoice DP yang sudah ter-bayar.`}
+                                </p>
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="relative">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-amber-700 font-semibold text-xs">Rp</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        value={dpPaidCustom}
+                                        onChange={(e) => setDpPaidCustom(e.target.value)}
+                                        placeholder={`mis. ${(Number(data?.total ?? 0) * dpPercent / 100).toFixed(0)}`}
+                                        inputMode="numeric"
+                                        className="w-full border-2 border-amber-300 rounded pl-8 pr-2 py-1.5 text-sm font-mono text-right focus:border-amber-500 outline-none bg-white"
+                                    />
+                                </div>
+                                <p className="text-[10px] text-amber-700 mt-0.5">
+                                    Override manual untuk DP yang dibayar di luar sistem atau penyesuaian.
+                                </p>
+                            </div>
+                        )}
+                        {effectiveDpPaid > 0 && Number(data?.total ?? 0) > 0 && (
+                            <div className="text-[11px] text-amber-800 border-t border-amber-200 pt-1">
+                                Sisa Pelunasan: <b className="font-mono">{rp(Number(data?.total ?? 0) - effectiveDpPaid)}</b>
+                            </div>
+                        )}
                     </div>
 
                     {/* PPN section dengan toggle mode % / Rp */}
@@ -2693,6 +2766,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             {showInvoiceModal && (
                 <GenerateInvoiceModal
                     quotation={data}
+                    childInvoices={childInvoices}
                     onClose={() => setShowInvoiceModal(false)}
                     onSubmit={(input) => generateInvoiceMut.mutate(input)}
                     pending={generateInvoiceMut.isPending}
@@ -2904,9 +2978,10 @@ function Field({
 }
 
 function GenerateInvoiceModal({
-    quotation, onClose, onSubmit, pending,
+    quotation, childInvoices, onClose, onSubmit, pending,
 }: {
     quotation: Quotation;
+    childInvoices: Quotation[];
     onClose: () => void;
     onSubmit: (input: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string }) => void;
     pending: boolean;
@@ -2921,10 +2996,34 @@ function GenerateInvoiceModal({
     const [amountInput, setAmountInput] = useState<string>("");
     const [dueDate, setDueDate] = useState<string>("");
 
+    // ─── DP yang sudah dibayar (untuk Pelunasan) ─────────────────────────
+    // Auto: sum paidAmount dari child invoice DP yg sudah PAID atau PARTIALLY_PAID.
+    // Custom: user input manual (kalau DP dibayar di luar sistem atau ada penyesuaian).
+    const autoDpPaid = useMemo(() => {
+        return childInvoices
+            .filter((inv) =>
+                inv.invoicePart === 'DP' &&
+                (inv.status === 'PAID' || inv.status === 'PARTIALLY_PAID')
+            )
+            .reduce((sum, inv) => sum + Number(inv.paidAmount ?? 0), 0);
+    }, [childInvoices]);
+    const dpPaidCount = useMemo(() => {
+        return childInvoices.filter((inv) =>
+            inv.invoicePart === 'DP' &&
+            (inv.status === 'PAID' || inv.status === 'PARTIALLY_PAID')
+        ).length;
+    }, [childInvoices]);
+    const [dpPaidMode, setDpPaidMode] = useState<'auto' | 'custom'>('auto');
+    const [customDpPaid, setCustomDpPaid] = useState<string>("");
+    const effectiveDpPaid = dpPaidMode === 'auto'
+        ? autoDpPaid
+        : (parseFloat(customDpPaid) || 0);
+
     // Auto-amount per part di mode 'preset'
+    // PELUNASAN: pakai (total - DP terbayar) kalau ada data DP, fallback ke dpPercent default
     const presetAmount =
         part === 'DP' ? (total * dpPercent) / 100 :
-        part === 'PELUNASAN' ? total - (total * dpPercent) / 100 :
+        part === 'PELUNASAN' ? (effectiveDpPaid > 0 ? total - effectiveDpPaid : total - (total * dpPercent) / 100) :
         total;
 
     const computedAmount = (() => {
@@ -2966,6 +3065,67 @@ function GenerateInvoiceModal({
                     </div>
                 </div>
 
+                {/* DP yang sudah dibayar — cuma tampil saat part = PELUNASAN */}
+                {part === 'PELUNASAN' && (
+                    <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <label className="text-xs font-bold uppercase tracking-wider text-amber-800">
+                                💰 DP Sudah Dibayar
+                            </label>
+                            <div className="inline-flex gap-0.5 bg-white p-0.5 rounded border border-amber-200">
+                                <button
+                                    type="button"
+                                    onClick={() => setDpPaidMode('auto')}
+                                    className={`px-2 py-0.5 text-xs rounded font-semibold ${dpPaidMode === 'auto' ? 'bg-amber-500 text-white' : 'text-amber-700 hover:bg-amber-50'}`}
+                                >
+                                    Otomatis
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDpPaidMode('custom')}
+                                    className={`px-2 py-0.5 text-xs rounded font-semibold ${dpPaidMode === 'custom' ? 'bg-amber-500 text-white' : 'text-amber-700 hover:bg-amber-50'}`}
+                                >
+                                    Custom
+                                </button>
+                            </div>
+                        </div>
+                        {dpPaidMode === 'auto' ? (
+                            <div>
+                                <div className="text-2xl font-bold font-mono text-amber-900">
+                                    {rp(autoDpPaid)}
+                                </div>
+                                <p className="text-[11px] text-amber-700 mt-0.5">
+                                    {dpPaidCount === 0
+                                        ? "Belum ada invoice DP yang sudah dibayar. Kalau DP dibayar di luar sistem, pilih Custom & input manual."
+                                        : `Auto dari ${dpPaidCount} invoice DP yang sudah ter-bayar (PAID/PARTIALLY_PAID).`}
+                                </p>
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-700 font-semibold text-sm">Rp</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        value={customDpPaid}
+                                        onChange={(e) => setCustomDpPaid(e.target.value)}
+                                        placeholder={`contoh: ${(total * dpPercent / 100).toFixed(0)}`}
+                                        inputMode="numeric"
+                                        className="w-full border-2 border-amber-300 rounded-md pl-10 pr-3 py-2 text-base font-mono text-right focus:border-amber-500 outline-none bg-white"
+                                    />
+                                </div>
+                                <p className="text-[11px] text-amber-700 mt-1">
+                                    Override manual — pakai kalau DP dibayar di luar sistem atau ada penyesuaian.
+                                </p>
+                            </div>
+                        )}
+                        <div className="text-xs text-amber-800 border-t border-amber-200 pt-2">
+                            Pelunasan = Total ({rp(total)}) − DP ({rp(effectiveDpPaid)}) = <b className="font-mono">{rp(total - effectiveDpPaid)}</b>
+                        </div>
+                    </div>
+                )}
+
                 {/* Cara Tentukan Jumlah */}
                 <div>
                     <label className="block text-sm font-semibold mb-1.5">Cara Tentukan Jumlah</label>
@@ -2981,7 +3141,11 @@ function GenerateInvoiceModal({
                     <div className="rounded-lg bg-slate-50 border p-3 text-xs text-slate-700">
                         ⚡ Pakai default sesuai tipe:
                         {part === "DP" && <> DP <b>{dpPercent}%</b> dari total</>}
-                        {part === "PELUNASAN" && <> Sisa setelah DP {dpPercent}%</>}
+                        {part === "PELUNASAN" && (
+                            <> {effectiveDpPaid > 0
+                                ? <>Total − DP terbayar (<b>{rp(effectiveDpPaid)}</b>)</>
+                                : <>Sisa setelah DP {dpPercent}% (no DP record)</>}</>
+                        )}
                         {part === "FULL" && <> Total grand</>}
                     </div>
                 )}
