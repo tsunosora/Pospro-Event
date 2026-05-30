@@ -163,6 +163,10 @@ export class QuotationsService {
             throw new BadRequestException('clientName wajib diisi');
         }
 
+        // Tipe dokumen — default QUOTATION; INVOICE = invoice mandiri tanpa parent penawaran.
+        const docType: InvoiceType = dto.type === 'INVOICE' ? InvoiceType.INVOICE : InvoiceType.QUOTATION;
+        const isDirectInvoice = docType === InvoiceType.INVOICE;
+
         // Kalau pakai variantCode (CRUD config), set quotationVariant enum dari templateKey config
         // agar pdf-export tetap pilih template yang benar.
         let resolvedEnum = dto.quotationVariant;
@@ -186,14 +190,52 @@ export class QuotationsService {
         const discount = Number(dto.discount ?? 0);
         const { subtotal, taxAmount, pphAmount, total } = calcTotals(items, taxRate, discount, pphRate, pphAmountOverride, taxAmountOverride, priceIncludesTax, grossUpPph);
 
-        // Nomor draft — belum di-reserve. Pakai prefix agar unik & mudah dideteksi.
-        const draftNumber = `${DRAFT_NUMBER_PREFIX}${Date.now()}`;
+        // ─── Penomoran ─────────────────────────────────────────────────────
+        // QUOTATION: pakai DRAFT_NUMBER_PREFIX, user assign nomor resmi nanti via /assign-number
+        // INVOICE mandiri: langsung issue nomor resmi format Inv (no draft phase)
+        let invoiceNumber: string;
+        if (isDirectInvoice) {
+            // Resolve companyCode dari brand atau StoreSettings (sama logic dengan generateInvoiceFromQuotation)
+            let kode: string | undefined;
+            if (dto.brand) {
+                const brandSettings = await this.prisma.brandSettings.findUnique({
+                    where: { brand: dto.brand },
+                });
+                kode = brandSettings?.companyCode?.trim();
+                if (!kode) {
+                    throw new BadRequestException(`companyCode brand ${dto.brand} belum di-set — atur di /settings/brands`);
+                }
+            } else {
+                const settings = await this.prisma.storeSettings.findFirst();
+                kode = settings?.companyCode?.trim();
+                if (!kode) {
+                    throw new BadRequestException('companyCode belum di-set di StoreSettings — atur di /settings');
+                }
+            }
+            const now = new Date();
+            const seq = await this.docNumberService.nextSequence('Inv', kode, now.getFullYear());
+            const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+            const yy = String(now.getFullYear()).slice(-2);
+            const mm = ROMAN[now.getMonth() + 1];
+            invoiceNumber = `${seq}/${kode}/Inv/${mm}/${yy}`;
+        } else {
+            invoiceNumber = `${DRAFT_NUMBER_PREFIX}${Date.now()}`;
+        }
+
+        // ─── Resolve invoicePart & amountToPay (cuma relevan untuk INVOICE) ──
+        const invoicePart = isDirectInvoice ? (dto.invoicePart ?? 'FULL') : null;
+        const amountToPayValue = isDirectInvoice
+            ? (dto.amountToPay != null ? Number(dto.amountToPay) : total)
+            : null;
 
         const created = await this.prisma.invoice.create({
             data: {
-                invoiceNumber: draftNumber,
-                type: InvoiceType.QUOTATION,
-                status: InvoiceStatus.DRAFT,
+                invoiceNumber,
+                type: docType,
+                // INVOICE langsung SENT (sudah issued nomor); QUOTATION mulai sebagai DRAFT.
+                status: isDirectInvoice ? InvoiceStatus.SENT : InvoiceStatus.DRAFT,
+                // Invoice-specific tracking
+                ...((isDirectInvoice ? { invoicePart, amountToPay: toDecimal(amountToPayValue!) } : {}) as any),
                 quotationVariant: resolvedEnum,
                 variantCode: dto.variantCode ?? null,
                 signedByWorkerId: dto.signedByWorkerId ?? null,

@@ -358,9 +358,9 @@ function PenawaranListPageInner() {
                     </button>
                     <button
                         onClick={() => setShowCreate(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                        className={`flex items-center gap-2 px-4 py-2 ${typeFilter === 'INVOICE' ? 'bg-pink-600 hover:bg-pink-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-lg font-medium`}
                     >
-                        <Plus className="w-4 h-4" /> Buat Penawaran
+                        <Plus className="w-4 h-4" /> {typeFilter === 'INVOICE' ? 'Buat Invoice Langsung' : 'Buat Penawaran'}
                     </button>
                 </div>
             </div>
@@ -764,6 +764,7 @@ function PenawaranListPageInner() {
                     onSubmit={(data) => createMut.mutate(data)}
                     isPending={createMut.isPending}
                     presetCustomer={presetCustomer}
+                    defaultType={typeFilter === 'INVOICE' ? 'INVOICE' : 'QUOTATION'}
                 />
             )}
 
@@ -891,7 +892,14 @@ function CreateQuotationModal(props: {
     onSubmit: (data: any) => void;
     isPending: boolean;
     presetCustomer?: Customer | null;
+    /** Tipe dokumen default. 'INVOICE' = invoice langsung tanpa penawaran. */
+    defaultType?: 'QUOTATION' | 'INVOICE';
 }) {
+    const isInvoiceMode = props.defaultType === 'INVOICE';
+    // ─── Invoice-specific state (cuma dipakai kalau isInvoiceMode) ──
+    const [invoicePart, setInvoicePart] = useState<'DP' | 'PELUNASAN' | 'FULL'>('FULL');
+    const [dueDate, setDueDate] = useState<string>("");
+    const [dpPercentInvoice, setDpPercentInvoice] = useState<number>(50);
     const { data: variantConfigs = [] } = useQuery({
         queryKey: ["quotation-variants", false],
         queryFn: () => listQuotationVariants(false),
@@ -916,13 +924,22 @@ function CreateQuotationModal(props: {
     });
     const [signedByWorkerId, setSignedByWorkerId] = useState<number | null>(null);
     useEffect(() => {
-        if (signedByWorkerId === null && marketers.length > 0) {
+        // Auto-pick first marketer cuma untuk PENAWARAN (wajib). Invoice mandiri: biarkan null (opsional).
+        if (signedByWorkerId === null && marketers.length > 0 && !isInvoiceMode) {
             const last = (() => { try { return localStorage.getItem("pospro:quotation:lastSignedBy"); } catch { return null; } })();
             const lastId = last ? parseInt(last, 10) : null;
             const found = (lastId && marketers.find((m) => m.id === lastId)) || marketers[0];
             setSignedByWorkerId(found.id);
         }
-    }, [marketers, signedByWorkerId]);
+    }, [marketers, signedByWorkerId, isInvoiceMode]);
+
+    // Admin untuk dropdown penandatangan — cuma dipakai untuk invoice mandiri (admin TTD invoice/finance).
+    const { data: admins = [] } = useQuery({
+        queryKey: ["workers", "admin-signing-modal"],
+        queryFn: () => getWorkers(false, { positions: ['ADMIN'] }),
+        enabled: isInvoiceMode,
+    });
+    const [signedByAdminId, setSignedByAdminId] = useState<number | null>(null);
     const [brand, setBrand] = useState<Brand>(() => {
         try {
             const v = localStorage.getItem("pospro:quotation:lastBrand");
@@ -953,7 +970,14 @@ function CreateQuotationModal(props: {
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-                <h2 className="text-lg font-bold mb-4">Buat Penawaran Baru</h2>
+                <h2 className="text-lg font-bold mb-4">
+                    {isInvoiceMode ? "🧾 Buat Invoice Langsung" : "Buat Penawaran Baru"}
+                </h2>
+                {isInvoiceMode && (
+                    <p className="text-xs text-muted-foreground mb-4 -mt-3">
+                        Invoice mandiri tanpa proses penawaran. Nomor langsung di-issue format <code>Inv/XXX/YY</code>.
+                    </p>
+                )}
                 <div className="space-y-3">
                     <div>
                         <label className="block text-sm font-semibold mb-1.5">
@@ -1015,7 +1039,8 @@ function CreateQuotationModal(props: {
 
                     <div>
                         <label className="block text-sm font-medium mb-1">
-                            Marketing yang Menandatangani <span className="text-red-500">*</span>
+                            Marketing yang Menandatangani {!isInvoiceMode && <span className="text-red-500">*</span>}
+                            {isInvoiceMode && <span className="text-[11px] font-normal text-muted-foreground"> (opsional)</span>}
                         </label>
                         <select
                             value={signedByWorkerId ?? ""}
@@ -1023,7 +1048,7 @@ function CreateQuotationModal(props: {
                             className="w-full border rounded-md px-3 py-2"
                             disabled={marketers.length === 0}
                         >
-                            <option value="">— Pilih Marketing —</option>
+                            <option value="">— {isInvoiceMode ? "Tidak ada / pakai Admin" : "Pilih Marketing"} —</option>
                             {marketers.map((m) => (
                                 <option key={m.id} value={m.id}>
                                     {m.name}{m.position ? ` · ${m.position}` : ""}
@@ -1159,6 +1184,84 @@ function CreateQuotationModal(props: {
                         />
                     </div>
                 </div>
+                {/* ─── Detail Invoice — cuma untuk mode INVOICE langsung ─── */}
+                {isInvoiceMode && (
+                    <div className="mt-3 rounded-lg border-2 border-pink-200 bg-pink-50/50 p-3 space-y-3">
+                        <div className="text-xs font-bold text-pink-800 uppercase tracking-wider">
+                            🧾 Detail Invoice
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold mb-1.5">
+                                Admin yang Menandatangani <span className="text-[11px] font-normal text-muted-foreground">(opsional)</span>
+                            </label>
+                            <select
+                                value={signedByAdminId ?? ""}
+                                onChange={(e) => setSignedByAdminId(e.target.value ? Number(e.target.value) : null)}
+                                className="w-full border border-pink-200 rounded-md px-2 py-1.5 text-sm bg-white"
+                                disabled={admins.length === 0}
+                            >
+                                <option value="">— Tidak ada admin —</option>
+                                {admins.map((a) => (
+                                    <option key={a.id} value={a.id}>
+                                        {a.name}{a.position ? ` · ${a.position}` : ""}
+                                        {!a.signatureImageUrl ? " ⚠ TTD belum ada" : ""}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-[10px] text-pink-700 mt-0.5">
+                                Admin/Finance biasanya TTD invoice (vs Marketing untuk penawaran). Kosongkan kalau pakai Marketing di atas atau tanpa TTD.
+                                {admins.length === 0 && <> · <Link href="/settings/workers" className="text-pink-600 hover:underline">Tambah admin</Link></>}
+                            </p>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold mb-1.5">Tipe Invoice</label>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {(['DP', 'PELUNASAN', 'FULL'] as const).map((p) => (
+                                    <button
+                                        key={p}
+                                        type="button"
+                                        onClick={() => setInvoicePart(p)}
+                                        className={`px-2 py-1.5 rounded-md text-xs font-bold border-2 transition ${invoicePart === p
+                                            ? 'bg-pink-500 text-white border-pink-500'
+                                            : 'bg-white text-slate-700 border-slate-200 hover:border-pink-300'
+                                            }`}
+                                    >
+                                        {p === 'DP' ? '💰 DP' : p === 'PELUNASAN' ? '✅ Pelunasan' : '💯 Full'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        {invoicePart === 'DP' && (
+                            <div>
+                                <label className="block text-xs font-semibold mb-1">DP Persentase (%)</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    step="0.5"
+                                    value={dpPercentInvoice}
+                                    onChange={(e) => setDpPercentInvoice(parseFloat(e.target.value) || 50)}
+                                    className="w-full border-2 border-pink-200 rounded-md px-2 py-1.5 text-sm font-mono text-right focus:border-pink-500 outline-none bg-white"
+                                />
+                                <p className="text-[10px] text-pink-700 mt-0.5">Persentase DP dari total invoice. Sisa = pelunasan nanti.</p>
+                            </div>
+                        )}
+                        <div>
+                            <label className="block text-xs font-semibold mb-1">Jatuh Tempo</label>
+                            <input
+                                type="date"
+                                value={dueDate}
+                                onChange={(e) => setDueDate(e.target.value)}
+                                className="w-full border-2 border-pink-200 rounded-md px-2 py-1.5 text-sm focus:border-pink-500 outline-none bg-white"
+                            />
+                            <p className="text-[10px] text-pink-700 mt-0.5">Opsional. Bisa di-edit nanti.</p>
+                        </div>
+                        <p className="text-[11px] text-pink-700 border-t border-pink-200 pt-2">
+                            💡 Items, harga, &amp; total ditambahkan setelah invoice tercipta (halaman detail).
+                        </p>
+                    </div>
+                )}
+
                 <div className="flex justify-end gap-2 mt-6">
                     <button
                         onClick={props.onClose}
@@ -1175,11 +1278,23 @@ function CreateQuotationModal(props: {
                                 if (signedByWorkerId) localStorage.setItem("pospro:quotation:lastSignedBy", String(signedByWorkerId));
                             } catch { /* ignore */ }
                             const enumVal: QuotationVariant = selectedVariant?.templateKey === "sewa" ? "SEWA" : "PENGADAAN_BOOTH";
+                            // Untuk invoice mode: prioritas Admin > Marketing > null (kedua-nya opsional)
+                            const finalSignerId = isInvoiceMode
+                                ? (signedByAdminId ?? signedByWorkerId ?? null)
+                                : signedByWorkerId;
                             props.onSubmit({
+                                // Invoice mandiri vs Penawaran biasa
+                                ...(isInvoiceMode ? {
+                                    type: 'INVOICE',
+                                    invoicePart,
+                                    dueDate: dueDate || null,
+                                    // dpPercent berlaku untuk semua tipe; saat INVOICE DP, jadi base hitung amountToPay nanti
+                                    dpPercent: invoicePart === 'DP' ? dpPercentInvoice : undefined,
+                                } : {}),
                                 quotationVariant: enumVal,
                                 variantCode,
                                 brand,
-                                signedByWorkerId: signedByWorkerId ?? null,
+                                signedByWorkerId: finalSignerId,
                                 customerId: pickedCustomer?.id ?? null,
                                 clientName,
                                 clientCompany: clientCompany || undefined,
@@ -1188,12 +1303,14 @@ function CreateQuotationModal(props: {
                                 clientEmail: clientEmail || undefined,
                                 projectName: projectName || undefined,
                                 eventLocation: eventLocation || undefined,
-                                dpPercent: selectedVariant ? Number(selectedVariant.defaultDpPercent) : undefined,
+                                ...(isInvoiceMode ? {} : {
+                                    dpPercent: selectedVariant ? Number(selectedVariant.defaultDpPercent) : undefined,
+                                }),
                             });
                         }}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50"
+                        className={`px-4 py-2 ${isInvoiceMode ? 'bg-pink-600 hover:bg-pink-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-md disabled:opacity-50`}
                     >
-                        {props.isPending ? "Menyimpan..." : "Simpan &amp; Lanjut"}
+                        {props.isPending ? "Menyimpan..." : (isInvoiceMode ? "Buat Invoice" : "Simpan &amp; Lanjut")}
                     </button>
                 </div>
             </div>

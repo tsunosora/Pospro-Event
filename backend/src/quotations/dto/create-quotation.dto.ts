@@ -121,5 +121,13 @@ export interface CreateQuotationDto {
     grossUpPph?: boolean;
     discount?: number;
 
+    // ─── Invoice mandiri (tanpa parent quotation) ──────────────────
+    /** Tipe dokumen. Default 'QUOTATION'. Set 'INVOICE' untuk buat invoice langsung tanpa penawaran. */
+    type?: 'QUOTATION' | 'INVOICE';
+    /** Untuk type=INVOICE: bagian invoice (DP / PELUNASAN / FULL). Default 'FULL'. */
+    invoicePart?: 'DP' | 'PELUNASAN' | 'FULL';
+    /** Untuk type=INVOICE: jumlah yang ditagihkan di invoice ini (Rp). Kalau null, pakai total. */
+    amountToPay?: number | null;
+
     items?: QuotationItemInput[];
 }

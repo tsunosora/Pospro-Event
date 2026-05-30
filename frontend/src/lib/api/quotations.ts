@@ -160,6 +160,12 @@ export interface Quotation {
 }
 
 export interface CreateQuotationInput {
+    /** Tipe dokumen. Default 'QUOTATION'. Set 'INVOICE' untuk buat invoice langsung tanpa penawaran. */
+    type?: 'QUOTATION' | 'INVOICE';
+    /** Untuk type=INVOICE: bagian invoice (DP/PELUNASAN/FULL). Default 'FULL'. */
+    invoicePart?: 'DP' | 'PELUNASAN' | 'FULL';
+    /** Untuk type=INVOICE: jumlah yang ditagihkan (Rp). Null = pakai total. */
+    amountToPay?: number | null;
     quotationVariant?: QuotationVariant;
     variantCode?: string | null;
     brand?: Brand | null;
