@@ -12,7 +12,8 @@ import { getRabSummary } from "@/lib/api/rab";
 
 // ─── Constants ──────────────────────────────────────────────────────────
 const MONTHS_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-const DOW_EN = ["S","M","T","W","T","F","S"]; // index by jsDay (Sun=0)
+// Nama hari Indonesia 3-huruf, index by jsDay (Sun=0). Min/Sen/Sel/Rab/Kam/Jum/Sab.
+const DOW_ID = ["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
 
 type Phase = "departure" | "setup" | "event" | "dismantle";
 const PHASE_COLOR: Record<Phase, { solid: string; faded: string; label: string }> = {
@@ -193,7 +194,7 @@ export default function EventTimelinePage() {
                 idx: i,
                 date: d,
                 day: d.getDate(),
-                dow: DOW_EN[d.getDay()],
+                dow: DOW_ID[d.getDay()],
                 isToday: startOfDay(d).getTime() === startOfDay(today).getTime(),
                 isWeekend: d.getDay() === 0 || d.getDay() === 6,
                 isMonthStart: d.getDate() === 1,
