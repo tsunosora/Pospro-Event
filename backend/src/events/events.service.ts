@@ -143,6 +143,7 @@ export class EventsService {
     async create(input: CreateEventInput) {
         const name = input.name?.trim();
         if (!name) throw new BadRequestException('Nama event wajib diisi');
+        if (name.length > 255) throw new BadRequestException('Nama event terlalu panjang (maks 255 karakter)');
 
         const now = new Date();
         const code = await this.generateCode(now);
@@ -181,6 +182,7 @@ export class EventsService {
         if (input.name !== undefined) {
             const n = input.name.trim();
             if (!n) throw new BadRequestException('Nama event wajib diisi');
+            if (n.length > 255) throw new BadRequestException('Nama event terlalu panjang (maks 255 karakter)');
             data.name = n;
         }
         if (input.brand !== undefined) data.brand = input.brand;

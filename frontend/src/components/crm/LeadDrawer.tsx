@@ -803,14 +803,16 @@ export function LeadDrawer({
                                         params.set("customerId", String(lead.convertedCustomerId));
                                         if (lead.organization) params.set("customerName", lead.organization);
                                         if (lead.orderDescription || lead.organization) {
-                                            params.set("name", lead.orderDescription || lead.organization || "");
+                                            // orderDescription bisa panjang (Text) — ambil baris pertama & truncate ke 200 char
+                                            const rawName = (lead.orderDescription || lead.organization || "").split("\n")[0].trim();
+                                            params.set("name", rawName.slice(0, 200));
                                         }
                                         if (lead.eventLocation) params.set("venue", lead.eventLocation);
                                         if (lead.eventDateStart) params.set("eventStart", lead.eventDateStart);
                                         if (lead.eventDateEnd) params.set("eventEnd", lead.eventDateEnd);
                                         if (lead.brand) params.set("brand", lead.brand);
                                         if (lead.assignedWorker?.name) params.set("picName", lead.assignedWorker.name);
-                                        if (lead.notes) params.set("notes", lead.notes);
+                                        if (lead.notes) params.set("notes", lead.notes.slice(0, 500));
                                         return `/events/new?${params.toString()}`;
                                     })()}
                                     className="block px-3 py-2 rounded-md border-2 border-emerald-300 bg-emerald-50 text-sm hover:bg-emerald-100 text-emerald-800 font-medium"
