@@ -60,13 +60,15 @@ export class EventsService {
 
     private async generateCode(date: Date) {
         const year = date.getFullYear();
-        const start = new Date(year, 0, 1);
-        const end = new Date(year + 1, 0, 1);
-        const count = await this.prisma.event.count({
-            where: { createdAt: { gte: start, lt: end } },
+        const prefix = `EVT-${year}-`;
+        const last = await this.prisma.event.findFirst({
+            where: { code: { startsWith: prefix } },
+            orderBy: { code: 'desc' },
+            select: { code: true },
         });
-        const seq = String(count + 1).padStart(4, '0');
-        return `EVT-${year}-${seq}`;
+        const lastSeq = last ? (parseInt(last.code.slice(prefix.length), 10) || 0) : 0;
+        const seq = String(lastSeq + 1).padStart(4, '0');
+        return `${prefix}${seq}`;
     }
 
     async findAll(filter: ListEventsFilter = {}) {
@@ -146,34 +148,40 @@ export class EventsService {
         if (name.length > 255) throw new BadRequestException('Nama event terlalu panjang (maks 255 karakter)');
 
         const now = new Date();
-        const code = await this.generateCode(now);
+        const data = {
+            name,
+            brand: input.brand ?? 'EXINDO',
+            status: input.status ?? 'SCHEDULED',
+            venue: input.venue?.trim() || null,
+            customerId: input.customerId ?? null,
+            customerName: input.customerName?.trim() || null,
+            picWorkerId: input.picWorkerId ?? null,
+            picName: input.picName?.trim() || null,
+            departureStart: toDate(input.departureStart) ?? null,
+            departureEnd: toDate(input.departureEnd) ?? null,
+            setupStart: toDate(input.setupStart) ?? null,
+            setupEnd: toDate(input.setupEnd) ?? null,
+            loadingStart: toDate(input.loadingStart) ?? null,
+            loadingEnd: toDate(input.loadingEnd) ?? null,
+            eventStart: toDate(input.eventStart) ?? null,
+            eventEnd: toDate(input.eventEnd) ?? null,
+            notes: input.notes?.trim() || null,
+            dailyWageRate: input.dailyWageRate != null && input.dailyWageRate !== '' ? input.dailyWageRate as any : null,
+            overtimeRatePerHour: input.overtimeRatePerHour != null && input.overtimeRatePerHour !== '' ? input.overtimeRatePerHour as any : null,
+            dailyWageRatePic: input.dailyWageRatePic != null && input.dailyWageRatePic !== '' ? input.dailyWageRatePic as any : null,
+            overtimeRatePerHourPic: input.overtimeRatePerHourPic != null && input.overtimeRatePerHourPic !== '' ? input.overtimeRatePerHourPic as any : null,
+        };
 
-        return this.prisma.event.create({
-            data: {
-                code,
-                name,
-                brand: input.brand ?? 'EXINDO',
-                status: input.status ?? 'SCHEDULED',
-                venue: input.venue?.trim() || null,
-                customerId: input.customerId ?? null,
-                customerName: input.customerName?.trim() || null,
-                picWorkerId: input.picWorkerId ?? null,
-                picName: input.picName?.trim() || null,
-                departureStart: toDate(input.departureStart) ?? null,
-                departureEnd: toDate(input.departureEnd) ?? null,
-                setupStart: toDate(input.setupStart) ?? null,
-                setupEnd: toDate(input.setupEnd) ?? null,
-                loadingStart: toDate(input.loadingStart) ?? null,
-                loadingEnd: toDate(input.loadingEnd) ?? null,
-                eventStart: toDate(input.eventStart) ?? null,
-                eventEnd: toDate(input.eventEnd) ?? null,
-                notes: input.notes?.trim() || null,
-                dailyWageRate: input.dailyWageRate != null && input.dailyWageRate !== '' ? input.dailyWageRate as any : null,
-                overtimeRatePerHour: input.overtimeRatePerHour != null && input.overtimeRatePerHour !== '' ? input.overtimeRatePerHour as any : null,
-                dailyWageRatePic: input.dailyWageRatePic != null && input.dailyWageRatePic !== '' ? input.dailyWageRatePic as any : null,
-                overtimeRatePerHourPic: input.overtimeRatePerHourPic != null && input.overtimeRatePerHourPic !== '' ? input.overtimeRatePerHourPic as any : null,
-            },
-        });
+        // Retry sekali jika race condition P2002 (dua request bersamaan dapat kode sama)
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const code = await this.generateCode(now);
+            try {
+                return await this.prisma.event.create({ data: { code, ...data } });
+            } catch (err: any) {
+                if (attempt === 0 && err?.code === 'P2002' && err?.meta?.target?.includes('code')) continue;
+                throw err;
+            }
+        }
     }
 
     async update(id: number, input: UpdateEventInput) {
