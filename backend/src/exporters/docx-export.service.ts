@@ -20,15 +20,38 @@ import {
     HorizontalPositionAlign,
     VerticalPositionAlign,
     convertMillimetersToTwip,
+    TabStopType,
 } from 'docx';
 import * as fs from 'fs';
 import * as path from 'path';
-import { QuotationContextBuilder, QuotationRenderContext } from './quotation-context.builder';
+import { QuotationContextBuilder, QuotationRenderContext, QuotationRenderItem } from './quotation-context.builder';
 
-const PRIMARY = 'C8203A';      // merah Exindo (sesuai kop surat)
-const PRIMARY_LIGHT = 'FDE2E6'; // pink muda untuk header kategori
-const PRIMARY_LIGHTER = 'FFF8F9';
+// Fallback color (dipakai kalau ctx.theme entah kenapa kosong)
+const PRIMARY = 'C8203A';      // merah Exindo
 const TOTAL_BG = 'F1F5FB';
+
+/** Strip '#' & uppercase — docx library minta hex tanpa '#'. */
+function hx(c: string | null | undefined, fallback: string): string {
+    const v = (c || '').replace('#', '').trim();
+    return /^[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : fallback;
+}
+
+interface DocxTheme {
+    primary: string;
+    light: string;
+    subtle: string;
+    dark: string;
+}
+
+/** Resolve DocxTheme dari ctx.theme (sumber yang SAMA dengan PDF) → warna brand konsisten. */
+function resolveDocxTheme(ctx: QuotationRenderContext): DocxTheme {
+    return {
+        primary: hx(ctx.theme?.primary, PRIMARY),
+        light: hx(ctx.theme?.primaryLight, 'FDE2E6'),
+        subtle: hx(ctx.theme?.primarySubtle, 'FFF8F9'),
+        dark: hx(ctx.theme?.primaryDark, '8A1729'),
+    };
+}
 
 function border(color = '888888') {
     return {
@@ -70,18 +93,18 @@ function multilineParagraphs(text: string, opts: { size?: number; color?: string
     );
 }
 
-function sectionTitle(title: string): Paragraph {
+function sectionTitle(title: string, primary: string = PRIMARY): Paragraph {
     return new Paragraph({
         spacing: { before: 200, after: 80 },
         border: {
-            bottom: { style: BorderStyle.SINGLE, size: 4, color: PRIMARY },
+            bottom: { style: BorderStyle.SINGLE, size: 4, color: primary },
         },
         children: [
             new TextRun({
                 text: title,
                 bold: true,
                 size: 22,
-                color: PRIMARY,
+                color: primary,
             }),
         ],
     });
@@ -109,114 +132,210 @@ function labelCell(text: string, opts: { bold?: boolean; bg?: string; color?: st
     });
 }
 
-function buildItemsTable(ctx: QuotationRenderContext): Table {
-    const headerRow = new TableRow({
-        tableHeader: true,
+const TOTAL_RED = 'B91C1C';    // warna baris PPh (dipotong klien) — samakan dengan PDF
+const TOTAL_GREEN = '047857';  // warna baris Jumlah Diterima — samakan dengan PDF
+
+/** Baris label + nilai (label nge-span beberapa kolom, rata kanan). Dipakai di blok totals. */
+function totalRow(label: string, value: string, labelSpan: number, opts: { bold?: boolean; bg?: string; color?: string } = {}): TableRow {
+    return new TableRow({
         children: [
-            labelCell('No', { bold: true, bg: PRIMARY, color: 'FFFFFF', align: AlignmentType.CENTER }, 600),
-            labelCell('Uraian', { bold: true, bg: PRIMARY, color: 'FFFFFF' }),
-            labelCell('Qty', { bold: true, bg: PRIMARY, color: 'FFFFFF', align: AlignmentType.CENTER }, 1400),
-            labelCell('Harga Satuan', { bold: true, bg: PRIMARY, color: 'FFFFFF', align: AlignmentType.CENTER }, 1800),
-            labelCell('Jumlah', { bold: true, bg: PRIMARY, color: 'FFFFFF', align: AlignmentType.CENTER }, 2000),
+            new TableCell({
+                columnSpan: labelSpan,
+                shading: opts.bg ? { type: ShadingType.CLEAR, color: 'auto', fill: opts.bg } : undefined,
+                children: [p(label, { bold: opts.bold, align: AlignmentType.RIGHT, color: opts.color, size: 20 })],
+            }),
+            labelCell(value, { bold: opts.bold, bg: opts.bg, color: opts.color, align: AlignmentType.RIGHT }),
         ],
     });
+}
 
-    const rows: TableRow[] = [headerRow];
-
-    // Render per group: category header row → items → subtotal kategori (kalau ada kategori)
-    for (const group of ctx.itemGroups) {
-        if (group.categoryName) {
-            rows.push(
-                new TableRow({
-                    children: [
-                        labelCell(
-                            group.categoryName.toUpperCase(),
-                            { bold: true, bg: PRIMARY_LIGHT, color: '8A1729' },
-                            undefined,
-                            5,
-                        ),
-                    ],
-                }),
-            );
-        }
-        for (const it of group.items) {
-            rows.push(
-                new TableRow({
-                    children: [
-                        labelCell(String(it.no), { align: AlignmentType.CENTER }),
-                        labelCell(it.description),
-                        labelCell(it.quantity, { align: AlignmentType.RIGHT }),
-                        labelCell(it.price, { align: AlignmentType.RIGHT }),
-                        labelCell(it.subtotal, { align: AlignmentType.RIGHT }),
-                    ],
-                }),
-            );
-        }
-        if (group.categoryName) {
-            rows.push(
-                new TableRow({
-                    children: [
-                        labelCell(`Subtotal ${group.categoryName}`, {
-                            italics: true,
-                            bold: true,
-                            bg: PRIMARY_LIGHTER,
-                            align: AlignmentType.RIGHT,
-                        }, undefined, 4),
-                        labelCell(group.subtotalFormatted, {
-                            italics: true,
-                            bold: true,
-                            bg: PRIMARY_LIGHTER,
-                            align: AlignmentType.RIGHT,
-                        }),
-                    ],
-                }),
-            );
-        }
-    }
-
-    // Footer (subtotal + tax + grand total)
-    rows.push(
-        new TableRow({
-            children: [
-                new TableCell({
-                    columnSpan: 4,
-                    children: [p('Subtotal', { bold: true, align: AlignmentType.RIGHT })],
-                }),
-                labelCell(ctx.totals.subtotal, { bold: true, align: AlignmentType.RIGHT }),
-            ],
-        }),
-    );
-    if (Number(ctx.totals.taxRate) > 0) {
-        rows.push(
-            new TableRow({
-                children: [
-                    new TableCell({
-                        columnSpan: 4,
-                        children: [p(`PPN ${ctx.totals.taxRate}%`, { bold: true, align: AlignmentType.RIGHT })],
-                    }),
-                    labelCell(ctx.totals.taxAmount, { bold: true, align: AlignmentType.RIGHT }),
-                ],
-            }),
-        );
-    }
-    rows.push(
-        new TableRow({
-            children: [
-                new TableCell({
-                    columnSpan: 4,
-                    shading: { type: ShadingType.CLEAR, color: 'auto', fill: TOTAL_BG },
-                    children: [p('Grand Total', { bold: true, align: AlignmentType.RIGHT })],
-                }),
-                labelCell(ctx.totals.total, { bold: true, bg: TOTAL_BG, align: AlignmentType.RIGHT }),
-            ],
-        }),
-    );
-
-    return new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        borders: border(),
-        rows,
+/** Baris subtotal kategori/event (italic, bg subtle). */
+function subtotalRow(label: string, value: string, theme: DocxTheme, labelSpan: number): TableRow {
+    return new TableRow({
+        children: [
+            labelCell(label, { italics: true, bold: true, bg: theme.subtle, align: AlignmentType.RIGHT }, undefined, labelSpan),
+            labelCell(value, { italics: true, bold: true, bg: theme.subtle, align: AlignmentType.RIGHT }),
+        ],
     });
+}
+
+/** Baris header kategori/event (bg light, span penuh). */
+function groupHeaderRow(text: string, theme: DocxTheme, span: number): TableRow {
+    return new TableRow({
+        children: [labelCell(text, { bold: true, bg: theme.light, color: theme.dark }, undefined, span)],
+    });
+}
+
+/** Header tabel 5 kolom (No, Uraian, Qty, Harga Satuan, Jumlah). */
+function header5(ctx: QuotationRenderContext, theme: DocxTheme): TableRow {
+    const t = ctx.i18n;
+    return new TableRow({
+        tableHeader: true,
+        children: [
+            labelCell(t.no, { bold: true, bg: theme.primary, color: 'FFFFFF', align: AlignmentType.CENTER }, 600),
+            labelCell(t.uraian, { bold: true, bg: theme.primary, color: 'FFFFFF' }),
+            labelCell(t.qty, { bold: true, bg: theme.primary, color: 'FFFFFF', align: AlignmentType.CENTER }, 1400),
+            labelCell(t.hargaSatuan, { bold: true, bg: theme.primary, color: 'FFFFFF', align: AlignmentType.CENTER }, 1800),
+            labelCell(t.jumlah, { bold: true, bg: theme.primary, color: 'FFFFFF', align: AlignmentType.CENTER }, 2000),
+        ],
+    });
+}
+
+function itemRow5(it: QuotationRenderItem): TableRow {
+    return new TableRow({
+        children: [
+            labelCell(String(it.no), { align: AlignmentType.CENTER }),
+            labelCell(it.description),
+            labelCell(it.quantity, { align: AlignmentType.RIGHT }),
+            labelCell(it.price, { align: AlignmentType.RIGHT }),
+            labelCell(it.subtotal, { align: AlignmentType.RIGHT }),
+        ],
+    });
+}
+
+function tableOf(rows: TableRow[]): Table {
+    return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: border(), rows });
+}
+
+function ppnLabel(ctx: QuotationRenderContext): string {
+    return `${ctx.i18n.ppn}${ctx.totals.taxRate ? ` ${ctx.totals.taxRate}%` : ''}`;
+}
+function pphLabel(ctx: QuotationRenderContext): string {
+    return `${ctx.i18n.pph}${ctx.totals.pphRate ? ` ${ctx.totals.pphRate}%` : ''} ${ctx.i18n.dipotongKlien}`;
+}
+
+/** Baris PPh + Jumlah Diterima (dipakai beberapa mode). */
+function pphAndNetRows(ctx: QuotationRenderContext, labelSpan: number): TableRow[] {
+    const rows: TableRow[] = [];
+    if (ctx.totals.displayPphRow) rows.push(totalRow(pphLabel(ctx), `-${ctx.totals.pphAmount}`, labelSpan, { bold: true, color: TOTAL_RED }));
+    if (ctx.totals.displayNetReceivedRow) rows.push(totalRow(ctx.i18n.jumlahDiterima, ctx.totals.netReceived, labelSpan, { bold: true, color: TOTAL_GREEN }));
+    return rows;
+}
+
+// ── MODE: DETAILED (default) — tabel lengkap qty/harga/jumlah per item ──────────
+function buildDetailedTable(ctx: QuotationRenderContext, theme: DocxTheme): Table {
+    const t = ctx.i18n;
+    const rows: TableRow[] = [header5(ctx, theme)];
+    for (const group of ctx.itemGroups) {
+        if (group.categoryName) rows.push(groupHeaderRow(group.categoryName.toUpperCase(), theme, 5));
+        for (const it of group.items) rows.push(itemRow5(it));
+        if (group.categoryName) rows.push(subtotalRow(`${t.subtotal} ${group.categoryName}`, group.subtotalFormatted, theme, 4));
+    }
+    rows.push(totalRow(t.subtotal, ctx.totals.subtotal, 4, { bold: true }));
+    if (ctx.totals.displayDiscountRow) rows.push(totalRow(t.diskon, `(${ctx.totals.discount})`, 4, { bold: true }));
+    if (ctx.totals.hasPpn) rows.push(totalRow(ppnLabel(ctx), ctx.totals.taxAmount, 4, { bold: true }));
+    if (ctx.packagePriceFormatted) {
+        rows.push(totalRow(t.totalHargaPenawaran, ctx.totals.total, 4, { bold: true }));
+        rows.push(totalRow(t.hargaPaket, ctx.packagePriceFormatted, 4, { bold: true, bg: theme.subtle }));
+    } else {
+        rows.push(totalRow(t.grandTotal, ctx.totals.total, 4, { bold: true, bg: TOTAL_BG }));
+        rows.push(...pphAndNetRows(ctx, 4));
+    }
+    return tableOf(rows);
+}
+
+// ── MODE: CATEGORY SUMMARY (ringkas) — hide qty/harga, hanya subtotal per kategori ──
+function buildCategorySummaryTable(ctx: QuotationRenderContext, theme: DocxTheme): Table {
+    const t = ctx.i18n;
+    const rows: TableRow[] = [
+        new TableRow({
+            tableHeader: true,
+            children: [
+                labelCell(t.no, { bold: true, bg: theme.primary, color: 'FFFFFF', align: AlignmentType.CENTER }, 600),
+                labelCell(t.uraian, { bold: true, bg: theme.primary, color: 'FFFFFF' }),
+                labelCell(t.jumlah, { bold: true, bg: theme.primary, color: 'FFFFFF', align: AlignmentType.CENTER }, 2400),
+            ],
+        }),
+    ];
+    for (const group of ctx.itemGroups) {
+        if (group.categoryName) rows.push(groupHeaderRow(group.categoryName.toUpperCase(), theme, 3));
+        for (const it of group.items) {
+            const desc = it.unit ? `${it.description}  ·  ${it.quantity}` : it.description;
+            rows.push(new TableRow({
+                children: [
+                    labelCell(String(it.no), { align: AlignmentType.CENTER }),
+                    labelCell(desc),
+                    labelCell(''),
+                ],
+            }));
+        }
+        const subLabel = group.categoryName ? `${t.subtotal} ${group.categoryName}` : t.subtotal;
+        rows.push(subtotalRow(subLabel, group.subtotalFormatted, theme, 2));
+    }
+    rows.push(totalRow(t.subtotalKeseluruhan, ctx.totals.subtotal, 2, { bold: true }));
+    if (ctx.totals.displayDiscountRow) rows.push(totalRow(t.diskon, `(${ctx.totals.discount})`, 2, { bold: true }));
+    if (ctx.totals.hasPpn) rows.push(totalRow(ppnLabel(ctx), ctx.totals.taxAmount, 2, { bold: true }));
+    rows.push(totalRow(t.grandTotal, ctx.totals.total, 2, { bold: true, bg: TOTAL_BG }));
+    rows.push(...pphAndNetRows(ctx, 2));
+    return tableOf(rows);
+}
+
+// ── MODE: EVENT-GROUPED — item dipisah per event lokasi ─────────────────────────
+function buildEventGroupedTable(ctx: QuotationRenderContext, theme: DocxTheme): Table {
+    const t = ctx.i18n;
+    const rows: TableRow[] = [header5(ctx, theme)];
+    for (const ev of ctx.itemsByEvent || []) {
+        const head = `${ev.no}. ${ev.eventName}${ev.eventLocation ? `, ${ev.eventLocation}` : ''}${ev.eventDateRange ? ` — ${ev.eventDateRange}` : ''}`;
+        rows.push(groupHeaderRow(head, theme, 5));
+        for (const it of ev.items) rows.push(itemRow5(it));
+        rows.push(subtotalRow(`${t.subtotal} ${ev.eventName}`, ev.subtotalFormatted, theme, 4));
+    }
+    if (ctx.showGrandTotal) {
+        rows.push(totalRow(t.totalHargaPenawaran, ctx.totals.subtotal, 4, { bold: true }));
+        if (ctx.totals.displayDiscountRow) rows.push(totalRow(t.diskon, `(${ctx.totals.discount})`, 4, { bold: true }));
+        if (ctx.totals.hasPpn) rows.push(totalRow(ppnLabel(ctx), ctx.totals.taxAmount, 4, { bold: true }));
+        if (ctx.packagePriceFormatted) rows.push(totalRow(t.hargaPaket, ctx.packagePriceFormatted, 4, { bold: true, bg: theme.subtle }));
+        else rows.push(totalRow(t.grandTotal, ctx.totals.total, 4, { bold: true, bg: TOTAL_BG }));
+        rows.push(...pphAndNetRows(ctx, 4));
+    }
+    return tableOf(rows);
+}
+
+// ── MODE: PACKAGE — blok per paket (nama, opsi harga, spec) ──────────────────────
+function buildPackageSection(ctx: QuotationRenderContext, theme: DocxTheme): (Paragraph | Table)[] {
+    const t = ctx.i18n;
+    const out: (Paragraph | Table)[] = [];
+    for (const pkg of ctx.packages || []) {
+        out.push(new Paragraph({
+            spacing: { before: 140, after: 60 },
+            shading: { type: ShadingType.CLEAR, color: 'auto', fill: theme.light },
+            border: { left: { style: BorderStyle.SINGLE, size: 24, color: theme.primary, space: 4 } },
+            children: [new TextRun({ text: `${pkg.no}. ${pkg.name}`, bold: true, color: theme.dark, size: 23 })],
+        }));
+        for (const it of pkg.items) {
+            out.push(new Paragraph({
+                indent: { left: convertMillimetersToTwip(8) },
+                tabStops: [{ type: TabStopType.RIGHT, position: convertMillimetersToTwip(165) }],
+                children: [
+                    new TextRun({ text: `▪ ${it.description}${it.unit ? ` (${it.quantity})` : ''}`, size: 22 }),
+                    new TextRun({ text: `\t${it.price}`, bold: true, size: 22 }),
+                ],
+            }));
+        }
+        if (pkg.specs?.length) {
+            out.push(p(t.specificationLabel, { italics: true, color: '555555', size: 21 }));
+            for (const sp of pkg.specs) {
+                if (sp.title) out.push(p(sp.title, { bold: true, color: theme.dark, size: 20 }));
+                for (const line of sp.items) out.push(p(`✓ ${line}`, { size: 21 }));
+            }
+        }
+    }
+    if (ctx.showGrandTotal) {
+        out.push(new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            spacing: { before: 100 },
+            children: [new TextRun({ text: `${t.grandTotal}: ${ctx.totals.total}`, bold: true, size: 22 })],
+        }));
+    }
+    return out;
+}
+
+/** Dispatcher — pilih layout item SESUAI displayMode (sama seperti template PDF). */
+function buildItemsSection(ctx: QuotationRenderContext, theme: DocxTheme): (Paragraph | Table)[] {
+    if (ctx.displayMode === 'package' && ctx.packages?.length) return buildPackageSection(ctx, theme);
+    if (ctx.displayMode === 'event-grouped' && ctx.itemsByEvent?.length) return [buildEventGroupedTable(ctx, theme)];
+    if (ctx.displayMode === 'category-summary') return [buildCategorySummaryTable(ctx, theme)];
+    return [buildDetailedTable(ctx, theme)];
 }
 
 /** Resolve image URL atau data URI ke buffer (untuk embed di DOCX). */
@@ -242,6 +361,8 @@ export class DocxExportService {
 
     async renderQuotationDocx(quotationId: number): Promise<Buffer> {
         const ctx = await this.contextBuilder.build(quotationId);
+        const t = ctx.i18n;
+        const theme = resolveDocxTheme(ctx);
 
         const children: (Paragraph | Table)[] = [];
 
@@ -286,41 +407,43 @@ export class DocxExportService {
                 new Paragraph({
                     heading: HeadingLevel.HEADING_1,
                     alignment: AlignmentType.LEFT,
-                    children: [new TextRun({ text: ctx.company.name, bold: true, color: PRIMARY, size: 32 })],
+                    children: [new TextRun({ text: ctx.company.name, bold: true, color: theme.primary, size: 32 })],
                 }),
             );
             if (ctx.company.address) children.push(p(ctx.company.address, { size: 18 }));
-            const contact = [ctx.company.phone && `Telp: ${ctx.company.phone}`, ctx.company.email].filter(Boolean).join(' • ');
+            const contact = [ctx.company.phone && `${t.telp} ${ctx.company.phone}`, ctx.company.email].filter(Boolean).join(' • ');
             if (contact) children.push(p(contact, { size: 18 }));
             children.push(p(''));
         }
 
-        // ── Nomor + Kota/Tgl
-        children.push(p(`Nomor    : ${ctx.doc.number}${ctx.doc.isRevision ? ` (Rev. ${ctx.doc.revisionNumber})` : ''}`, { bold: true }));
-        children.push(p(`Lampiran : 1 (satu) berkas`));
-        children.push(p(`Perihal  : ${ctx.doc.subject}`, { bold: true }));
-        children.push(p(`${ctx.doc.city}, ${ctx.doc.dateFormatted}`, { align: AlignmentType.RIGHT }));
+        // ── Meta dokumen — urutan SAMA dengan template PDF (sewa.hbs):
+        //    Tanggal (atas, kiri) → Nomor/No.Invoice → Perihal → Lampiran (non-invoice) → Jatuh Tempo
+        children.push(p(`${t.tanggal}: ${ctx.doc.city ? `${ctx.doc.city}, ` : ''}${ctx.doc.dateFormatted}`));
+        children.push(p(`${ctx.doc.isInvoice ? t.noInvoice : t.nomor} : ${ctx.doc.number}${ctx.doc.isRevision ? ` (${t.revisi} ${ctx.doc.revisionNumber})` : ''}`, { bold: true }));
+        children.push(p(`${t.perihal} : ${ctx.doc.subject}`, { bold: true }));
+        if (!ctx.doc.isInvoice) children.push(p(`${t.lampiran} : ${ctx.attachment.label}`));
+        if (ctx.doc.dueDateFormatted) children.push(p(`${t.jatuhTempo} : ${ctx.doc.dueDateFormatted}`, { bold: true }));
         children.push(p(''));
 
         // ── Kepada
-        children.push(p('Kepada Yth.,', { bold: true }));
+        children.push(p(`${t.kepada}`, { bold: true }));
         children.push(p(ctx.client.name));
         if (ctx.client.company) children.push(p(ctx.client.company, { bold: true }));
         if (ctx.client.address) children.push(p(ctx.client.address));
-        children.push(p('di Tempat'));
+        if (t.diTempat) children.push(p(t.diTempat));
         children.push(p(''));
 
         // ── Opening
         const projectBits = [
-            ctx.project.name ? `untuk acara ${ctx.project.name}` : '',
-            ctx.project.location ? `di ${ctx.project.location}` : '',
-            ctx.project.dateRange !== '-' ? `pada tanggal ${ctx.project.dateRange}` : '',
+            ctx.project.name ? `${t.untukAcara} ${ctx.project.name}` : '',
+            ctx.project.location ? `${t.di} ${ctx.project.location}` : '',
+            ctx.project.dateRange !== '-' ? `${t.padaTanggal} ${ctx.project.dateRange}` : '',
         ].filter(Boolean).join(' ');
         children.push(
             new Paragraph({
                 alignment: AlignmentType.JUSTIFIED,
                 children: [
-                    new TextRun({ text: 'Dengan hormat,', size: 22 }),
+                    new TextRun({ text: t.denganHormat, size: 22 }),
                 ],
             }),
         );
@@ -330,7 +453,7 @@ export class DocxExportService {
                 spacing: { after: 100 },
                 children: [
                     new TextRun({
-                        text: `Bersama surat ini kami ${ctx.company.name} mengajukan penawaran harga ${ctx.doc.variantLabel} ${projectBits}. Adapun rincian penawaran kami adalah sebagai berikut:`,
+                        text: `${t.bersamaSurat} ${ctx.company.name} ${t.mengajukanPenawaran} ${ctx.doc.variantLabel}${projectBits ? ` ${projectBits}` : ''}. ${t.rincianPenawaran}`,
                         size: 22,
                     }),
                 ],
@@ -339,12 +462,12 @@ export class DocxExportService {
         children.push(p(''));
 
         // ── Items (grouped by category)
-        children.push(buildItemsTable(ctx));
+        children.push(...buildItemsSection(ctx, theme));
         children.push(p(''));
         children.push(
             new Paragraph({
                 children: [
-                    new TextRun({ text: 'Terbilang: ', italics: true, size: 22 }),
+                    new TextRun({ text: `${t.terbilang}: `, italics: true, size: 22 }),
                     new TextRun({ text: ctx.totals.totalTerbilang, italics: true, bold: true, size: 22 }),
                 ],
             }),
@@ -352,29 +475,29 @@ export class DocxExportService {
 
         // ── Catatan Harga / Disclaimer
         if (ctx.brandTexts.disclaimer) {
-            children.push(sectionTitle('Catatan Harga'));
+            children.push(sectionTitle(t.catatanHarga, theme.primary));
             children.push(...multilineParagraphs(ctx.brandTexts.disclaimer, { size: 20, color: '333333' }));
         }
 
         // ── Sistem Pembayaran
         if (ctx.brandTexts.paymentTerms) {
-            children.push(sectionTitle('Sistem Pembayaran'));
+            children.push(sectionTitle(t.sistemPembayaran, theme.primary));
             children.push(...multilineParagraphs(ctx.brandTexts.paymentTerms, { size: 21 }));
         }
 
         // ── Bank
         if (ctx.payment.banks.length) {
-            children.push(sectionTitle('Pembayaran Transfer Ke'));
+            children.push(sectionTitle(t.pembayaranTransferKe, theme.primary));
             ctx.payment.banks.forEach((b) => {
                 children.push(
                     new Paragraph({
                         spacing: { after: 40 },
                         children: [
-                            new TextRun({ text: '• Bank ', size: 21 }),
+                            new TextRun({ text: `• ${t.bankWord} `, size: 21 }),
                             new TextRun({ text: b.bankName, bold: true, size: 21 }),
-                            new TextRun({ text: ' — No. Rek. ', size: 21 }),
+                            new TextRun({ text: ` — ${t.noRek} `, size: 21 }),
                             new TextRun({ text: b.accountNumber, bold: true, size: 21 }),
-                            new TextRun({ text: ` a.n. ${b.accountOwner}`, size: 21 }),
+                            new TextRun({ text: ` ${t.accHolderShort} ${b.accountOwner}`, size: 21 }),
                         ],
                     }),
                 );
@@ -384,12 +507,12 @@ export class DocxExportService {
         // ── Closing
         children.push(p(''));
         const closingText = ctx.brandTexts.closing
-            || 'Demikian penawaran ini kami sampaikan. Atas perhatian dan kerjasamanya kami ucapkan terima kasih.';
+            || t.penawaranClosingDefault;
         children.push(...multilineParagraphs(closingText, { size: 21 }));
 
         // ── Signature: hormat kami → image tanda tangan + stempel → nama → posisi
         children.push(p(''));
-        children.push(p('Hormat kami,', { align: AlignmentType.RIGHT }));
+        children.push(p(t.hormatKami, { align: AlignmentType.RIGHT }));
         children.push(new Paragraph({
             alignment: AlignmentType.RIGHT,
             children: [new TextRun({ text: ctx.company.name, bold: true, size: 22 })],

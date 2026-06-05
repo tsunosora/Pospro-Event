@@ -225,7 +225,7 @@
         <div class="company-name">{{company.name}}</div>
         <div class="company-addr">
           {{company.address}}<br/>
-          {{#if company.phone}}Telp: {{company.phone}}{{/if}}{{#if company.email}} &bull; {{company.email}}{{/if}}
+          {{#if company.phone}}{{i18n.telp}} {{company.phone}}{{/if}}{{#if company.email}} &bull; {{company.email}}{{/if}}
         </div>
       </div>
     </div>
@@ -247,7 +247,7 @@
         <div><strong>{{i18n.perihal}}</strong>: <u><strong>{{doc.subject}}</strong></u></div>
         {{#unless doc.isInvoice}}<div style="white-space: pre-line;"><strong>{{i18n.lampiran}}</strong>: {{attachment.label}}</div>{{/unless}}
         {{#if doc.dueDateFormatted}}
-        <div><strong>Jatuh Tempo</strong>: <span style="color:{{theme.primary}}; font-weight:700">{{doc.dueDateFormatted}}</span></div>
+        <div><strong>{{i18n.jatuhTempo}}</strong>: <span style="color:{{theme.primary}}; font-weight:700">{{doc.dueDateFormatted}}</span></div>
         {{/if}}
       </div>
     </div>
@@ -305,7 +305,7 @@
         </tr>
         {{/each}}
         <tr class="cat-subtotal">
-          <td colspan="4" style="text-align:right">Subtotal {{this.eventName}}</td>
+          <td colspan="4" style="text-align:right">{{i18n.subtotal}} {{this.eventName}}</td>
           <td class="rp">{{this.subtotalFormatted}}</td>
         </tr>
         {{/each}}
@@ -313,7 +313,7 @@
       <tbody class="grand-totals">
         {{#if showGrandTotal}}
         <tr>
-          <td colspan="4" class="label">Total Harga Penawaran</td>
+          <td colspan="4" class="label">{{i18n.totalHargaPenawaran}}</td>
           <td class="rp">{{totals.subtotal}}</td>
         </tr>
         {{#if totals.displayDiscountRow}}
@@ -330,7 +330,7 @@
         {{/if}}
         {{#if packagePriceFormatted}}
         <tr class="grand-total" style="background:{{theme.primarySubtle}};">
-          <td colspan="4" class="label">Harga Paket</td>
+          <td colspan="4" class="label">{{i18n.hargaPaket}}</td>
           <td class="rp">{{packagePriceFormatted}}</td>
         </tr>
         {{else}}
@@ -341,13 +341,13 @@
         {{/if}}
         {{#if totals.displayPphRow}}
         <tr>
-          <td colspan="4" class="label" style="color:#b91c1c; font-weight:500;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} (dipotong klien)</td>
+          <td colspan="4" class="label" style="color:#b91c1c; font-weight:500;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} {{i18n.dipotongKlien}}</td>
           <td class="rp" style="color:#b91c1c;">-{{totals.pphAmount}}</td>
         </tr>
         {{/if}}
         {{#if totals.displayNetReceivedRow}}
         <tr>
-          <td colspan="4" class="label" style="color:#047857;">Jumlah Diterima</td>
+          <td colspan="4" class="label" style="color:#047857;">{{i18n.jumlahDiterima}}</td>
           <td class="rp" style="color:#047857;">{{totals.netReceived}}</td>
         </tr>
         {{/if}}
@@ -375,7 +375,7 @@
         </ul>
         {{#if this.specs}}
         <div style="margin: 4pt 0 0 24pt;">
-          <div style="font-size: 10.5pt; font-style: italic; color: #555; margin-bottom: 2pt;">Specification:</div>
+          <div style="font-size: 10.5pt; font-style: italic; color: #555; margin-bottom: 2pt;">{{../i18n.specificationLabel}}</div>
           {{#each this.specs}}
           {{#if this.title}}<div style="font-size: 10pt; font-weight: 600; color: {{../../theme.primaryDark}}; margin-top: 3pt;">{{this.title}}</div>{{/if}}
           <ul style="margin: 0 0 4pt 16pt; padding: 0; line-height: 1.55; font-size: 10.5pt;">
@@ -401,7 +401,7 @@
         <tr>
           <th style="width:28pt">{{i18n.no}}</th>
           <th>{{i18n.uraian}}</th>
-          <th style="width:140pt">Jumlah</th>
+          <th style="width:140pt">{{i18n.jumlah}}</th>
         </tr>
       </thead>
       <tbody>
@@ -423,13 +423,13 @@
           {{/each}}
           {{#if this.categoryName}}
           <tr class="cat-subtotal">
-            <td colspan="2" style="text-align:right; font-weight:700;">Subtotal {{this.categoryName}}</td>
+            <td colspan="2" style="text-align:right; font-weight:700;">{{i18n.subtotal}} {{this.categoryName}}</td>
             <td class="rp" style="font-weight:700;">{{this.subtotalFormatted}}</td>
           </tr>
           {{else}}
           {{!-- Items uncategorized: tampilkan subtotal tanpa label kategori --}}
           <tr class="cat-subtotal">
-            <td colspan="2" style="text-align:right; font-weight:700;">Subtotal</td>
+            <td colspan="2" style="text-align:right; font-weight:700;">{{i18n.subtotal}}</td>
             <td class="rp" style="font-weight:700;">{{this.subtotalFormatted}}</td>
           </tr>
           {{/if}}
@@ -458,13 +458,13 @@
         </tr>
         {{#if totals.displayPphRow}}
         <tr>
-          <td colspan="2" class="label" style="color:#b91c1c; font-weight:500;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} (dipotong klien)</td>
+          <td colspan="2" class="label" style="color:#b91c1c; font-weight:500;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} {{i18n.dipotongKlien}}</td>
           <td class="rp" style="color:#b91c1c;">-{{totals.pphAmount}}</td>
         </tr>
         {{/if}}
         {{#if totals.displayNetReceivedRow}}
         <tr>
-          <td colspan="2" class="label" style="color:#047857;">Jumlah Diterima</td>
+          <td colspan="2" class="label" style="color:#047857;">{{i18n.jumlahDiterima}}</td>
           <td class="rp" style="color:#047857;">{{totals.netReceived}}</td>
         </tr>
         {{/if}}
@@ -502,7 +502,7 @@
           {{/each}}
           {{#if this.categoryName}}
           <tr class="cat-subtotal">
-            <td colspan="4" style="text-align:right">Subtotal {{this.categoryName}}</td>
+            <td colspan="4" style="text-align:right">{{i18n.subtotal}} {{this.categoryName}}</td>
             <td class="rp">{{this.subtotalFormatted}}</td>
           </tr>
           {{/if}}
@@ -510,7 +510,7 @@
       </tbody>
       <tbody class="grand-totals">
         <tr>
-          <td colspan="4" class="label">Subtotal</td>
+          <td colspan="4" class="label">{{i18n.subtotal}}</td>
           <td class="rp">{{totals.subtotal}}</td>
         </tr>
         {{#if totals.displayDiscountRow}}
@@ -527,11 +527,11 @@
         {{/if}}
         {{#if packagePriceFormatted}}
         <tr>
-          <td colspan="4" class="label">Total Harga Penawaran</td>
+          <td colspan="4" class="label">{{i18n.totalHargaPenawaran}}</td>
           <td class="rp">{{totals.total}}</td>
         </tr>
         <tr class="grand-total" style="background:{{theme.primarySubtle}};">
-          <td colspan="4" class="label">Harga Paket</td>
+          <td colspan="4" class="label">{{i18n.hargaPaket}}</td>
           <td class="rp">{{packagePriceFormatted}}</td>
         </tr>
         {{else}}
@@ -542,13 +542,13 @@
         {{/if}}
         {{#if totals.displayPphRow}}
         <tr>
-          <td colspan="4" class="label" style="color:#b91c1c; font-weight:500;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} (dipotong klien)</td>
+          <td colspan="4" class="label" style="color:#b91c1c; font-weight:500;">{{i18n.pph}}{{#if totals.pphRate}} {{totals.pphRate}}%{{/if}} {{i18n.dipotongKlien}}</td>
           <td class="rp" style="color:#b91c1c;">-{{totals.pphAmount}}</td>
         </tr>
         {{/if}}
         {{#if totals.displayNetReceivedRow}}
         <tr>
-          <td colspan="4" class="label" style="color:#047857;">Jumlah Diterima</td>
+          <td colspan="4" class="label" style="color:#047857;">{{i18n.jumlahDiterima}}</td>
           <td class="rp" style="color:#047857;">{{totals.netReceived}}</td>
         </tr>
         {{/if}}
@@ -561,7 +561,7 @@
     {{!-- Specifications section — render kalau di-set di Quotation (PDF Nukahiji style) --}}
     {{#if specifications}}
     <div class="text-section" style="margin-top: 14pt;">
-      <div class="section-title">Spesifikasi</div>
+      <div class="section-title">{{i18n.spesifikasi}}</div>
       {{#each specifications}}
       <div style="margin-top: 4pt;">
         {{#if this.title}}
@@ -582,7 +582,7 @@
       <ul style="margin: 0 0 0 18pt; padding: 0; line-height: 1.7;">
         {{#each paymentSchedule}}
         <li>
-          <strong>{{this.label}} {{this.percent}}%</strong> sebesar <strong>{{this.amountFormatted}}</strong>
+          <strong>{{this.label}} {{this.percent}}%</strong> {{../i18n.sebesar}} <strong>{{this.amountFormatted}}</strong>
           <em style="color:#555;">({{this.amountTerbilang}})</em>
         </li>
         {{/each}}
@@ -594,9 +594,9 @@
     {{#if doc.amountToPayFormatted}}
     <div style="margin-top: 14pt; padding: 12pt 16pt; background: {{theme.primaryLight}}; border: 2pt solid {{theme.primary}}; border-radius: 6pt;">
       <div style="font-size: 10pt; font-weight: 700; color: {{theme.primaryDark}}; text-transform: uppercase; letter-spacing: .5pt; margin-bottom: 4pt;">
-        {{#eq doc.invoicePart "DP"}}JUMLAH YANG DITAGIH (DP){{/eq}}
-        {{#eq doc.invoicePart "PELUNASAN"}}JUMLAH YANG DITAGIH (PELUNASAN){{/eq}}
-        {{#eq doc.invoicePart "FULL"}}JUMLAH YANG DITAGIH{{/eq}}
+        {{#eq doc.invoicePart "DP"}}{{i18n.jumlahDitagihDp}}{{/eq}}
+        {{#eq doc.invoicePart "PELUNASAN"}}{{i18n.jumlahDitagihPelunasan}}{{/eq}}
+        {{#eq doc.invoicePart "FULL"}}{{i18n.jumlahDitagih}}{{/eq}}
       </div>
       <div style="font-size: 22pt; font-weight: 800; color: {{theme.primary}}; font-family: 'Calibri',sans-serif;">{{doc.amountToPayFormatted}}</div>
       <div style="font-size: 10pt; font-style: italic; color: #444; margin-top: 4pt;">
@@ -610,15 +610,15 @@
     {{!-- ============= INVOICE FOOTER (rekening + Nb) ============= --}}
     {{#if payment.banks.length}}
     <div class="text-section" style="margin-top: 14pt;">
-      <div style="font-size: 11pt; margin-bottom: 4pt;">Pembayaran dapat di transfer melalui rekening berikut:</div>
+      <div style="font-size: 11pt; margin-bottom: 4pt;">{{i18n.pembayaranRekeningIntro}}</div>
       {{#each payment.banks}}
       {{#unless @first}}
-      <div style="font-size: 10.5pt; font-style: italic; margin: 6pt 0;">atau</div>
+      <div style="font-size: 10.5pt; font-style: italic; margin: 6pt 0;">{{../i18n.atau}}</div>
       {{/unless}}
       <table style="font-size: 10.5pt; border-collapse: collapse;">
-        <tr><td style="padding: 1pt 4pt 1pt 0; vertical-align: top; width: 100pt;">Nama Bank</td><td style="padding: 1pt 0; vertical-align: top;">: {{this.bankName}}</td></tr>
-        <tr><td style="padding: 1pt 4pt 1pt 0; vertical-align: top;">Atas nama</td><td style="padding: 1pt 0; vertical-align: top;">: {{this.accountOwner}}</td></tr>
-        <tr><td style="padding: 1pt 4pt 1pt 0; vertical-align: top;">No. Rekening</td><td style="padding: 1pt 0; vertical-align: top;">: <strong>{{this.accountNumber}}</strong></td></tr>
+        <tr><td style="padding: 1pt 4pt 1pt 0; vertical-align: top; width: 100pt;">{{../i18n.namaBank}}</td><td style="padding: 1pt 0; vertical-align: top;">: {{this.bankName}}</td></tr>
+        <tr><td style="padding: 1pt 4pt 1pt 0; vertical-align: top;">{{../i18n.atasNama}}</td><td style="padding: 1pt 0; vertical-align: top;">: {{this.accountOwner}}</td></tr>
+        <tr><td style="padding: 1pt 4pt 1pt 0; vertical-align: top;">{{../i18n.noRekening}}</td><td style="padding: 1pt 0; vertical-align: top;">: <strong>{{this.accountNumber}}</strong></td></tr>
       </table>
       {{/each}}
     </div>
@@ -626,7 +626,7 @@
 
     {{#if brandTexts.invoiceClosing}}
     <div class="text-section" style="margin-top: 12pt;">
-      <div style="font-style: italic; font-weight: 700; text-decoration: underline; margin-bottom: 3pt;">Nb :</div>
+      <div style="font-style: italic; font-weight: 700; text-decoration: underline; margin-bottom: 3pt;">{{i18n.nb}}</div>
       <div class="text-body" style="white-space: pre-line; font-style: italic; font-weight: 600;">{{brandTexts.invoiceClosing}}</div>
     </div>
     {{/if}}
@@ -648,17 +648,17 @@
 
     {{#if payment.banks.length}}
     <div class="text-section">
-      <div class="section-title">Pembayaran Transfer Ke</div>
+      <div class="section-title">{{i18n.pembayaranTransferKe}}</div>
       <ul class="bank-list">
         {{#each payment.banks}}
-        <li>Bank <strong>{{this.bankName}}</strong> — No. Rek. <strong>{{this.accountNumber}}</strong> a.n. {{this.accountOwner}}</li>
+        <li>{{../i18n.bankWord}} <strong>{{this.bankName}}</strong> — {{../i18n.noRek}} <strong>{{this.accountNumber}}</strong> {{../i18n.accHolderShort}} {{this.accountOwner}}</li>
         {{/each}}
       </ul>
     </div>
     {{/if}}
 
     <div class="closing-section">
-      <div class="closing-text">{{#if brandTexts.closing}}{{brandTexts.closing}}{{else}}Demikian penawaran ini kami sampaikan. Atas perhatian dan kerjasamanya kami ucapkan terima kasih.{{/if}}</div>
+      <div class="closing-text">{{#if brandTexts.closing}}{{brandTexts.closing}}{{else}}{{i18n.penawaranClosingDefault}}{{/if}}</div>
     </div>
     {{/if}}
 
