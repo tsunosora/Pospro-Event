@@ -653,6 +653,15 @@ export class QuotationsService {
                 break;
         }
 
+        // PPh diproporsionalkan terhadap bagian yang ditagih (amountToPay / total).
+        // Tanpa ini, invoice DP & Pelunasan masing-masing menyimpan PPh PENUH sehingga
+        // total PPh terhitung dobel (mis. 360rb di DP + 360rb di Pelunasan = 720rb).
+        //   DP 50%        → 360rb × (9jt / 18jt) = 180rb
+        //   Pelunasan 50% → 360rb × (9jt / 18jt) = 180rb  → total tetap 360rb
+        //   FULL          → rasio 1 (PPh penuh). total ≤ 0 → 0 (hindari div-by-zero).
+        const pphTotalNum = Number((quotation as any).pphAmount ?? 0);
+        const pphPortion = totalNum > 0 ? (pphTotalNum * amountToPay) / totalNum : 0;
+
         // Generate nomor invoice — pakai counter terpisah dengan docType='Inv', kode brand sama
         let kode: string | undefined;
         if (quotation.brand) {
@@ -713,11 +722,12 @@ export class QuotationsService {
                 notes: quotation.notes,
 
                 taxRate: quotation.taxRate,
-                // Carry forward PPh fields supaya invoice juga punya PPh sama dengan penawaran.
-                // amountToPay & total invoice = GROSS (DPP+PPN, sebelum potong PPh). PPh hanya info bagi klien.
+                // Carry forward PPh fields ke invoice. amountToPay & total invoice = GROSS
+                // (DPP+PPN, sebelum potong PPh). PPh hanya info bagi klien — diproporsionalkan
+                // ke bagian yang ditagih (lihat pphPortion di atas) supaya tidak dobel antar invoice.
                 ...(({
                     pphRate: (quotation as any).pphRate ?? 0,
-                    pphAmount: (quotation as any).pphAmount ?? 0,
+                    pphAmount: toDecimal(pphPortion),
                 }) as any),
                 discount: quotation.discount,
                 subtotal: quotation.subtotal,
