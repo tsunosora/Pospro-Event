@@ -473,6 +473,38 @@ export class DocxExportService {
             }),
         );
 
+        // ── Spesifikasi (standalone) — sama seperti PDF, di antara terbilang & footer
+        if (ctx.specifications?.length) {
+            children.push(sectionTitle(t.spesifikasi, theme.primary));
+            for (const sp of ctx.specifications) {
+                if (sp.title) children.push(p(`▪ ${sp.title}`, { bold: true, color: theme.dark, size: 21 }));
+                for (const line of sp.items) {
+                    children.push(new Paragraph({
+                        indent: { left: convertMillimetersToTwip(8) },
+                        spacing: { after: 20 },
+                        children: [new TextRun({ text: `✓ ${line}`, size: 21 })],
+                    }));
+                }
+            }
+        }
+
+        // ── Sistem Pembayaran (jadwal DP/Pelunasan) — sebelumnya HILANG di DOCX,
+        //    padahal PDF merendernya. Tampil kalau quotation set paymentSchedule.
+        if (ctx.paymentSchedule?.length) {
+            children.push(sectionTitle(t.sistemPembayaran, theme.primary));
+            for (const ps of ctx.paymentSchedule) {
+                children.push(new Paragraph({
+                    spacing: { after: 40 },
+                    children: [
+                        new TextRun({ text: `• ${ps.label} ${ps.percent}% `, bold: true, size: 21 }),
+                        new TextRun({ text: `${t.sebesar} `, size: 21 }),
+                        new TextRun({ text: ps.amountFormatted, bold: true, size: 21 }),
+                        new TextRun({ text: ` (${ps.amountTerbilang})`, italics: true, color: '555555', size: 21 }),
+                    ],
+                }));
+            }
+        }
+
         // ── Catatan Harga / Disclaimer
         if (ctx.brandTexts.disclaimer) {
             children.push(sectionTitle(t.catatanHarga, theme.primary));
