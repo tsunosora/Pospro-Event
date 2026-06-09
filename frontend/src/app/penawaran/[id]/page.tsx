@@ -459,6 +459,9 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         mutationFn: (payload: any) => updateQuotation(id, payload),
         onSuccess: (res) => {
             qc.invalidateQueries({ queryKey: ["quotation", id] });
+            // Refresh daftar /penawaran supaya kolom Total (yang dipotong DP) ikut update
+            qc.invalidateQueries({ queryKey: ["quotations"] });
+            qc.invalidateQueries({ queryKey: ["quotation-invoices"] });
             // Invalidate customer analytics — supaya histori penawaran muncul di /customers/[id]
             // Invalidate untuk customer baru (sekarang) dan customer lama (sebelum di-unlink/ganti)
             if (res?.customerId) {
@@ -509,10 +512,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
-    // List invoices yang sudah di-generate dari quotation ini
+    // List invoices "saudara" untuk hitung DP terbayar.
+    // - Kalau dokumen ini PENAWARAN (induk) → ambil anak-anaknya (pakai id sendiri).
+    // - Kalau dokumen ini INVOICE (anak) → ambil saudara via parentQuotationId,
+    //   supaya invoice DP yang lunas ke-detect saat menghitung "DP Sudah Dibayar" auto.
+    const dpSourceId = data?.type === "INVOICE" ? (data.parentQuotationId ?? id) : id;
     const { data: childInvoices = [] } = useQuery({
-        queryKey: ["quotation-invoices", id],
-        queryFn: () => listInvoicesByQuotation(id),
+        queryKey: ["quotation-invoices", dpSourceId],
+        queryFn: () => listInvoicesByQuotation(dpSourceId),
         enabled: !!data && !data?.invoiceNumber.startsWith("DRAFT-"),
     });
 
@@ -540,17 +547,17 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const grossAfterDiscount = subtotal - (discount || 0);
 
     // ─── DP Terbayar (info & customable) ─────────────────────────────────────
-    // Auto: sum paidAmount dari child invoice DP yg sudah PAID/PARTIALLY_PAID.
+    // Auto: sum paidAmount dari invoice DP (saudara) yg sudah PAID/PARTIALLY_PAID.
     // Custom: user override manual (mis. DP dibayar di luar sistem / penyesuaian).
-    // Tidak di-save ke backend — cuma untuk preview & ke-passing ke modal Generate Invoice.
+    // Mode & nominal custom DI-SAVE ke backend (dpPaidMode/dpPaidCustom).
     const autoDpPaid = useMemo(() => {
         return childInvoices
-            .filter((inv) => inv.invoicePart === 'DP' && (inv.status === 'PAID' || inv.status === 'PARTIALLY_PAID'))
+            .filter((inv) => inv.id !== id && inv.invoicePart === 'DP' && (inv.status === 'PAID' || inv.status === 'PARTIALLY_PAID'))
             .reduce((sum, inv) => sum + Number(inv.paidAmount ?? 0), 0);
-    }, [childInvoices]);
+    }, [childInvoices, id]);
     const dpPaidInvoiceCount = useMemo(() => {
-        return childInvoices.filter((inv) => inv.invoicePart === 'DP' && (inv.status === 'PAID' || inv.status === 'PARTIALLY_PAID')).length;
-    }, [childInvoices]);
+        return childInvoices.filter((inv) => inv.id !== id && inv.invoicePart === 'DP' && (inv.status === 'PAID' || inv.status === 'PARTIALLY_PAID')).length;
+    }, [childInvoices, id]);
     const [dpPaidMode, setDpPaidMode] = useState<'auto' | 'custom'>('auto');
     const [dpPaidCustom, setDpPaidCustom] = useState<string>("");
     const effectiveDpPaid = dpPaidMode === 'auto' ? autoDpPaid : (parseFloat(dpPaidCustom) || 0);
@@ -1033,7 +1040,16 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     {data.amountToPay && (
                         <div className="text-right">
                             <div className="text-[10px] uppercase text-pink-700 font-bold">Jumlah Tagihan</div>
-                            <div className="font-bold text-lg text-pink-900 font-mono">{rp(data.amountToPay)}</div>
+                            {/* Live: kalau ada DP Sudah Dibayar, tagihan = Total − DP (= Grand Total).
+                                Tanpa DP, pakai amountToPay (porsi DP/Pelunasan/Full) apa adanya. */}
+                            <div className="font-bold text-lg text-pink-900 font-mono">
+                                {rp(effectiveDpPaid > 0 ? Math.max(0, total - effectiveDpPaid) : Number(data.amountToPay))}
+                            </div>
+                            {effectiveDpPaid > 0 && (
+                                <div className="text-[10px] text-amber-700 font-normal">
+                                    DP dibayar: -{rp(effectiveDpPaid)}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

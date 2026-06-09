@@ -598,14 +598,27 @@ function PenawaranListPageInner() {
                                         {/* Untuk Invoice → tampil amountToPay (DP/Pelunasan/Full sesuai invoicePart),
                                             karena total quotation utuh tidak relevan saat ini invoice cuma menagih sebagian.
                                             Untuk Penawaran → tampil total grand quotation. */}
-                                        {q.type === "INVOICE" ? (
+                                        {q.type === "INVOICE" ? (() => {
+                                            // Kalau ada "DP Sudah Dibayar" (mode custom), Total = Total proyek − DP
+                                            // (= grand total setelah DP), konsisten dgn "Jumlah Ditagih" di preview.
+                                            // Tanpa DP, pakai amountToPay (DP/Pelunasan/Full) apa adanya.
+                                            const dpPaid = q.dpPaidMode === "custom" ? Number(q.dpPaidCustom ?? 0) : 0;
+                                            const net = dpPaid > 0
+                                                ? Math.max(0, Number(q.total) - dpPaid)
+                                                : Number(q.amountToPay ?? q.total);
+                                            return (
                                             <div className="flex flex-col items-end">
-                                                <span>{rp(q.amountToPay ?? q.total)}</span>
+                                                <span>{rp(net)}</span>
                                                 {q.invoicePart && (
                                                     <span className="text-[10px] text-slate-500 font-normal">
                                                         {q.invoicePart === "DP" ? "Down Payment" :
                                                          q.invoicePart === "PELUNASAN" ? "Final Payment" :
                                                          q.invoicePart === "FULL" ? "Full Payment" : q.invoicePart}
+                                                    </span>
+                                                )}
+                                                {dpPaid > 0 && (
+                                                    <span className="text-[10px] text-amber-700 font-normal">
+                                                        DP dibayar: -{rp(dpPaid)}
                                                     </span>
                                                 )}
                                                 {Number((q as any).paidAmount ?? 0) > 0 && (
@@ -614,7 +627,8 @@ function PenawaranListPageInner() {
                                                     </span>
                                                 )}
                                             </div>
-                                        ) : (
+                                            );
+                                        })() : (
                                             rp(q.total)
                                         )}
                                     </td>

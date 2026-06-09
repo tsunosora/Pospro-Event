@@ -898,12 +898,17 @@ export class QuotationContextBuilder {
         if (dpPaidModeDb === 'custom') {
             resolvedDpPaid = Number((quotation as any).dpPaidCustom ?? 0);
         } else if (dpPaidModeDb === 'auto') {
+            // DP invoices = anak dari induk yang sama (sibling). Kalau row ini SENDIRI invoice
+            // (punya parentQuotationId), DP-nya ada di invoice saudara → cari pakai parent id.
+            // Kalau row ini penawaran (induk), cari anak DP-nya langsung pakai id sendiri.
+            const dpParentId = (quotation as any).parentQuotationId ?? quotationId;
             const dpInvoices = await this.prisma.invoice.findMany({
                 where: {
                     type: InvoiceType.INVOICE,
-                    parentQuotationId: quotationId,
+                    parentQuotationId: dpParentId,
                     invoicePart: 'DP',
                     status: { in: [InvoiceStatus.PAID, InvoiceStatus.PARTIALLY_PAID] },
+                    id: { not: quotationId }, // jangan hitung diri sendiri
                 },
                 select: { paidAmount: true },
             });
@@ -1031,11 +1036,13 @@ export class QuotationContextBuilder {
         // Clamp ke [0, totalNum] supaya tidak minus.
         const dpPaidNum = Math.min(Math.max(0, dpPaidInput || 0), totalNum);
         const displayTotalNum = totalNum - dpPaidNum;
-        // "Jumlah yang Ditagih" (amountToPay) juga ikut dipotong DP yang sudah dibayar,
-        // supaya konsisten dengan grand total. Clamp ≥ 0.
+        // "Jumlah yang Ditagih" (amountToPay): kalau ada DP Sudah Dibayar, tampilkan
+        // = Total − DP (sama dengan grand total setelah DP) supaya konsisten. DP custom
+        // dianggap DP riil yang sudah dibayar, jadi tagihan = sisa yang belum dibayar.
+        // Tanpa DP, pakai amountToPay apa adanya (logika DP/PELUNASAN/FULL normal).
         const amountToPayRaw = quotation.amountToPay != null ? Number(quotation.amountToPay) : null;
         const amountToPayDisplayNum = amountToPayRaw != null
-            ? Math.max(0, amountToPayRaw - dpPaidNum)
+            ? (dpPaidNum > 0 ? displayTotalNum : amountToPayRaw)
             : null;
 
         // ─────────────────────────────────────────────────────────────────
