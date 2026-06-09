@@ -13,7 +13,13 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.17 (current) — Invoice due-date audit + per-doctype PIC override + invoice display toggle:
+// v2.18 (current) — Invoice "DP Sudah Dibayar" (potong grand total & jumlah ditagih):
+//   - Invoice.dpPaidMode ('auto'|'custom') + dpPaidCustom (Decimal) — nominal DP yang sudah
+//     dibayar, dikurangkan dari grand total & amountToPay saat render invoice. Mode 'auto'
+//     dihitung dari paidAmount invoice DP anak; 'custom' = override manual.
+//   - Field baru di model Invoice → otomatis ter-include (findMany() tanpa select), tidak
+//     perlu ubah daftar tabel/kode restore. Versi di-bump untuk traceability saja.
+// v2.17 — Invoice due-date audit + per-doctype PIC override + invoice display toggle:
 //   - NEW TABLE: InvoiceDueDateHistory — audit trail setiap kali admin extend tanggal pembayaran invoice.
 //     Field: invoiceId, oldDueDate/Range, newDueDate/Range, reason ("Klien minta tunda 1 minggu"),
 //     changedById, changedAt. Owner bisa cek riwayat extend pembayaran lewat tombol di invoice detail.
@@ -317,7 +323,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.17',
+                version: '2.18',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,
