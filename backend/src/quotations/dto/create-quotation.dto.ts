@@ -40,6 +40,10 @@ export interface CreateQuotationDto {
     /** Alasan perubahan dueDate — wajib di-isi kalau dueDate berubah (untuk audit log owner). */
     dueDateChangeReason?: string | null;
     dpPercent?: number;
+    /** "DP Sudah Dibayar" — mode auto (dari invoice DP anak) atau custom (override manual). */
+    dpPaidMode?: 'auto' | 'custom' | null;
+    /** Nominal DP custom — dipakai kalau dpPaidMode = "custom". Dikurangkan dari grand total. */
+    dpPaidCustom?: number | null;
     bankAccountIds?: string;           // CSV: "1,3,7"
     notes?: string;
 

@@ -65,8 +65,8 @@ export class PdfExportService implements OnModuleDestroy {
         return this.browser;
     }
 
-    async renderQuotationPdf(quotationId: number): Promise<Buffer> {
-        const ctx = await this.contextBuilder.build(quotationId);
+    async renderQuotationPdf(quotationId: number, dpPaid?: number): Promise<Buffer> {
+        const ctx = await this.contextBuilder.build(quotationId, { dpPaid });
         const key: TemplateKey = ctx.doc.templateKey;
         const template = this.loadTemplate(key);
         return this.renderHtmlToPdf(template(ctx));

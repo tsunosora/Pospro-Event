@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { InvoiceStatus, InvoiceType } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
@@ -203,6 +204,10 @@ export interface QuotationRenderContext {
         totalTerbilang: string;
         /** Jumlah diterima setelah klien potong PPh (= total - pphAmount). Display-only. */
         netReceived: string;
+        /** DP yang sudah dibayar — dikurangkan dari grand total saat export invoice. Display-only. */
+        dpPaid: string;
+        /** True kalau ada DP sudah dibayar yang dikurangkan dari grand total. */
+        displayDpPaidRow: boolean;
     };
     // Pembayaran
     payment: {
@@ -487,6 +492,7 @@ export const I18N: Record<'id' | 'en', Record<string, string>> = {
         ppn: 'PPN',
         pph: 'PPh',
         grandTotal: 'Grand Total',
+        dpSudahDibayar: 'DP Sudah Dibayar',
         terbilang: 'Terbilang',
         // Sections
         catatanHarga: 'Catatan Harga',
@@ -604,6 +610,7 @@ export const I18N: Record<'id' | 'en', Record<string, string>> = {
         ppn: 'VAT',
         pph: 'WHT',
         grandTotal: 'Grand Total',
+        dpSudahDibayar: 'Down Payment Paid',
         terbilang: 'In words',
         // Sections
         catatanHarga: 'Pricing Notes',
@@ -866,7 +873,10 @@ export class QuotationContextBuilder {
         return this.prisma.invoice.findUnique({ where: { id: quotationId } });
     }
 
-    async build(quotationId: number): Promise<QuotationRenderContext> {
+    async build(
+        quotationId: number,
+        opts?: { dpPaid?: number },
+    ): Promise<QuotationRenderContext> {
         const quotation = await this.prisma.invoice.findUnique({
             where: { id: quotationId },
             include: {
@@ -878,6 +888,28 @@ export class QuotationContextBuilder {
             },
         });
         if (!quotation) throw new Error(`Penawaran id=${quotationId} tidak ditemukan`);
+
+        // ─── "DP Sudah Dibayar" — resolve nominal yang dikurangkan dari grand total ───
+        //  mode 'custom' → pakai dpPaidCustom yang tersimpan.
+        //  mode 'auto'   → jumlahkan paidAmount dari invoice DP anak yang sudah dibayar.
+        //  opts.dpPaid (dikirim saat export) override untuk live-preview sebelum disimpan.
+        let resolvedDpPaid = 0;
+        const dpPaidModeDb = (quotation as any).dpPaidMode as string | null;
+        if (dpPaidModeDb === 'custom') {
+            resolvedDpPaid = Number((quotation as any).dpPaidCustom ?? 0);
+        } else if (dpPaidModeDb === 'auto') {
+            const dpInvoices = await this.prisma.invoice.findMany({
+                where: {
+                    type: InvoiceType.INVOICE,
+                    parentQuotationId: quotationId,
+                    invoicePart: 'DP',
+                    status: { in: [InvoiceStatus.PAID, InvoiceStatus.PARTIALLY_PAID] },
+                },
+                select: { paidAmount: true },
+            });
+            resolvedDpPaid = dpInvoices.reduce((s, inv) => s + Number(inv.paidAmount ?? 0), 0);
+        }
+        const dpPaidInput = opts?.dpPaid !== undefined ? Number(opts.dpPaid) : resolvedDpPaid;
 
         const settings = await this.prisma.storeSettings.findFirst();
 
@@ -995,6 +1027,16 @@ export class QuotationContextBuilder {
         const dpPercentNum = Number(quotation.dpPercent);
         const dpAmount = (totalNum * dpPercentNum) / 100;
         const pelunasan = totalNum - dpAmount;
+        // DP yang sudah dibayar — dikurangkan langsung dari grand total.
+        // Clamp ke [0, totalNum] supaya tidak minus.
+        const dpPaidNum = Math.min(Math.max(0, dpPaidInput || 0), totalNum);
+        const displayTotalNum = totalNum - dpPaidNum;
+        // "Jumlah yang Ditagih" (amountToPay) juga ikut dipotong DP yang sudah dibayar,
+        // supaya konsisten dengan grand total. Clamp ≥ 0.
+        const amountToPayRaw = quotation.amountToPay != null ? Number(quotation.amountToPay) : null;
+        const amountToPayDisplayNum = amountToPayRaw != null
+            ? Math.max(0, amountToPayRaw - dpPaidNum)
+            : null;
 
         // ─────────────────────────────────────────────────────────────────
         // EVENT-GROUPED MODE — items dipisah per event lokasi (PDF Nukahiji style).
@@ -1339,11 +1381,11 @@ export class QuotationContextBuilder {
                 invoicePartLabel: quotation.invoicePart
                     ? buildInvoicePartLabel(quotation.invoicePart, lang)
                     : null,
-                amountToPayFormatted: quotation.amountToPay !== null && quotation.amountToPay !== undefined
-                    ? formatRp(Number(quotation.amountToPay), useUsd)
+                amountToPayFormatted: amountToPayDisplayNum !== null
+                    ? formatRp(amountToPayDisplayNum, useUsd)
                     : null,
-                amountToPayTerbilang: quotation.amountToPay !== null && quotation.amountToPay !== undefined
-                    ? rupiahInWords(Number(quotation.amountToPay), lang, useUsd)
+                amountToPayTerbilang: amountToPayDisplayNum !== null
+                    ? rupiahInWords(amountToPayDisplayNum, lang, useUsd)
                     : null,
                 dueDateFormatted: quotation.dueDate ? formatDateId(quotation.dueDate, lang) : null,
                 itemDisplayMode: (quotation.itemDisplayMode === 'category-summary' ? 'category-summary' : 'detailed'),
@@ -1406,9 +1448,12 @@ export class QuotationContextBuilder {
                     pphAmount: formatRp(Number((quotation as any).pphAmount ?? 0), useUsd),
                     hasPph,
                     discount: formatRp(discountNum, useUsd),
-                    total: formatRp(totalNum, useUsd),
-                    totalTerbilang: rupiahInWords(totalNum, lang, useUsd),
-                    netReceived: formatRp(totalNum - Number((quotation as any).pphAmount ?? 0), useUsd),
+                    // Grand total = total − DP yang sudah dibayar (kalau ada).
+                    total: formatRp(displayTotalNum, useUsd),
+                    totalTerbilang: rupiahInWords(displayTotalNum, lang, useUsd),
+                    netReceived: formatRp(displayTotalNum - Number((quotation as any).pphAmount ?? 0), useUsd),
+                    dpPaid: formatRp(dpPaidNum, useUsd),
+                    displayDpPaidRow: dpPaidNum > 0,
                     showPph: showPphFlag,
                     showDiscount: showDiscountFlag,
                     // Display flags — gabungan toggle + isInvoice. Template pakai ini.

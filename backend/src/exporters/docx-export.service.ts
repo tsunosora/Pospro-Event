@@ -212,6 +212,12 @@ function pphAndNetRows(ctx: QuotationRenderContext, labelSpan: number): TableRow
     return rows;
 }
 
+/** Baris "DP Sudah Dibayar" (dikurangkan dari grand total) — kosong kalau tidak ada DP terbayar. */
+function dpPaidRows(ctx: QuotationRenderContext, labelSpan: number): TableRow[] {
+    if (!ctx.totals.displayDpPaidRow) return [];
+    return [totalRow(ctx.i18n.dpSudahDibayar, `-${ctx.totals.dpPaid}`, labelSpan, { bold: true, color: TOTAL_RED })];
+}
+
 // ── MODE: DETAILED (default) — tabel lengkap qty/harga/jumlah per item ──────────
 function buildDetailedTable(ctx: QuotationRenderContext, theme: DocxTheme): Table {
     const t = ctx.i18n;
@@ -228,6 +234,7 @@ function buildDetailedTable(ctx: QuotationRenderContext, theme: DocxTheme): Tabl
         rows.push(totalRow(t.totalHargaPenawaran, ctx.totals.total, 4, { bold: true }));
         rows.push(totalRow(t.hargaPaket, ctx.packagePriceFormatted, 4, { bold: true, bg: theme.subtle }));
     } else {
+        rows.push(...dpPaidRows(ctx, 4));
         rows.push(totalRow(t.grandTotal, ctx.totals.total, 4, { bold: true, bg: TOTAL_BG }));
         rows.push(...pphAndNetRows(ctx, 4));
     }
@@ -265,6 +272,7 @@ function buildCategorySummaryTable(ctx: QuotationRenderContext, theme: DocxTheme
     rows.push(totalRow(t.subtotalKeseluruhan, ctx.totals.subtotal, 2, { bold: true }));
     if (ctx.totals.displayDiscountRow) rows.push(totalRow(t.diskon, `(${ctx.totals.discount})`, 2, { bold: true }));
     if (ctx.totals.hasPpn) rows.push(totalRow(ppnLabel(ctx), ctx.totals.taxAmount, 2, { bold: true }));
+    rows.push(...dpPaidRows(ctx, 2));
     rows.push(totalRow(t.grandTotal, ctx.totals.total, 2, { bold: true, bg: TOTAL_BG }));
     rows.push(...pphAndNetRows(ctx, 2));
     return tableOf(rows);
@@ -285,7 +293,10 @@ function buildEventGroupedTable(ctx: QuotationRenderContext, theme: DocxTheme): 
         if (ctx.totals.displayDiscountRow) rows.push(totalRow(t.diskon, `(${ctx.totals.discount})`, 4, { bold: true }));
         if (ctx.totals.hasPpn) rows.push(totalRow(ppnLabel(ctx), ctx.totals.taxAmount, 4, { bold: true }));
         if (ctx.packagePriceFormatted) rows.push(totalRow(t.hargaPaket, ctx.packagePriceFormatted, 4, { bold: true, bg: theme.subtle }));
-        else rows.push(totalRow(t.grandTotal, ctx.totals.total, 4, { bold: true, bg: TOTAL_BG }));
+        else {
+            rows.push(...dpPaidRows(ctx, 4));
+            rows.push(totalRow(t.grandTotal, ctx.totals.total, 4, { bold: true, bg: TOTAL_BG }));
+        }
         rows.push(...pphAndNetRows(ctx, 4));
     }
     return tableOf(rows);
@@ -321,9 +332,16 @@ function buildPackageSection(ctx: QuotationRenderContext, theme: DocxTheme): (Pa
         }
     }
     if (ctx.showGrandTotal) {
+        if (ctx.totals.displayDpPaidRow) {
+            out.push(new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                spacing: { before: 100 },
+                children: [new TextRun({ text: `${t.dpSudahDibayar}: -${ctx.totals.dpPaid}`, bold: true, color: TOTAL_RED, size: 22 })],
+            }));
+        }
         out.push(new Paragraph({
             alignment: AlignmentType.RIGHT,
-            spacing: { before: 100 },
+            spacing: { before: ctx.totals.displayDpPaidRow ? 0 : 100 },
             children: [new TextRun({ text: `${t.grandTotal}: ${ctx.totals.total}`, bold: true, size: 22 })],
         }));
     }
@@ -359,8 +377,8 @@ function imageUrlToBuffer(url: string | null | undefined): Buffer | null {
 export class DocxExportService {
     constructor(private contextBuilder: QuotationContextBuilder) { }
 
-    async renderQuotationDocx(quotationId: number): Promise<Buffer> {
-        const ctx = await this.contextBuilder.build(quotationId);
+    async renderQuotationDocx(quotationId: number, dpPaid?: number): Promise<Buffer> {
+        const ctx = await this.contextBuilder.build(quotationId, { dpPaid });
         const t = ctx.i18n;
         const theme = resolveDocxTheme(ctx);
 

@@ -91,6 +91,8 @@ export interface Quotation {
     signCity: string | null;
     validUntil: string | null;
     dpPercent: string;
+    dpPaidMode: 'auto' | 'custom' | null;   // mode "DP Sudah Dibayar"
+    dpPaidCustom: string | null;            // Decimal — nominal DP custom (kalau mode custom)
     bankAccountIds: string | null;
     notes: string | null;
     taxRate: string;
@@ -474,11 +476,14 @@ function parseFilenameFromDisposition(disposition: string | undefined | null): s
 }
 
 // Fetch export as blob + filename dari Content-Disposition (butuh token di header).
+// dpPaid: DP yang sudah dibayar — dikurangkan dari grand total di PDF/DOCX (bukan SPK).
 export const downloadQuotationExport = async (
     id: number,
     format: 'pdf' | 'docx' | 'spk-pdf',
+    dpPaid?: number,
 ): Promise<{ blob: Blob; filename: string }> => {
-    const res = await api.get(`/quotations/${id}/export/${format}`, { responseType: 'blob' });
+    const params = dpPaid && dpPaid > 0 && format !== 'spk-pdf' ? { dpPaid } : undefined;
+    const res = await api.get(`/quotations/${id}/export/${format}`, { responseType: 'blob', params });
     const disposition =
         res.headers['content-disposition'] ?? res.headers['Content-Disposition'];
     const filename =

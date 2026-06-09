@@ -506,6 +506,11 @@ model Invoice {
   additionalEvents  Json?             @map("additional_events")
   bankAccountIds    String?           @map("bank_account_ids") @db.VarChar(200) // CSV id bank yang dicantumkan di penawaran
   dpPercent         Decimal           @default(50) @map("dp_percent") @db.Decimal(5, 2)
+  // "DP Sudah Dibayar" — dikurangkan dari grand total saat render invoice.
+  //   dpPaidMode: "auto" (jumlah dari invoice DP anak yg sudah dibayar) | "custom" (override manual)
+  //   dpPaidCustom: nominal manual (dipakai kalau mode "custom")
+  dpPaidMode        String?           @map("dp_paid_mode") @db.VarChar(10)
+  dpPaidCustom      Decimal?          @map("dp_paid_custom") @db.Decimal(15, 2)
   rabPlanId         Int?              @map("rab_plan_id")
   brand             EventBrand?
   signCity          String?           @map("sign_city") @db.VarChar(100) // Kota lokasi surat dibuat (mis. "Semarang"); kalau null pakai default dari brand address

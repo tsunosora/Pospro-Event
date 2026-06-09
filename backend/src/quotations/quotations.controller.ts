@@ -350,9 +350,17 @@ export class QuotationsController {
 
     @Get(':id/export/pdf')
     @Header('Content-Type', 'application/pdf')
-    async exportPdf(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+    async exportPdf(
+        @Param('id', ParseIntPipe) id: number,
+        @Query('dpPaid') dpPaid: string | undefined,
+        @Res() res: Response,
+    ) {
         const inv = await this.service.findOne(id);
-        const pdf = await this.pdfExport.renderQuotationPdf(id);
+        const dpPaidNum = dpPaid !== undefined ? Number(dpPaid) : undefined;
+        const pdf = await this.pdfExport.renderQuotationPdf(
+            id,
+            Number.isFinite(dpPaidNum) ? dpPaidNum : undefined,
+        );
         // Filename: kalau nomor sudah di-assign → pakai nomor, kalau masih DRAFT → pakai
         // kombinasi nama project + klien supaya tidak random "DRAFT-1777891675959.pdf".
         // buildContentDisposition() handle sanitize ASCII + RFC 5987 UTF-8 encoding,
@@ -375,9 +383,17 @@ export class QuotationsController {
     }
 
     @Get(':id/export/docx')
-    async exportDocx(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+    async exportDocx(
+        @Param('id', ParseIntPipe) id: number,
+        @Query('dpPaid') dpPaid: string | undefined,
+        @Res() res: Response,
+    ) {
         const inv = await this.service.findOne(id);
-        const docx = await this.docxExport.renderQuotationDocx(id);
+        const dpPaidNum = dpPaid !== undefined ? Number(dpPaid) : undefined;
+        const docx = await this.docxExport.renderQuotationDocx(
+            id,
+            Number.isFinite(dpPaidNum) ? dpPaidNum : undefined,
+        );
         res.setHeader(
             'Content-Type',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

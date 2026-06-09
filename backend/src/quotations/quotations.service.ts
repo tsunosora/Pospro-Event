@@ -260,6 +260,8 @@ export class QuotationsService {
                 signCity: dto.signCity?.trim() || null,
                 validUntil: dto.validUntil ? new Date(dto.validUntil) : null,
                 dpPercent: toDecimal(dto.dpPercent ?? 50, '50'),
+                dpPaidMode: dto.dpPaidMode ?? null,
+                dpPaidCustom: dto.dpPaidCustom != null ? toDecimal(dto.dpPaidCustom) : null,
                 bankAccountIds: dto.bankAccountIds,
                 notes: dto.notes,
                 customOpeningText: dto.customOpeningText?.trim() || null,
@@ -506,6 +508,8 @@ export class QuotationsService {
                         ? { validUntil: dto.validUntil ? new Date(dto.validUntil) : null }
                         : {}),
                     ...(dto.dpPercent !== undefined ? { dpPercent: toDecimal(dto.dpPercent) } : {}),
+                    ...(dto.dpPaidMode !== undefined ? { dpPaidMode: dto.dpPaidMode || null } : {}),
+                    ...(dto.dpPaidCustom !== undefined ? { dpPaidCustom: dto.dpPaidCustom != null ? toDecimal(dto.dpPaidCustom) : null } : {}),
                     ...(dto.bankAccountIds !== undefined ? { bankAccountIds: dto.bankAccountIds } : {}),
                     ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
                     ...(dto.taxRate !== undefined ? { taxRate: toDecimal(dto.taxRate) } : {}),

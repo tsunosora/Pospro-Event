@@ -316,6 +316,9 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setGrossUpPph(!!(data as any).grossUpPph);
         setDiscount(Number(data.discount ?? 0));
         setDpPercent(Number(data.dpPercent ?? 50));
+        // DP Sudah Dibayar — restore mode & nominal custom dari DB
+        setDpPaidMode((data as any).dpPaidMode === 'custom' ? 'custom' : 'auto');
+        setDpPaidCustom((data as any).dpPaidCustom != null ? String(Number((data as any).dpPaidCustom)) : "");
         setNotes(data.notes ?? "");
         setBrand(data.brand);
         setVariantCode(data.variantCode ?? null);
@@ -687,6 +690,9 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             grossUpPph,
             discount,
             dpPercent,
+            // DP Sudah Dibayar — simpan mode + nominal custom (custom dikurangkan dari grand total)
+            dpPaidMode,
+            dpPaidCustom: dpPaidMode === 'custom' ? (parseFloat(dpPaidCustom) || 0) : null,
             notes,
             // Save apa adanya: nilai textarea = nilai tersimpan.
             // Kalau user mau revert ke brand default, klik tombol "✕ Reset" di tiap PrependAppendField
@@ -763,7 +769,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setPreviewLoading(true);
         setPreviewOpen(true);
         try {
-            const { blob } = await downloadQuotationExport(id, type);
+            const { blob } = await downloadQuotationExport(id, type, effectiveDpPaid);
             if (previewUrl) URL.revokeObjectURL(previewUrl);
             const url = URL.createObjectURL(blob);
             setPreviewUrl(url);
@@ -781,7 +787,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setPreviewType(type);
         setPreviewLoading(true);
         try {
-            const { blob } = await downloadQuotationExport(id, type);
+            const { blob } = await downloadQuotationExport(id, type, effectiveDpPaid);
             if (previewUrl) URL.revokeObjectURL(previewUrl);
             setPreviewUrl(URL.createObjectURL(blob));
         } catch (err: any) {
@@ -803,7 +809,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             await updateQuotation(id, { itemDisplayMode: newMode });
             qc.invalidateQueries({ queryKey: ["quotation", id] });
             // Re-fetch PDF (mengikuti type yang sedang di-preview)
-            const { blob } = await downloadQuotationExport(id, previewType);
+            const { blob } = await downloadQuotationExport(id, previewType, effectiveDpPaid);
             if (previewUrl) URL.revokeObjectURL(previewUrl);
             setPreviewUrl(URL.createObjectURL(blob));
         } catch (err: any) {
@@ -831,7 +837,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
     const handleExport = async (format: "pdf" | "docx" | "spk-pdf") => {
         try {
-            const { blob, filename } = await downloadQuotationExport(id, format);
+            const { blob, filename } = await downloadQuotationExport(id, format, effectiveDpPaid);
             const url = URL.createObjectURL(blob);
             // Pakai <a download> untuk PDF & DOCX supaya nama file dari server (Content-Disposition)
             // dipakai Windows/Save As dialog. window.open() bikin browser pakai blob UUID jadi nama.
@@ -2725,16 +2731,26 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     <td className="py-1 text-right font-mono">- {rp(computedPphAmount)}</td>
                                 </tr>
                             )}
+                            {effectiveDpPaid > 0 && (
+                                <tr className="text-amber-700">
+                                    <td className="py-1">DP Sudah Dibayar</td>
+                                    <td className="py-1 text-right font-mono">- {rp(effectiveDpPaid)}</td>
+                                </tr>
+                            )}
                             <tr className="border-t font-bold text-lg">
-                                <td className="py-2">Grand Total {computedTaxAmount > 0 && <span className="text-[10px] font-normal text-slate-500">(termasuk PPN)</span>}</td>
-                                <td className="py-2 text-right">{rp(total)}</td>
+                                <td className="py-2">Grand Total {computedTaxAmount > 0 && <span className="text-[10px] font-normal text-slate-500">(termasuk PPN)</span>}{effectiveDpPaid > 0 && <span className="text-[10px] font-normal text-amber-600"> (setelah DP)</span>}</td>
+                                <td className="py-2 text-right">{rp(total - effectiveDpPaid)}</td>
                             </tr>
-                            <Row label={`DP ${dpPercent}%`} value={rp(dpAmount)} />
-                            <Row label="Pelunasan" value={rp(total - dpAmount)} />
+                            {effectiveDpPaid <= 0 && (
+                                <>
+                                    <Row label={`DP ${dpPercent}%`} value={rp(dpAmount)} />
+                                    <Row label="Pelunasan" value={rp(total - dpAmount)} />
+                                </>
+                            )}
                             {computedPphAmount > 0 && (
                                 <tr className="text-emerald-700 border-t">
                                     <td className="py-1 text-xs">Jumlah diterima <span className="text-[10px] font-normal">(setelah klien potong PPh)</span></td>
-                                    <td className="py-1 text-right font-mono text-xs">{rp(netReceived)}</td>
+                                    <td className="py-1 text-right font-mono text-xs">{rp(netReceived - effectiveDpPaid)}</td>
                                 </tr>
                             )}
                         </tbody>

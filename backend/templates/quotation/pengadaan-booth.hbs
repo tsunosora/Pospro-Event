@@ -334,6 +334,12 @@
           <td class="rp">{{packagePriceFormatted}}</td>
         </tr>
         {{else}}
+        {{#if totals.displayDpPaidRow}}
+        <tr>
+          <td colspan="4" class="label" style="color:#b91c1c;">{{i18n.dpSudahDibayar}}</td>
+          <td class="rp" style="color:#b91c1c;">-{{totals.dpPaid}}</td>
+        </tr>
+        {{/if}}
         <tr class="grand-total">
           <td colspan="4" class="label">{{i18n.grandTotal}}</td>
           <td class="rp">{{totals.total}}</td>
@@ -389,6 +395,7 @@
     </div>
     {{#if showGrandTotal}}
     <div class="terbilang" style="margin-top: 8pt; text-align: right;">
+      {{#if totals.displayDpPaidRow}}<div style="color:#b91c1c;">{{i18n.dpSudahDibayar}}: -{{totals.dpPaid}}</div>{{/if}}
       <strong>{{i18n.grandTotal}}: {{totals.total}}</strong>
     </div>
     {{/if}}
@@ -450,6 +457,12 @@
         <tr>
           <td colspan="2" class="label">{{i18n.ppn}}{{#if totals.taxRate}} {{totals.taxRate}}%{{/if}}</td>
           <td class="rp">{{totals.taxAmount}}</td>
+        </tr>
+        {{/if}}
+        {{#if totals.displayDpPaidRow}}
+        <tr>
+          <td colspan="2" class="label" style="color:#b91c1c;">{{i18n.dpSudahDibayar}}</td>
+          <td class="rp" style="color:#b91c1c;">-{{totals.dpPaid}}</td>
         </tr>
         {{/if}}
         <tr class="grand-total">
@@ -535,6 +548,12 @@
           <td class="rp">{{packagePriceFormatted}}</td>
         </tr>
         {{else}}
+        {{#if totals.displayDpPaidRow}}
+        <tr>
+          <td colspan="4" class="label" style="color:#b91c1c;">{{i18n.dpSudahDibayar}}</td>
+          <td class="rp" style="color:#b91c1c;">-{{totals.dpPaid}}</td>
+        </tr>
+        {{/if}}
         <tr class="grand-total">
           <td colspan="4" class="label">{{i18n.grandTotal}}</td>
           <td class="rp">{{totals.total}}</td>
