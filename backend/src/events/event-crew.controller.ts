@@ -14,7 +14,7 @@ import {
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { EventCrewService } from './event-crew.service';
-import type { CreateAssignmentInput, UpdateAssignmentInput } from './event-crew.service';
+import type { CreateAssignmentInput, UpdateAssignmentInput, WageTierInput } from './event-crew.service';
 
 @Controller('event-crew')
 @UseGuards(JwtAuthGuard)
@@ -31,6 +31,27 @@ export class EventCrewController {
         return this.svc.report(eventId ? parseInt(eventId, 10) : undefined);
     }
 
+    // ── Wage tiers (tarif gaji per event) ──
+    @Get('tiers/by-event/:eventId')
+    listTiers(@Param('eventId', ParseIntPipe) eventId: number) {
+        return this.svc.listTiers(eventId);
+    }
+
+    @Post('tiers')
+    createTier(@Body() body: WageTierInput & { eventId: number }) {
+        return this.svc.createTier(body.eventId, body);
+    }
+
+    @Patch('tiers/:id')
+    updateTier(@Param('id', ParseIntPipe) id: number, @Body() body: WageTierInput) {
+        return this.svc.updateTier(id, body);
+    }
+
+    @Delete('tiers/:id')
+    removeTier(@Param('id', ParseIntPipe) id: number) {
+        return this.svc.removeTier(id);
+    }
+
     @Post('bulk')
     bulk(
         @Body() body: {
@@ -40,6 +61,9 @@ export class EventCrewController {
             role?: string | null;
             scheduledStart?: string | null;
             scheduledEnd?: string | null;
+            wageTierId?: number | null;
+            dailyWageRate?: number | string | null;
+            overtimeRatePerHour?: number | string | null;
         },
     ) {
         return this.svc.createBulk(body.eventId, body.workerIds ?? [], {
@@ -47,6 +71,9 @@ export class EventCrewController {
             role: body.role,
             scheduledStart: body.scheduledStart,
             scheduledEnd: body.scheduledEnd,
+            wageTierId: body.wageTierId,
+            dailyWageRate: body.dailyWageRate,
+            overtimeRatePerHour: body.overtimeRatePerHour,
         });
     }
 

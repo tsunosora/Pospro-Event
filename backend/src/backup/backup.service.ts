@@ -13,7 +13,17 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.18 (current) — Invoice "DP Sudah Dibayar" (potong grand total & jumlah ditagih):
+// v2.20 (current) — Tier gaji per event + assign cepat:
+//   - NEW TABLE: EventWageTier (event_wage_tiers) — tarif gaji per event (PIC/Member/
+//     Crew Baru/dll). DIDAFTARKAN di grup 'eventCrew' + urutan restore (setelah event,
+//     sebelum eventCrewAssignment karena FK wageTierId).
+//   - EventCrewAssignment.wageTierId — referensi tier; gaji ikut tarif tier.
+// v2.19 — Gaji per member di event (override per crew assignment):
+//   - EventCrewAssignment.dailyWageRate + overtimeRatePerHour — override gaji & lembur
+//     per member untuk event ini (menang di atas rate event/matrix/worker). Dipakai di
+//     payroll resolveRates() sebagai prioritas tertinggi.
+//   - Field baru di tabel existing → otomatis ter-include (findMany tanpa select).
+// v2.18 — Invoice "DP Sudah Dibayar" (potong grand total & jumlah ditagih):
 //   - Invoice.dpPaidMode ('auto'|'custom') + dpPaidCustom (Decimal) — nominal DP yang sudah
 //     dibayar, dikurangkan dari grand total & amountToPay saat render invoice. Mode 'auto'
 //     dihitung dari paidAmount invoice DP anak; 'custom' = override manual.
@@ -207,7 +217,7 @@ export const BACKUP_GROUPS = {
     },
     eventCrew: {
         label: 'Crew Lapangan & Team',
-        tables: ['crewTeam', 'eventCrewAssignment'],
+        tables: ['crewTeam', 'eventWageTier', 'eventCrewAssignment'],
     },
     rab: {
         label: 'RAB & Penomoran',
@@ -259,7 +269,8 @@ const RESTORE_ORDER = [
     'invoiceDueDateHistory',                    // → setelah invoice & user (FK invoiceId + changedById)
     'event',                                    // → setelah customer & rabPlan
     'crewTeam',                                 // → setelah worker (FK leaderWorkerId optional)
-    'eventCrewAssignment',                      // → setelah event, worker, crewTeam
+    'eventWageTier',                            // → setelah event (FK eventId); sebelum eventCrewAssignment (FK wageTierId)
+    'eventCrewAssignment',                      // → setelah event, worker, crewTeam, eventWageTier
     'eventPackingItem',                         // → setelah event, productVariant, storageLocation, worker
     'withdrawal', 'withdrawalItem',             // → setelah event, worker, warehouse, productVariant
     'rabItem',                                  // → setelah rabPlan, rabCategory, productVariant, eventPackingItem
@@ -323,7 +334,7 @@ export class BackupService {
 
         const backupJson = {
             meta: {
-                version: '2.18',
+                version: '2.20',
                 createdAt: new Date().toISOString(),
                 app: 'PosPro',
                 tables: tablesToExport,

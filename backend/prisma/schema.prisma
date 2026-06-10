@@ -1595,11 +1595,32 @@ model Event {
   crewAssignments  EventCrewAssignment[]
   cashflows        Cashflow[]
   attendances      Attendance[]            @relation("EventAttendance")
+  wageTiers        EventWageTier[]
 
   @@index([status])
   @@index([eventStart])
   @@index([brand])
   @@map("events")
+}
+
+// Tarif gaji (tier) per event — didefinisikan sekali (mis. PIC, Member, Crew Baru)
+// berdasarkan anggaran. Crew di-assign ke salah satu tier → gaji otomatis.
+// Ubah tarif di sini → semua crew yang pakai tier ini ikut update.
+model EventWageTier {
+  id                  Int      @id @default(autoincrement())
+  eventId             Int      @map("event_id")
+  name                String   @db.VarChar(80)
+  dailyWageRate       Decimal? @map("daily_wage_rate") @db.Decimal(12, 2)
+  overtimeRatePerHour Decimal? @map("overtime_rate_per_hour") @db.Decimal(12, 2)
+  sortOrder           Int      @default(0) @map("sort_order")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
+
+  event       Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  assignments EventCrewAssignment[]
+
+  @@index([eventId])
+  @@map("event_wage_tiers")
 }
 
 // ----- Event Crew Setup-Time Tracking ----- //
@@ -1628,6 +1649,13 @@ model EventCrewAssignment {
   role            String?   @db.VarChar(80)
   scheduledStart  DateTime? @map("scheduled_start")
   scheduledEnd    DateTime? @map("scheduled_end")
+  // Tier gaji yang dipilih untuk member ini (referensi ke EventWageTier).
+  // Kalau di-set, gaji ikut tarif tier (ubah tier → ikut update).
+  wageTierId      Int?      @map("wage_tier_id")
+  // Override gaji per member untuk event ini (paling spesifik — menang di atas
+  // tier/PIC/event/matrix/worker). Kosong = pakai tier atau default.
+  dailyWageRate       Decimal? @map("daily_wage_rate") @db.Decimal(12, 2)
+  overtimeRatePerHour Decimal? @map("overtime_rate_per_hour") @db.Decimal(12, 2)
   startedAt       DateTime? @map("started_at")
   finishedAt      DateTime? @map("finished_at")
   startPhotoUrl   String?   @map("start_photo_url") @db.Text
@@ -1638,14 +1666,16 @@ model EventCrewAssignment {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  event  Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  worker Worker    @relation(fields: [workerId], references: [id])
-  team   CrewTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  event    Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  worker   Worker         @relation(fields: [workerId], references: [id])
+  team     CrewTeam?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  wageTier EventWageTier? @relation(fields: [wageTierId], references: [id], onDelete: SetNull)
 
   @@unique([eventId, workerId])
   @@index([eventId])
   @@index([workerId])
   @@index([teamId])
+  @@index([wageTierId])
   @@map("event_crew_assignments")
 }
 

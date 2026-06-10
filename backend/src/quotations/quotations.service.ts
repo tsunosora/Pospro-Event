@@ -624,7 +624,7 @@ export class QuotationsService {
      */
     async generateInvoiceFromQuotation(
         quotationId: number,
-        options: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string },
+        options: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string; invoiceDate?: string },
     ): Promise<InvoiceWithItems> {
         const quotation = await this.prisma.invoice.findUnique({
             where: { id: quotationId },
@@ -690,6 +690,10 @@ export class QuotationsService {
         const invoiceNumber = `${seq}/${kode}/Inv/${mm}/${yy}`;
 
         const dueDate = options.dueDate ? new Date(options.dueDate) : null;
+        // Tanggal invoice — bisa di-custom (mis. invoice terbit beberapa hari/minggu
+        // setelah event). Kalau tidak diisi, pakai waktu pembuatan (now).
+        // Catatan: nomor invoice tetap pakai `now` agar urutan sekuens tidak terganggu.
+        const issueDate = options.invoiceDate ? new Date(options.invoiceDate) : now;
 
         return this.prisma.invoice.create({
             data: {
@@ -719,7 +723,7 @@ export class QuotationsService {
                 eventDateEnd: quotation.eventDateEnd,
                 additionalEvents: (quotation.additionalEvents ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
 
-                date: now,
+                date: issueDate,
                 dueDate,
                 dpPercent: quotation.dpPercent,
                 bankAccountIds: quotation.bankAccountIds,

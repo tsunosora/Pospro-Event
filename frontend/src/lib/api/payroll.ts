@@ -50,7 +50,7 @@ export interface WeeklySummary {
             status: AttendanceStatus | null;
             overtimeHours: number;
             total: number;
-            source: 'event-pic' | 'event' | 'matrix' | 'worker' | 'none' | null;
+            source: 'assignment' | 'event-pic' | 'event' | 'matrix' | 'worker' | 'none' | null;
             cityKey: string | null;
             divisionKey: string | null;
             eventId: number | null;

@@ -10,6 +10,11 @@ export interface CreateAssignmentInput {
     role?: string | null;
     scheduledStart?: string | null;
     scheduledEnd?: string | null;
+    // Tier gaji (referensi EventWageTier) — gaji ikut tarif tier.
+    wageTierId?: number | null;
+    // Override gaji per member (opsional). Menang di atas tier. Kosong = pakai tier/default.
+    dailyWageRate?: number | string | null;
+    overtimeRatePerHour?: number | string | null;
 }
 
 export interface UpdateAssignmentInput {
@@ -17,6 +22,16 @@ export interface UpdateAssignmentInput {
     role?: string | null;
     scheduledStart?: string | null;
     scheduledEnd?: string | null;
+    wageTierId?: number | null;
+    dailyWageRate?: number | string | null;
+    overtimeRatePerHour?: number | string | null;
+}
+
+export interface WageTierInput {
+    name?: string;
+    dailyWageRate?: number | string | null;
+    overtimeRatePerHour?: number | string | null;
+    sortOrder?: number;
 }
 
 @Injectable()
@@ -36,6 +51,13 @@ export class EventCrewService {
         return isNaN(dt.getTime()) ? null : dt;
     }
 
+    /** Normalisasi input gaji (string/number/'' / null) → number | null untuk Decimal. */
+    private parseRate(v?: number | string | null): number | null {
+        if (v == null || v === '') return null;
+        const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^\d.]/g, ''));
+        return Number.isFinite(n) ? n : null;
+    }
+
     async listByEvent(eventId: number) {
         return this.prisma.eventCrewAssignment.findMany({
             where: { eventId },
@@ -47,9 +69,46 @@ export class EventCrewService {
                         leader: { select: { id: true, name: true, phone: true } },
                     },
                 },
+                wageTier: { select: { id: true, name: true, dailyWageRate: true, overtimeRatePerHour: true } },
             },
             orderBy: [{ teamId: 'asc' }, { scheduledStart: 'asc' }, { id: 'asc' }],
         });
+    }
+
+    // ── Wage tiers (tarif gaji per event) ──
+    async listTiers(eventId: number) {
+        return this.prisma.eventWageTier.findMany({
+            where: { eventId },
+            orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+        });
+    }
+
+    async createTier(eventId: number, input: WageTierInput) {
+        if (!eventId) throw new BadRequestException('eventId wajib');
+        return this.prisma.eventWageTier.create({
+            data: {
+                eventId,
+                name: (input.name ?? '').trim() || 'Tier',
+                dailyWageRate: this.parseRate(input.dailyWageRate),
+                overtimeRatePerHour: this.parseRate(input.overtimeRatePerHour),
+                sortOrder: input.sortOrder ?? 0,
+            },
+        });
+    }
+
+    async updateTier(id: number, input: WageTierInput) {
+        const data: Record<string, unknown> = {};
+        if (input.name !== undefined) data.name = input.name.trim() || 'Tier';
+        if (input.dailyWageRate !== undefined) data.dailyWageRate = this.parseRate(input.dailyWageRate);
+        if (input.overtimeRatePerHour !== undefined) data.overtimeRatePerHour = this.parseRate(input.overtimeRatePerHour);
+        if (input.sortOrder !== undefined) data.sortOrder = input.sortOrder;
+        return this.prisma.eventWageTier.update({ where: { id }, data });
+    }
+
+    async removeTier(id: number) {
+        // Assignment yang pakai tier ini otomatis wageTierId → null (onDelete: SetNull)
+        await this.prisma.eventWageTier.delete({ where: { id } });
+        return { ok: true };
     }
 
     async create(input: CreateAssignmentInput, opts: { notify?: boolean; baseUrl?: string } = {}) {
@@ -70,6 +129,9 @@ export class EventCrewService {
                 role: input.role ?? null,
                 scheduledStart: this.parseDate(input.scheduledStart),
                 scheduledEnd: this.parseDate(input.scheduledEnd),
+                wageTierId: input.wageTierId ?? null,
+                dailyWageRate: this.parseRate(input.dailyWageRate),
+                overtimeRatePerHour: this.parseRate(input.overtimeRatePerHour),
                 accessToken: this.genToken(),
             },
             include: {
@@ -121,7 +183,7 @@ export class EventCrewService {
     async createBulk(
         eventId: number,
         workerIds: number[],
-        common: { teamId?: number | null; role?: string | null; scheduledStart?: string | null; scheduledEnd?: string | null } = {},
+        common: { teamId?: number | null; role?: string | null; scheduledStart?: string | null; scheduledEnd?: string | null; wageTierId?: number | null; dailyWageRate?: number | string | null; overtimeRatePerHour?: number | string | null } = {},
     ) {
         if (!eventId || !workerIds.length) {
             throw new BadRequestException('eventId & minimal 1 worker wajib');
@@ -146,6 +208,9 @@ export class EventCrewService {
                     role: common.role ?? null,
                     scheduledStart: this.parseDate(common.scheduledStart ?? null),
                     scheduledEnd: this.parseDate(common.scheduledEnd ?? null),
+                    wageTierId: common.wageTierId ?? null,
+                    dailyWageRate: this.parseRate(common.dailyWageRate),
+                    overtimeRatePerHour: this.parseRate(common.overtimeRatePerHour),
                     accessToken: this.genToken(),
                 },
             });
@@ -166,12 +231,16 @@ export class EventCrewService {
         if (input.role !== undefined) data.role = input.role;
         if (input.scheduledStart !== undefined) data.scheduledStart = this.parseDate(input.scheduledStart);
         if (input.scheduledEnd !== undefined) data.scheduledEnd = this.parseDate(input.scheduledEnd);
+        if (input.wageTierId !== undefined) data.wageTierId = input.wageTierId ?? null;
+        if (input.dailyWageRate !== undefined) data.dailyWageRate = this.parseRate(input.dailyWageRate);
+        if (input.overtimeRatePerHour !== undefined) data.overtimeRatePerHour = this.parseRate(input.overtimeRatePerHour);
         return this.prisma.eventCrewAssignment.update({
             where: { id },
             data,
             include: {
                 worker: { select: { id: true, name: true, position: true } },
                 team: { select: { id: true, name: true, color: true } },
+                wageTier: { select: { id: true, name: true, dailyWageRate: true, overtimeRatePerHour: true } },
             },
         });
     }

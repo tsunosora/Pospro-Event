@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    Users, Plus, Trash2, Copy, RefreshCw, Loader2, Camera, Clock, Check,
+    Users, Plus, Trash2, Copy, RefreshCw, Loader2, Camera, Clock, Check, Pencil, X,
 } from "lucide-react";
 import {
     listCrewByEvent,
@@ -14,7 +14,12 @@ import {
     reassignCrewTeamBulk,
     regenerateCrewToken,
     updateCrewAssignment,
+    listWageTiers,
+    createWageTier,
+    updateWageTier,
+    deleteWageTier,
     type EventCrewAssignment,
+    type EventWageTier,
 } from "@/lib/api/event-crew";
 import { getWorkers } from "@/lib/api/workers";
 import { listCrewTeams } from "@/lib/api/crew-teams";
@@ -50,35 +55,58 @@ export default function CrewTab({ eventId }: { eventId: number }) {
         queryFn: () => listCrewTeams(false),
     });
 
+    // ── Tarif gaji (tier) per event ──
+    const { data: tiers = [] } = useQuery({
+        queryKey: ["event-wage-tiers", eventId],
+        queryFn: () => listWageTiers(eventId),
+    });
+    const invalidateTiers = () => {
+        qc.invalidateQueries({ queryKey: ["event-wage-tiers", eventId] });
+        qc.invalidateQueries({ queryKey: ["event-crew", eventId] }); // gaji resolved bisa berubah
+    };
+    const createTierMut = useMutation({ mutationFn: createWageTier, onSuccess: invalidateTiers });
+    const updateTierMut = useMutation({
+        mutationFn: ({ id, ...patch }: { id: number; name?: string; dailyWageRate?: string | null; overtimeRatePerHour?: string | null }) => updateWageTier(id, patch),
+        onSuccess: invalidateTiers,
+    });
+    const deleteTierMut = useMutation({ mutationFn: deleteWageTier, onSuccess: invalidateTiers });
+
     const [showForm, setShowForm] = useState(false);
-    const [mode, setMode] = useState<"single" | "bulk">("single");
-    const [form, setForm] = useState({ workerId: "", teamId: "", role: "", scheduledStart: "", scheduledEnd: "" });
+    const [form, setForm] = useState({ workerId: "", teamId: "", role: "", scheduledStart: "", scheduledEnd: "", wageTierId: "", dailyWageRate: "", overtimeRatePerHour: "" });
     const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<number>>(new Set());
     const [autoNotify, setAutoNotify] = useState(true);
-    const [notifyResult, setNotifyResult] = useState<{ crew: boolean; leader: boolean; workerName: string } | null>(null);
 
-    const createMut = useMutation({
-        mutationFn: ({ input, notify }: { input: Parameters<typeof createCrewAssignment>[0]; notify: boolean }) =>
-            createCrewAssignment(input, { notify }),
-        onSuccess: (data) => {
-            qc.invalidateQueries({ queryKey: ["event-crew", eventId] });
-            setShowForm(false);
-            setForm({ workerId: "", teamId: "", role: "", scheduledStart: "", scheduledEnd: "" });
-            if (data._notified && (data._notified.crew || data._notified.leader)) {
-                setNotifyResult({ crew: data._notified.crew, leader: data._notified.leader, workerName: data.worker.name });
-                setTimeout(() => setNotifyResult(null), 5000);
+    // Assign crew terpilih (centang). Kalau WA aktif → loop single-create biar tiap crew
+    // dapat WA + link check-in; kalau tidak → bulk (1 request, cepat).
+    const assignMut = useMutation({
+        mutationFn: async () => {
+            const ids = Array.from(bulkSelectedIds);
+            const common = {
+                teamId: form.teamId ? Number(form.teamId) : null,
+                role: form.role || null,
+                scheduledStart: form.scheduledStart || null,
+                scheduledEnd: form.scheduledEnd || null,
+                wageTierId: form.wageTierId ? Number(form.wageTierId) : null,
+                dailyWageRate: form.dailyWageRate || null,
+                overtimeRatePerHour: form.overtimeRatePerHour || null,
+            };
+            if (autoNotify) {
+                let notified = 0;
+                for (const workerId of ids) {
+                    const res = await createCrewAssignment({ eventId, workerId, ...common }, { notify: true });
+                    if (res._notified?.crew) notified++;
+                }
+                return { created: ids.length, skipped: 0, notified };
             }
+            const res = await createCrewAssignmentsBulk({ eventId, workerIds: ids, ...common });
+            return { created: res.created, skipped: res.skipped, notified: 0 };
         },
-    });
-
-    const bulkMut = useMutation({
-        mutationFn: createCrewAssignmentsBulk,
         onSuccess: (res) => {
             qc.invalidateQueries({ queryKey: ["event-crew", eventId] });
             setShowForm(false);
             setBulkSelectedIds(new Set());
-            setForm({ workerId: "", teamId: "", role: "", scheduledStart: "", scheduledEnd: "" });
-            alert(`✅ Berhasil assign ${res.created} crew${res.skipped > 0 ? ` (${res.skipped} skip karena sudah pernah di-assign)` : ""}`);
+            setForm({ workerId: "", teamId: "", role: "", scheduledStart: "", scheduledEnd: "", wageTierId: "", dailyWageRate: "", overtimeRatePerHour: "" });
+            alert(`✅ Assign ${res.created} crew${res.skipped > 0 ? ` (${res.skipped} skip, sudah ter-assign)` : ""}${res.notified > 0 ? ` · WA terkirim ke ${res.notified}` : ""}`);
         },
     });
 
@@ -138,10 +166,33 @@ export default function CrewTab({ eventId }: { eventId: number }) {
         onSuccess: () => qc.invalidateQueries({ queryKey: ["event-crew", eventId] }),
     });
     const updateMut = useMutation({
-        mutationFn: ({ id, ...patch }: { id: number; role?: string; scheduledStart?: string; scheduledEnd?: string }) =>
+        mutationFn: ({ id, ...patch }: { id: number; role?: string | null; scheduledStart?: string | null; scheduledEnd?: string | null; wageTierId?: number | null; dailyWageRate?: string | null; overtimeRatePerHour?: string | null }) =>
             updateCrewAssignment(id, patch),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ["event-crew", eventId] }),
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ["event-crew", eventId] }); setEditingId(null); },
     });
+
+    // Inline edit gaji/role per crew yang sudah ter-assign
+    const [editingId, setEditingId] = useState<number | null>(null);
+    const [editForm, setEditForm] = useState({ role: "", wageTierId: "", dailyWageRate: "", overtimeRatePerHour: "" });
+    function startEdit(a: EventCrewAssignment) {
+        setEditingId(a.id);
+        setEditForm({
+            role: a.role ?? "",
+            wageTierId: a.wageTierId != null ? String(a.wageTierId) : "",
+            dailyWageRate: a.dailyWageRate != null ? String(Number(a.dailyWageRate)) : "",
+            overtimeRatePerHour: a.overtimeRatePerHour != null ? String(Number(a.overtimeRatePerHour)) : "",
+        });
+    }
+    function saveEdit() {
+        if (editingId == null) return;
+        updateMut.mutate({
+            id: editingId,
+            role: editForm.role || null,
+            wageTierId: editForm.wageTierId ? Number(editForm.wageTierId) : null,
+            dailyWageRate: editForm.dailyWageRate || null,
+            overtimeRatePerHour: editForm.overtimeRatePerHour || null,
+        });
+    }
 
     const assignedIds = new Set(assignments.map((a) => a.workerId));
     const availableWorkers = workers.filter((w) => !assignedIds.has(w.id));
@@ -168,30 +219,8 @@ export default function CrewTab({ eventId }: { eventId: number }) {
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (mode === "single") {
-            if (!form.workerId) return;
-            createMut.mutate({
-                input: {
-                    eventId,
-                    workerId: Number(form.workerId),
-                    teamId: form.teamId ? Number(form.teamId) : null,
-                    role: form.role || null,
-                    scheduledStart: form.scheduledStart || null,
-                    scheduledEnd: form.scheduledEnd || null,
-                },
-                notify: autoNotify,
-            });
-        } else {
-            if (bulkSelectedIds.size === 0) return;
-            bulkMut.mutate({
-                eventId,
-                workerIds: Array.from(bulkSelectedIds),
-                teamId: form.teamId ? Number(form.teamId) : null,
-                role: form.role || null,
-                scheduledStart: form.scheduledStart || null,
-                scheduledEnd: form.scheduledEnd || null,
-            });
-        }
+        if (bulkSelectedIds.size === 0) return;
+        assignMut.mutate();
     }
 
     function toggleBulkWorker(id: number) {
@@ -217,6 +246,34 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                     </button>
                 )}
             </div>
+
+            {/* ── Tarif Gaji (Tier) per event ── */}
+            <details className="border border-emerald-200 bg-emerald-50/40 rounded-lg">
+                <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-emerald-800 flex items-center gap-2">
+                    💰 Tarif Gaji (Tier) — {tiers.length}
+                    <span className="text-[11px] font-normal text-muted-foreground ml-auto">klik untuk atur ▾</span>
+                </summary>
+                <div className="px-3 pb-3 space-y-2">
+                    <p className="text-[11px] text-muted-foreground">
+                        Tentukan tarif sekali (mis. PIC, Member, Crew Baru). Saat assign cukup pilih tier — gaji otomatis. Ubah tarif di sini → semua crew di tier itu ikut update.
+                    </p>
+                    {tiers.length > 0 && (
+                        <div className="grid grid-cols-[1.3fr_1fr_1fr_auto] gap-2 text-[10px] font-semibold text-muted-foreground px-0.5">
+                            <span>Nama Tier</span><span>Gaji Harian (Rp)</span><span>Lembur/Jam (Rp)</span><span></span>
+                        </div>
+                    )}
+                    {tiers.map((t) => (
+                        <TierRow
+                            key={t.id}
+                            tier={t}
+                            onSave={(patch) => updateTierMut.mutate({ id: t.id, ...patch })}
+                            onDelete={() => { if (confirm(`Hapus tier "${t.name}"? Crew yang pakai tier ini akan kembali ke default.`)) deleteTierMut.mutate(t.id); }}
+                            saving={updateTierMut.isPending}
+                        />
+                    ))}
+                    <AddTierForm onAdd={(draft) => createTierMut.mutate({ eventId, ...draft, sortOrder: tiers.length })} pending={createTierMut.isPending} />
+                </div>
+            </details>
 
             {/* Bulk action toolbar — visible saat ada selection */}
             {selectedAssignmentIds.size > 0 && (
@@ -279,94 +336,52 @@ export default function CrewTab({ eventId }: { eventId: number }) {
 
             {showForm && (
                 <form onSubmit={handleSubmit} className="border rounded-lg p-3 space-y-3 bg-muted/20">
-                    {/* Mode toggle */}
-                    <div className="flex items-center gap-2 text-xs">
-                        <span className="text-muted-foreground">Mode:</span>
-                        <div className="inline-flex rounded-md border border-border p-0.5 bg-background">
-                            <button
-                                type="button"
-                                onClick={() => { setMode("single"); setBulkSelectedIds(new Set()); }}
-                                className={`px-3 py-1 rounded ${mode === "single" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                            >
-                                Single Crew
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setMode("bulk"); setForm({ ...form, workerId: "" }); }}
-                                className={`px-3 py-1 rounded ${mode === "bulk" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                            >
-                                Bulk (Banyak Sekaligus)
-                            </button>
+                    {/* Step 1: centang worker */}
+                    <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-semibold">
+                                1. Centang worker {bulkSelectedIds.size > 0 && <span className="text-primary">({bulkSelectedIds.size} dipilih)</span>}
+                            </label>
+                            <div className="flex gap-2 text-xs">
+                                <button type="button" onClick={() => setBulkSelectedIds(new Set(availableWorkers.map((w) => w.id)))} className="text-primary hover:underline">Pilih Semua</button>
+                                <button type="button" onClick={() => setBulkSelectedIds(new Set())} className="text-muted-foreground hover:underline">Bersihkan</button>
+                            </div>
                         </div>
-                        {mode === "bulk" && (
-                            <span className="text-muted-foreground">
-                                {bulkSelectedIds.size} dipilih
-                            </span>
-                        )}
+                        <div className="border rounded-md bg-background max-h-56 overflow-y-auto p-1">
+                            {availableWorkers.length === 0 ? (
+                                <div className="p-3 text-xs text-muted-foreground italic text-center">Semua worker sudah ditugaskan ke event ini.</div>
+                            ) : (
+                                availableWorkers.map((w) => (
+                                    <label key={w.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm">
+                                        <input type="checkbox" checked={bulkSelectedIds.has(w.id)} onChange={() => toggleBulkWorker(w.id)} />
+                                        <span className="font-medium">{w.name}</span>
+                                        {w.position && <span className="text-xs text-muted-foreground">({w.position})</span>}
+                                    </label>
+                                ))
+                            )}
+                        </div>
                     </div>
 
-                    {mode === "single" ? (
-                        <div className="grid md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <label className="text-xs text-muted-foreground">Worker</label>
-                                <select
-                                    required
-                                    value={form.workerId}
-                                    onChange={(e) => setForm({ ...form, workerId: e.target.value })}
-                                    className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background"
-                                >
-                                    <option value="">— Pilih Worker —</option>
-                                    {availableWorkers.map((w) => (
-                                        <option key={w.id} value={w.id}>{w.name}{w.position ? ` (${w.position})` : ""}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                                <label className="text-xs text-muted-foreground">Pilih Worker (centang banyak)</label>
-                                <div className="flex gap-2 text-xs">
-                                    <button
-                                        type="button"
-                                        onClick={() => setBulkSelectedIds(new Set(availableWorkers.map((w) => w.id)))}
-                                        className="text-primary hover:underline"
-                                    >
-                                        Pilih Semua
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setBulkSelectedIds(new Set())}
-                                        className="text-muted-foreground hover:underline"
-                                    >
-                                        Bersihkan
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="border rounded-md bg-background max-h-48 overflow-y-auto p-1">
-                                {availableWorkers.length === 0 ? (
-                                    <div className="p-3 text-xs text-muted-foreground italic text-center">Semua worker sudah ditugaskan ke event ini.</div>
-                                ) : (
-                                    availableWorkers.map((w) => (
-                                        <label
-                                            key={w.id}
-                                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm"
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={bulkSelectedIds.has(w.id)}
-                                                onChange={() => toggleBulkWorker(w.id)}
-                                            />
-                                            <span className="font-medium">{w.name}</span>
-                                            {w.position && <span className="text-xs text-muted-foreground">({w.position})</span>}
-                                        </label>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    )}
-
+                    {/* Step 2: opsi muncul setelah ada yang dicentang */}
+                    {bulkSelectedIds.size > 0 && (
+                    <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
+                    <div className="text-xs font-semibold text-primary">2. Atur untuk {bulkSelectedIds.size} crew terpilih</div>
                     <div className="grid md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">💰 Tarif Gaji (Tier)</label>
+                        <select
+                            value={form.wageTierId}
+                            onChange={(e) => setForm({ ...form, wageTierId: e.target.value })}
+                            className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background"
+                        >
+                            <option value="">— Default (event/worker) —</option>
+                            {tiers.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                    {t.name}{t.dailyWageRate != null ? ` · Rp ${Number(t.dailyWageRate).toLocaleString("id-ID")}/hari` : ""}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                     <div className="space-y-1">
                         <label className="text-xs text-muted-foreground">Team</label>
                         <select
@@ -409,53 +424,58 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                             className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background"
                         />
                     </div>
+                    <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Gaji Harian (Rp) <span className="text-[10px]">— override manual, opsional</span></label>
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            value={form.dailyWageRate}
+                            onChange={(e) => setForm({ ...form, dailyWageRate: e.target.value.replace(/[^\d.]/g, "") })}
+                            placeholder="Kosong = pakai tier / default"
+                            className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
+                        />
                     </div>
+                    <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Lembur / Jam (Rp) <span className="text-[10px]">— opsional</span></label>
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            value={form.overtimeRatePerHour}
+                            onChange={(e) => setForm({ ...form, overtimeRatePerHour: e.target.value.replace(/[^\d.]/g, "") })}
+                            placeholder="Kosong = pakai default"
+                            className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
+                        />
+                    </div>
+                    </div>
+                    {(form.dailyWageRate || form.overtimeRatePerHour) && (
+                        <p className="text-[11px] text-amber-700">
+                            ⚠️ Override gaji manual ini diterapkan ke <b>semua</b> {bulkSelectedIds.size} crew terpilih. Untuk beda per orang, pakai tombol ✏️ Edit di tiap crew, atau pilih Tier berbeda.
+                        </p>
+                    )}
+                    </div>
+                    )}
 
                     <div className="flex items-center justify-between gap-2 pt-2 border-t">
-                        {mode === "single" ? (
-                            <label className="flex items-center gap-1.5 text-xs text-foreground/80">
-                                <input
-                                    type="checkbox"
-                                    checked={autoNotify}
-                                    onChange={(e) => setAutoNotify(e.target.checked)}
-                                />
-                                <span>💬 Kirim WA otomatis ke crew {form.teamId ? "& leader team" : ""}</span>
-                            </label>
-                        ) : (
-                            <span className="text-xs text-muted-foreground italic">
-                                Bulk mode tidak kirim WA otomatis (assign 1-per-1 untuk WA)
-                            </span>
-                        )}
+                        <label className="flex items-center gap-1.5 text-xs text-foreground/80">
+                            <input
+                                type="checkbox"
+                                checked={autoNotify}
+                                onChange={(e) => setAutoNotify(e.target.checked)}
+                            />
+                            <span>💬 Kirim WA + link check-in ke tiap crew</span>
+                        </label>
                         <div className="flex gap-2">
-                            <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted">Cancel</button>
+                            <button type="button" onClick={() => { setShowForm(false); setBulkSelectedIds(new Set()); }} className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted">Tutup</button>
                             <button
                                 type="submit"
-                                disabled={
-                                    createMut.isPending || bulkMut.isPending ||
-                                    (mode === "bulk" && bulkSelectedIds.size === 0)
-                                }
+                                disabled={assignMut.isPending || bulkSelectedIds.size === 0}
                                 className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                             >
-                                {createMut.isPending || bulkMut.isPending
-                                    ? "Menyimpan..."
-                                    : mode === "bulk"
-                                        ? `Save (${bulkSelectedIds.size})`
-                                        : "Save"}
+                                {assignMut.isPending ? "Menyimpan..." : `Assign${bulkSelectedIds.size > 0 ? ` (${bulkSelectedIds.size})` : ""}`}
                             </button>
                         </div>
                     </div>
                 </form>
-            )}
-
-            {notifyResult && (
-                <div className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-xs text-green-800 flex items-center gap-2">
-                    <span>✅</span>
-                    <span>
-                        WA terkirim ke <strong>{notifyResult.workerName}</strong>
-                        {notifyResult.crew ? "" : " (gagal — bot tidak ready / no phone)"}
-                        {notifyResult.leader && " + leader team"}
-                    </span>
-                </div>
             )}
 
             {isLoading ? (
@@ -530,6 +550,22 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                                 Jadwal: {fmtDateTime(a.scheduledStart)} → {fmtDateTime(a.scheduledEnd)}
                                             </div>
                                         )}
+                                        {(() => {
+                                            // Gaji efektif: override manual menang di atas tier.
+                                            const manual = a.dailyWageRate != null;
+                                            const daily = manual ? Number(a.dailyWageRate) : (a.wageTier?.dailyWageRate != null ? Number(a.wageTier.dailyWageRate) : null);
+                                            const ot = manual ? a.overtimeRatePerHour : a.wageTier?.overtimeRatePerHour;
+                                            if (daily == null && !a.wageTier) return null;
+                                            return (
+                                                <div className="text-xs mt-1">
+                                                    <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">
+                                                        💰 {manual ? "Gaji custom" : `Tier: ${a.wageTier?.name}`}
+                                                        {daily != null && `: Rp ${daily.toLocaleString("id-ID")}/hari`}
+                                                        {ot != null && ` · lembur Rp ${Number(ot).toLocaleString("id-ID")}/jam`}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1">
@@ -538,6 +574,13 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                         </button>
                                         <button onClick={() => shareWa(a)} className="px-2 py-1 text-xs rounded-md border border-border hover:bg-muted" title="Kirim ke WA">
                                             💬 WA
+                                        </button>
+                                        <button
+                                            onClick={() => (editingId === a.id ? setEditingId(null) : startEdit(a))}
+                                            className="p-1.5 rounded hover:bg-muted"
+                                            title="Edit gaji / role"
+                                        >
+                                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                                         </button>
                                         <button
                                             onClick={() => {
@@ -559,6 +602,78 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                         </button>
                                     </div>
                                 </div>
+
+                                {editingId === a.id && (
+                                    <div className="mt-2 p-2 rounded-md border border-emerald-300 bg-emerald-50/50 space-y-2">
+                                        <div className="text-[11px] font-bold text-emerald-800">✏️ Edit gaji / role — {a.worker.name}</div>
+                                        <div className="grid md:grid-cols-2 gap-2">
+                                            <div className="space-y-0.5">
+                                                <label className="text-[11px] text-muted-foreground">Role / Tugas</label>
+                                                <input
+                                                    value={editForm.role}
+                                                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                                                    placeholder="Setter, Driver..."
+                                                    className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background"
+                                                />
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <label className="text-[11px] text-muted-foreground">Tarif Gaji (Tier)</label>
+                                                <select
+                                                    value={editForm.wageTierId}
+                                                    onChange={(e) => setEditForm({ ...editForm, wageTierId: e.target.value })}
+                                                    className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background"
+                                                >
+                                                    <option value="">— Default —</option>
+                                                    {tiers.map((t) => (
+                                                        <option key={t.id} value={t.id}>
+                                                            {t.name}{t.dailyWageRate != null ? ` · Rp ${Number(t.dailyWageRate).toLocaleString("id-ID")}` : ""}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="grid md:grid-cols-2 gap-2">
+                                            <div className="space-y-0.5">
+                                                <label className="text-[11px] text-muted-foreground">Override Gaji Harian (Rp)</label>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    value={editForm.dailyWageRate}
+                                                    onChange={(e) => setEditForm({ ...editForm, dailyWageRate: e.target.value.replace(/[^\d.]/g, "") })}
+                                                    placeholder="Kosong = default event/worker"
+                                                    className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
+                                                />
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <label className="text-[11px] text-muted-foreground">Lembur / Jam (Rp)</label>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    value={editForm.overtimeRatePerHour}
+                                                    onChange={(e) => setEditForm({ ...editForm, overtimeRatePerHour: e.target.value.replace(/[^\d.]/g, "") })}
+                                                    placeholder="Kosong = default"
+                                                    className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={saveEdit}
+                                                disabled={updateMut.isPending}
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                                            >
+                                                {updateMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                                Simpan
+                                            </button>
+                                            <button
+                                                onClick={() => setEditingId(null)}
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md border border-border hover:bg-muted"
+                                            >
+                                                <X className="h-3.5 w-3.5" /> Batal
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="grid md:grid-cols-2 gap-2 mt-2 text-xs">
                                     <div className="border rounded p-2 bg-muted/20">
@@ -608,6 +723,106 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                     })()}
                 </div>
             )}
+        </div>
+    );
+}
+
+// ── Baris tier yang bisa diedit inline ──
+function TierRow({ tier, onSave, onDelete, saving }: {
+    tier: EventWageTier;
+    onSave: (patch: { name: string; dailyWageRate: string | null; overtimeRatePerHour: string | null }) => void;
+    onDelete: () => void;
+    saving: boolean;
+}) {
+    const initDaily = tier.dailyWageRate != null ? String(Number(tier.dailyWageRate)) : "";
+    const initOt = tier.overtimeRatePerHour != null ? String(Number(tier.overtimeRatePerHour)) : "";
+    const [name, setName] = useState(tier.name);
+    const [daily, setDaily] = useState(initDaily);
+    const [ot, setOt] = useState(initOt);
+    const dirty = name !== tier.name || daily !== initDaily || ot !== initOt;
+    return (
+        <div className="grid grid-cols-[1.3fr_1fr_1fr_auto] gap-2 items-center">
+            <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Nama tier"
+                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background"
+            />
+            <input
+                value={daily}
+                inputMode="numeric"
+                onChange={(e) => setDaily(e.target.value.replace(/[^\d.]/g, ""))}
+                placeholder="Gaji/hari"
+                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
+            />
+            <input
+                value={ot}
+                inputMode="numeric"
+                onChange={(e) => setOt(e.target.value.replace(/[^\d.]/g, ""))}
+                placeholder="Lembur/jam"
+                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
+            />
+            <div className="flex items-center gap-1">
+                {dirty && (
+                    <button
+                        onClick={() => onSave({ name: name.trim() || "Tier", dailyWageRate: daily || null, overtimeRatePerHour: ot || null })}
+                        disabled={saving}
+                        className="px-2 py-1 text-xs rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                        title="Simpan tier"
+                    >
+                        <Check className="h-3.5 w-3.5" />
+                    </button>
+                )}
+                <button onClick={onDelete} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Hapus tier">
+                    <Trash2 className="h-3.5 w-3.5" />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ── Form tambah tier baru ──
+function AddTierForm({ onAdd, pending }: {
+    onAdd: (draft: { name: string; dailyWageRate: string | null; overtimeRatePerHour: string | null }) => void;
+    pending: boolean;
+}) {
+    const [name, setName] = useState("");
+    const [daily, setDaily] = useState("");
+    const [ot, setOt] = useState("");
+    function submit() {
+        if (!name.trim()) return;
+        onAdd({ name: name.trim(), dailyWageRate: daily || null, overtimeRatePerHour: ot || null });
+        setName(""); setDaily(""); setOt("");
+    }
+    return (
+        <div className="grid grid-cols-[1.3fr_1fr_1fr_auto] gap-2 items-center pt-1 border-t border-dashed border-emerald-200">
+            <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="+ Tier baru (mis. PIC)"
+                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background"
+            />
+            <input
+                value={daily}
+                inputMode="numeric"
+                onChange={(e) => setDaily(e.target.value.replace(/[^\d.]/g, ""))}
+                placeholder="Gaji/hari"
+                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
+            />
+            <input
+                value={ot}
+                inputMode="numeric"
+                onChange={(e) => setOt(e.target.value.replace(/[^\d.]/g, ""))}
+                placeholder="Lembur/jam"
+                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
+            />
+            <button
+                onClick={submit}
+                disabled={pending || !name.trim()}
+                className="inline-flex items-center gap-1 px-2 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+                <Plus className="h-3.5 w-3.5" /> Tambah
+            </button>
         </div>
     );
 }

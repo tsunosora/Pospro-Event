@@ -435,7 +435,7 @@ export const markFullyPaidEdgeCase = async (
 
 export const generateInvoiceFromQuotation = async (
     quotationId: number,
-    input: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string },
+    input: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string; invoiceDate?: string },
 ): Promise<Quotation> =>
     (await api.post(`/quotations/${quotationId}/generate-invoice`, input)).data;
 

@@ -192,7 +192,7 @@ export class QuotationsController {
     @Post(':id/generate-invoice')
     generateInvoice(
         @Param('id', ParseIntPipe) id: number,
-        @Body() body: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string },
+        @Body() body: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string; invoiceDate?: string },
     ) {
         return this.service.generateInvoiceFromQuotation(id, body);
     }

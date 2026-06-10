@@ -15,6 +15,8 @@ import {
     type PayrollAdjustment, type PayrollAdjustmentType, type AdjustmentInput, type AuditLogEntry,
 } from "@/lib/api/payroll";
 import { getWorkers, type Worker } from "@/lib/api/workers";
+import { getEvents } from "@/lib/api/events";
+import { listCrewByEvent } from "@/lib/api/event-crew";
 import {
     Calendar, Check, CheckCheck, ChevronLeft, ChevronRight, ClipboardList, Download, FileText, History,
     Loader2, Plus, Trash2, Wallet, X,
@@ -299,7 +301,7 @@ function AttendanceCell({ cell, onApprove, onReject, onAudit }: {
 }) {
     const sBadge = cell.status ? STATUS_LABEL[cell.status] : null;
     const aBadge = cell.approvalStatus ? APPROVAL_LABEL[cell.approvalStatus] : null;
-    const sourceLabel = cell.source === 'event-pic' ? '👑 Event PIC' : cell.source === 'event' ? '🎪 Event Member' : cell.source === 'matrix' ? '📊 Matrix' : cell.source === 'worker' ? '👤 Default' : '';
+    const sourceLabel = cell.source === 'assignment' ? '💰 Gaji Crew' : cell.source === 'event-pic' ? '👑 Event PIC' : cell.source === 'event' ? '🎪 Event Member' : cell.source === 'matrix' ? '📊 Matrix' : cell.source === 'worker' ? '👤 Default' : '';
     const tooltip = sBadge
         ? `${sBadge.label}${cell.overtimeHours ? ` + ${cell.overtimeHours}j` : ''} = Rp ${formatRp(cell.total)}\nSumber: ${sourceLabel}\nStatus: ${aBadge?.label ?? '-'}`
         : '';
@@ -525,12 +527,47 @@ function MonthlyTab() {
 function ManualEntryTab() {
     const qc = useQueryClient();
     const [date, setDate] = useState(dayjs().format("YYYY-MM-DD"));
+    const [eventId, setEventId] = useState<number | null>(null);
     const [rows, setRows] = useState<Map<number, { status: AttendanceStatus; overtime: number }>>(new Map());
 
-    const { data: workers = [] } = useQuery<Worker[]>({
+    const { data: allWorkers = [] } = useQuery<Worker[]>({
         queryKey: ["workers", false, ""],
         queryFn: () => getWorkers(false),
     });
+
+    // Event list — pilih event supaya tarif tier/override crew kepakai di payroll.
+    const { data: events = [] } = useQuery({
+        queryKey: ["events", "for-attendance"],
+        queryFn: () => getEvents({}),
+    });
+
+    // Crew ter-assign ke event terpilih (untuk filter worker + tampilkan tarif).
+    const { data: crew = [] } = useQuery({
+        queryKey: ["event-crew", eventId],
+        queryFn: () => listCrewByEvent(eventId as number),
+        enabled: eventId != null,
+    });
+    const crewByWorker = useMemo(() => {
+        const m = new Map<number, typeof crew[number]>();
+        for (const a of crew) m.set(a.workerId, a);
+        return m;
+    }, [crew]);
+
+    // Worker yang ditampilkan: kalau event dipilih → hanya crew event itu; else semua.
+    const displayWorkers = useMemo(() => {
+        if (eventId == null) return allWorkers;
+        const ids = new Set(crew.map((a) => a.workerId));
+        return allWorkers.filter((w) => ids.has(w.id));
+    }, [eventId, crew, allWorkers]);
+
+    function rateLabel(workerId: number): string {
+        const a = crewByWorker.get(workerId);
+        if (!a) return "";
+        const manual = a.dailyWageRate != null;
+        const daily = manual ? Number(a.dailyWageRate) : (a.wageTier?.dailyWageRate != null ? Number(a.wageTier.dailyWageRate) : null);
+        if (daily == null) return a.wageTier ? `Tier: ${a.wageTier.name}` : "";
+        return `${manual ? "Custom" : (a.wageTier?.name ?? "Gaji")}: Rp ${daily.toLocaleString("id-ID")}/hari`;
+    }
 
     const { data: existing } = useQuery<WeeklySummary>({
         queryKey: ["payroll-weekly", date],
@@ -540,7 +577,7 @@ function ManualEntryTab() {
 
     useEffect(() => {
         const next = new Map<number, { status: AttendanceStatus; overtime: number }>();
-        for (const w of workers) {
+        for (const w of displayWorkers) {
             const existingRow = existing?.rows.find((r) => r.workerId === w.id);
             const cell = existingRow?.cells.find((c) => c.date === date);
             next.set(w.id, {
@@ -549,12 +586,13 @@ function ManualEntryTab() {
             });
         }
         setRows(next);
-    }, [workers, existing, date]);
+    }, [displayWorkers, existing, date]);
 
     const submitMut = useMutation({
         mutationFn: () => {
             const entries = Array.from(rows.entries()).map(([workerId, r]) => ({
                 workerId, status: r.status, overtimeHours: r.overtime,
+                eventId: eventId ?? null,
             }));
             return bulkUpsertAttendance(date, entries);
         },
@@ -571,8 +609,27 @@ function ManualEntryTab() {
                 <ClipboardList className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm font-medium">Tanggal:</span>
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="px-3 py-1.5 border rounded bg-white text-sm" />
-                <span className="text-xs text-muted-foreground">Edit/koreksi data PIC. Setelah simpan, status reset ke PENDING.</span>
+                <span className="text-sm font-medium ml-1">Event:</span>
+                <select
+                    value={eventId ?? ""}
+                    onChange={(e) => setEventId(e.target.value ? Number(e.target.value) : null)}
+                    className="px-3 py-1.5 border rounded bg-white text-sm max-w-[260px]"
+                >
+                    <option value="">— Umum (tanpa event) —</option>
+                    {events.map((ev) => (
+                        <option key={ev.id} value={ev.id}>{ev.name}{ev.code ? ` (${ev.code})` : ""}</option>
+                    ))}
+                </select>
+                <span className="text-xs text-muted-foreground">
+                    {eventId ? "Hanya crew event ini; tarif ikut tier/override crew." : "Pilih event agar tarif tier crew kepakai di payroll."}
+                </span>
             </div>
+
+            {eventId != null && displayWorkers.length === 0 && (
+                <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-3">
+                    Belum ada crew ter-assign di event ini. Assign dulu di <b>Event → tab Crew</b>.
+                </div>
+            )}
 
             <div className="overflow-x-auto border rounded-lg">
                 <table className="w-full text-sm">
@@ -584,13 +641,15 @@ function ManualEntryTab() {
                         </tr>
                     </thead>
                     <tbody>
-                        {workers.map((w) => {
+                        {displayWorkers.map((w) => {
                             const r = rows.get(w.id) ?? { status: "ABSENT" as AttendanceStatus, overtime: 0 };
+                            const rl = rateLabel(w.id);
                             return (
                                 <tr key={w.id} className="border-t">
                                     <td className="p-2">
                                         <div className="font-medium">{w.name}</div>
                                         <div className="text-[10px] text-muted-foreground">{w.position ?? ""}</div>
+                                        {rl && <div className="text-[10px] text-emerald-700 font-medium">💰 {rl}</div>}
                                     </td>
                                     <td className="p-2 text-center">
                                         <select value={r.status} onChange={(e) => setRows((prev) => {

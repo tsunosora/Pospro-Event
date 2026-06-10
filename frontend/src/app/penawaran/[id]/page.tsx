@@ -524,7 +524,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     });
 
     const generateInvoiceMut = useMutation({
-        mutationFn: (input: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string }) =>
+        mutationFn: (input: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string; invoiceDate?: string }) =>
             generateInvoiceFromQuotation(id, input),
         onSuccess: (inv) => {
             qc.invalidateQueries({ queryKey: ["quotation-invoices", id] });
@@ -3015,7 +3015,7 @@ function GenerateInvoiceModal({
     quotation: Quotation;
     childInvoices: Quotation[];
     onClose: () => void;
-    onSubmit: (input: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string }) => void;
+    onSubmit: (input: { part: 'DP' | 'PELUNASAN' | 'FULL'; customAmount?: number; dueDate?: string; invoiceDate?: string }) => void;
     pending: boolean;
 }) {
     const [part, setPart] = useState<'DP' | 'PELUNASAN' | 'FULL'>('DP');
@@ -3027,6 +3027,8 @@ function GenerateInvoiceModal({
     const [percentInput, setPercentInput] = useState<number>(50);
     const [amountInput, setAmountInput] = useState<string>("");
     const [dueDate, setDueDate] = useState<string>("");
+    // Tanggal invoice — default hari ini, bisa diubah (mis. invoice terbit setelah event)
+    const [invoiceDate, setInvoiceDate] = useState<string>(dayjs().format("YYYY-MM-DD"));
 
     // ─── DP yang sudah dibayar (untuk Pelunasan) ─────────────────────────
     // Auto: sum paidAmount dari child invoice DP yg sudah PAID atau PARTIALLY_PAID.
@@ -3286,6 +3288,21 @@ function GenerateInvoiceModal({
 
                 <div>
                     <label className="block text-sm font-semibold mb-1.5">
+                        Tanggal Invoice
+                    </label>
+                    <input
+                        type="date"
+                        value={invoiceDate}
+                        onChange={(e) => setInvoiceDate(e.target.value)}
+                        className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-pink-500 outline-none"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                        Default hari ini. Ubah kalau invoice diterbitkan setelah event selesai.
+                    </p>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-semibold mb-1.5">
                         Jatuh Tempo <span className="text-xs font-normal text-muted-foreground">(opsional)</span>
                     </label>
                     <input
@@ -3309,6 +3326,7 @@ function GenerateInvoiceModal({
                             // Kalau mode != preset, kirim customAmount agar backend pakai nilai itu
                             customAmount: mode === 'preset' ? undefined : computedAmount,
                             dueDate: dueDate || undefined,
+                            invoiceDate: invoiceDate || undefined,
                         })}
                         disabled={pending || computedAmount <= 0}
                         className="flex-[2] inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-md text-sm font-bold disabled:opacity-50"
