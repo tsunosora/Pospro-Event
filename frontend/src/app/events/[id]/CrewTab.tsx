@@ -12,6 +12,7 @@ import {
     deleteCrewAssignment,
     deleteCrewAssignmentsBulk,
     reassignCrewTeamBulk,
+    setCrewTierBulk,
     regenerateCrewToken,
     updateCrewAssignment,
     listWageTiers,
@@ -130,6 +131,24 @@ export default function CrewTab({ eventId }: { eventId: number }) {
             alert(`✅ ${res.updated} crew dipindah team.`);
         },
     });
+
+    const bulkSetTierMut = useMutation({
+        mutationFn: ({ ids, wageTierId }: { ids: number[]; wageTierId: number | null }) => setCrewTierBulk(ids, wageTierId),
+        onSuccess: (res) => {
+            qc.invalidateQueries({ queryKey: ["event-crew", eventId] });
+            setSelectedAssignmentIds(new Set());
+            alert(`✅ ${res.updated} crew di-set tarif gaji.`);
+        },
+    });
+
+    function handleBulkSetTier(wageTierId: number | null) {
+        const n = selectedAssignmentIds.size;
+        if (n === 0) return;
+        const tierLabel = wageTierId === null ? "Default" : tiers.find((t) => t.id === wageTierId)?.name ?? "Tier";
+        if (confirm(`Set tarif gaji ${n} crew ke "${tierLabel}"?`)) {
+            bulkSetTierMut.mutate({ ids: Array.from(selectedAssignmentIds), wageTierId });
+        }
+    }
 
     function toggleAssignmentSelect(id: number) {
         const s = new Set(selectedAssignmentIds);
@@ -319,6 +338,38 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                     >
                                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
                                         {t.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </details>
+                        {/* Set Tier (tarif gaji) dropdown */}
+                        <details className="relative">
+                            <summary className="text-xs px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer list-none">
+                                💰 Set Tarif Gaji ▾
+                            </summary>
+                            <div className="absolute right-0 mt-1 w-56 bg-background border border-border rounded-md shadow-lg z-10">
+                                <button
+                                    type="button"
+                                    onClick={() => handleBulkSetTier(null)}
+                                    disabled={bulkSetTierMut.isPending}
+                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+                                >
+                                    <em>Default (event/worker)</em>
+                                </button>
+                                {tiers.length === 0 && (
+                                    <div className="px-3 py-1.5 text-[11px] text-muted-foreground italic">
+                                        Belum ada tier. Buat di panel &quot;💰 Tarif Gaji (Tier)&quot;.
+                                    </div>
+                                )}
+                                {tiers.map((t) => (
+                                    <button
+                                        key={t.id}
+                                        type="button"
+                                        onClick={() => handleBulkSetTier(t.id)}
+                                        disabled={bulkSetTierMut.isPending}
+                                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+                                    >
+                                        {t.name}{t.dailyWageRate != null ? ` · Rp ${Number(t.dailyWageRate).toLocaleString("id-ID")}/hari` : ""}
                                     </button>
                                 ))}
                             </div>

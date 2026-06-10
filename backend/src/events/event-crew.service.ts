@@ -267,6 +267,16 @@ export class EventCrewService {
         return { ok: true, updated: res.count };
     }
 
+    /** Set tier gaji untuk banyak crew sekaligus (wageTierId null = kembali ke default). */
+    async setTierBulk(ids: number[], wageTierId: number | null) {
+        if (!ids.length) return { ok: true, updated: 0 };
+        const res = await this.prisma.eventCrewAssignment.updateMany({
+            where: { id: { in: ids } },
+            data: { wageTierId },
+        });
+        return { ok: true, updated: res.count };
+    }
+
     async regenerateToken(id: number) {
         return this.prisma.eventCrewAssignment.update({
             where: { id },

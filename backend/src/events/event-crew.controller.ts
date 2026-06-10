@@ -104,6 +104,11 @@ export class EventCrewController {
         return this.svc.reassignTeamBulk(body.ids ?? [], body.teamId ?? null);
     }
 
+    @Patch('bulk/set-tier')
+    setTierBulk(@Body() body: { ids: number[]; wageTierId: number | null }) {
+        return this.svc.setTierBulk(body.ids ?? [], body.wageTierId ?? null);
+    }
+
     @Patch(':id')
     update(
         @Param('id', ParseIntPipe) id: number,

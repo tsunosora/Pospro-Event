@@ -141,6 +141,9 @@ export const deleteCrewAssignmentsBulk = async (ids: number[]) =>
 export const reassignCrewTeamBulk = async (ids: number[], teamId: number | null) =>
     (await api.patch<{ ok: true; updated: number }>('/event-crew/bulk/reassign-team', { ids, teamId })).data;
 
+export const setCrewTierBulk = async (ids: number[], wageTierId: number | null) =>
+    (await api.patch<{ ok: true; updated: number }>('/event-crew/bulk/set-tier', { ids, wageTierId })).data;
+
 export const regenerateCrewToken = async (id: number) =>
     (await api.post<{ id: number; accessToken: string }>(`/event-crew/${id}/regenerate-token`)).data;
 
