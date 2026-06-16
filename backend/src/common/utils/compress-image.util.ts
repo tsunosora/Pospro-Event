@@ -38,3 +38,32 @@ export async function compressImage(filePath: string): Promise<void> {
   await image.toFile(tmpPath);
   fs.renameSync(tmpPath, filePath);
 }
+
+/**
+ * Kompres satu / banyak file hasil upload multer (in-place) tanpa pernah melempar error.
+ * Aman dipanggil di handler setelah upload:
+ *  - file `undefined` / array kosong → dilewati
+ *  - file tanpa `path` (mis. memoryStorage) → dilewati
+ *  - kalau kompres gagal, upload TIDAK digagalkan (hanya dicatat ke log)
+ */
+export async function compressUploaded(
+  files:
+    | { path?: string }
+    | Array<{ path?: string } | undefined>
+    | undefined
+    | null,
+): Promise<void> {
+  if (!files) return;
+  const list = Array.isArray(files) ? files : [files];
+  await Promise.all(
+    list.map(async (f) => {
+      if (!f?.path) return;
+      try {
+        await compressImage(f.path);
+      } catch (err) {
+        // Jangan gagalkan upload hanya karena kompresi gagal
+        console.error(`[compressUploaded] gagal kompres ${f.path}:`, err);
+      }
+    }),
+  );
+}

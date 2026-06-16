@@ -12,6 +12,7 @@ import { extname } from 'path';
 import { SalesOrdersService } from './sales-orders.service';
 import { DesignersService } from '../designers/designers.service';
 import type { CreateSalesOrderPayload } from './sales-orders-public.types';
+import { compressUploaded } from '../common/utils/compress-image.util';
 
 const proofStorage = diskStorage({
     destination: './public/uploads/so-proofs',
@@ -82,6 +83,7 @@ export class SalesOrdersPublicController {
         @Body('captions') captionsRaw?: string,
     ) {
         await verifyDesigner(this.designersService, Number(designerIdRaw), pin);
+        await compressUploaded(files);
         let captions: string[] | undefined;
         if (captionsRaw) {
             try { captions = JSON.parse(captionsRaw); } catch { captions = [captionsRaw]; }

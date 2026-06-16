@@ -19,6 +19,7 @@ import { extname } from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { WorkersService } from './workers.service';
 import type { CreateWorkerInput, UpdateWorkerInput } from './workers.service';
+import { compressUploaded } from '../common/utils/compress-image.util';
 
 const photoStorage = diskStorage({
     destination: './public/uploads',
@@ -71,6 +72,7 @@ export class WorkersController {
         @Body() body: any,
         @UploadedFile() file?: Express.Multer.File,
     ) {
+        await compressUploaded(file);
         const input: CreateWorkerInput = {
             name: body.name,
             position: body.position,
@@ -101,6 +103,7 @@ export class WorkersController {
         @Body() body: any,
         @UploadedFile() file?: Express.Multer.File,
     ) {
+        await compressUploaded(file);
         const input: UpdateWorkerInput = {};
         if (body.name !== undefined) input.name = body.name;
         if (body.position !== undefined) input.position = body.position;
@@ -148,6 +151,7 @@ export class WorkersController {
         @UploadedFile() file?: Express.Multer.File,
     ) {
         if (!file) throw new BadRequestException('File tanda tangan wajib diupload');
+        await compressUploaded(file);
         return this.svc.update(id, { signatureImageUrl: `/uploads/${file.filename}` });
     }
 
@@ -167,6 +171,7 @@ export class WorkersController {
         @UploadedFile() file?: Express.Multer.File,
     ) {
         if (!file) throw new BadRequestException('File stempel wajib diupload');
+        await compressUploaded(file);
         return this.svc.update(id, { stampImageUrl: `/uploads/${file.filename}` });
     }
 

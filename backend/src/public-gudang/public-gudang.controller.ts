@@ -19,6 +19,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WithdrawalsService } from '../withdrawals/withdrawals.service';
 import type { CheckoutInput, ReturnInput } from '../withdrawals/withdrawals.service';
 import { WarehousePinGuard } from '../warehouse-pin/warehouse-pin.guard';
+import { compressUploaded } from '../common/utils/compress-image.util';
 
 const photoStorage = diskStorage({
     destination: './public/uploads',
@@ -154,6 +155,7 @@ export class PublicGudangController {
         @Body() body: any,
         @UploadedFile() file?: Express.Multer.File,
     ) {
+        await compressUploaded(file);
         let items: any[] = [];
         if (typeof body.items === 'string') {
             try { items = JSON.parse(body.items); }
@@ -180,6 +182,7 @@ export class PublicGudangController {
         @Body() body: any,
         @UploadedFile() file?: Express.Multer.File,
     ) {
+        await compressUploaded(file);
         const name = String(body.name ?? '').trim();
         if (!name) throw new BadRequestException('Nama panggilan wajib diisi');
         if (name.length > 100) throw new BadRequestException('Nama panggilan maksimal 100 karakter');
@@ -222,6 +225,7 @@ export class PublicGudangController {
         @Body() body: any,
         @UploadedFile() file: Express.Multer.File | undefined,
     ) {
+        await compressUploaded(file);
         let items: any[] = [];
         if (typeof body.items === 'string') {
             try {
@@ -281,6 +285,7 @@ export class PublicGudangController {
             throw new BadRequestException('Quantity harus lebih dari 0');
         }
 
+        await compressUploaded(file);
         const photoUrl = file ? `/uploads/${file.filename}` : null;
         const refId = `RESTOCK-${Date.now()}`;
 
@@ -375,6 +380,7 @@ export class PublicGudangController {
             throw new BadRequestException('Reason wajib untuk adjust stok (audit trail)');
         }
 
+        await compressUploaded(file);
         const photoUrl = file ? `/uploads/${file.filename}` : null;
         const refId = `ADJUST-${Date.now()}`;
         const newStockInt = Math.round(newStock);
@@ -462,6 +468,7 @@ export class PublicGudangController {
         @Body() body: any,
         @UploadedFiles() files?: Express.Multer.File[],
     ) {
+        await compressUploaded(files);
         // Pisah foto utama vs per-variant photos
         const fileMap = new Map<string, Express.Multer.File>();
         for (const f of files ?? []) {

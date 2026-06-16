@@ -18,6 +18,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "compress:images": "ts-node --project tsconfig.seed.json scripts/compress-existing-images.ts",
     "seed:booth": "ts-node --project tsconfig.seed.json prisma/seed-booth-event.ts",
     "seed:rab-categories": "ts-node --project tsconfig.seed.json prisma/seed-rab-categories.ts"
   },

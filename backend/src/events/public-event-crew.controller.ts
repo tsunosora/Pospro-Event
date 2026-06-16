@@ -12,6 +12,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { EventCrewService } from './event-crew.service';
+import { compressUploaded } from '../common/utils/compress-image.util';
 
 const photoStorage = diskStorage({
     destination: './public/uploads',
@@ -40,22 +41,24 @@ export class PublicEventCrewController {
 
     @Post(':token/check-in')
     @UseInterceptors(FileInterceptor('photo', { storage: photoStorage, fileFilter: photoFilter, limits: { fileSize: 8 * 1024 * 1024 } }))
-    checkIn(
+    async checkIn(
         @Param('token') token: string,
         @UploadedFile() file: Express.Multer.File | undefined,
         @Body('note') note?: string,
     ) {
+        await compressUploaded(file);
         const photoUrl = file ? `/uploads/${file.filename}` : null;
         return this.svc.checkIn(token, photoUrl, note);
     }
 
     @Post(':token/check-out')
     @UseInterceptors(FileInterceptor('photo', { storage: photoStorage, fileFilter: photoFilter, limits: { fileSize: 8 * 1024 * 1024 } }))
-    checkOut(
+    async checkOut(
         @Param('token') token: string,
         @UploadedFile() file: Express.Multer.File | undefined,
         @Body('note') note?: string,
     ) {
+        await compressUploaded(file);
         const photoUrl = file ? `/uploads/${file.filename}` : null;
         return this.svc.checkOut(token, photoUrl, note);
     }

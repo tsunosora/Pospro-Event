@@ -8,6 +8,7 @@ import { extname } from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SalesOrdersService } from './sales-orders.service';
 import type { CreateSalesOrderDto, SalesOrderStatus, UpdateSalesOrderDto } from './sales-orders.service';
+import { compressUploaded } from '../common/utils/compress-image.util';
 
 const proofStorage = diskStorage({
     destination: './public/uploads/so-proofs',
@@ -68,6 +69,7 @@ export class SalesOrdersController {
         @UploadedFiles() files: Express.Multer.File[],
         @Body('captions') captionsRaw?: string | string[],
     ) {
+        await compressUploaded(files);
         let captions: string[] | undefined;
         if (Array.isArray(captionsRaw)) captions = captionsRaw;
         else if (typeof captionsRaw === 'string') {

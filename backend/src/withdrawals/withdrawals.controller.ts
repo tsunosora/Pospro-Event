@@ -19,6 +19,7 @@ import { extname } from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { WithdrawalsService } from './withdrawals.service';
 import type { CheckoutInput, ReturnInput } from './withdrawals.service';
+import { compressUploaded } from '../common/utils/compress-image.util';
 
 const photoStorage = diskStorage({
     destination: './public/uploads',
@@ -81,6 +82,7 @@ export class WithdrawalsController {
         @UploadedFile() file: Express.Multer.File | undefined,
         @Req() req: any,
     ) {
+        await compressUploaded(file);
         // FormData serializes items as JSON string
         let items: any[] = [];
         if (typeof body.items === 'string') {
@@ -119,6 +121,7 @@ export class WithdrawalsController {
         @Body() body: any,
         @UploadedFile() file?: Express.Multer.File,
     ) {
+        await compressUploaded(file);
         let items: any[] = [];
         if (typeof body.items === 'string') {
             try {
