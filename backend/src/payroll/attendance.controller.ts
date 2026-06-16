@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { AttendanceService, type AttendanceRowInput } from './attendance.service';
+import { AttendanceService, type AttendanceRowInput, type AttendanceWeekRow } from './attendance.service';
 import { PayrollSummaryService } from './payroll-summary.service';
 import { PayrollExportService } from './payroll-export.service';
 import { PayrollPayslipService } from './payroll-payslip.service';
@@ -59,6 +59,21 @@ export class AttendanceController {
         @Req() req: JwtRequest,
     ) {
         return this.attendanceService.bulkUpsert(body.date, body.entries, null, actorId(req));
+    }
+
+    /** Konteks layar Input Mingguan admin (worker per tim + absensi minggu + matrix tarif). */
+    @Get('weekly-input')
+    weeklyInput(
+        @Query('weekStart') weekStart: string,
+        @Query('teamId') teamId?: string,
+    ) {
+        return this.attendanceService.weeklyInputContext(weekStart, teamId ? Number(teamId) : undefined);
+    }
+
+    /** Simpan absensi 1 minggu sekaligus (grid admin). Auto-approve karena admin = otoritas. */
+    @Post('attendance/week')
+    saveWeek(@Body() body: { rows: AttendanceWeekRow[] }, @Req() req: JwtRequest) {
+        return this.attendanceService.saveWeek(body.rows ?? [], actorId(req), true);
     }
 
     @Patch('attendance/:id')

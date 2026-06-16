@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
@@ -11,8 +11,10 @@ import {
     approveAttendance, rejectAttendance, bulkApproveAttendance,
     getAttendanceAuditLog,
     listAdjustments, createAdjustment, updateAdjustment, deleteAdjustment,
+    getWeeklyInputContext, saveWeekAttendance,
     type AttendanceStatus, type AttendanceApprovalStatus, type WeeklySummary, type MonthlySummary,
     type PayrollAdjustment, type PayrollAdjustmentType, type AdjustmentInput, type AuditLogEntry,
+    type WeeklyInputContext, type AttendanceWeekRowInput,
 } from "@/lib/api/payroll";
 import { getWorkers, type Worker } from "@/lib/api/workers";
 import { getEvents } from "@/lib/api/events";
@@ -25,7 +27,12 @@ import {
 dayjs.extend(isoWeek);
 dayjs.locale("id");
 
-type Tab = "weekly" | "monthly" | "manual" | "adjustments";
+type Tab = "input-mingguan" | "weekly" | "monthly" | "manual" | "adjustments";
+
+/** Awal minggu gajian = MINGGU (Sun). dayjs.day(0) = Minggu pada minggu berjalan. */
+function startOfPayWeek(d?: string | dayjs.Dayjs): string {
+    return dayjs(d).day(0).format("YYYY-MM-DD");
+}
 
 const STATUS_LABEL: Record<AttendanceStatus, { emoji: string; label: string; cls: string }> = {
     FULL_DAY: { emoji: "✓", label: "Hadir", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
@@ -59,7 +66,7 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 export default function PayrollPage() {
-    const [tab, setTab] = useState<Tab>("weekly");
+    const [tab, setTab] = useState<Tab>("input-mingguan");
 
     return (
         <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4">
@@ -75,9 +82,10 @@ export default function PayrollPage() {
 
             <div className="flex border-b border-border overflow-x-auto">
                 {([
-                    { key: "weekly", label: "📅 Mingguan" },
+                    { key: "input-mingguan", label: "🗓️ Input Mingguan" },
+                    { key: "weekly", label: "📅 Rekap Mingguan" },
                     { key: "monthly", label: "🗓️ Bulanan" },
-                    { key: "manual", label: "✏️ Manual Entry" },
+                    { key: "manual", label: "✏️ Input Harian" },
                     { key: "adjustments", label: "💰 Tunjangan/Potongan" },
                 ] as const).map((t) => (
                     <button
@@ -90,6 +98,7 @@ export default function PayrollPage() {
                 ))}
             </div>
 
+            {tab === "input-mingguan" && <InputMingguanTab />}
             {tab === "weekly" && <WeeklyTab />}
             {tab === "monthly" && <MonthlyTab />}
             {tab === "manual" && <ManualEntryTab />}
@@ -98,11 +107,327 @@ export default function PayrollPage() {
     );
 }
 
+// ─── Input Mingguan Tab (admin isi absensi 1 minggu sekaligus) ─────────────
+
+type GridCell = { status: AttendanceStatus | null; overtime: number; city: string | null; division: string | null };
+type GridRow = { city: string | null; division: string | null; days: Record<string, GridCell> };
+
+const STATUS_CYCLE: (AttendanceStatus | null)[] = [null, "FULL_DAY", "HALF_DAY", "ABSENT"];
+function cycleStatus(s: AttendanceStatus | null): AttendanceStatus | null {
+    return STATUS_CYCLE[(STATUS_CYCLE.indexOf(s) + 1) % STATUS_CYCLE.length];
+}
+
+function InputMingguanTab() {
+    const qc = useQueryClient();
+    const [weekStart, setWeekStart] = useState<string>(startOfPayWeek());
+    const [teamId, setTeamId] = useState<number | null>(null);
+    const [expanded, setExpanded] = useState<Set<number>>(new Set());
+    const [grid, setGrid] = useState<Map<number, GridRow>>(new Map());
+
+    const { data, isLoading } = useQuery<WeeklyInputContext>({
+        queryKey: ["weekly-input", weekStart, teamId],
+        queryFn: () => getWeeklyInputContext(weekStart, teamId ?? undefined),
+        // Jangan refetch saat window focus — supaya input admin yang belum disimpan tidak ke-reset.
+        refetchOnWindowFocus: false,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // Bangun ulang grid tiap kali data dari server berubah (ganti minggu/tim/refetch setelah simpan)
+    useEffect(() => {
+        if (!data) return;
+        const next = new Map<number, GridRow>();
+        for (const w of data.workers) {
+            const days: Record<string, GridCell> = {};
+            for (const d of data.days) {
+                const c = w.cells[d];
+                days[d] = c
+                    ? { status: c.status, overtime: c.overtimeHours, city: c.cityKey ?? w.defaultCityKey, division: c.divisionKey ?? w.defaultDivisionKey }
+                    : { status: null, overtime: 0, city: w.defaultCityKey, division: w.defaultDivisionKey };
+            }
+            next.set(w.id, { city: w.defaultCityKey, division: w.defaultDivisionKey, days });
+        }
+        setGrid(next);
+    }, [data]);
+
+    const rateMap = useMemo(() => {
+        const m = new Map<string, { daily: number; ot: number }>();
+        for (const r of data?.rates ?? []) m.set(`${r.city.toLowerCase()}|${r.division.toLowerCase()}`, { daily: r.dailyWageRate, ot: r.overtimeRatePerHour });
+        return m;
+    }, [data]);
+
+    function resolveRate(w: WeeklyInputContext["workers"][number], city: string | null, division: string | null) {
+        if (city && division) {
+            const r = rateMap.get(`${city.toLowerCase()}|${division.toLowerCase()}`);
+            if (r) return r;
+        }
+        return { daily: w.dailyWageRate, ot: w.overtimeRatePerHour };
+    }
+
+    function workerEstimate(w: WeeklyInputContext["workers"][number]): number {
+        const row = grid.get(w.id);
+        if (!row) return 0;
+        let total = 0;
+        for (const c of Object.values(row.days)) {
+            if (!c.status) continue;
+            const { daily, ot } = resolveRate(w, c.city, c.division);
+            const base = c.status === "FULL_DAY" ? daily : c.status === "HALF_DAY" ? daily * 0.5 : 0;
+            total += base + c.overtime * ot;
+        }
+        return total;
+    }
+
+    function setCell(workerId: number, date: string, patch: Partial<GridCell>) {
+        setGrid((prev) => {
+            const next = new Map(prev);
+            const row = next.get(workerId);
+            if (!row) return prev;
+            next.set(workerId, { ...row, days: { ...row.days, [date]: { ...row.days[date], ...patch } } });
+            return next;
+        });
+    }
+
+    // Ubah kota/divisi level-baris → terapkan ke semua hari (termasuk override per-sel sebelumnya)
+    function setRowContext(workerId: number, patch: { city?: string | null; division?: string | null }) {
+        setGrid((prev) => {
+            const next = new Map(prev);
+            const row = next.get(workerId);
+            if (!row) return prev;
+            const city = patch.city !== undefined ? patch.city : row.city;
+            const division = patch.division !== undefined ? patch.division : row.division;
+            const days: Record<string, GridCell> = {};
+            for (const [k, c] of Object.entries(row.days)) days[k] = { ...c, city, division };
+            next.set(workerId, { city, division, days });
+            return next;
+        });
+    }
+
+    function fillRow(workerId: number, status: AttendanceStatus | null) {
+        setGrid((prev) => {
+            const next = new Map(prev);
+            const row = next.get(workerId);
+            if (!row) return prev;
+            const days: Record<string, GridCell> = {};
+            for (const [k, c] of Object.entries(row.days)) days[k] = { ...c, status };
+            next.set(workerId, { ...row, days });
+            return next;
+        });
+    }
+
+    const saveMut = useMutation({
+        mutationFn: () => {
+            const rows: AttendanceWeekRowInput[] = [];
+            for (const w of data!.workers) {
+                const row = grid.get(w.id);
+                if (!row) continue;
+                for (const d of data!.days) {
+                    const c = row.days[d];
+                    const existed = !!w.cells[d];
+                    if (!c.status) {
+                        if (existed) rows.push({ workerId: w.id, date: d, status: null }); // kosongkan
+                        continue;
+                    }
+                    rows.push({
+                        workerId: w.id, date: d, status: c.status,
+                        overtimeHours: c.overtime,
+                        cityKey: c.city ?? row.city ?? null,
+                        divisionKey: c.division ?? row.division ?? null,
+                    });
+                }
+            }
+            if (rows.length === 0) throw new Error("Belum ada absensi untuk disimpan.");
+            return saveWeekAttendance(rows);
+        },
+        onSuccess: (res) => {
+            qc.invalidateQueries({ queryKey: ["weekly-input"] });
+            qc.invalidateQueries({ queryKey: ["payroll-weekly"] });
+            qc.invalidateQueries({ queryKey: ["payroll-monthly"] });
+            alert(`✅ Tersimpan: ${res.upserted} entri${res.deleted ? `, ${res.deleted} dikosongkan` : ""}.`);
+        },
+        onError: (e: any) => alert(`❌ ${e?.response?.data?.message || e?.message}`),
+    });
+
+    const goPrev = () => setWeekStart(startOfPayWeek(dayjs(weekStart).subtract(1, "week")));
+    const goNext = () => setWeekStart(startOfPayWeek(dayjs(weekStart).add(1, "week")));
+    const goToday = () => setWeekStart(startOfPayWeek());
+
+    const grandEstimate = (data?.workers ?? []).reduce((s, w) => s + workerEstimate(w), 0);
+    const noMatrix = (data?.rates.length ?? 0) === 0;
+
+    return (
+        <div className="space-y-3">
+            {/* Kontrol minggu + tim */}
+            <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-3 flex-wrap">
+                <Calendar className="h-5 w-5 text-muted-foreground" />
+                <button onClick={goPrev} className="p-1.5 rounded hover:bg-muted"><ChevronLeft className="h-4 w-4" /></button>
+                <span className="text-sm font-semibold min-w-[170px] text-center">
+                    {dayjs(weekStart).format("DD MMM")} – {dayjs(weekStart).add(6, "day").format("DD MMM YYYY")}
+                </span>
+                <button onClick={goNext} className="p-1.5 rounded hover:bg-muted"><ChevronRight className="h-4 w-4" /></button>
+                <button onClick={goToday} className="px-2 py-1 text-xs rounded border hover:bg-muted">Minggu ini</button>
+
+                <span className="text-sm font-medium ml-2">Tim:</span>
+                <select
+                    value={teamId ?? ""}
+                    onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : null)}
+                    className="px-3 py-1.5 border rounded bg-white text-sm"
+                >
+                    <option value="">— Semua pekerja —</option>
+                    {(data?.teams ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+            </div>
+
+            <div className="text-[11px] text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                <span>Klik sel: kosong → ✓ Hadir → ½ → ✗ Absen → kosong.</span>
+                <span>Tarif otomatis dari <b>Kota × Divisi</b>; ubah per hari lewat tombol ⚙.</span>
+            </div>
+
+            {noMatrix && (
+                <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded p-3">
+                    ⚠️ Tabel tarif (Kota × Divisi) masih kosong. Isi dulu di <b>Pengaturan → Tarif Gaji (WageRate)</b> agar gaji otomatis terhitung. Sementara ini tarif memakai default per pekerja.
+                </div>
+            )}
+
+            {isLoading ? (
+                <div className="flex items-center gap-2 text-muted-foreground p-6"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
+            ) : (data?.workers.length ?? 0) === 0 ? (
+                <div className="text-sm text-muted-foreground bg-muted/30 border rounded p-4">
+                    Tidak ada pekerja {teamId ? "di tim ini" : "aktif"}. {teamId ? "Pilih tim lain atau " : ""}tambah pekerja di menu Pekerja.
+                </div>
+            ) : (
+                <div className="overflow-x-auto border rounded-lg">
+                    <table className="text-sm border-collapse">
+                        <thead className="bg-muted/50">
+                            <tr>
+                                <th className="text-left p-2 sticky left-0 bg-muted/50 z-10 min-w-[150px]">Pekerja</th>
+                                <th className="p-2 text-left min-w-[110px]">Kota</th>
+                                <th className="p-2 text-left min-w-[110px]">Divisi</th>
+                                {(data?.days ?? []).map((d) => (
+                                    <th key={d} className="p-1 text-center min-w-[44px]">
+                                        <div className="text-[10px] capitalize">{dayjs(d).format("ddd")}</div>
+                                        <div className="text-[10px] text-muted-foreground">{dayjs(d).format("DD/MM")}</div>
+                                    </th>
+                                ))}
+                                <th className="p-2 text-right min-w-[100px]">Estimasi</th>
+                                <th className="p-1 w-8"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(data?.workers ?? []).map((w) => {
+                                const row = grid.get(w.id);
+                                if (!row) return null;
+                                const isOpen = expanded.has(w.id);
+                                return (
+                                    <FragmentRow key={w.id}>
+                                        <tr className="border-t hover:bg-muted/20">
+                                            <td className="p-2 sticky left-0 bg-white z-10">
+                                                <div className="font-medium leading-tight">{w.name}</div>
+                                                <div className="flex gap-1 mt-0.5">
+                                                    <button onClick={() => fillRow(w.id, "FULL_DAY")} title="Isi semua Hadir" className="text-[10px] px-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">✓×7</button>
+                                                    <button onClick={() => fillRow(w.id, null)} title="Kosongkan semua" className="text-[10px] px-1 rounded bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100">bersihkan</button>
+                                                </div>
+                                            </td>
+                                            <td className="p-1">
+                                                <select value={row.city ?? ""} onChange={(e) => setRowContext(w.id, { city: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-white">
+                                                    <option value="">(default)</option>
+                                                    {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                                                </select>
+                                            </td>
+                                            <td className="p-1">
+                                                <select value={row.division ?? ""} onChange={(e) => setRowContext(w.id, { division: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-white">
+                                                    <option value="">(default)</option>
+                                                    {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                                                </select>
+                                            </td>
+                                            {(data?.days ?? []).map((d) => {
+                                                const cell = row.days[d];
+                                                return (
+                                                    <td key={d} className="p-1 text-center align-top">
+                                                        <button
+                                                            onClick={() => setCell(w.id, d, { status: cycleStatus(cell.status) })}
+                                                            className={`w-9 h-8 rounded border text-sm font-bold ${cell.status ? STATUS_LABEL[cell.status].cls : "bg-slate-50 text-slate-300 border-slate-200"}`}
+                                                        >
+                                                            {cell.status ? STATUS_LABEL[cell.status].emoji : "·"}
+                                                        </button>
+                                                        {cell.status && (
+                                                            <input
+                                                                type="number" min={0} max={12} step={0.5} value={cell.overtime}
+                                                                onChange={(e) => setCell(w.id, d, { overtime: Math.max(0, Math.min(12, Number(e.target.value) || 0)) })}
+                                                                title="Jam lembur"
+                                                                className="mt-1 w-9 px-1 py-0.5 border rounded text-[10px] font-mono text-center"
+                                                            />
+                                                        )}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className="p-2 text-right font-semibold tabular-nums">
+                                                {formatRp(workerEstimate(w))}
+                                            </td>
+                                            <td className="p-1 text-center">
+                                                <button
+                                                    onClick={() => setExpanded((prev) => { const n = new Set(prev); n.has(w.id) ? n.delete(w.id) : n.add(w.id); return n; })}
+                                                    title="Rincian Kota/Divisi per hari"
+                                                    className={`text-xs px-1.5 py-1 rounded border ${isOpen ? "bg-amber-100 border-amber-300" : "hover:bg-muted"}`}
+                                                >⚙</button>
+                                            </td>
+                                        </tr>
+                                        {isOpen && (
+                                            <tr className="bg-amber-50/40 border-t border-amber-200">
+                                                <td colSpan={3} className="p-2 text-[10px] text-amber-800 sticky left-0 bg-amber-50 z-10">
+                                                    Override Kota/Divisi per hari (untuk hari kerja di kota/divisi berbeda):
+                                                </td>
+                                                {(data?.days ?? []).map((d) => {
+                                                    const cell = row.days[d];
+                                                    return (
+                                                        <td key={d} className="p-1 align-top">
+                                                            <select value={cell.city ?? ""} onChange={(e) => setCell(w.id, d, { city: e.target.value || null })} className="w-[44px] text-[9px] border rounded mb-1 bg-white" title="Kota">
+                                                                <option value="">kota</option>
+                                                                {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                                                            </select>
+                                                            <select value={cell.division ?? ""} onChange={(e) => setCell(w.id, d, { division: e.target.value || null })} className="w-[44px] text-[9px] border rounded bg-white" title="Divisi">
+                                                                <option value="">div</option>
+                                                                {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                                                            </select>
+                                                        </td>
+                                                    );
+                                                })}
+                                                <td colSpan={2}></td>
+                                            </tr>
+                                        )}
+                                    </FragmentRow>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            <div className="flex items-center justify-between gap-3 flex-wrap sticky bottom-0 bg-background/95 py-2 border-t">
+                <div className="text-sm">
+                    Estimasi total minggu ini: <b className="text-emerald-700">Rp {formatRp(grandEstimate)}</b>
+                </div>
+                <button
+                    onClick={() => saveMut.mutate()}
+                    disabled={saveMut.isPending || (data?.workers.length ?? 0) === 0}
+                    className="px-6 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                    {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                    💾 Simpan minggu ini (auto-approve)
+                </button>
+            </div>
+        </div>
+    );
+}
+
+/** Helper agar bisa render 2 <tr> (baris utama + detail) tanpa wrapper DOM ilegal di <tbody>. */
+function FragmentRow({ children }: { children: ReactNode }) {
+    return <>{children}</>;
+}
+
 // ─── Weekly Tab ──────────────────────────────────────────────────────────
 
 function WeeklyTab() {
     const qc = useQueryClient();
-    const [weekStart, setWeekStart] = useState<string>(dayjs().startOf("isoWeek").format("YYYY-MM-DD"));
+    const [weekStart, setWeekStart] = useState<string>(startOfPayWeek());
     const [exporting, setExporting] = useState(false);
     const [auditCellId, setAuditCellId] = useState<number | null>(null);
 
@@ -130,7 +455,7 @@ function WeeklyTab() {
 
     const goPrev = () => setWeekStart(dayjs(weekStart).subtract(1, "week").format("YYYY-MM-DD"));
     const goNext = () => setWeekStart(dayjs(weekStart).add(1, "week").format("YYYY-MM-DD"));
-    const goToday = () => setWeekStart(dayjs().startOf("isoWeek").format("YYYY-MM-DD"));
+    const goToday = () => setWeekStart(startOfPayWeek());
 
     async function handleExport() {
         setExporting(true);

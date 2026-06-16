@@ -115,6 +115,63 @@ export const getAttendance = async (params: { from?: string; to?: string; worker
 export const bulkUpsertAttendance = async (date: string, entries: AttendanceInput[]) =>
     (await api.post<{ upserted: number }>('/payroll/attendance/bulk', { date, entries })).data;
 
+// ─── Input Mingguan (admin) ───────────────────────────────────────────
+
+export interface WeeklyInputCell {
+    id: number;
+    status: AttendanceStatus;
+    overtimeHours: number;
+    notes: string | null;
+    eventId: number | null;
+    cityKey: string | null;
+    divisionKey: string | null;
+    approvalStatus: AttendanceApprovalStatus;
+}
+
+export interface WeeklyInputWorker {
+    id: number;
+    name: string;
+    position: string | null;
+    teamId: number | null;
+    hasPayroll: boolean;
+    dailyWageRate: number;
+    overtimeRatePerHour: number;
+    defaultCityKey: string | null;
+    defaultDivisionKey: string | null;
+    cells: Record<string, WeeklyInputCell>;   // keyed by date YYYY-MM-DD
+}
+
+export interface WeeklyInputContext {
+    weekStart: string;
+    weekEnd: string;
+    days: string[];
+    teams: Array<{ id: number; name: string; color: string }>;
+    cities: string[];
+    divisions: string[];
+    rates: Array<{ city: string; division: string; dailyWageRate: number; overtimeRatePerHour: number }>;
+    workers: WeeklyInputWorker[];
+}
+
+export interface AttendanceWeekRowInput {
+    workerId: number;
+    date: string;
+    status: AttendanceStatus | null;   // null = kosongkan/hapus sel
+    overtimeHours?: number;
+    notes?: string | null;
+    eventId?: number | null;
+    cityKey?: string | null;
+    divisionKey?: string | null;
+}
+
+export const getWeeklyInputContext = async (weekStart: string, teamId?: number) => {
+    const sp = new URLSearchParams({ weekStart });
+    if (teamId) sp.set('teamId', String(teamId));
+    return (await api.get<WeeklyInputContext>(`/payroll/weekly-input?${sp.toString()}`)).data;
+};
+
+export const saveWeekAttendance = async (rows: AttendanceWeekRowInput[]) =>
+    (await api.post<{ upserted: number; deleted: number }>('/payroll/attendance/week', { rows })).data;
+
 export const updateAttendance = async (
     id: number,
     body: { status?: AttendanceStatus; overtimeHours?: number; notes?: string | null },

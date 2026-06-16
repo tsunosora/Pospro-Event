@@ -16,6 +16,18 @@ export interface AttendanceRowInput {
     divisionKey?: string | null;
 }
 
+/** 1 baris pada grid input mingguan admin. Tiap baris bawa tanggalnya sendiri. */
+export interface AttendanceWeekRow {
+    workerId: number;
+    date: string;                       // YYYY-MM-DD
+    status: AttendanceStatus | null;    // null = kosongkan/hapus sel
+    overtimeHours?: number | string;
+    notes?: string | null;
+    eventId?: number | null;
+    cityKey?: string | null;
+    divisionKey?: string | null;
+}
+
 /** Snapshot field-field penting untuk audit log. */
 function snapshot(att: any) {
     if (!att) return null;
@@ -207,6 +219,207 @@ export class AttendanceService {
         });
 
         return { upserted: results.length };
+    }
+
+    /**
+     * Simpan banyak baris absensi sekaligus untuk SATU MINGGU (grid input admin).
+     * Beda dari bulkUpsert (1 tanggal, dari PIC): tiap baris bawa tanggalnya sendiri,
+     * dan karena yang input admin (otoritas) → langsung di-APPROVE (autoApprove=true).
+     *
+     * status === null → admin mengosongkan sel → hapus row kalau sebelumnya ada.
+     */
+    async saveWeek(
+        rows: AttendanceWeekRow[],
+        actorAdminId: number | null,
+        autoApprove = true,
+    ): Promise<{ upserted: number; deleted: number }> {
+        if (!rows || rows.length === 0) return { upserted: 0, deleted: 0 };
+        let upserted = 0;
+        let deleted = 0;
+
+        await this.prisma.$transaction(async (tx) => {
+            for (const r of rows) {
+                const attendanceDate = this.parseDate(r.date);
+                const prev = await tx.attendance.findUnique({
+                    where: { workerId_attendanceDate: { workerId: r.workerId, attendanceDate } },
+                });
+
+                // status null → kosongkan sel (hapus kalau ada)
+                if (r.status == null) {
+                    if (prev) {
+                        await tx.attendance.delete({ where: { id: prev.id } });
+                        await this.logAudit(tx, {
+                            attendanceId: null,
+                            action: 'DELETE',
+                            changedById: actorAdminId,
+                            oldData: snapshot(prev),
+                            notes: 'Dikosongkan via input mingguan admin',
+                        });
+                        deleted++;
+                    }
+                    continue;
+                }
+
+                const overtime = r.overtimeHours != null ? Number(r.overtimeHours) || 0 : 0;
+                const cityKey = r.cityKey?.trim() || null;
+                const divisionKey = r.divisionKey?.trim() || null;
+                const eventId = r.eventId == null ? null : r.eventId;
+                const approval = autoApprove
+                    ? {
+                        approvalStatus: 'APPROVED' as const,
+                        approvedAt: new Date(),
+                        approvedById: actorAdminId,
+                        rejectionReason: null,
+                    }
+                    : { approvalStatus: 'PENDING' as const };
+
+                const up = await tx.attendance.upsert({
+                    where: { workerId_attendanceDate: { workerId: r.workerId, attendanceDate } },
+                    create: {
+                        workerId: r.workerId,
+                        attendanceDate,
+                        status: r.status,
+                        overtimeHours: overtime as any,
+                        notes: r.notes?.trim() || null,
+                        recordedByPicId: null,
+                        eventId,
+                        cityKey,
+                        divisionKey,
+                        ...approval,
+                    },
+                    update: {
+                        status: r.status,
+                        overtimeHours: overtime as any,
+                        notes: r.notes?.trim() || null,
+                        eventId,
+                        cityKey,
+                        divisionKey,
+                        ...approval,
+                    },
+                });
+
+                await this.logAudit(tx, {
+                    attendanceId: up.id,
+                    action: prev ? 'UPDATE' : 'CREATE',
+                    changedById: actorAdminId,
+                    oldData: snapshot(prev),
+                    newData: snapshot(up),
+                    notes: 'Input mingguan admin (auto-approve)',
+                });
+                upserted++;
+            }
+        }, {
+            timeout: 30_000,
+            maxWait: 10_000,
+        });
+
+        return { upserted, deleted };
+    }
+
+    /**
+     * Konteks untuk layar "Input Mingguan" admin dalam 1 panggilan:
+     *  - 7 hari (Minggu..Sabtu mengikuti weekStart yang dikirim)
+     *  - daftar tim (untuk filter)
+     *  - worker (difilter teamId kalau ada) + tarif & default kota/divisi + absensi existing per hari
+     *  - master kota & divisi + matrix tarif (untuk estimasi gaji langsung di grid)
+     */
+    async weeklyInputContext(weekStart: string, teamId?: number) {
+        const start = this.parseDate(weekStart);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+
+        const days: string[] = [];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(start);
+            d.setDate(d.getDate() + i);
+            days.push(d.toISOString().slice(0, 10));
+        }
+
+        const workerWhere: Prisma.WorkerWhereInput = { isActive: true };
+        if (teamId) workerWhere.teamId = teamId;
+
+        const [teams, workers, wageRates] = await Promise.all([
+            this.prisma.crewTeam.findMany({
+                where: { isActive: true },
+                orderBy: { name: 'asc' },
+                select: { id: true, name: true, color: true },
+            }),
+            this.prisma.worker.findMany({
+                where: workerWhere,
+                orderBy: { name: 'asc' },
+                select: {
+                    id: true, name: true, position: true, teamId: true,
+                    dailyWageRate: true, overtimeRatePerHour: true,
+                    defaultCityKey: true, defaultDivisionKey: true,
+                },
+            }),
+            this.prisma.wageRate.findMany({
+                where: { isActive: true },
+                select: { city: true, division: true, dailyWageRate: true, overtimeRatePerHour: true },
+            }),
+        ]);
+
+        const workerIds = workers.map((w) => w.id);
+        const attendance = workerIds.length
+            ? await this.prisma.attendance.findMany({
+                where: { workerId: { in: workerIds }, attendanceDate: { gte: start, lte: end } },
+                select: {
+                    id: true, workerId: true, attendanceDate: true, status: true, overtimeHours: true,
+                    notes: true, eventId: true, cityKey: true, divisionKey: true, approvalStatus: true,
+                },
+            })
+            : [];
+
+        const byWorker = new Map<number, Record<string, any>>();
+        for (const a of attendance) {
+            const key = a.attendanceDate.toISOString().slice(0, 10);
+            if (!byWorker.has(a.workerId)) byWorker.set(a.workerId, {});
+            byWorker.get(a.workerId)![key] = {
+                id: a.id,
+                status: a.status,
+                overtimeHours: parseFloat(a.overtimeHours.toString()) || 0,
+                notes: a.notes,
+                eventId: a.eventId,
+                cityKey: a.cityKey,
+                divisionKey: a.divisionKey,
+                approvalStatus: a.approvalStatus,
+            };
+        }
+
+        const citySet = new Set<string>();
+        const divSet = new Set<string>();
+        for (const r of wageRates) {
+            if (r.city.trim()) citySet.add(r.city.trim());
+            if (r.division.trim()) divSet.add(r.division.trim());
+        }
+
+        return {
+            weekStart: days[0],
+            weekEnd: days[6],
+            days,
+            teams,
+            cities: Array.from(citySet).sort((a, b) => a.localeCompare(b, 'id')),
+            divisions: Array.from(divSet).sort((a, b) => a.localeCompare(b, 'id')),
+            rates: wageRates.map((r) => ({
+                city: r.city,
+                division: r.division,
+                dailyWageRate: parseFloat(r.dailyWageRate.toString()),
+                overtimeRatePerHour: parseFloat(r.overtimeRatePerHour.toString()),
+            })),
+            workers: workers.map((w) => ({
+                id: w.id,
+                name: w.name,
+                position: w.position,
+                teamId: w.teamId,
+                hasPayroll: w.dailyWageRate != null,
+                dailyWageRate: w.dailyWageRate != null ? parseFloat(w.dailyWageRate.toString()) : 0,
+                overtimeRatePerHour: w.overtimeRatePerHour != null ? parseFloat(w.overtimeRatePerHour.toString()) : 0,
+                defaultCityKey: w.defaultCityKey,
+                defaultDivisionKey: w.defaultDivisionKey,
+                cells: byWorker.get(w.id) ?? {},
+            })),
+        };
     }
 
     async update(
