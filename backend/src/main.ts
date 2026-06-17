@@ -25,8 +25,17 @@ async function bootstrap() {
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
     : ['http://localhost:3000'];
+  const isDev = process.env.NODE_ENV !== 'production';
+  // Dev: izinkan localhost/127.0.0.1 di port apa pun (Next sering ganti port saat 3000 dipakai).
+  const localhostRe = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
+      // Tanpa origin (curl, same-origin, server-to-server) → izinkan
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      if (isDev && localhostRe.test(origin)) return cb(null, true);
+      return cb(new Error(`Origin tidak diizinkan oleh CORS: ${origin}`), false);
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     // Content-Disposition harus di-expose supaya frontend bisa baca filename dari header
