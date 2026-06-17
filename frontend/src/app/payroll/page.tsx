@@ -320,9 +320,28 @@ function InputMingguanTab() {
                 </select>
             </div>
 
-            <div className="text-[11px] text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+            <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span>Klik sel: kosong → ✓ Hadir → ½ → ✗ Absen → kosong.</span>
                 <span>Tarif otomatis dari <b>Event</b> (kalau dipilih) lalu <b>Kota × Divisi</b>; ubah per hari lewat tombol ⚙.</span>
+                <a
+                    href="/settings/wage-rates"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium"
+                    title="Tambah Kota/Divisi & tarifnya (buka di tab baru)"
+                >
+                    <Plus className="h-3 w-3" /> Tarif baru
+                </a>
+                <button
+                    onClick={() => {
+                        if (grid.size && !confirm("Muat ulang daftar Kota/Divisi & event dari server? Input yang belum disimpan akan hilang.")) return;
+                        qc.invalidateQueries({ queryKey: ["weekly-input"] });
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border hover:bg-muted font-medium"
+                    title="Muat ulang daftar setelah menambah tarif baru"
+                >
+                    🔄 Muat ulang
+                </button>
             </div>
 
             {/* Toolbar BULK: set Event + Kota + Divisi utk banyak pekerja sekaligus */}
