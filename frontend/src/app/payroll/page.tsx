@@ -109,8 +109,10 @@ export default function PayrollPage() {
 
 // ─── Input Mingguan Tab (admin isi absensi 1 minggu sekaligus) ─────────────
 
-type GridCell = { status: AttendanceStatus | null; overtime: number; city: string | null; division: string | null };
-type GridRow = { city: string | null; division: string | null; days: Record<string, GridCell> };
+type GridCell = { status: AttendanceStatus | null; overtime: number; city: string | null; division: string | null; eventId: number | null };
+type GridRow = { city: string | null; division: string | null; eventId: number | null; days: Record<string, GridCell> };
+
+const KEEP = "__keep__"; // sentinel: pada bulk apply = "biarkan, jangan ubah"
 
 const STATUS_CYCLE: (AttendanceStatus | null)[] = [null, "FULL_DAY", "HALF_DAY", "ABSENT"];
 function cycleStatus(s: AttendanceStatus | null): AttendanceStatus | null {
@@ -123,6 +125,11 @@ function InputMingguanTab() {
     const [teamId, setTeamId] = useState<number | null>(null);
     const [expanded, setExpanded] = useState<Set<number>>(new Set());
     const [grid, setGrid] = useState<Map<number, GridRow>>(new Map());
+    // Seleksi banyak pekerja untuk aksi bulk
+    const [selected, setSelected] = useState<Set<number>>(new Set());
+    const [bulkEvent, setBulkEvent] = useState<string>(KEEP);
+    const [bulkCity, setBulkCity] = useState<string>(KEEP);
+    const [bulkDivision, setBulkDivision] = useState<string>(KEEP);
 
     const { data, isLoading } = useQuery<WeeklyInputContext>({
         queryKey: ["weekly-input", weekStart, teamId],
@@ -138,15 +145,18 @@ function InputMingguanTab() {
         const next = new Map<number, GridRow>();
         for (const w of data.workers) {
             const days: Record<string, GridCell> = {};
+            let rowEventId: number | null = null;
             for (const d of data.days) {
                 const c = w.cells[d];
                 days[d] = c
-                    ? { status: c.status, overtime: c.overtimeHours, city: c.cityKey ?? w.defaultCityKey, division: c.divisionKey ?? w.defaultDivisionKey }
-                    : { status: null, overtime: 0, city: w.defaultCityKey, division: w.defaultDivisionKey };
+                    ? { status: c.status, overtime: c.overtimeHours, city: c.cityKey ?? w.defaultCityKey, division: c.divisionKey ?? w.defaultDivisionKey, eventId: c.eventId }
+                    : { status: null, overtime: 0, city: w.defaultCityKey, division: w.defaultDivisionKey, eventId: null };
+                if (c?.eventId != null && rowEventId == null) rowEventId = c.eventId;
             }
-            next.set(w.id, { city: w.defaultCityKey, division: w.defaultDivisionKey, days });
+            next.set(w.id, { city: w.defaultCityKey, division: w.defaultDivisionKey, eventId: rowEventId, days });
         }
         setGrid(next);
+        setSelected(new Set());
     }, [data]);
 
     const rateMap = useMemo(() => {
@@ -155,7 +165,18 @@ function InputMingguanTab() {
         return m;
     }, [data]);
 
-    function resolveRate(w: WeeklyInputContext["workers"][number], city: string | null, division: string | null) {
+    const eventMap = useMemo(() => {
+        const m = new Map<number, WeeklyInputContext["events"][number]>();
+        for (const e of data?.events ?? []) m.set(e.id, e);
+        return m;
+    }, [data]);
+
+    // Prioritas estimasi (selaras backend): override event > matriks kota×divisi > default worker.
+    function resolveRate(w: WeeklyInputContext["workers"][number], city: string | null, division: string | null, eventId: number | null) {
+        if (eventId != null) {
+            const ev = eventMap.get(eventId);
+            if (ev && ev.dailyWageRate != null) return { daily: ev.dailyWageRate, ot: ev.overtimeRatePerHour ?? 0 };
+        }
         if (city && division) {
             const r = rateMap.get(`${city.toLowerCase()}|${division.toLowerCase()}`);
             if (r) return r;
@@ -169,7 +190,7 @@ function InputMingguanTab() {
         let total = 0;
         for (const c of Object.values(row.days)) {
             if (!c.status) continue;
-            const { daily, ot } = resolveRate(w, c.city, c.division);
+            const { daily, ot } = resolveRate(w, c.city, c.division, c.eventId);
             const base = c.status === "FULL_DAY" ? daily : c.status === "HALF_DAY" ? daily * 0.5 : 0;
             total += base + c.overtime * ot;
         }
@@ -186,19 +207,41 @@ function InputMingguanTab() {
         });
     }
 
-    // Ubah kota/divisi level-baris → terapkan ke semua hari (termasuk override per-sel sebelumnya)
-    function setRowContext(workerId: number, patch: { city?: string | null; division?: string | null }) {
+    // Terapkan event/kota/divisi ke beberapa pekerja sekaligus → ke semua hari (override per-sel ikut di-set).
+    function applyContext(workerIds: number[], patch: { eventId?: number | null; city?: string | null; division?: string | null }) {
         setGrid((prev) => {
             const next = new Map(prev);
-            const row = next.get(workerId);
-            if (!row) return prev;
-            const city = patch.city !== undefined ? patch.city : row.city;
-            const division = patch.division !== undefined ? patch.division : row.division;
-            const days: Record<string, GridCell> = {};
-            for (const [k, c] of Object.entries(row.days)) days[k] = { ...c, city, division };
-            next.set(workerId, { city, division, days });
+            for (const id of workerIds) {
+                const row = next.get(id);
+                if (!row) continue;
+                const eventId = patch.eventId !== undefined ? patch.eventId : row.eventId;
+                const city = patch.city !== undefined ? patch.city : row.city;
+                const division = patch.division !== undefined ? patch.division : row.division;
+                const days: Record<string, GridCell> = {};
+                for (const [k, c] of Object.entries(row.days)) days[k] = { ...c, eventId, city, division };
+                next.set(id, { eventId, city, division, days });
+            }
             return next;
         });
+    }
+
+    // Bulk: terapkan pilihan toolbar ke semua pekerja terpilih (hanya field yang bukan KEEP).
+    function applyBulk() {
+        if (selected.size === 0) { alert("Centang dulu pekerja yang mau di-set."); return; }
+        const patch: { eventId?: number | null; city?: string | null; division?: string | null } = {};
+        if (bulkEvent !== KEEP) patch.eventId = bulkEvent === "" ? null : Number(bulkEvent);
+        if (bulkCity !== KEEP) patch.city = bulkCity || null;
+        if (bulkDivision !== KEEP) patch.division = bulkDivision || null;
+        if (Object.keys(patch).length === 0) { alert("Pilih minimal satu: Event / Kota / Divisi."); return; }
+        applyContext([...selected], patch);
+    }
+
+    function toggleSelect(id: number) {
+        setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    }
+    function toggleSelectAll() {
+        const ids = (data?.workers ?? []).map((w) => w.id);
+        setSelected((prev) => (prev.size === ids.length ? new Set() : new Set(ids)));
     }
 
     function fillRow(workerId: number, status: AttendanceStatus | null) {
@@ -229,6 +272,7 @@ function InputMingguanTab() {
                     rows.push({
                         workerId: w.id, date: d, status: c.status,
                         overtimeHours: c.overtime,
+                        eventId: c.eventId ?? row.eventId ?? null,
                         cityKey: c.city ?? row.city ?? null,
                         divisionKey: c.division ?? row.division ?? null,
                     });
@@ -278,7 +322,32 @@ function InputMingguanTab() {
 
             <div className="text-[11px] text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
                 <span>Klik sel: kosong → ✓ Hadir → ½ → ✗ Absen → kosong.</span>
-                <span>Tarif otomatis dari <b>Kota × Divisi</b>; ubah per hari lewat tombol ⚙.</span>
+                <span>Tarif otomatis dari <b>Event</b> (kalau dipilih) lalu <b>Kota × Divisi</b>; ubah per hari lewat tombol ⚙.</span>
+            </div>
+
+            {/* Toolbar BULK: set Event + Kota + Divisi utk banyak pekerja sekaligus */}
+            <div className="flex items-center gap-2 bg-blue-50/60 border border-blue-200 rounded-lg p-2.5 flex-wrap text-sm">
+                <span className="font-medium text-blue-900 whitespace-nowrap">⚡ Bulk ({selected.size} dipilih):</span>
+                <select value={bulkEvent} onChange={(e) => setBulkEvent(e.target.value)} className="px-2 py-1 border rounded bg-white text-xs max-w-[220px]" title="Event">
+                    <option value={KEEP}>Event — biarkan —</option>
+                    <option value="">(tanpa event)</option>
+                    {(data?.events ?? []).map((ev) => <option key={ev.id} value={ev.id}>{ev.name}{ev.code ? ` (${ev.code})` : ""}</option>)}
+                </select>
+                <select value={bulkCity} onChange={(e) => setBulkCity(e.target.value)} className="px-2 py-1 border rounded bg-white text-xs" title="Kota">
+                    <option value={KEEP}>Kota — biarkan —</option>
+                    <option value="">(kosongkan)</option>
+                    {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select value={bulkDivision} onChange={(e) => setBulkDivision(e.target.value)} className="px-2 py-1 border rounded bg-white text-xs" title="Divisi">
+                    <option value={KEEP}>Divisi — biarkan —</option>
+                    <option value="">(kosongkan)</option>
+                    {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <button onClick={applyBulk} disabled={selected.size === 0}
+                    className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50">
+                    Terapkan ke {selected.size} pekerja
+                </button>
+                {selected.size > 0 && <button onClick={() => setSelected(new Set())} className="text-xs text-blue-700 underline">batal pilih</button>}
             </div>
 
             {noMatrix && (
@@ -298,7 +367,15 @@ function InputMingguanTab() {
                     <table className="text-sm border-collapse">
                         <thead className="bg-muted/50">
                             <tr>
-                                <th className="text-left p-2 sticky left-0 bg-muted/50 z-10 min-w-[150px]">Pekerja</th>
+                                <th className="p-2 w-8 text-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={(data?.workers.length ?? 0) > 0 && selected.size === (data?.workers.length ?? 0)}
+                                        onChange={toggleSelectAll}
+                                        title="Pilih semua"
+                                    />
+                                </th>
+                                <th className="text-left p-2 min-w-[150px]">Pekerja</th>
                                 <th className="p-2 text-left min-w-[110px]">Kota</th>
                                 <th className="p-2 text-left min-w-[110px]">Divisi</th>
                                 {(data?.days ?? []).map((d) => (
@@ -318,23 +395,31 @@ function InputMingguanTab() {
                                 const isOpen = expanded.has(w.id);
                                 return (
                                     <FragmentRow key={w.id}>
-                                        <tr className="border-t hover:bg-muted/20">
-                                            <td className="p-2 sticky left-0 bg-white z-10">
+                                        <tr className={`border-t hover:bg-muted/20 ${selected.has(w.id) ? "bg-blue-50/40" : ""}`}>
+                                            <td className="p-2 text-center align-top">
+                                                <input type="checkbox" checked={selected.has(w.id)} onChange={() => toggleSelect(w.id)} />
+                                            </td>
+                                            <td className="p-2 align-top">
                                                 <div className="font-medium leading-tight">{w.name}</div>
+                                                {row.eventId != null && (
+                                                    <div className="text-[10px] text-blue-700 font-medium truncate max-w-[140px]" title={eventMap.get(row.eventId)?.name ?? ""}>
+                                                        🎪 {eventMap.get(row.eventId)?.code ?? eventMap.get(row.eventId)?.name ?? `#${row.eventId}`}
+                                                    </div>
+                                                )}
                                                 <div className="flex gap-1 mt-0.5">
                                                     <button onClick={() => fillRow(w.id, "FULL_DAY")} title="Isi semua Hadir" className="text-[10px] px-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">✓×7</button>
                                                     <button onClick={() => fillRow(w.id, null)} title="Kosongkan semua" className="text-[10px] px-1 rounded bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100">bersihkan</button>
                                                 </div>
                                             </td>
-                                            <td className="p-1">
-                                                <select value={row.city ?? ""} onChange={(e) => setRowContext(w.id, { city: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-white">
-                                                    <option value="">(default)</option>
+                                            <td className="p-1 align-top">
+                                                <select value={row.city ?? ""} onChange={(e) => applyContext([w.id], { city: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-white">
+                                                    <option value="">(default pekerja)</option>
                                                     {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
                                                 </select>
                                             </td>
-                                            <td className="p-1">
-                                                <select value={row.division ?? ""} onChange={(e) => setRowContext(w.id, { division: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-white">
-                                                    <option value="">(default)</option>
+                                            <td className="p-1 align-top">
+                                                <select value={row.division ?? ""} onChange={(e) => applyContext([w.id], { division: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-white">
+                                                    <option value="">(default pekerja)</option>
                                                     {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
                                                 </select>
                                             </td>
@@ -372,13 +457,17 @@ function InputMingguanTab() {
                                         </tr>
                                         {isOpen && (
                                             <tr className="bg-amber-50/40 border-t border-amber-200">
-                                                <td colSpan={3} className="p-2 text-[10px] text-amber-800 sticky left-0 bg-amber-50 z-10">
-                                                    Override Kota/Divisi per hari (untuk hari kerja di kota/divisi berbeda):
+                                                <td colSpan={4} className="p-2 text-[10px] text-amber-800 align-top">
+                                                    Override Event/Kota/Divisi per hari (untuk hari kerja di event/kota berbeda):
                                                 </td>
                                                 {(data?.days ?? []).map((d) => {
                                                     const cell = row.days[d];
                                                     return (
                                                         <td key={d} className="p-1 align-top">
+                                                            <select value={cell.eventId ?? ""} onChange={(e) => setCell(w.id, d, { eventId: e.target.value ? Number(e.target.value) : null })} className="w-[44px] text-[9px] border rounded mb-1 bg-white" title="Event">
+                                                                <option value="">event</option>
+                                                                {(data?.events ?? []).map((ev) => <option key={ev.id} value={ev.id}>{ev.code || ev.name}</option>)}
+                                                            </select>
                                                             <select value={cell.city ?? ""} onChange={(e) => setCell(w.id, d, { city: e.target.value || null })} className="w-[44px] text-[9px] border rounded mb-1 bg-white" title="Kota">
                                                                 <option value="">kota</option>
                                                                 {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}

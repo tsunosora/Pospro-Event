@@ -339,7 +339,7 @@ export class AttendanceService {
         const workerWhere: Prisma.WorkerWhereInput = { isActive: true };
         if (teamId) workerWhere.teamId = teamId;
 
-        const [teams, workers, wageRates] = await Promise.all([
+        const [teams, workers, wageRates, events] = await Promise.all([
             this.prisma.crewTeam.findMany({
                 where: { isActive: true },
                 orderBy: { name: 'asc' },
@@ -357,6 +357,16 @@ export class AttendanceService {
             this.prisma.wageRate.findMany({
                 where: { isActive: true },
                 select: { city: true, division: true, dailyWageRate: true, overtimeRatePerHour: true },
+            }),
+            // Event aktif untuk picker bulk (status SCHEDULED / IN_PROGRESS, terbaru dulu)
+            this.prisma.event.findMany({
+                where: { status: { in: ['SCHEDULED', 'IN_PROGRESS'] as any } },
+                orderBy: { eventStart: 'desc' },
+                take: 100,
+                select: {
+                    id: true, code: true, name: true, venue: true,
+                    dailyWageRate: true, overtimeRatePerHour: true,
+                },
             }),
         ]);
 
@@ -406,6 +416,14 @@ export class AttendanceService {
                 division: r.division,
                 dailyWageRate: parseFloat(r.dailyWageRate.toString()),
                 overtimeRatePerHour: parseFloat(r.overtimeRatePerHour.toString()),
+            })),
+            events: events.map((e) => ({
+                id: e.id,
+                code: e.code,
+                name: e.name,
+                venue: e.venue,
+                dailyWageRate: e.dailyWageRate != null ? parseFloat(e.dailyWageRate.toString()) : null,
+                overtimeRatePerHour: e.overtimeRatePerHour != null ? parseFloat(e.overtimeRatePerHour.toString()) : null,
             })),
             workers: workers.map((w) => ({
                 id: w.id,

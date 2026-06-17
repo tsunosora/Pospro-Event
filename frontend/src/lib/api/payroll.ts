@@ -141,6 +141,15 @@ export interface WeeklyInputWorker {
     cells: Record<string, WeeklyInputCell>;   // keyed by date YYYY-MM-DD
 }
 
+export interface WeeklyInputEvent {
+    id: number;
+    code: string;
+    name: string;
+    venue: string | null;
+    dailyWageRate: number | null;
+    overtimeRatePerHour: number | null;
+}
+
 export interface WeeklyInputContext {
     weekStart: string;
     weekEnd: string;
@@ -149,6 +158,7 @@ export interface WeeklyInputContext {
     cities: string[];
     divisions: string[];
     rates: Array<{ city: string; division: string; dailyWageRate: number; overtimeRatePerHour: number }>;
+    events: WeeklyInputEvent[];
     workers: WeeklyInputWorker[];
 }
 
