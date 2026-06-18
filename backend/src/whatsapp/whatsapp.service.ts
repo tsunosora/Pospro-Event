@@ -26,6 +26,12 @@ export class WhatsappService implements OnModuleInit {
     private connectionStatus: ConnectionStatus = 'INITIALIZING';
     private isReady = false;
 
+    // Bot WhatsApp dimatikan secara default untuk menghemat resource (Puppeteer/Chromium headless).
+    // Aktifkan dengan set env WHATSAPP_ENABLED=true. Rencana: diganti webhook Discord.
+    private readonly enabled = ['true', '1', 'yes'].includes(
+        (process.env.WHATSAPP_ENABLED || '').toLowerCase(),
+    );
+
     private botConfig: BotConfig = {
         allowedGroups: [],
         reportGroupId: process.env.WHATSAPP_REPORT_GROUP_ID || null,
@@ -37,6 +43,15 @@ export class WhatsappService implements OnModuleInit {
 
     onModuleInit() {
         this.loadConfig();
+        if (!this.enabled) {
+            this.connectionStatus = 'DISCONNECTED';
+            this.isReady = false;
+            this.qrCodeUrl = null;
+            this.logger.warn(
+                'WhatsApp Bot DINONAKTIFKAN (WHATSAPP_ENABLED tidak diset). Client tidak diinisialisasi — hemat resource. Semua kirim pesan akan di-skip.',
+            );
+            return;
+        }
         this.initializeClient();
     }
 
@@ -262,6 +277,10 @@ export class WhatsappService implements OnModuleInit {
     }
 
     async logout() {
+        if (!this.enabled) {
+            this.logger.warn('WhatsApp Bot dinonaktifkan — permintaan restart/logout diabaikan.');
+            return;
+        }
         this.logger.log('Manual restart/logout requested...');
         try {
             if (this.connectionStatus === 'CONNECTED' || this.connectionStatus === 'AUTHENTICATED') {
