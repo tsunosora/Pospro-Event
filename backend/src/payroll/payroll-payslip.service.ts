@@ -5,6 +5,7 @@ import * as Handlebars from 'handlebars';
 import type { Browser } from 'puppeteer';
 import { AttendanceStatus, PayrollAdjustmentType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PayrollSummaryService } from './payroll-summary.service';
 
 const STATUS_LABEL: Record<AttendanceStatus, string> = {
     FULL_DAY: '✓ Hadir Penuh',
@@ -30,9 +31,13 @@ function adjSign(t: PayrollAdjustmentType): 1 | -1 {
 @Injectable()
 export class PayrollPayslipService implements OnModuleDestroy {
     private template: Handlebars.TemplateDelegate | null = null;
+    private ownerTemplate: Handlebars.TemplateDelegate | null = null;
     private browser: Browser | null = null;
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private summary: PayrollSummaryService,
+    ) { }
 
     async onModuleDestroy() {
         if (this.browser) {
@@ -41,22 +46,45 @@ export class PayrollPayslipService implements OnModuleDestroy {
         }
     }
 
-    private getTemplatePath(): string {
+    private getTemplatePath(name: string): string {
         const candidates = [
-            path.resolve(__dirname, '..', '..', 'templates', 'payroll', 'payslip.hbs'),
-            path.resolve(__dirname, '..', '..', '..', 'templates', 'payroll', 'payslip.hbs'),
-            path.resolve(process.cwd(), 'templates', 'payroll', 'payslip.hbs'),
+            path.resolve(__dirname, '..', '..', 'templates', 'payroll', name),
+            path.resolve(__dirname, '..', '..', '..', 'templates', 'payroll', name),
+            path.resolve(process.cwd(), 'templates', 'payroll', name),
         ];
         for (const c of candidates) if (fs.existsSync(c)) return c;
-        throw new Error(`Template payslip.hbs tidak ditemukan. Sudah coba: ${candidates.join(', ')}`);
+        throw new Error(`Template ${name} tidak ditemukan. Sudah coba: ${candidates.join(', ')}`);
     }
 
     private loadTemplate(): Handlebars.TemplateDelegate {
         if (this.template) return this.template;
-        const file = this.getTemplatePath();
-        const source = fs.readFileSync(file, 'utf-8');
+        const source = fs.readFileSync(this.getTemplatePath('payslip.hbs'), 'utf-8');
         this.template = Handlebars.compile(source);
         return this.template;
+    }
+
+    private loadOwnerTemplate(): Handlebars.TemplateDelegate {
+        if (this.ownerTemplate) return this.ownerTemplate;
+        const source = fs.readFileSync(this.getTemplatePath('owner-report.hbs'), 'utf-8');
+        this.ownerTemplate = Handlebars.compile(source);
+        return this.ownerTemplate;
+    }
+
+    /** Render HTML → PDF A4 pakai shared browser instance. */
+    private async htmlToPdf(html: string): Promise<Buffer> {
+        const browser = await this.getBrowser();
+        const page = await browser.newPage();
+        try {
+            await page.setContent(html, { waitUntil: 'networkidle0' });
+            const pdf = await page.pdf({
+                format: 'A4',
+                printBackground: true,
+                margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+            });
+            return Buffer.from(pdf);
+        } finally {
+            await page.close();
+        }
     }
 
     private async getBrowser(): Promise<Browser> {
@@ -69,10 +97,11 @@ export class PayrollPayslipService implements OnModuleDestroy {
         return this.browser;
     }
 
+    /** Parse "YYYY-MM-DD" ke UTC midnight (kolom @db.Date — hindari geser hari di TZ non-UTC). */
     private parseDate(input: string): Date {
         const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(input);
         if (!m) throw new BadRequestException(`Format tanggal invalid: ${input}`);
-        return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0);
+        return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
     }
 
     /** Resolve daily + overtime rate untuk 1 attendance row.
@@ -127,7 +156,7 @@ export class PayrollPayslipService implements OnModuleDestroy {
     async renderPayslipPdf(workerId: number, from: string, to: string, approverId?: number): Promise<Buffer> {
         const start = this.parseDate(from);
         const end = this.parseDate(to);
-        end.setHours(23, 59, 59, 999);
+        end.setUTCHours(23, 59, 59, 999);
 
         const [worker, attendances, adjustments, settings, approver] = await Promise.all([
             this.prisma.worker.findUnique({
@@ -212,7 +241,7 @@ export class PayrollPayslipService implements OnModuleDestroy {
                 overtimeSum += overtimeAmount;
                 approvedTotal += subtotal;
             }
-            const dateFmt = a.attendanceDate.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+            const dateFmt = a.attendanceDate.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
             return {
                 dateFmt,
                 statusLabel: STATUS_LABEL[a.status],
@@ -230,7 +259,7 @@ export class PayrollPayslipService implements OnModuleDestroy {
             const sign = adjSign(a.type);
             if (sign > 0) posSum += amt; else negSum += amt;
             return {
-                dateFmt: a.effectiveDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
+                dateFmt: a.effectiveDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }),
                 typeLabel: ADJ_TYPE_LABEL[a.type],
                 typeLower: a.type.toLowerCase(),
                 notes: a.notes ?? '',
@@ -242,13 +271,13 @@ export class PayrollPayslipService implements OnModuleDestroy {
         const netAdj = posSum - negSum;
         const grandTotal = approvedTotal + netAdj;
 
-        // Period label
-        const sameMonth = start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth();
+        // Period label (semua format pakai timeZone UTC agar selaras dengan @db.Date)
+        const sameMonth = start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth();
         const periodLabel = sameMonth
-            ? `${start.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`
-                + ` — ${end.toLocaleDateString('id-ID', { day: 'numeric' })}`
-            : `${start.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`
-                + ` sd ${end.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+            ? `${start.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`
+                + ` — ${end.toLocaleDateString('id-ID', { day: 'numeric', timeZone: 'UTC' })}`
+            : `${start.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}`
+                + ` sd ${end.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}`;
 
         const dailyDisplay = worker.dailyWageRate ? fmt(parseFloat(worker.dailyWageRate.toString())) : '—';
         const overtimeDisplay = worker.overtimeRatePerHour ? fmt(parseFloat(worker.overtimeRatePerHour.toString())) : '';
@@ -292,18 +321,72 @@ export class PayrollPayslipService implements OnModuleDestroy {
         const template = this.loadTemplate();
         const html = template(ctx);
 
-        const browser = await this.getBrowser();
-        const page = await browser.newPage();
-        try {
-            await page.setContent(html, { waitUntil: 'networkidle0' });
-            const pdf = await page.pdf({
-                format: 'A4',
-                printBackground: true,
-                margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
-            });
-            return Buffer.from(pdf);
-        } finally {
-            await page.close();
-        }
+        return this.htmlToPdf(html);
+    }
+
+    /**
+     * Laporan pengeluaran gaji untuk OWNER — rekap semua pekerja di periode [from, to].
+     * Hanya pekerja dengan aktivitas (gaji approved / adjustment / pending) yang ditampilkan.
+     */
+    async renderOwnerReportPdf(from: string, to: string, label?: string, approverId?: number): Promise<Buffer> {
+        const [data, settings, approver] = await Promise.all([
+            this.summary.periodExpenseSummary(from, to),
+            this.prisma.storeSettings.findFirst(),
+            approverId ? this.prisma.user.findUnique({ where: { id: approverId }, select: { name: true, email: true, role: { select: { name: true } } } }) : Promise.resolve(null),
+        ]);
+
+        const active = data.rows.filter(
+            (r) => r.approvedTotal !== 0 || r.adjustments.net !== 0 || r.pendingCount > 0 || r.fullDays > 0 || r.halfDays > 0,
+        );
+
+        let sumAllowance = 0, sumDeduction = 0, totalPending = 0;
+        const rows = active.map((r, i) => {
+            const allowance = r.adjustments.bonus + r.adjustments.allowance;
+            const deduction = r.adjustments.deduction + r.adjustments.advance;
+            sumAllowance += allowance;
+            sumDeduction += deduction;
+            totalPending += r.pendingCount;
+            return {
+                no: i + 1,
+                name: r.name,
+                position: r.position ?? '',
+                hadir: r.fullDays,
+                half: r.halfDays,
+                overtimeHours: r.overtimeHours,
+                approvedFmt: fmt(r.approvedTotal),
+                allowanceFmt: fmt(allowance),
+                deductionFmt: fmt(deduction),
+                hasDeduction: deduction > 0,
+                grandTotalFmt: fmt(r.grandTotal),
+            };
+        });
+
+        const periodLabel = label || `${data.periodStart} sd ${data.periodEnd}`;
+        const ctx = {
+            company: {
+                name: settings?.storeName ?? 'Pospro Event',
+                address: settings?.storeAddress ?? '',
+            },
+            generatedAt: new Date().toLocaleString('id-ID'),
+            periodLabel,
+            rows,
+            totals: {
+                workerCount: rows.length,
+                approvedFmt: fmt(data.grandApproved),
+                allowanceFmt: fmt(sumAllowance),
+                deductionFmt: fmt(sumDeduction),
+                grandFinalFmt: fmt(data.grandFinal),
+            },
+            pendingNote: totalPending > 0
+                ? `Ada ${totalPending} absensi PENDING yang belum di-approve — belum termasuk di total. Approve dulu di /payroll agar masuk perhitungan.`
+                : null,
+            approver: {
+                name: approver?.name ?? approver?.email ?? '_______________________',
+                role: approver?.role?.name ?? 'Admin / HR',
+            },
+        };
+
+        const template = this.loadOwnerTemplate();
+        return this.htmlToPdf(template(ctx));
     }
 }

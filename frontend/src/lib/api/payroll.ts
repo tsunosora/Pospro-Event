@@ -289,6 +289,21 @@ export const exportMonthlyXlsx = async (year: number, month: number): Promise<Bl
     return res.data as Blob;
 };
 
+/** Laporan pengeluaran gaji ke owner — rentang [from, to] bebas (mingguan/bulanan). */
+export const exportOwnerReportPdf = async (from: string, to: string, label?: string): Promise<Blob> => {
+    const sp = new URLSearchParams({ from, to });
+    if (label) sp.set('label', label);
+    const res = await api.get(`/payroll/owner-report.pdf?${sp.toString()}`, { responseType: 'blob' });
+    return res.data as Blob;
+};
+
+export const exportOwnerReportXlsx = async (from: string, to: string, label?: string): Promise<Blob> => {
+    const sp = new URLSearchParams({ from, to });
+    if (label) sp.set('label', label);
+    const res = await api.get(`/payroll/owner-report.xlsx?${sp.toString()}`, { responseType: 'blob' });
+    return res.data as Blob;
+};
+
 // ─── Public endpoints (NO JWT — pakai token di path) ──────────────────
 // Dipakai oleh /pic/[token] page yang TIDAK butuh login.
 // Buat axios instance terpisah supaya gak include Authorization header.

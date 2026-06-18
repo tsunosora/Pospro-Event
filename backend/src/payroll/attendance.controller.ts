@@ -165,6 +165,37 @@ export class AttendanceController {
         res.end(buf);
     }
 
+    /** Laporan pengeluaran gaji ke owner (PDF). ?from=YYYY-MM-DD&to=YYYY-MM-DD&label=... */
+    @Get('owner-report.pdf')
+    @Header('Content-Type', 'application/pdf')
+    async ownerReportPdf(
+        @Query('from') from: string,
+        @Query('to') to: string,
+        @Query('label') label: string | undefined,
+        @Req() req: JwtRequest,
+        @Res() res: Response,
+    ) {
+        const buf = await this.payslipService.renderOwnerReportPdf(from, to, label, actorId(req) ?? undefined);
+        res.setHeader('Content-Disposition', `inline; filename="laporan-gaji-${from}-${to}.pdf"`);
+        res.setHeader('Content-Length', buf.length.toString());
+        res.end(buf);
+    }
+
+    /** Laporan pengeluaran gaji ke owner (Excel). ?from=YYYY-MM-DD&to=YYYY-MM-DD&label=... */
+    @Get('owner-report.xlsx')
+    @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    async ownerReportXlsx(
+        @Query('from') from: string,
+        @Query('to') to: string,
+        @Query('label') label: string | undefined,
+        @Res() res: Response,
+    ) {
+        const buf = await this.exportService.renderOwnerReportXlsx(from, to, label);
+        res.setHeader('Content-Disposition', `attachment; filename="laporan-gaji-${from}-${to}.xlsx"`);
+        res.setHeader('Content-Length', buf.length.toString());
+        res.end(buf);
+    }
+
     /** Slip gaji PDF per worker per periode. ?from=YYYY-MM-DD&to=YYYY-MM-DD */
     @Get('payslip/:workerId.pdf')
     @Header('Content-Type', 'application/pdf')

@@ -8,6 +8,7 @@ import "dayjs/locale/id";
 import {
     getWeeklySummary, getMonthlySummary, bulkUpsertAttendance,
     exportWeeklyXlsx, exportMonthlyXlsx, exportPayslipPdf,
+    exportOwnerReportPdf, exportOwnerReportXlsx,
     approveAttendance, rejectAttendance, bulkApproveAttendance,
     getAttendanceAuditLog,
     listAdjustments, createAdjustment, updateAdjustment, deleteAdjustment,
@@ -20,9 +21,40 @@ import { getWorkers, type Worker } from "@/lib/api/workers";
 import { getEvents } from "@/lib/api/events";
 import { listCrewByEvent } from "@/lib/api/event-crew";
 import {
-    Calendar, Check, CheckCheck, ChevronLeft, ChevronRight, ClipboardList, Download, FileText, History,
-    Loader2, Plus, Trash2, Wallet, X,
+    Calendar, Check, CheckCheck, ChevronLeft, ChevronRight, ClipboardList, Download, FileSpreadsheet, FileText, History,
+    Loader2, Plus, Receipt, Trash2, Wallet, X,
 } from "lucide-react";
+
+/** Tombol Laporan Owner (PDF + Excel) untuk sebuah periode [from, to]. Dipakai di tab Weekly & Monthly. */
+function OwnerReportButtons({ from, to, label, fileBase }: { from: string; to: string; label: string; fileBase: string }) {
+    const [busy, setBusy] = useState<"pdf" | "xlsx" | null>(null);
+    async function run(kind: "pdf" | "xlsx") {
+        setBusy(kind);
+        try {
+            const blob = kind === "pdf"
+                ? await exportOwnerReportPdf(from, to, label)
+                : await exportOwnerReportXlsx(from, to, label);
+            downloadBlob(blob, `laporan-gaji-${fileBase}.${kind === "pdf" ? "pdf" : "xlsx"}`);
+        } catch (e: any) {
+            alert(`Gagal buat laporan: ${e?.response?.data?.message || e?.message || "Unknown"}`);
+        } finally { setBusy(null); }
+    }
+    return (
+        <div className="inline-flex items-center rounded border-2 border-indigo-300 bg-indigo-50 overflow-hidden">
+            <span className="pl-2.5 pr-1 text-xs font-medium text-indigo-700 inline-flex items-center gap-1">
+                <Receipt className="h-3.5 w-3.5" /> Laporan Owner
+            </span>
+            <button onClick={() => run("pdf")} disabled={busy !== null} title="Laporan pengeluaran gaji (PDF)"
+                className="px-2 py-1.5 text-xs text-indigo-700 hover:bg-indigo-100 border-l border-indigo-200 disabled:opacity-50 inline-flex items-center gap-1">
+                {busy === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} PDF
+            </button>
+            <button onClick={() => run("xlsx")} disabled={busy !== null} title="Laporan pengeluaran gaji (Excel)"
+                className="px-2 py-1.5 text-xs text-indigo-700 hover:bg-indigo-100 border-l border-indigo-200 disabled:opacity-50 inline-flex items-center gap-1">
+                {busy === "xlsx" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel
+            </button>
+        </div>
+    );
+}
 
 dayjs.extend(isoWeek);
 dayjs.locale("id");
@@ -538,6 +570,7 @@ function WeeklyTab() {
     const [weekStart, setWeekStart] = useState<string>(startOfPayWeek());
     const [exporting, setExporting] = useState(false);
     const [auditCellId, setAuditCellId] = useState<number | null>(null);
+    const [slipLoadingId, setSlipLoadingId] = useState<number | null>(null);
 
     const { data, isLoading } = useQuery<WeeklySummary>({
         queryKey: ["payroll-weekly", weekStart],
@@ -591,7 +624,20 @@ function WeeklyTab() {
         rejectMut.mutate({ id, reason });
     }
 
+    async function handleWeeklyPayslip(workerId: number, workerName: string) {
+        if (!data) return;
+        setSlipLoadingId(workerId);
+        try {
+            const blob = await exportPayslipPdf(workerId, data.weekStart, data.weekEnd);
+            const safeName = workerName.replace(/[^a-zA-Z0-9-]+/g, "_");
+            downloadBlob(blob, `slip-mingguan-${safeName}-${data.weekStart}.pdf`);
+        } catch (e: any) {
+            alert(`Gagal generate slip: ${e?.response?.data?.message || e?.message}`);
+        } finally { setSlipLoadingId(null); }
+    }
+
     const dayLabels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+    const ownerLabel = data ? `Minggu ${dayjs(data.weekStart).format("DD")}–${dayjs(data.weekEnd).format("DD MMM YYYY")}` : "";
 
     return (
         <div className="space-y-3">
@@ -621,6 +667,7 @@ function WeeklyTab() {
                     {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                     Export Excel
                 </button>
+                {data && <OwnerReportButtons from={data.weekStart} to={data.weekEnd} label={ownerLabel} fileBase={data.weekStart} />}
             </div>
 
             {isLoading && <div className="text-center p-8 text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin inline" /></div>}
@@ -649,6 +696,7 @@ function WeeklyTab() {
                                     <th className="p-2 text-right whitespace-nowrap">Approved</th>
                                     <th className="p-2 text-right whitespace-nowrap">Adj</th>
                                     <th className="p-2 text-right whitespace-nowrap">Final</th>
+                                    <th className="p-2 text-center w-14">Slip</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -687,6 +735,18 @@ function WeeklyTab() {
                                         <td className="p-2 text-right font-mono font-bold text-navy whitespace-nowrap">
                                             {row.grandTotal > 0 ? `Rp ${formatRp(row.grandTotal)}` : "—"}
                                         </td>
+                                        <td className="p-2 text-center">
+                                            <button
+                                                onClick={() => handleWeeklyPayslip(row.workerId, row.name)}
+                                                disabled={slipLoadingId === row.workerId}
+                                                title="Download Slip Gaji Mingguan (PDF)"
+                                                className="p-1.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 disabled:opacity-50"
+                                            >
+                                                {slipLoadingId === row.workerId
+                                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    : <FileText className="h-3.5 w-3.5" />}
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -695,6 +755,7 @@ function WeeklyTab() {
                                     <td colSpan={8} className="p-2 text-right font-bold text-emerald-800">GRAND TOTAL FINAL CAIR:</td>
                                     <td colSpan={2} className="p-2"></td>
                                     <td className="p-2 text-right font-mono font-bold text-emerald-800">Rp {formatRp(data.grandFinal)}</td>
+                                    <td className="p-2"></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -877,6 +938,14 @@ function MonthlyTab() {
                     {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                     Export Excel
                 </button>
+                {data && (
+                    <OwnerReportButtons
+                        from={data.periodStart}
+                        to={data.periodEnd}
+                        label={dayjs().year(year).month(month - 1).format("MMMM YYYY")}
+                        fileBase={`${year}-${String(month).padStart(2, "0")}`}
+                    />
+                )}
             </div>
 
             {isLoading && <div className="text-center p-8 text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin inline" /></div>}

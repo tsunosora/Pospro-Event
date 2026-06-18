@@ -119,6 +119,93 @@ export class PayrollExportService {
         return Buffer.from(buffer);
     }
 
+    /**
+     * Laporan pengeluaran gaji untuk OWNER — rentang [from, to] bebas (mingguan/bulanan).
+     * Kolom: No, Pekerja, Posisi, Hadir, ½, Lembur jam, Gaji (approved), Tunjangan, Potongan, Total Cair.
+     * Hanya pekerja dengan aktivitas yang ditampilkan.
+     */
+    async renderOwnerReportXlsx(from: string, to: string, label?: string): Promise<Buffer> {
+        const data = await this.summaryService.periodExpenseSummary(from, to);
+        const active = data.rows.filter(
+            (r) => r.approvedTotal !== 0 || r.adjustments.net !== 0 || r.pendingCount > 0 || r.fullDays > 0 || r.halfDays > 0,
+        );
+        const wb = new ExcelJS.Workbook();
+        wb.creator = 'pospenawaran';
+        wb.created = new Date();
+        const ws = wb.addWorksheet('Pengeluaran Gaji');
+
+        ws.mergeCells('A1:J1');
+        ws.getCell('A1').value = `Laporan Pengeluaran Gaji: ${label || `${data.periodStart} sd ${data.periodEnd}`}`;
+        ws.getCell('A1').font = { bold: true, size: 14, color: { argb: NAVY } };
+        ws.getRow(1).height = 22;
+
+        ws.mergeCells('A2:J2');
+        ws.getCell('A2').value = `Periode: ${data.periodStart} sd ${data.periodEnd} · ${active.length} pekerja · Generated: ${new Date().toLocaleString('id-ID')}`;
+        ws.getCell('A2').font = { italic: true, size: 9, color: { argb: 'FF666666' } };
+
+        const headerRow = 4;
+        const headers = ['No', 'Pekerja', 'Posisi', 'Hadir', '½ Hari', 'Lembur (jam)', 'Gaji (Approved)', 'Tunjangan', 'Potongan', 'Total Cair'];
+        ws.getRow(headerRow).values = headers;
+        ws.getRow(headerRow).eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: HEADER_TEXT } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            cell.border = border();
+        });
+        ws.getRow(headerRow).height = 22;
+
+        const widths = [5, 24, 16, 9, 8, 12, 16, 14, 14, 18];
+        widths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+
+        let rowIdx = headerRow + 1;
+        for (const [i, r] of active.entries()) {
+            const allowance = r.adjustments.bonus + r.adjustments.allowance;
+            const deduction = r.adjustments.deduction + r.adjustments.advance;
+            ws.getRow(rowIdx).values = [
+                i + 1, r.name, r.position ?? '',
+                r.fullDays, r.halfDays, r.overtimeHours,
+                r.approvedTotal, allowance, deduction, r.grandTotal,
+            ];
+            ws.getRow(rowIdx).eachCell({ includeEmpty: true }, (cell, col) => {
+                cell.border = border();
+                cell.alignment = { vertical: 'middle' };
+                if (col >= 7 && col <= 10) {
+                    cell.numFmt = '"Rp"#,##0';
+                    cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                }
+                if (col === 1 || (col >= 4 && col <= 6)) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                if (col === 9 && deduction > 0) cell.font = { color: { argb: 'FFC8203A' } };
+            });
+            rowIdx += 1;
+        }
+
+        // Grand Total
+        ws.mergeCells(`A${rowIdx}:F${rowIdx}`);
+        ws.getCell(`A${rowIdx}`).value = 'TOTAL PENGELUARAN GAJI';
+        ws.getCell(`A${rowIdx}`).font = { bold: true };
+        ws.getCell(`A${rowIdx}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: TOTAL_GREY } };
+        ws.getCell(`A${rowIdx}`).alignment = { horizontal: 'right', vertical: 'middle' };
+        ws.getCell(`A${rowIdx}`).border = border();
+        const totalCols: Array<[string, number]> = [
+            [`G${rowIdx}`, data.grandApproved],
+            [`H${rowIdx}`, active.reduce((s, r) => s + r.adjustments.bonus + r.adjustments.allowance, 0)],
+            [`I${rowIdx}`, active.reduce((s, r) => s + r.adjustments.deduction + r.adjustments.advance, 0)],
+            [`J${rowIdx}`, data.grandFinal],
+        ];
+        for (const [addr, val] of totalCols) {
+            const c = ws.getCell(addr);
+            c.value = val;
+            c.numFmt = '"Rp"#,##0';
+            c.font = { bold: true, color: { argb: NAVY } };
+            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: TOTAL_GREY } };
+            c.alignment = { horizontal: 'right', vertical: 'middle' };
+            c.border = border();
+        }
+
+        const buffer = await wb.xlsx.writeBuffer();
+        return Buffer.from(buffer);
+    }
+
     /** Export rekap bulanan. 1 sheet — kolom: Pekerja, Hadir, ½, Lembur jam, Base, Lembur Rp, Total. */
     async renderMonthlyXlsx(year: number, month: number): Promise<Buffer> {
         const data = await this.summaryService.monthlySummary(year, month);

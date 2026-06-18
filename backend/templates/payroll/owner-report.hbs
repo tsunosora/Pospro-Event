@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<title>Laporan Pengeluaran Gaji — {{periodLabel}}</title>
+<style>
+  @page { size: A4; margin: 14mm 14mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1f2937; font-size: 10.5pt; line-height: 1.4; margin: 0; }
+
+  .doc-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 2pt solid #1a3b7c; padding-bottom: 10pt; margin-bottom: 14pt;
+  }
+  .company-name { font-size: 16pt; font-weight: 700; color: #1a3b7c; }
+  .company-tagline { font-size: 9.5pt; color: #6b7280; margin-top: 2pt; }
+  .doc-title { text-align: right; }
+  .doc-title h1 { margin: 0; font-size: 17pt; color: #1a3b7c; }
+  .doc-title .meta { font-size: 9pt; color: #6b7280; margin-top: 4pt; }
+
+  .summary-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8pt; margin-bottom: 14pt; }
+  .card { background: #f1f5fb; border-radius: 4pt; padding: 8pt 10pt; }
+  .card .label { font-size: 8pt; color: #6b7280; text-transform: uppercase; letter-spacing: 0.3pt; }
+  .card .value { font-size: 12.5pt; font-weight: 700; color: #1a3b7c; margin-top: 2pt; }
+  .card.grand { background: #1a3b7c; }
+  .card.grand .label { color: #c7d6f0; }
+  .card.grand .value { color: #ffffff; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 5pt 7pt; border-bottom: 0.5pt solid #e5e7eb; }
+  th { background: #1a3b7c; color: #fff; font-size: 8.5pt; text-transform: uppercase; text-align: left; letter-spacing: 0.3pt; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; }
+  td.center { text-align: center; }
+  tbody tr:nth-child(even) { background: #f9fafb; }
+  tfoot td { font-weight: 700; background: #d9e2f3; border-top: 1.5pt solid #1a3b7c; }
+  td.negative { color: #c8203a; }
+
+  .pending-warning {
+    background: #fef3c7; border-left: 3pt solid #f59e0b; color: #92400e;
+    padding: 6pt 10pt; margin-top: 10pt; font-size: 9.5pt; border-radius: 3pt;
+  }
+
+  .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 24pt; margin-top: 30pt; page-break-inside: avoid; }
+  .sign-block { text-align: center; font-size: 10pt; }
+  .sign-line { border-bottom: 1pt solid #1f2937; height: 50pt; margin-bottom: 4pt; }
+  .sign-name { font-weight: 600; margin-top: 6pt; }
+  .sign-role { color: #6b7280; font-size: 9pt; }
+
+  .foot { margin-top: 18pt; padding-top: 8pt; border-top: 1pt solid #e5e7eb; font-size: 9pt; color: #6b7280; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+  <div class="doc-header">
+    <div class="company-block">
+      <div class="company-name">{{company.name}}</div>
+      {{#if company.address}}<div class="company-tagline">{{company.address}}</div>{{/if}}
+    </div>
+    <div class="doc-title">
+      <h1>LAPORAN PENGELUARAN GAJI</h1>
+      <div class="meta">
+        Periode: <strong>{{periodLabel}}</strong><br />
+        Tanggal cetak: {{generatedAt}}
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-cards">
+    <div class="card">
+      <div class="label">Jumlah Pekerja</div>
+      <div class="value">{{totals.workerCount}}</div>
+    </div>
+    <div class="card">
+      <div class="label">Gaji (Approved)</div>
+      <div class="value">Rp {{totals.approvedFmt}}</div>
+    </div>
+    <div class="card">
+      <div class="label">Net Tunjangan/Potongan</div>
+      <div class="value">Rp {{totals.allowanceFmt}} / −{{totals.deductionFmt}}</div>
+    </div>
+    <div class="card grand">
+      <div class="label">Total Pengeluaran</div>
+      <div class="value">Rp {{totals.grandFinalFmt}}</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:22pt">No</th>
+        <th>Pekerja</th>
+        <th class="center" style="width:38pt">Hadir</th>
+        <th class="center" style="width:30pt">½</th>
+        <th class="center" style="width:50pt">Lembur (j)</th>
+        <th class="num" style="width:80pt">Gaji</th>
+        <th class="num" style="width:70pt">Tunjangan</th>
+        <th class="num" style="width:70pt">Potongan</th>
+        <th class="num" style="width:88pt">Total Cair</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr>
+        <td class="center">{{this.no}}</td>
+        <td>
+          <strong>{{this.name}}</strong>
+          {{#if this.position}}<div style="font-size:8.5pt;color:#6b7280;">{{this.position}}</div>{{/if}}
+        </td>
+        <td class="center">{{this.hadir}}</td>
+        <td class="center">{{this.half}}</td>
+        <td class="center">{{this.overtimeHours}}</td>
+        <td class="num">Rp {{this.approvedFmt}}</td>
+        <td class="num">+{{this.allowanceFmt}}</td>
+        <td class="num {{#if this.hasDeduction}}negative{{/if}}">{{#if this.hasDeduction}}−{{/if}}{{this.deductionFmt}}</td>
+        <td class="num" style="font-weight:700;">Rp {{this.grandTotalFmt}}</td>
+      </tr>
+      {{/each}}
+      {{#unless rows.length}}
+      <tr><td colspan="9" style="text-align:center;color:#9ca3af;font-style:italic;">Tidak ada pengeluaran gaji di periode ini</td></tr>
+      {{/unless}}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" style="text-align:right;">TOTAL PENGELUARAN GAJI</td>
+        <td class="num">Rp {{totals.approvedFmt}}</td>
+        <td class="num">+{{totals.allowanceFmt}}</td>
+        <td class="num">−{{totals.deductionFmt}}</td>
+        <td class="num">Rp {{totals.grandFinalFmt}}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  {{#if pendingNote}}
+  <div class="pending-warning">⚠️ {{pendingNote}}</div>
+  {{/if}}
+
+  <div class="signatures">
+    <div class="sign-block">
+      <div>Dibuat oleh,</div>
+      <div class="sign-line"></div>
+      <div class="sign-name">{{approver.name}}</div>
+      <div class="sign-role">{{approver.role}}</div>
+    </div>
+    <div class="sign-block">
+      <div>Disetujui / Diketahui oleh,</div>
+      <div class="sign-line"></div>
+      <div class="sign-name">_______________________</div>
+      <div class="sign-role">Owner / Pemilik</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div>Laporan ini di-generate otomatis dari sistem payroll.</div>
+    <div>{{company.name}} · {{generatedAt}}</div>
+  </div>
+</body>
+</html>

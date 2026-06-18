@@ -83,10 +83,11 @@ function calcRowWage(status: AttendanceStatus, overtimeHours: number, dailyRate:
 export class PayrollSummaryService {
     constructor(private prisma: PrismaService) { }
 
+    /** Parse "YYYY-MM-DD" ke UTC midnight (kolom @db.Date — hindari geser hari di TZ non-UTC). */
     private parseDate(input: string): Date {
         const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(input);
         if (!m) throw new Error(`Format tanggal invalid: ${input}`);
-        return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0);
+        return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
     }
 
     /**
@@ -146,8 +147,8 @@ export class PayrollSummaryService {
     async weeklySummary(weekStart: string) {
         const start = this.parseDate(weekStart);
         const end = new Date(start);
-        end.setDate(end.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
+        end.setUTCDate(end.getUTCDate() + 6);
+        end.setUTCHours(23, 59, 59, 999);
 
         const [workers, attendances, adjustments] = await Promise.all([
             this.prisma.worker.findMany({
@@ -197,7 +198,7 @@ export class PayrollSummaryService {
         const days: string[] = [];
         for (let i = 0; i < 7; i++) {
             const d = new Date(start);
-            d.setDate(d.getDate() + i);
+            d.setUTCDate(d.getUTCDate() + i);
             days.push(d.toISOString().slice(0, 10));
         }
 
@@ -257,9 +258,36 @@ export class PayrollSummaryService {
     }
 
     async monthlySummary(year: number, month: number) {
-        const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
-        const end = new Date(year, month, 0, 23, 59, 59, 999);
+        const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+        const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+        const core = await this.computeExpense(start, end);
+        return {
+            year, month,
+            periodStart: start.toISOString().slice(0, 10),
+            periodEnd: end.toISOString().slice(0, 10),
+            ...core,
+        };
+    }
 
+    /**
+     * Laporan pengeluaran gaji untuk rentang tanggal bebas [from, to] (inclusive).
+     * Dipakai laporan owner (mingguan & bulanan) — bentuk row identik dengan monthlySummary.
+     */
+    async periodExpenseSummary(from: string, to: string) {
+        const start = this.parseDate(from);
+        const end = this.parseDate(to);
+        end.setHours(23, 59, 59, 999);
+        const core = await this.computeExpense(start, end);
+        return {
+            from, to,
+            periodStart: start.toISOString().slice(0, 10),
+            periodEnd: end.toISOString().slice(0, 10),
+            ...core,
+        };
+    }
+
+    /** Inti agregasi pengeluaran gaji per worker untuk rentang [start, end] (inclusive). */
+    private async computeExpense(start: Date, end: Date) {
         const [workers, attendances, adjustments] = await Promise.all([
             this.prisma.worker.findMany({
                 where: { isActive: true },
@@ -354,11 +382,6 @@ export class PayrollSummaryService {
         const grandApproved = rows.reduce((s, r) => s + r.approvedTotal, 0);
         const grandAdjustment = rows.reduce((s, r) => s + r.adjustments.net, 0);
         const grandFinal = rows.reduce((s, r) => s + r.grandTotal, 0);
-        return {
-            year, month,
-            periodStart: start.toISOString().slice(0, 10),
-            periodEnd: end.toISOString().slice(0, 10),
-            rows, grandTotal, grandApproved, grandAdjustment, grandFinal,
-        };
+        return { rows, grandTotal, grandApproved, grandAdjustment, grandFinal };
     }
 }
