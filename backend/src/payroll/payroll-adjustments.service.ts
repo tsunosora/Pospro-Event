@@ -14,10 +14,11 @@ export interface AdjustmentInput {
 export class PayrollAdjustmentsService {
     constructor(private prisma: PrismaService) { }
 
+    /** Parse "YYYY-MM-DD" ke UTC midnight (kolom @db.Date — hindari geser hari di TZ non-UTC). */
     private parseDate(input: string): Date {
         const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(input);
         if (!m) throw new BadRequestException(`Format tanggal invalid: ${input}`);
-        return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0);
+        return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
     }
 
     async list(params: { from?: string; to?: string; workerId?: number; type?: PayrollAdjustmentType }) {

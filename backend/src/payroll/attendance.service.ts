@@ -50,15 +50,19 @@ function snapshot(att: any) {
 export class AttendanceService {
     constructor(private prisma: PrismaService) { }
 
+    /**
+     * Parse "YYYY-MM-DD" ke Date pada UTC midnight.
+     * WAJIB UTC: kolom attendance_date bertipe @db.Date. Kalau pakai midnight lokal
+     * (mis. WIB +7), Prisma menyimpan tanggal UTC-nya → geser mundur 1 hari, dan
+     * lookup unik upsert tidak match → P2002 saat re-save.
+     */
     private parseDate(input: string | Date): Date {
         if (input instanceof Date) {
-            const d = new Date(input);
-            d.setHours(0, 0, 0, 0);
-            return d;
+            return new Date(Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()));
         }
         const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(input));
         if (!m) throw new BadRequestException(`Format tanggal invalid: ${input}. Gunakan YYYY-MM-DD.`);
-        const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0);
+        const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
         if (Number.isNaN(d.getTime())) throw new BadRequestException(`Tanggal invalid: ${input}`);
         return d;
     }
@@ -326,13 +330,13 @@ export class AttendanceService {
     async weeklyInputContext(weekStart: string, teamId?: number) {
         const start = this.parseDate(weekStart);
         const end = new Date(start);
-        end.setDate(end.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
+        end.setUTCDate(end.getUTCDate() + 6);
+        end.setUTCHours(23, 59, 59, 999);
 
         const days: string[] = [];
         for (let i = 0; i < 7; i++) {
             const d = new Date(start);
-            d.setDate(d.getDate() + i);
+            d.setUTCDate(d.getUTCDate() + i);
             days.push(d.toISOString().slice(0, 10));
         }
 
