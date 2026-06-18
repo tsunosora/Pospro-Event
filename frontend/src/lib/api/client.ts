@@ -28,6 +28,11 @@ api.interceptors.response.use(
         if (typeof window !== 'undefined' && error?.response?.status === 401) {
             localStorage.removeItem('token');
             sessionStorage.removeItem('token');
+            // WAJIB hapus cookie juga. Middleware mengizinkan akses berdasarkan COOKIE `token`,
+            // sedangkan API pakai localStorage. Kalau cookie tidak dihapus saat 401, middleware
+            // terus memantul /login → / sementara API tetap 401 → loop reload tanpa henti
+            // (mis. saat token kedaluwarsa setelah mati listrik / backend restart).
+            document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
             // Redirect ke login hanya jika bukan sudah di halaman login
             if (!window.location.pathname.startsWith('/login')) {
                 window.location.href = '/login';

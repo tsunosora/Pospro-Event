@@ -22,10 +22,12 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     display: 'standalone',
     background_color: '#ffffff',
     theme_color: '#000000',
+    // Pakai icon statis yang pasti ada — /api/logo bisa 404 kalau logo toko belum di-set,
+    // dan manifest dengan icon 404 bikin PWA install gagal + 404 berulang di log.
     icons: [
-      { src: '/api/logo', sizes: '192x192', type: 'image/png' },
-      { src: '/api/logo', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: '/api/logo', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
 }
