@@ -486,13 +486,14 @@ export class QuotationsService {
                 const dpAmount = (newTotal * newDpPercent) / 100;
                 // DP yang sudah dibayar — hormati dpPaidCustom (mode custom), bukan cuma dpPercent.
                 const dpAlreadyPaid = this.computeDpAlreadyPaid(newTotal, newDpPercent, newDpPaidMode, newDpPaidCustom);
-                let newAmountToPay: number | null = null;
+                let newAmountToPay: number;
                 if (part === 'DP') newAmountToPay = dpAmount;
                 else if (part === 'PELUNASAN') newAmountToPay = newTotal - dpAlreadyPaid;
-                else if (part === 'FULL') newAmountToPay = newTotal;
-                if (newAmountToPay !== null) {
-                    recomputedAmountToPay = toDecimal(newAmountToPay);
-                }
+                // FULL, null, atau legacy tanpa invoicePart → tagih total penuh.
+                // Tanpa fallback ini, invoice tanpa part tidak meng-update amountToPay saat
+                // item/total berubah → nominal tagihan tampak tidak ikut bertambah.
+                else newAmountToPay = newTotal;
+                recomputedAmountToPay = toDecimal(newAmountToPay);
             }
         }
 
