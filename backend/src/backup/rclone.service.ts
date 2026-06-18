@@ -99,7 +99,8 @@ export class RcloneService implements OnModuleInit {
             // Build filename
             const pad = (n: number) => String(n).padStart(2, '0');
             const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
-            const filename = `pospro-backup-${dateStr}.zip`;
+            const slug = await this.backupService.getStoreSlug();
+            const filename = `${slug}-backup-${dateStr}.zip`;
             localPath = path.join(BACKUP_DIR, filename);
 
             // Save backup ZIP to local file
@@ -150,7 +151,8 @@ export class RcloneService implements OnModuleInit {
     listLocalBackups() {
         try {
             return fs.readdirSync(BACKUP_DIR)
-                .filter(f => f.startsWith('pospro-backup-') && f.endsWith('.zip'))
+                // Kenali file backup lama (pospro-backup-) & baru (<slug>-backup-)
+                .filter(f => f.includes('-backup-') && f.endsWith('.zip'))
                 .map(f => {
                     const stat = fs.statSync(path.join(BACKUP_DIR, f));
                     return { name: f, size: stat.size, createdAt: stat.mtime };

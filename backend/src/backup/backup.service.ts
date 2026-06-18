@@ -13,7 +13,14 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.20 (current) — Tier gaji per event + assign cepat:
+// v2.21 (current) — Nama file backup pakai nama toko + audit cakupan:
+//   - Nama file backup kini prefix slug nama toko (StoreSettings.storeName), mis.
+//     "event-organizer-backup-full-2026-06-19.zip". Berlaku di export manual & rclone.
+//     Frontend baca nama dari Content-Disposition (server = satu sumber kebenaran).
+//   - Audit cakupan: SEMUA 69 tabel schema sudah terdaftar di BACKUP_GROUPS & RESTORE_ORDER.
+//     Tidak ada tabel baru yang terlewat. Kolom baru di tabel existing otomatis ter-backup
+//     (findMany tanpa select), jadi pembaruan field tidak perlu ubah daftar tabel.
+// v2.20 — Tier gaji per event + assign cepat:
 //   - NEW TABLE: EventWageTier (event_wage_tiers) — tarif gaji per event (PIC/Member/
 //     Crew Baru/dll). DIDAFTARKAN di grup 'eventCrew' + urutan restore (setelah event,
 //     sebelum eventCrewAssignment karena FK wageTierId).
@@ -291,9 +298,34 @@ const UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'public', 'uploads');
 // Path config WhatsApp bot
 const WA_CONFIG_PATH = path.join(__dirname, '..', '..', '..', 'whatsapp_bot_config.json');
 
+/** Ubah nama toko jadi slug aman-file: huruf/angka/dash, lowercase, maks 40 char. */
+export function slugifyStoreName(name?: string | null): string {
+    const slug = (name ?? '')
+        .normalize('NFKD')
+        .replace(/[^\w\s-]/g, '')   // buang karakter non-word (simbol, dll)
+        .trim()
+        .replace(/[\s_]+/g, '-')    // spasi/underscore → dash
+        .replace(/-+/g, '-')        // dash ganda → satu
+        .replace(/^-|-$/g, '')      // trim dash di ujung
+        .toLowerCase()
+        .slice(0, 40)
+        .replace(/-$/, '');         // jaga-jaga kalau slice memotong di dash
+    return slug || 'pospro';
+}
+
 @Injectable()
 export class BackupService {
     constructor(private prisma: PrismaService) {}
+
+    /** Slug nama toko untuk prefix nama file backup (fallback "pospro"). */
+    async getStoreSlug(): Promise<string> {
+        try {
+            const s = await this.prisma.storeSettings.findFirst({ select: { storeName: true } });
+            return slugifyStoreName(s?.storeName);
+        } catch {
+            return 'pospro';
+        }
+    }
 
     // ── Export / Backup — stream ZIP langsung ke response ──────────────────
 
