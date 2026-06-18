@@ -155,6 +155,26 @@ export class QuotationsService {
         private docNumberService: DocumentNumberService,
     ) { }
 
+    /**
+     * DP yang sudah/akan dibayar atas sebuah dokumen.
+     * - Kalau dpPaidMode = "custom" dan dpPaidCustom terisi → pakai nominal custom apa adanya.
+     * - Selain itu → DP proporsional = total × dpPercent / 100.
+     *
+     * Dipakai untuk menghitung sisa tagih invoice PELUNASAN (= total − DP yang sudah dibayar),
+     * supaya DP tidak ikut tertagih (dan tercatat) dua kali. Lihat brief double-count DP.
+     */
+    private computeDpAlreadyPaid(
+        total: number,
+        dpPercent: number,
+        dpPaidMode: string | null | undefined,
+        dpPaidCustom: number | null | undefined,
+    ): number {
+        if (dpPaidMode === 'custom' && dpPaidCustom != null) {
+            return Number(dpPaidCustom);
+        }
+        return (total * dpPercent) / 100;
+    }
+
     async create(dto: CreateQuotationDto): Promise<InvoiceWithItems> {
         if (!dto.quotationVariant && !dto.variantCode) {
             throw new BadRequestException('Varian penawaran wajib diisi (variantCode atau quotationVariant)');
@@ -224,9 +244,24 @@ export class QuotationsService {
 
         // ─── Resolve invoicePart & amountToPay (cuma relevan untuk INVOICE) ──
         const invoicePart = isDirectInvoice ? (dto.invoicePart ?? 'FULL') : null;
-        const amountToPayValue = isDirectInvoice
-            ? (dto.amountToPay != null ? Number(dto.amountToPay) : total)
-            : null;
+        let amountToPayValue: number | null = null;
+        if (isDirectInvoice) {
+            if (dto.amountToPay != null) {
+                amountToPayValue = Number(dto.amountToPay);
+            } else if (invoicePart === 'PELUNASAN') {
+                // PELUNASAN tanpa amountToPay eksplisit → sisa = total − DP yang sudah dibayar.
+                // Jangan default ke total penuh (akan menagih ulang DP → dobel di cashflow).
+                const dpAlreadyPaid = this.computeDpAlreadyPaid(
+                    total,
+                    Number(dto.dpPercent ?? 50),
+                    dto.dpPaidMode,
+                    dto.dpPaidCustom,
+                );
+                amountToPayValue = total - dpAlreadyPaid;
+            } else {
+                amountToPayValue = total;
+            }
+        }
 
         const created = await this.prisma.invoice.create({
             data: {
@@ -437,14 +472,23 @@ export class QuotationsService {
             const newDpPercent = dto.dpPercent !== undefined
                 ? Number(dto.dpPercent)
                 : Number(existing.dpPercent ?? 50);
+            const newDpPaidMode = dto.dpPaidMode !== undefined
+                ? dto.dpPaidMode
+                : ((existing as any).dpPaidMode ?? null);
+            const newDpPaidCustom = dto.dpPaidCustom !== undefined
+                ? dto.dpPaidCustom
+                : ((existing as any).dpPaidCustom != null ? Number((existing as any).dpPaidCustom) : null);
             const totalChanged = recomputed !== null;
             const dpChanged = dto.dpPercent !== undefined;
-            if (totalChanged || dpChanged) {
+            const dpPaidChanged = dto.dpPaidMode !== undefined || dto.dpPaidCustom !== undefined;
+            if (totalChanged || dpChanged || dpPaidChanged) {
                 const part = (existing as any).invoicePart as string | null;
                 const dpAmount = (newTotal * newDpPercent) / 100;
+                // DP yang sudah dibayar — hormati dpPaidCustom (mode custom), bukan cuma dpPercent.
+                const dpAlreadyPaid = this.computeDpAlreadyPaid(newTotal, newDpPercent, newDpPaidMode, newDpPaidCustom);
                 let newAmountToPay: number | null = null;
                 if (part === 'DP') newAmountToPay = dpAmount;
-                else if (part === 'PELUNASAN') newAmountToPay = newTotal - dpAmount;
+                else if (part === 'PELUNASAN') newAmountToPay = newTotal - dpAlreadyPaid;
                 else if (part === 'FULL') newAmountToPay = newTotal;
                 if (newAmountToPay !== null) {
                     recomputedAmountToPay = toDecimal(newAmountToPay);
@@ -642,7 +686,15 @@ export class QuotationsService {
         const totalNum = Number(quotation.total ?? 0);
         const dpPercentNum = Number(quotation.dpPercent ?? 50);
         const dpAmount = (totalNum * dpPercentNum) / 100;
-        const sisa = totalNum - dpAmount;
+        // Sisa PELUNASAN = total − DP yang sudah dibayar (hormati dpPaidCustom bila mode custom),
+        // bukan total − dpAmount proporsional. Mencegah DP tertagih ulang → dobel di cashflow.
+        const dpAlreadyPaid = this.computeDpAlreadyPaid(
+            totalNum,
+            dpPercentNum,
+            (quotation as any).dpPaidMode,
+            (quotation as any).dpPaidCustom != null ? Number((quotation as any).dpPaidCustom) : null,
+        );
+        const sisa = totalNum - dpAlreadyPaid;
 
         let amountToPay: number;
         switch (options.part) {
@@ -726,6 +778,12 @@ export class QuotationsService {
                 date: issueDate,
                 dueDate,
                 dpPercent: quotation.dpPercent,
+                // Carry forward konfigurasi DP supaya update()/recompute pada invoice ini
+                // tetap menghitung sisa PELUNASAN dengan benar (hormati dpPaidCustom).
+                ...(({
+                    dpPaidMode: (quotation as any).dpPaidMode ?? null,
+                    dpPaidCustom: (quotation as any).dpPaidCustom ?? null,
+                }) as any),
                 bankAccountIds: quotation.bankAccountIds,
                 notes: quotation.notes,
 
@@ -989,6 +1047,20 @@ export class QuotationsService {
         const targetAmount = Number(inv.amountToPay ?? inv.total ?? 0);
         const previousPaid = Number((inv as any).paidAmount ?? 0);
         const accumulatedPaid = previousPaid + newPayment;
+
+        // Guard over-payment: cegah DP/cicilan ter-input dobel yang membuat cashflow ganda
+        // (akar masalah double-count DP). Toleransi kecil untuk pembulatan float.
+        const OVERPAY_TOLERANCE = 1; // 1 rupiah
+        if (targetAmount > 0 && accumulatedPaid > targetAmount + OVERPAY_TOLERANCE) {
+            const sisaTagih = Math.max(0, targetAmount - previousPaid);
+            throw new BadRequestException(
+                `Pembayaran melebihi tagihan invoice ${inv.invoiceNumber}. ` +
+                `Sisa yang harus dibayar Rp ${sisaTagih.toLocaleString('id-ID')}, ` +
+                `tetapi nominal yang diinput Rp ${newPayment.toLocaleString('id-ID')} ` +
+                `(total terbayar jadi Rp ${accumulatedPaid.toLocaleString('id-ID')} dari target Rp ${targetAmount.toLocaleString('id-ID')}). ` +
+                `Cek apakah DP sudah termasuk di tagihan ini atau pembayaran sudah pernah dicatat.`,
+            );
+        }
 
         // Resolve status: PAID kalau penuh, PARTIALLY_PAID kalau sebagian.
         // Cast as any — PARTIALLY_PAID enum baru, Prisma Client perlu regenerate.
