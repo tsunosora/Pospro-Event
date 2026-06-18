@@ -144,6 +144,11 @@ export default function PayrollPage() {
 type GridCell = { status: AttendanceStatus | null; overtime: number; city: string | null; division: string | null; eventId: number | null };
 type GridRow = { city: string | null; division: string | null; eventId: number | null; days: Record<string, GridCell> };
 
+// Sel kosong default — dipakai sebagai fallback saat render terjadi pada frame transisi
+// (grid masih minggu lama sementara data.days sudah minggu baru, sebelum useEffect rebuild grid).
+// Tanpa ini, row.days[d] bisa undefined dan akses .status melempar TypeError.
+const EMPTY_CELL: GridCell = { status: null, overtime: 0, city: null, division: null, eventId: null };
+
 const KEEP = "__keep__"; // sentinel: pada bulk apply = "biarkan, jangan ubah"
 
 const STATUS_CYCLE: (AttendanceStatus | null)[] = [null, "FULL_DAY", "HALF_DAY", "ABSENT"];
@@ -475,7 +480,7 @@ function InputMingguanTab() {
                                                 </select>
                                             </td>
                                             {(data?.days ?? []).map((d) => {
-                                                const cell = row.days[d];
+                                                const cell = row.days[d] ?? EMPTY_CELL;
                                                 return (
                                                     <td key={d} className="p-1 text-center align-top">
                                                         <button
@@ -512,7 +517,7 @@ function InputMingguanTab() {
                                                     Override Event/Kota/Divisi per hari (untuk hari kerja di event/kota berbeda):
                                                 </td>
                                                 {(data?.days ?? []).map((d) => {
-                                                    const cell = row.days[d];
+                                                    const cell = row.days[d] ?? EMPTY_CELL;
                                                     return (
                                                         <td key={d} className="p-1 align-top">
                                                             <select value={cell.eventId ?? ""} onChange={(e) => setCell(w.id, d, { eventId: e.target.value ? Number(e.target.value) : null })} className="w-[44px] text-[9px] border rounded mb-1 bg-white" title="Event">
