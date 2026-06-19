@@ -68,6 +68,11 @@ function startOfPayWeek(d?: string | dayjs.Dayjs): string {
     return x.subtract((x.day() + 1) % 7, "day").format("YYYY-MM-DD");
 }
 
+/** Akhir minggu default = awal + 6 hari (7 hari). */
+function defaultWeekEnd(weekStart: string): string {
+    return dayjs(weekStart).add(6, "day").format("YYYY-MM-DD");
+}
+
 const STATUS_LABEL: Record<AttendanceStatus, { emoji: string; label: string; cls: string }> = {
     FULL_DAY: { emoji: "✓", label: "Hadir", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
     HALF_DAY: { emoji: "½", label: "½ hari", cls: "bg-amber-100 text-amber-700 border-amber-300" },
@@ -161,6 +166,7 @@ function cycleStatus(s: AttendanceStatus | null): AttendanceStatus | null {
 function InputMingguanTab() {
     const qc = useQueryClient();
     const [weekStart, setWeekStart] = useState<string>(startOfPayWeek());
+    const [weekEnd, setWeekEnd] = useState<string>(defaultWeekEnd(startOfPayWeek()));
     const [teamId, setTeamId] = useState<number | null>(null);
     const [expanded, setExpanded] = useState<Set<number>>(new Set());
     const [grid, setGrid] = useState<Map<number, GridRow>>(new Map());
@@ -171,8 +177,8 @@ function InputMingguanTab() {
     const [bulkDivision, setBulkDivision] = useState<string>(KEEP);
 
     const { data, isLoading } = useQuery<WeeklyInputContext>({
-        queryKey: ["weekly-input", weekStart, teamId],
-        queryFn: () => getWeeklyInputContext(weekStart, teamId ?? undefined),
+        queryKey: ["weekly-input", weekStart, weekEnd, teamId],
+        queryFn: () => getWeeklyInputContext(weekStart, teamId ?? undefined, weekEnd),
         // Jangan refetch saat window focus — supaya input admin yang belum disimpan tidak ke-reset.
         refetchOnWindowFocus: false,
         staleTime: 5 * 60 * 1000,
@@ -329,9 +335,11 @@ function InputMingguanTab() {
         onError: (e: any) => alert(`❌ ${e?.response?.data?.message || e?.message}`),
     });
 
-    const goPrev = () => setWeekStart(startOfPayWeek(dayjs(weekStart).subtract(1, "week")));
-    const goNext = () => setWeekStart(startOfPayWeek(dayjs(weekStart).add(1, "week")));
-    const goToday = () => setWeekStart(startOfPayWeek());
+    // Set minggu standar 7-hari (reset rentang custom).
+    const applyWeek = (ws: string) => { setWeekStart(ws); setWeekEnd(defaultWeekEnd(ws)); };
+    const goPrev = () => applyWeek(startOfPayWeek(dayjs(weekStart).subtract(1, "week")));
+    const goNext = () => applyWeek(startOfPayWeek(dayjs(weekStart).add(1, "week")));
+    const goToday = () => applyWeek(startOfPayWeek());
 
     const grandEstimate = (data?.workers ?? []).reduce((s, w) => s + workerEstimate(w), 0);
     const noMatrix = (data?.rates.length ?? 0) === 0;
@@ -343,10 +351,20 @@ function InputMingguanTab() {
                 <Calendar className="h-5 w-5 text-muted-foreground" />
                 <button onClick={goPrev} className="p-1.5 rounded hover:bg-muted"><ChevronLeft className="h-4 w-4" /></button>
                 <span className="text-sm font-semibold min-w-[170px] text-center">
-                    {dayjs(weekStart).format("DD MMM")} – {dayjs(weekStart).add(6, "day").format("DD MMM YYYY")}
+                    {dayjs(weekStart).format("DD MMM")} – {dayjs(weekEnd).format("DD MMM YYYY")}
                 </span>
                 <button onClick={goNext} className="p-1.5 rounded hover:bg-muted"><ChevronRight className="h-4 w-4" /></button>
                 <button onClick={goToday} className="px-2 py-1 text-xs rounded border hover:bg-muted">Minggu ini</button>
+
+                {/* Rentang tanggal custom — mis. perpanjang sampai tgl 20 (>7 hari, maks 31) */}
+                <span className="text-xs text-muted-foreground ml-1">Rentang:</span>
+                <input type="date" value={weekStart} max={weekEnd}
+                    onChange={(e) => e.target.value && setWeekStart(e.target.value)}
+                    className="px-2 py-1 border rounded text-xs bg-white" title="Dari tanggal" />
+                <span className="text-xs">–</span>
+                <input type="date" value={weekEnd} min={weekStart}
+                    onChange={(e) => e.target.value && setWeekEnd(e.target.value)}
+                    className="px-2 py-1 border rounded text-xs bg-white" title="Sampai tanggal" />
 
                 <span className="text-sm font-medium ml-2">Tim:</span>
                 <select
@@ -575,13 +593,14 @@ function FragmentRow({ children }: { children: ReactNode }) {
 function WeeklyTab() {
     const qc = useQueryClient();
     const [weekStart, setWeekStart] = useState<string>(startOfPayWeek());
+    const [weekEnd, setWeekEnd] = useState<string>(defaultWeekEnd(startOfPayWeek()));
     const [exporting, setExporting] = useState(false);
     const [auditCellId, setAuditCellId] = useState<number | null>(null);
     const [slipLoadingId, setSlipLoadingId] = useState<number | null>(null);
 
     const { data, isLoading } = useQuery<WeeklySummary>({
-        queryKey: ["payroll-weekly", weekStart],
-        queryFn: () => getWeeklySummary(weekStart),
+        queryKey: ["payroll-weekly", weekStart, weekEnd],
+        queryFn: () => getWeeklySummary(weekStart, weekEnd),
     });
 
     const approveMut = useMutation({
@@ -601,14 +620,15 @@ function WeeklyTab() {
         },
     });
 
-    const goPrev = () => setWeekStart(dayjs(weekStart).subtract(1, "week").format("YYYY-MM-DD"));
-    const goNext = () => setWeekStart(dayjs(weekStart).add(1, "week").format("YYYY-MM-DD"));
-    const goToday = () => setWeekStart(startOfPayWeek());
+    const applyWeek = (ws: string) => { setWeekStart(ws); setWeekEnd(defaultWeekEnd(ws)); };
+    const goPrev = () => applyWeek(startOfPayWeek(dayjs(weekStart).subtract(1, "week")));
+    const goNext = () => applyWeek(startOfPayWeek(dayjs(weekStart).add(1, "week")));
+    const goToday = () => applyWeek(startOfPayWeek());
 
     async function handleExport() {
         setExporting(true);
         try {
-            const blob = await exportWeeklyXlsx(weekStart);
+            const blob = await exportWeeklyXlsx(weekStart, weekEnd);
             downloadBlob(blob, `payroll-mingguan-${weekStart}.xlsx`);
         } catch (e: any) {
             alert(`Gagal export: ${e?.response?.data?.message || e?.message || "Unknown"}`);
@@ -655,6 +675,14 @@ function WeeklyTab() {
                 </div>
                 <button onClick={goNext} className="p-2 rounded hover:bg-background border"><ChevronRight className="h-4 w-4" /></button>
                 <button onClick={goToday} className="px-3 py-1.5 text-xs border rounded hover:bg-background">Hari ini</button>
+                {/* Rentang tanggal custom (mis. sampai tgl 20) */}
+                <input type="date" value={weekStart} max={weekEnd}
+                    onChange={(e) => e.target.value && setWeekStart(e.target.value)}
+                    className="px-2 py-1 border rounded text-xs bg-white" title="Dari tanggal" />
+                <span className="text-xs">–</span>
+                <input type="date" value={weekEnd} min={weekStart}
+                    onChange={(e) => e.target.value && setWeekEnd(e.target.value)}
+                    className="px-2 py-1 border rounded text-xs bg-white" title="Sampai tanggal" />
                 {data && data.pendingCount > 0 && (
                     <button
                         onClick={handleBulkApproveAll}

@@ -21,8 +21,8 @@ export class PayrollExportService {
     constructor(private summaryService: PayrollSummaryService) { }
 
     /** Export rekap mingguan. 1 sheet — kolom 7 hari (mengikuti awal minggu) + Total. */
-    async renderWeeklyXlsx(weekStart: string): Promise<Buffer> {
-        const data = await this.summaryService.weeklySummary(weekStart);
+    async renderWeeklyXlsx(weekStart: string, weekEnd?: string): Promise<Buffer> {
+        const data = await this.summaryService.weeklySummary(weekStart, weekEnd);
         const wb = new ExcelJS.Workbook();
         wb.creator = 'pospenawaran';
         wb.created = new Date();
@@ -32,9 +32,14 @@ export class PayrollExportService {
         const dayLabels = data.days.map((d) =>
             new Date(`${d}T00:00:00Z`).toLocaleDateString('id-ID', { weekday: 'short', timeZone: 'UTC' }),
         );
+        // Layout kolom dinamis (jumlah hari bisa >7 untuk rentang custom):
+        // 1=Pekerja 2=Posisi 3=Tarif | 4..(3+N)=hari | lembur | total
+        const N = dayLabels.length;
+        const lemburCol = N + 4;
+        const totalCol = N + 5;
 
         // Title
-        ws.mergeCells('A1:J1');
+        ws.mergeCells(1, 1, 1, totalCol);
         const titleCell = ws.getCell('A1');
         titleCell.value = `Rekap Payroll Mingguan: ${data.weekStart} sd ${data.weekEnd}`;
         titleCell.font = { bold: true, size: 14, color: { argb: NAVY } };
@@ -42,7 +47,7 @@ export class PayrollExportService {
         ws.getRow(1).height = 22;
 
         // Subtitle
-        ws.mergeCells('A2:J2');
+        ws.mergeCells(2, 1, 2, totalCol);
         ws.getCell('A2').value = `Generated: ${new Date().toLocaleString('id-ID')}`;
         ws.getCell('A2').font = { italic: true, size: 9, color: { argb: 'FF666666' } };
 
@@ -63,9 +68,9 @@ export class PayrollExportService {
         ws.getColumn(1).width = 24; // Pekerja
         ws.getColumn(2).width = 15; // Posisi
         ws.getColumn(3).width = 14; // Tarif
-        for (let i = 4; i <= 10; i++) ws.getColumn(i).width = 9;  // Sen-Min
-        ws.getColumn(11).width = 14; // Lembur
-        ws.getColumn(12).width = 16; // Total
+        for (let i = 4; i <= 3 + N; i++) ws.getColumn(i).width = 9;  // kolom hari
+        ws.getColumn(lemburCol).width = 14; // Lembur
+        ws.getColumn(totalCol).width = 16;  // Total
 
         // Data rows
         let rowIdx = headerRow + 1;
@@ -87,12 +92,12 @@ export class PayrollExportService {
             ws.getRow(rowIdx).eachCell({ includeEmpty: true }, (cell, col) => {
                 cell.border = border();
                 cell.alignment = { vertical: 'middle' };
-                if (col === 3 || col === 12) {
+                if (col === 3 || col === totalCol) {
                     cell.numFmt = '"Rp"#,##0';
                     cell.alignment = { horizontal: 'right', vertical: 'middle' };
                 }
-                if (col >= 4 && col <= 10) cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                if (col === 11) cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                if (col >= 4 && col <= 3 + N) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                if (col === lemburCol) cell.alignment = { horizontal: 'right', vertical: 'middle' };
             });
             // Highlight kalau gak ada payroll
             if (!r.hasPayroll) {
@@ -103,14 +108,14 @@ export class PayrollExportService {
         }
 
         // Grand Total row
-        ws.mergeCells(`A${rowIdx}:K${rowIdx}`);
-        const grandLabel = ws.getCell(`A${rowIdx}`);
+        ws.mergeCells(rowIdx, 1, rowIdx, totalCol - 1);
+        const grandLabel = ws.getCell(rowIdx, 1);
         grandLabel.value = 'GRAND TOTAL MINGGUAN';
         grandLabel.font = { bold: true };
         grandLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: TOTAL_GREY } };
         grandLabel.alignment = { horizontal: 'right', vertical: 'middle' };
         grandLabel.border = border();
-        const grandCell = ws.getCell(`L${rowIdx}`);
+        const grandCell = ws.getCell(rowIdx, totalCol);
         grandCell.value = data.grandTotal;
         grandCell.numFmt = '"Rp"#,##0';
         grandCell.font = { bold: true, color: { argb: NAVY } };

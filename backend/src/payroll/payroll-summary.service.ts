@@ -90,6 +90,14 @@ export class PayrollSummaryService {
         return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
     }
 
+    /** Jumlah hari [start..weekEnd] inclusive. Default 7 (kalau weekEnd kosong), cap 1..31. */
+    private rangeDayCount(start: Date, weekEnd?: string): number {
+        if (!weekEnd) return 7;
+        const end = this.parseDate(weekEnd);
+        const n = Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1;
+        return Math.min(31, Math.max(1, n));
+    }
+
     /**
      * Pre-load semua data referensi yang dibutuhkan untuk wage resolution dalam 1 batch:
      *  - WageRate matrix (semua active) → Map by "city|division"
@@ -144,10 +152,11 @@ export class PayrollSummaryService {
         return { rateMatrixMap, eventMap, assignmentMap };
     }
 
-    async weeklySummary(weekStart: string) {
+    async weeklySummary(weekStart: string, weekEnd?: string) {
         const start = this.parseDate(weekStart);
+        const dayCount = this.rangeDayCount(start, weekEnd);
         const end = new Date(start);
-        end.setUTCDate(end.getUTCDate() + 6);
+        end.setUTCDate(end.getUTCDate() + (dayCount - 1));
         end.setUTCHours(23, 59, 59, 999);
 
         const [workers, attendances, adjustments] = await Promise.all([
@@ -196,7 +205,7 @@ export class PayrollSummaryService {
         }
 
         const days: string[] = [];
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < dayCount; i++) {
             const d = new Date(start);
             d.setUTCDate(d.getUTCDate() + i);
             days.push(d.toISOString().slice(0, 10));
@@ -252,7 +261,7 @@ export class PayrollSummaryService {
         const grandFinal = rows.reduce((s, r) => s + r.grandTotal, 0);
         const pendingCount = rows.reduce((s, r) => s + r.cells.filter(c => c.approvalStatus === 'PENDING').length, 0);
         return {
-            weekStart: days[0], weekEnd: days[6], days, rows,
+            weekStart: days[0], weekEnd: days[days.length - 1], days, rows,
             grandTotal, grandApproved, grandAdjustment, grandFinal, pendingCount,
         };
     }

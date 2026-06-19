@@ -327,14 +327,21 @@ export class AttendanceService {
      *  - worker (difilter teamId kalau ada) + tarif & default kota/divisi + absensi existing per hari
      *  - master kota & divisi + matrix tarif (untuk estimasi gaji langsung di grid)
      */
-    async weeklyInputContext(weekStart: string, teamId?: number) {
+    async weeklyInputContext(weekStart: string, teamId?: number, weekEnd?: string) {
         const start = this.parseDate(weekStart);
+        // Default 7 hari; kalau weekEnd dikirim → rentang custom (cap 1..31 hari).
+        let dayCount = 7;
+        if (weekEnd) {
+            const e = this.parseDate(weekEnd);
+            const n = Math.floor((e.getTime() - start.getTime()) / 86_400_000) + 1;
+            dayCount = Math.min(31, Math.max(1, n));
+        }
         const end = new Date(start);
-        end.setUTCDate(end.getUTCDate() + 6);
+        end.setUTCDate(end.getUTCDate() + (dayCount - 1));
         end.setUTCHours(23, 59, 59, 999);
 
         const days: string[] = [];
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < dayCount; i++) {
             const d = new Date(start);
             d.setUTCDate(d.getUTCDate() + i);
             days.push(d.toISOString().slice(0, 10));
@@ -410,7 +417,7 @@ export class AttendanceService {
 
         return {
             weekStart: days[0],
-            weekEnd: days[6],
+            weekEnd: days[days.length - 1],
             days,
             teams,
             cities: Array.from(citySet).sort((a, b) => a.localeCompare(b, 'id')),

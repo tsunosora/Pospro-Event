@@ -173,9 +173,10 @@ export interface AttendanceWeekRowInput {
     divisionKey?: string | null;
 }
 
-export const getWeeklyInputContext = async (weekStart: string, teamId?: number) => {
+export const getWeeklyInputContext = async (weekStart: string, teamId?: number, weekEnd?: string) => {
     const sp = new URLSearchParams({ weekStart });
     if (teamId) sp.set('teamId', String(teamId));
+    if (weekEnd) sp.set('weekEnd', weekEnd);
     return (await api.get<WeeklyInputContext>(`/payroll/weekly-input?${sp.toString()}`)).data;
 };
 
@@ -190,8 +191,8 @@ export const updateAttendance = async (
 export const deleteAttendance = async (id: number) =>
     (await api.delete(`/payroll/attendance/${id}`)).data;
 
-export const getWeeklySummary = async (weekStart: string) =>
-    (await api.get<WeeklySummary>(`/payroll/summary/weekly?weekStart=${weekStart}`)).data;
+export const getWeeklySummary = async (weekStart: string, weekEnd?: string) =>
+    (await api.get<WeeklySummary>(`/payroll/summary/weekly?weekStart=${weekStart}${weekEnd ? `&weekEnd=${weekEnd}` : ''}`)).data;
 
 export const getMonthlySummary = async (year: number, month: number) =>
     (await api.get<MonthlySummary>(`/payroll/summary/monthly?year=${year}&month=${month}`)).data;
@@ -278,8 +279,8 @@ export const exportPayslipPdf = async (workerId: number, from: string, to: strin
 };
 
 /** Download rekap mingguan sebagai .xlsx blob */
-export const exportWeeklyXlsx = async (weekStart: string): Promise<Blob> => {
-    const res = await api.get(`/payroll/export/weekly.xlsx?weekStart=${weekStart}`, { responseType: 'blob' });
+export const exportWeeklyXlsx = async (weekStart: string, weekEnd?: string): Promise<Blob> => {
+    const res = await api.get(`/payroll/export/weekly.xlsx?weekStart=${weekStart}${weekEnd ? `&weekEnd=${weekEnd}` : ''}`, { responseType: 'blob' });
     return res.data as Blob;
 };
 

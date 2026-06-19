@@ -66,8 +66,9 @@ export class AttendanceController {
     weeklyInput(
         @Query('weekStart') weekStart: string,
         @Query('teamId') teamId?: string,
+        @Query('weekEnd') weekEnd?: string,
     ) {
-        return this.attendanceService.weeklyInputContext(weekStart, teamId ? Number(teamId) : undefined);
+        return this.attendanceService.weeklyInputContext(weekStart, teamId ? Number(teamId) : undefined, weekEnd);
     }
 
     /** Simpan absensi 1 minggu sekaligus (grid admin). Auto-approve karena admin = otoritas. */
@@ -128,8 +129,8 @@ export class AttendanceController {
     }
 
     @Get('summary/weekly')
-    weeklySummary(@Query('weekStart') weekStart: string) {
-        return this.summaryService.weeklySummary(weekStart);
+    weeklySummary(@Query('weekStart') weekStart: string, @Query('weekEnd') weekEnd?: string) {
+        return this.summaryService.weeklySummary(weekStart, weekEnd);
     }
 
     @Get('summary/monthly')
@@ -142,8 +143,8 @@ export class AttendanceController {
 
     @Get('export/weekly.xlsx')
     @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    async exportWeekly(@Query('weekStart') weekStart: string, @Res() res: Response) {
-        const buf = await this.exportService.renderWeeklyXlsx(weekStart);
+    async exportWeekly(@Query('weekStart') weekStart: string, @Res() res: Response, @Query('weekEnd') weekEnd?: string) {
+        const buf = await this.exportService.renderWeeklyXlsx(weekStart, weekEnd);
         res.setHeader('Content-Disposition', `attachment; filename="payroll-weekly-${weekStart}.xlsx"`);
         res.setHeader('Content-Length', buf.length.toString());
         res.end(buf);
