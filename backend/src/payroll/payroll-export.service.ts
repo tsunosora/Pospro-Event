@@ -20,7 +20,7 @@ function border() {
 export class PayrollExportService {
     constructor(private summaryService: PayrollSummaryService) { }
 
-    /** Export rekap mingguan (Sen-Min). 1 sheet — kolom Sen sd Min + Total. */
+    /** Export rekap mingguan. 1 sheet — kolom 7 hari (mengikuti awal minggu) + Total. */
     async renderWeeklyXlsx(weekStart: string): Promise<Buffer> {
         const data = await this.summaryService.weeklySummary(weekStart);
         const wb = new ExcelJS.Workbook();
@@ -28,7 +28,10 @@ export class PayrollExportService {
         wb.created = new Date();
 
         const ws = wb.addWorksheet('Rekap Mingguan');
-        const dayLabels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+        // Label hari diturunkan dari tanggal (bukan hardcode) agar benar untuk awal-minggu apa pun.
+        const dayLabels = data.days.map((d) =>
+            new Date(`${d}T00:00:00Z`).toLocaleDateString('id-ID', { weekday: 'short', timeZone: 'UTC' }),
+        );
 
         // Title
         ws.mergeCells('A1:J1');

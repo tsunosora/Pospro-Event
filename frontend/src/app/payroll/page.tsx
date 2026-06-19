@@ -61,9 +61,11 @@ dayjs.locale("id");
 
 type Tab = "input-mingguan" | "weekly" | "monthly" | "manual" | "adjustments";
 
-/** Awal minggu gajian = MINGGU (Sun). dayjs.day(0) = Minggu pada minggu berjalan. */
+/** Awal minggu gajian = SABTU. Ambil Sabtu terakhir (pada/atau sebelum tanggal).
+ *  day(): Min=0..Sab=6 → jarak mundur ke Sabtu = (day()+1)%7 (Sab→0, Min→1, ... Jum→6). */
 function startOfPayWeek(d?: string | dayjs.Dayjs): string {
-    return dayjs(d).day(0).format("YYYY-MM-DD");
+    const x = dayjs(d);
+    return x.subtract((x.day() + 1) % 7, "day").format("YYYY-MM-DD");
 }
 
 const STATUS_LABEL: Record<AttendanceStatus, { emoji: string; label: string; cls: string }> = {
@@ -641,7 +643,6 @@ function WeeklyTab() {
         } finally { setSlipLoadingId(null); }
     }
 
-    const dayLabels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
     const ownerLabel = data ? `Minggu ${dayjs(data.weekStart).format("DD")}–${dayjs(data.weekEnd).format("DD MMM YYYY")}` : "";
 
     return (
@@ -692,10 +693,10 @@ function WeeklyTab() {
                             <thead className="bg-muted/50">
                                 <tr>
                                     <th className="text-left p-2 sticky left-0 bg-muted/50">Pekerja</th>
-                                    {dayLabels.map((d, i) => (
+                                    {data.days.map((dateStr, i) => (
                                         <th key={i} className="p-2 text-center min-w-[68px]">
-                                            <div>{d}</div>
-                                            <div className="text-[10px] font-normal text-muted-foreground">{dayjs(data.days[i]).format("DD")}</div>
+                                            <div className="capitalize">{dayjs(dateStr).format("ddd")}</div>
+                                            <div className="text-[10px] font-normal text-muted-foreground">{dayjs(dateStr).format("DD")}</div>
                                         </th>
                                     ))}
                                     <th className="p-2 text-right whitespace-nowrap">Approved</th>
