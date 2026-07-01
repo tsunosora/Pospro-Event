@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { AttendanceStatus, AttendanceApprovalStatus, AuditAction, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface AttendanceRowInput {
     workerId: number;
@@ -48,7 +49,31 @@ function snapshot(att: any) {
 
 @Injectable()
 export class AttendanceService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notifications: NotificationsService,
+    ) { }
+
+    /** Notif Discord: absensi/payroll disetujui (finalisasi gaji). */
+    private async notifyAttendanceApproved(rows: any[], actorAdminId: number) {
+        if (!rows || rows.length === 0) return;
+        const workerIds = [...new Set(rows.map((r) => r.workerId).filter(Boolean))];
+        const [workers, admin] = await Promise.all([
+            workerIds.length
+                ? this.prisma.worker.findMany({ where: { id: { in: workerIds } }, select: { id: true, name: true } })
+                : Promise.resolve([]),
+            this.prisma.user.findUnique({ where: { id: actorAdminId }, select: { name: true } }).catch(() => null),
+        ]);
+        const nameById = new Map(workers.map((w) => [w.id, w.name]));
+        const uniqNames = [...new Set(rows.map((r) => nameById.get(r.workerId) || `Pekerja #${r.workerId}`))];
+
+        const lines = [
+            '🧑‍💼 **Absensi Payroll Disetujui**',
+            `✅ ${rows.length} absensi di-approve${admin?.name ? ` oleh ${admin.name}` : ''}`,
+            `👥 Pekerja (${uniqNames.length}): ${uniqNames.slice(0, 15).join(', ')}${uniqNames.length > 15 ? ', …' : ''}`,
+        ];
+        await this.notifications.notifyDiscord(lines.join('\n'));
+    }
 
     /**
      * Parse "YYYY-MM-DD" ke Date pada UTC midnight.
@@ -527,6 +552,7 @@ export class AttendanceService {
             oldData: snapshot(existing),
             newData: snapshot(updated),
         });
+        this.notifyAttendanceApproved([updated], actorAdminId).catch(() => { });
         return updated;
     }
 
@@ -582,6 +608,7 @@ export class AttendanceService {
             });
         }
 
+        this.notifyAttendanceApproved(targets, actorAdminId).catch(() => { });
         return { approved: result.count };
     }
 

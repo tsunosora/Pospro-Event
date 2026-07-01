@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { WageRatesModule } from '../wage-rates/wage-rates.module';
 import { AttendanceService } from './attendance.service';
 import { PayrollSummaryService } from './payroll-summary.service';
@@ -11,7 +12,7 @@ import { PublicAttendanceController } from './public-attendance.controller';
 import { PayrollAdjustmentsController } from './payroll-adjustments.controller';
 
 @Module({
-    imports: [PrismaModule, WageRatesModule],
+    imports: [PrismaModule, NotificationsModule, WageRatesModule],
     controllers: [AttendanceController, PublicAttendanceController, PayrollAdjustmentsController],
     providers: [AttendanceService, PayrollSummaryService, PayrollExportService, PayrollAdjustmentsService, PayrollPayslipService],
     exports: [AttendanceService, PayrollSummaryService, PayrollAdjustmentsService, PayrollPayslipService],

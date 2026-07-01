@@ -120,8 +120,5 @@ export const uploadProofs = async (
 export const deleteProof = async (id: number, proofId: number): Promise<{ success: boolean }> =>
     (await api.delete(`/sales-orders/${id}/proofs/${proofId}`)).data;
 
-export const sendSOWhatsapp = async (id: number, message?: string): Promise<SalesOrder> =>
-    (await api.post(`/sales-orders/${id}/send-wa`, { message })).data;
-
 export const cancelSO = async (id: number, reason: string): Promise<SalesOrder> =>
     (await api.post(`/sales-orders/${id}/cancel`, { reason })).data;

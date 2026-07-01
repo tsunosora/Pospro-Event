@@ -50,7 +50,6 @@ export default function EventDetailPage() {
     const [tab, setTab] = useState<"info" | "packing" | "crew" | "profit" | "items" | "withdrawals">("info");
     const [shareUrl, setShareUrl] = useState<string | null>(null);
     const [shareOpen, setShareOpen] = useState(false);
-    const [waTarget, setWaTarget] = useState("");
     const [waStatus, setWaStatus] = useState<string | null>(null);
 
     const buildShareUrl = (token: string) =>
@@ -71,8 +70,8 @@ export default function EventDetailPage() {
                 includeLink: true,
                 shareBaseUrl: typeof window !== "undefined" ? window.location.origin : undefined,
             }),
-        onSuccess: () => setWaStatus("✅ Pesan WA terkirim"),
-        onError: (e: any) => setWaStatus(e?.response?.data?.message || "Gagal kirim WA"),
+        onSuccess: () => setWaStatus("✅ Terkirim ke Discord"),
+        onError: (e: any) => setWaStatus(e?.response?.data?.message || "Gagal kirim ke Discord"),
     });
 
     const openShare = async () => {
@@ -181,29 +180,21 @@ export default function EventDetailPage() {
                     </div>
 
                     <div>
-                        <div className="text-xs font-medium mb-1">Kirim via WhatsApp (ke PIC / grup)</div>
-                        <div className="flex items-center gap-1.5">
-                            <input
-                                value={waTarget}
-                                onChange={(e) => setWaTarget(e.target.value)}
-                                placeholder="No HP (08xx / 628xx) atau ID grup (xxxx@g.us)"
-                                className="flex-1 border rounded px-2 py-1 text-xs bg-white"
-                            />
-                            <button
-                                onClick={() => {
-                                    setWaStatus(null);
-                                    if (waTarget.trim()) waMut.mutate(waTarget.trim());
-                                }}
-                                disabled={waMut.isPending || !waTarget.trim()}
-                                className="inline-flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1 rounded text-xs hover:opacity-90 disabled:opacity-50"
-                            >
-                                {waMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                                Kirim
-                            </button>
-                        </div>
+                        <div className="text-xs font-medium mb-1">Kirim jadwal ke Discord</div>
+                        <button
+                            onClick={() => {
+                                setWaStatus(null);
+                                waMut.mutate("");
+                            }}
+                            disabled={waMut.isPending}
+                            className="inline-flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1 rounded text-xs hover:opacity-90 disabled:opacity-50"
+                        >
+                            {waMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                            Kirim ke Discord
+                        </button>
                         {waStatus && <div className="text-xs mt-1">{waStatus}</div>}
                         <div className="text-[10px] text-muted-foreground mt-1">
-                            Bot WhatsApp harus terhubung. Pesan berisi ringkasan jadwal + link share.
+                            Terkirim ke channel Discord (atur webhook di Settings › Notifikasi). Pesan berisi ringkasan jadwal + link share.
                         </div>
                     </div>
                 </div>

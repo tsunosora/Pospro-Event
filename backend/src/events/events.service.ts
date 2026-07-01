@@ -6,6 +6,7 @@ import {
 import { EventBrand, EventStatus } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface EventPhaseInput {
     departureStart?: string | Date | null;
@@ -54,9 +55,20 @@ const toDate = (v: string | Date | null | undefined) => {
     return d;
 };
 
+const EVENT_STATUS_LABEL: Record<string, string> = {
+    DRAFT: 'Draft',
+    SCHEDULED: 'Terjadwal',
+    IN_PROGRESS: 'Berjalan',
+    COMPLETED: 'Selesai',
+    CANCELLED: 'Dibatalkan',
+};
+
 @Injectable()
 export class EventsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notifications: NotificationsService,
+    ) { }
 
     private async generateCode(date: Date) {
         const year = date.getFullYear();
@@ -176,7 +188,9 @@ export class EventsService {
         for (let attempt = 0; attempt < 2; attempt++) {
             const code = await this.generateCode(now);
             try {
-                return await this.prisma.event.create({ data: { code, ...data } });
+                const created = await this.prisma.event.create({ data: { code, ...data } });
+                this.notifyEventCreated(created).catch(() => { });
+                return created;
             } catch (err: any) {
                 if (attempt === 0 && err?.code === 'P2002' && err?.meta?.target?.includes('code')) continue;
                 throw err;
@@ -185,7 +199,7 @@ export class EventsService {
     }
 
     async update(id: number, input: UpdateEventInput) {
-        await this.findOne(id);
+        const existing = await this.findOne(id);
         const data: any = {};
         if (input.name !== undefined) {
             const n = input.name.trim();
@@ -224,7 +238,40 @@ export class EventsService {
             if ((input as any)[k] !== undefined) data[k] = toDate((input as any)[k]);
         }
 
-        return this.prisma.event.update({ where: { id }, data });
+        const updated = await this.prisma.event.update({ where: { id }, data });
+        if (input.status !== undefined && input.status !== (existing as any).status) {
+            this.notifyEventStatus(updated, (existing as any).status).catch(() => { });
+        }
+        return updated;
+    }
+
+    /** Notif Discord: event/pipeline baru dibuat. */
+    private async notifyEventCreated(ev: any) {
+        const brand = ev.brand === 'EXINDO' ? 'CV. Exindo' : ev.brand === 'XPOSER' ? 'CV. Xposer' : ev.brand;
+        const lines = [
+            `🎪 **Event Baru Dibuat — ${ev.name}**`,
+            `🏷️ ${ev.code} • ${brand}`,
+        ];
+        if (ev.venue) lines.push(`📍 Venue: ${ev.venue}`);
+        if (ev.customerName) lines.push(`👤 Klien: ${ev.customerName}`);
+        if (ev.picName) lines.push(`🧑‍💼 PIC: ${ev.picName}`);
+        if (ev.eventStart) {
+            const d = new Date(ev.eventStart).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+            lines.push(`📅 Mulai: ${d}`);
+        }
+        lines.push(`📌 Status: ${EVENT_STATUS_LABEL[ev.status] ?? ev.status}`);
+        await this.notifications.notifyDiscord(lines.join('\n'));
+    }
+
+    /** Notif Discord: status event berubah (mis. SCHEDULED → berjalan → selesai). */
+    private async notifyEventStatus(ev: any, oldStatus: string) {
+        const emoji = ev.status === 'IN_PROGRESS' ? '🚀'
+            : ev.status === 'COMPLETED' ? '✅'
+            : ev.status === 'CANCELLED' ? '🚫' : '🔄';
+        await this.notifications.notifyDiscord(
+            `${emoji} **Status Event — ${ev.name}** (${ev.code})\n` +
+            `${EVENT_STATUS_LABEL[oldStatus] ?? oldStatus} → **${EVENT_STATUS_LABEL[ev.status] ?? ev.status}**`,
+        );
     }
 
     async remove(id: number) {
@@ -242,7 +289,7 @@ export class EventsService {
         return { ok: true };
     }
 
-    async buildWhatsappMessage(
+    async buildEventMessage(
         id: number,
         opts: { includeLink?: boolean; shareBaseUrl?: string } = {},
     ) {
@@ -257,21 +304,21 @@ export class EventsService {
         const pic = ev.picWorker?.name ?? ev.picName ?? '—';
 
         const lines: string[] = [];
-        lines.push(`*📅 JADWAL EVENT — ${ev.name}*`);
+        lines.push(`**📅 JADWAL EVENT — ${ev.name}**`);
         lines.push(`_${ev.code} • ${brand}_`);
         lines.push('');
-        if (ev.venue) lines.push(`📍 *Lokasi:* ${ev.venue}`);
-        lines.push(`👤 *Klien:* ${klien}`);
-        lines.push(`🧑‍💼 *PIC:* ${pic}`);
+        if (ev.venue) lines.push(`📍 **Lokasi:** ${ev.venue}`);
+        lines.push(`👤 **Klien:** ${klien}`);
+        lines.push(`🧑‍💼 **PIC:** ${pic}`);
         lines.push('');
-        lines.push('*🗓️ Rundown:*');
+        lines.push('**🗓️ Rundown:**');
         lines.push(`🟡 Berangkat : ${fmt(ev.departureStart)}  →  ${fmt(ev.departureEnd)}`);
         lines.push(`🟠 Pasang    : ${fmt(ev.setupStart)}  →  ${fmt(ev.setupEnd)}`);
         lines.push(`🔵 Loading   : ${fmt(ev.loadingStart)}  →  ${fmt(ev.loadingEnd)}`);
         lines.push(`🟢 Event     : ${fmt(ev.eventStart)}  →  ${fmt(ev.eventEnd)}`);
         if (ev.notes) {
             lines.push('');
-            lines.push('*📝 Catatan:*');
+            lines.push('**📝 Catatan:**');
             lines.push(ev.notes);
         }
         if (opts.includeLink) {

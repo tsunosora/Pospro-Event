@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import {
-    Store, CreditCard, Users, Settings, MessageCircle, Building2, Paintbrush,
+    Store, CreditCard, Users, Settings, Building2, Paintbrush,
     HardDrive, Bell, Palette, Tags, Warehouse, HardHat, KeyRound, MapPin,
     Boxes, Building, FileText, Hash, Search, ChevronRight, ChevronLeft,
 } from "lucide-react";
@@ -69,8 +69,7 @@ const NAV_GROUPS: Array<{
             label: "Sistem",
             emoji: "⚙️",
             items: [
-                { href: "/settings/whatsapp", icon: MessageCircle, label: "Bot WhatsApp" },
-                { href: "/settings/notifications", icon: Bell, label: "Notifikasi" },
+                { href: "/settings/notifications", icon: Bell, label: "Notifikasi & Discord" },
                 { href: "/settings/backup", icon: HardDrive, label: "Backup & Recovery", desc: "Versi 2.6" },
             ],
         },

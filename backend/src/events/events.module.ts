@@ -9,14 +9,14 @@ import { EventsService } from './events.service';
 import { EventCrewService } from './event-crew.service';
 import { CrewTeamsService } from './crew-teams.service';
 import { ExportersModule } from '../exporters/exporters.module';
-import { WhatsappModule } from '../whatsapp/whatsapp.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { WarehousePinModule } from '../warehouse-pin/warehouse-pin.module';
 import { PackingModule } from '../packing/packing.module';
 import { CashflowModule } from '../cashflow/cashflow.module';
 import { ProjectReportPdfService } from '../exporters/project-report-pdf.service';
 
 @Module({
-    imports: [ExportersModule, WhatsappModule, WarehousePinModule, PackingModule, CashflowModule],
+    imports: [ExportersModule, NotificationsModule, WarehousePinModule, PackingModule, CashflowModule],
     controllers: [
         EventsController,
         PublicEventsController,

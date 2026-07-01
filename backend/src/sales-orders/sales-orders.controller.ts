@@ -86,11 +86,6 @@ export class SalesOrdersController {
         return this.service.removeProof(id, proofId);
     }
 
-    @Post(':id/send-wa')
-    sendWa(@Param('id', ParseIntPipe) id: number, @Body() body: { message?: string }) {
-        return this.service.sendToWhatsappGroup(id, body?.message);
-    }
-
     @Post(':id/cancel')
     cancel(@Param('id', ParseIntPipe) id: number, @Body() body: { reason?: string }) {
         return this.service.markCancelled(id, body?.reason || '');

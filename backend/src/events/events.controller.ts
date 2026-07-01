@@ -24,18 +24,8 @@ import type {
 import { EventPdfExportService } from '../exporters/event-pdf-export.service';
 import { ProjectReportPdfService } from '../exporters/project-report-pdf.service';
 import { CashflowService } from '../cashflow/cashflow.service';
-import { WhatsappService } from '../whatsapp/whatsapp.service';
-
-function normalizeWaTarget(raw: string): string {
-    const v = raw.trim();
-    if (!v) return v;
-    if (v.includes('@')) return v;
-    // digits only -> convert leading 0 to 62, strip non-digits
-    let digits = v.replace(/\D+/g, '');
-    if (digits.startsWith('0')) digits = '62' + digits.slice(1);
-    if (digits.startsWith('8')) digits = '62' + digits;
-    return `${digits}@c.us`;
-}
+import { NotificationsService } from '../notifications/notifications.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('events')
 @UseGuards(JwtAuthGuard)
@@ -45,7 +35,8 @@ export class EventsController {
         private pdf: EventPdfExportService,
         private projectReportPdf: ProjectReportPdfService,
         private cashflowService: CashflowService,
-        private whatsapp: WhatsappService,
+        private notifications: NotificationsService,
+        private prisma: PrismaService,
     ) { }
 
     @Get('dashboard')
@@ -160,17 +151,18 @@ export class EventsController {
     @Post(':id/whatsapp')
     async sendWhatsapp(
         @Param('id', ParseIntPipe) id: number,
-        @Body() body: { target: string; includeLink?: boolean; shareBaseUrl?: string },
+        @Body() body: { target?: string; includeLink?: boolean; shareBaseUrl?: string },
     ) {
-        const target = (body.target ?? '').trim();
-        if (!target) throw new BadRequestException('Target WhatsApp (nomor/ID grup) wajib diisi');
-        const chatId = normalizeWaTarget(target);
-        const message = await this.svc.buildWhatsappMessage(id, {
+        const settings = await this.prisma.storeSettings.findFirst();
+        const discordUrl = (settings as any)?.discordWebhookUrl;
+        if (!discordUrl) {
+            throw new BadRequestException('Discord Webhook URL belum diatur di Settings › Notifikasi');
+        }
+        const message = await this.svc.buildEventMessage(id, {
             includeLink: body.includeLink ?? true,
             shareBaseUrl: body.shareBaseUrl,
         });
-        const ok = await this.whatsapp.sendToGroup(chatId, message);
-        if (!ok) throw new BadRequestException('Gagal mengirim pesan WhatsApp. Pastikan bot terhubung.');
-        return { ok: true, target: chatId };
+        await this.notifications.sendToDiscord(discordUrl, message);
+        return { ok: true, target: 'discord' };
     }
 }

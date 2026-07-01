@@ -8,7 +8,6 @@ export * from './api/reports';
 export * from './api/settings';
 export * from './api/hpp';
 export * from './api/invoices';
-export * from './api/whatsapp';
 export * from './api/opname';
 export * from './api/production';
 export * from './api/suppliers';

@@ -1,7 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { WhatsappService } from '../whatsapp/whatsapp.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { CloseShiftDto, StructuredExpenses, AdditionalIncomeItem, PaymentExchangeItem } from './reports.controller';
 
 @Injectable()
@@ -10,8 +8,6 @@ export class ReportsService {
 
     constructor(
         private readonly prisma: PrismaService,
-        private readonly whatsappService: WhatsappService,
-        private readonly notificationsService: NotificationsService,
     ) { }
 
     async getStaffList() {
@@ -391,7 +387,7 @@ export class ReportsService {
             }
         }
 
-        const reportMsg = this.formatWhatsappMessage(
+        const reportMsg = this.formatShiftReport(
             shift,
             expectedData,
             dto.actualBankBalances || {},
@@ -408,33 +404,11 @@ export class ReportsService {
             dto.paymentExchanges || [],
         );
 
-        // Simpan pesan WA sebagai backup log agar bisa di-resend jika gagal
+        // Simpan teks laporan sebagai log arsip (ditampilkan di Riwayat Tutup Shift)
         await (this.prisma as any).shiftReport.update({
             where: { id: shiftId },
             data: { whatsappMessage: reportMsg },
         });
-
-        this.whatsappService.sendReport(reportMsg, proofImages).catch((err) => {
-            this.logger.error('Background WhatsApp send failed', err);
-        });
-
-        // Kirim ringkasan ke Discord jika dikonfigurasi
-        const discordUrl = (settings as any)?.discordWebhookUrl;
-        if (discordUrl) {
-            const totalCash = dto.actualCash + dto.actualQris + dto.actualTransfer;
-            const shiftName = dto.shiftName || 'Shift';
-            const adminName = dto.adminName || 'Kasir';
-            const discordMsg = [
-                `📊 **Laporan Tutup Shift — ${shiftName}**`,
-                `👤 Kasir: ${adminName}`,
-                `💰 Total Penerimaan: Rp ${totalCash.toLocaleString('id-ID')}`,
-                `   • Tunai: Rp ${dto.actualCash.toLocaleString('id-ID')}`,
-                `   • QRIS: Rp ${dto.actualQris.toLocaleString('id-ID')}`,
-                `   • Transfer: Rp ${dto.actualTransfer.toLocaleString('id-ID')}`,
-                dto.notes ? `📝 Catatan: ${dto.notes}` : '',
-            ].filter(Boolean).join('\n');
-            this.notificationsService.sendToDiscord(discordUrl, discordMsg).catch(() => { });
-        }
 
         return { success: true, message: 'Shift closed successfully.', data: shift };
     }
@@ -482,18 +456,6 @@ export class ReportsService {
             (this.prisma as any).shiftReport.count(),
         ]);
         return { list, total, page, limit };
-    }
-
-    async resendShiftReport(id: number, proofImages?: string[]) {
-        const shift: any = await (this.prisma as any).shiftReport.findUnique({ where: { id } });
-        if (!shift) throw new Error(`Shift report #${id} tidak ditemukan`);
-
-        const msg = shift.whatsappMessage;
-        if (!msg) throw new Error(`Backup pesan WA untuk shift #${id} belum tersedia`);
-
-        const images: string[] = proofImages ?? (Array.isArray(shift.proofImages) ? shift.proofImages : []);
-        await this.whatsappService.sendReport(msg, images);
-        return { success: true, message: 'Laporan shift berhasil dikirim ulang ke WhatsApp.' };
     }
 
     async amendShiftReport(id: number, dto: {
@@ -575,7 +537,7 @@ export class ReportsService {
 
         // Generate ulang pesan WhatsApp dengan semua data yang sudah dikoreksi
         const settings = await this.prisma.storeSettings.findFirst();
-        let newWhatsappMessage = this.formatWhatsappMessage(
+        let newWhatsappMessage = this.formatShiftReport(
             shiftForMsg,
             reconstructedExp,
             finalActualBankBalances,
@@ -628,7 +590,7 @@ export class ReportsService {
         return { success: true, message: 'Laporan shift berhasil dikoreksi.', data: updated };
     }
 
-    private formatWhatsappMessage(
+    private formatShiftReport(
         shift: any,
         exp: any,
         actualBankBalances: Record<string, number>,  // Saldo Laporan mBanking

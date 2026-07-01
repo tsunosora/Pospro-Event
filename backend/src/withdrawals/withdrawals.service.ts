@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { DocumentNumberService } from '../document-numbers/document-number.service';
 
 export type WithdrawalType = 'BORROW' | 'USE';
@@ -47,7 +48,49 @@ export class WithdrawalsService {
     constructor(
         private prisma: PrismaService,
         private docNumbers: DocumentNumberService,
+        private notifications: NotificationsService,
     ) { }
+
+    private withdrawalItemLines(w: any): string {
+        return (w.items || []).map((it: any, i: number) => {
+            const name = it.productVariant?.product?.name || 'Barang';
+            const variant = it.productVariant?.variantName ? ` - ${it.productVariant.variantName}` : '';
+            const unit = it.productVariant?.product?.unit?.name || 'pcs';
+            return `  ${i + 1}. ${name}${variant} — ${Number(it.quantity)} ${unit}`;
+        }).join('\n');
+    }
+
+    /** Notif Discord: barang keluar (pinjam / dipakai produksi). */
+    private async notifyCheckout(w: any) {
+        const lines = [
+            w.type === 'BORROW' ? '📤 **Barang Dipinjam (Keluar)**' : '🔧 **Barang Dipakai Produksi (Keluar)**',
+            `🧾 Kode: ${w.code}`,
+            `👷 Pekerja: ${w.worker?.name || '-'}`,
+            `🏬 Gudang: ${w.warehouse?.name || '-'}`,
+        ];
+        if (w.event) lines.push(`🎪 Event: ${w.event.name} (${w.event.code})`);
+        lines.push(`📝 Keperluan: ${w.purpose || '-'}`);
+        if (w.type === 'BORROW' && w.scheduledReturnAt) {
+            const d = new Date(w.scheduledReturnAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+            lines.push(`⏰ Rencana kembali: ${d}`);
+        }
+        lines.push(`📦 Item:\n${this.withdrawalItemLines(w)}`);
+        await this.notifications.notifyDiscord(lines.join('\n'));
+    }
+
+    /** Notif Discord: barang dikembalikan (lengkap / sebagian). */
+    private async notifyReturn(w: any) {
+        const full = w.status === 'RETURNED';
+        const lines = [
+            full ? '📥 **Barang Dikembalikan (Lengkap)**' : '📥 **Barang Dikembalikan (Sebagian)**',
+            `🧾 Kode: ${w.code}`,
+            `👷 Pekerja: ${w.worker?.name || '-'}`,
+        ];
+        if (w.event) lines.push(`🎪 Event: ${w.event.name} (${w.event.code})`);
+        lines.push(`📦 Item:\n${this.withdrawalItemLines(w)}`);
+        if (!full) lines.push('⚠️ Masih ada sisa barang yang belum dikembalikan.');
+        await this.notifications.notifyDiscord(lines.join('\n'));
+    }
 
     async findAll(filter: {
         status?: string;
@@ -236,7 +279,9 @@ export class WithdrawalsService {
             return w;
         });
 
-        return this.findOne(withdrawal.id);
+        const result = await this.findOne(withdrawal.id);
+        this.notifyCheckout(result).catch(() => { });
+        return result;
     }
 
     async returnItems(id: number, input: ReturnInput) {
@@ -341,7 +386,9 @@ export class WithdrawalsService {
             },
         });
 
-        return this.findOne(id);
+        const result = await this.findOne(id);
+        this.notifyReturn(result).catch(() => { });
+        return result;
     }
 
     async cancel(id: number) {

@@ -124,11 +124,6 @@ export class ReportsController {
         return this.reportsService.getShiftHistory(Number(page || 1), Number(limit || 20));
     }
 
-    @Post('shift/:id/resend')
-    async resendShiftReport(@Param('id', ParseIntPipe) id: number) {
-        return this.reportsService.resendShiftReport(id);
-    }
-
     @Patch('shift/:id/amend')
     async amendShiftReport(
         @Param('id', ParseIntPipe) id: number,

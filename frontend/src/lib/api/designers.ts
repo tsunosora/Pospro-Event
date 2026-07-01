@@ -76,10 +76,6 @@ export const designerUploadProofs = async (
     return (await axios.post(`${BASE}/sales-orders/designer/${soId}/proofs`, fd)).data;
 };
 
-/** Kirim ke WA group (public) */
-export const designerSendWA = async (soId: number, designerId: number, pin: string, message?: string) =>
-    (await axios.post(`${BASE}/sales-orders/designer/${soId}/send-wa`, { designerId, pin, message })).data;
-
 /** Batalkan SO (public) */
 export const designerCancelSO = async (soId: number, designerId: number, pin: string, reason: string) =>
     (await axios.post(`${BASE}/sales-orders/designer/${soId}/cancel`, { designerId, pin, reason })).data;

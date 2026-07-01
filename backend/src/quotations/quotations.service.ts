@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, InvoiceType, InvoiceStatus, QuotationVariant } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { DocumentNumberService } from '../document-numbers/document-number.service';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
@@ -153,7 +154,50 @@ export class QuotationsService {
     constructor(
         private prisma: PrismaService,
         private docNumberService: DocumentNumberService,
+        private notifications: NotificationsService,
     ) { }
+
+    private rp(n: number | string | null | undefined): string {
+        return `Rp ${Math.round(Number(n || 0)).toLocaleString('id-ID')}`;
+    }
+
+    /** Notif Discord: penawaran dibuat / invoice terbit langsung. */
+    private async notifyDocCreated(inv: any) {
+        const isInvoice = inv.type === 'INVOICE';
+        const lines = [
+            isInvoice
+                ? `📄 **Invoice Terbit — ${inv.invoiceNumber}**`
+                : `📝 **Penawaran Dibuat — ${inv.invoiceNumber}**`,
+        ];
+        if (inv.clientName) lines.push(`👤 Klien: ${inv.clientName}`);
+        if (inv.projectName) lines.push(`📌 Proyek: ${inv.projectName}`);
+        lines.push(`💰 Total: ${this.rp(inv.total)}`);
+        await this.notifications.notifyDiscord(lines.join('\n'));
+    }
+
+    /** Notif Discord: dokumen diberi nomor resmi / ditandai terkirim ke klien. */
+    private async notifyDocSent(inv: any) {
+        const label = inv.type === 'INVOICE' ? 'Invoice Dikirim' : 'Penawaran Dikirim';
+        const lines = [`📤 **${label} — ${inv.invoiceNumber}**`];
+        if (inv.clientName) lines.push(`👤 Klien: ${inv.clientName}`);
+        if (inv.projectName) lines.push(`📌 Proyek: ${inv.projectName}`);
+        await this.notifications.notifyDiscord(lines.join('\n'));
+    }
+
+    /** Notif Discord: DP (parsial) atau Pelunasan (lunas) diterima. */
+    private async notifyInvoicePayment(
+        inv: any, amount: number, paidTotal: number, target: number, remaining: number, isFullyPaid: boolean,
+    ) {
+        const lines = [
+            isFullyPaid ? '✅ **Pelunasan Diterima**' : '💵 **DP / Pembayaran Diterima**',
+            `🧾 Invoice: ${inv.invoiceNumber}`,
+        ];
+        if (inv.clientName) lines.push(`👤 Klien: ${inv.clientName}`);
+        lines.push(`💰 Dibayar: ${this.rp(amount)}`);
+        lines.push(`📊 Terbayar: ${this.rp(paidTotal)} / ${this.rp(target)}`);
+        lines.push(isFullyPaid ? '🎉 Status: LUNAS' : `⏳ Sisa tagihan: ${this.rp(remaining)}`);
+        await this.notifications.notifyDiscord(lines.join('\n'));
+    }
 
     /**
      * DP yang sudah/akan dibayar atas sebuah dokumen.
@@ -366,6 +410,7 @@ export class QuotationsService {
             },
             include: { items: true, customer: true, children: true, parent: true },
         });
+        this.notifyDocCreated(created).catch(() => { });
         return created;
     }
 
@@ -904,7 +949,7 @@ export class QuotationsService {
             const finalNumber = inv.revisionNumber > 0
                 ? this.docNumberService.formatWithRevision(custom, inv.revisionNumber)
                 : custom;
-            return this.prisma.invoice.update({
+            const updatedManual = await this.prisma.invoice.update({
                 where: { id },
                 data: {
                     invoiceNumber: finalNumber,
@@ -914,6 +959,8 @@ export class QuotationsService {
                 },
                 include: { items: true },
             });
+            this.notifyDocSent(updatedManual).catch(() => { });
+            return updatedManual;
         }
 
         // ── AUTO MODE: increment counter (default) ──
@@ -944,7 +991,7 @@ export class QuotationsService {
         const base = await this.docNumberService.assignForQuotation(kode, inv.date ?? new Date(), lang);
         const finalNumber = this.docNumberService.formatWithRevision(base, inv.revisionNumber);
 
-        return this.prisma.invoice.update({
+        const updatedAuto = await this.prisma.invoice.update({
             where: { id },
             data: {
                 invoiceNumber: finalNumber,
@@ -954,6 +1001,8 @@ export class QuotationsService {
             },
             include: { items: true },
         });
+        this.notifyDocSent(updatedAuto).catch(() => { });
+        return updatedAuto;
     }
 
     /**
@@ -1006,10 +1055,12 @@ export class QuotationsService {
         if (inv.status === InvoiceStatus.CANCELLED) {
             throw new BadRequestException('Invoice sudah CANCELLED, tidak bisa mark sent.');
         }
-        return this.prisma.invoice.update({
+        const sent = await this.prisma.invoice.update({
             where: { id: invoiceId },
             data: { status: InvoiceStatus.SENT },
         });
+        this.notifyDocSent(sent).catch(() => { });
+        return sent;
     }
 
     /**
@@ -1070,7 +1121,7 @@ export class QuotationsService {
 
         const paidAt = payload.paidAt ? new Date(payload.paidAt) : new Date();
 
-        return this.prisma.$transaction(async (tx) => {
+        const updated = await this.prisma.$transaction(async (tx) => {
             // 0. Hitung installment number — count existing payments + 1
             const existingCount = await (tx as any).invoicePayment.count({
                 where: { invoiceId },
@@ -1143,6 +1194,11 @@ export class QuotationsService {
             });
             return updated;
         });
+
+        // Notif Discord: DP (parsial) atau Pelunasan (lunas) — di luar transaksi
+        const remaining = Math.max(0, targetAmount - accumulatedPaid);
+        this.notifyInvoicePayment(inv, newPayment, accumulatedPaid, targetAmount, remaining, isFullyPaid).catch(() => { });
+        return updated;
     }
 
     /** Cancel Invoice. Status → CANCELLED. Tidak boleh kalau sudah PAID. */

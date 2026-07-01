@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Send, XCircle, Upload, Trash2, Loader2, CheckCircle2 } from "lucide-react";
-import { designerGetSO, designerSendWA, designerCancelSO, designerUploadProofs, designerDeleteProof } from "@/lib/api/designers";
+import { ArrowLeft, XCircle, Upload, Trash2, Loader2, CheckCircle2 } from "lucide-react";
+import { designerGetSO, designerCancelSO, designerUploadProofs, designerDeleteProof } from "@/lib/api/designers";
 import { useDesignerSession } from "../../useDesignerSession";
 import type { SalesOrder, SalesOrderStatus } from "@/lib/api/sales-orders";
 import dayjs from "dayjs";
@@ -40,11 +40,9 @@ export default function DesignerSODetailPage() {
     const [so, setSo] = useState<SalesOrder | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [waMessage, setWaMessage] = useState("");
     const [showCancel, setShowCancel] = useState(false);
     const [cancelReason, setCancelReason] = useState("");
     const [uploading, setUploading] = useState(false);
-    const [sending, setSending] = useState(false);
     const [cancelling, setCancelling] = useState(false);
 
     async function reload() {
@@ -60,36 +58,6 @@ export default function DesignerSODetailPage() {
 
     useEffect(() => { if (id) reload(); }, [id]);
 
-    const caption = useMemo(() => {
-        if (!so) return "";
-        const lines: string[] = [`*SURAT ORDER ${so.soNumber}*`, ""];
-        lines.push(`Pelanggan: ${so.customerName}`);
-        if (so.customerPhone) lines.push(`HP: ${so.customerPhone}`);
-        if (so.deadline) lines.push(`Deadline: ${dayjs(so.deadline).format("DD MMM YYYY HH:mm")}`);
-        lines.push("", "*Detail Item:*");
-        so.items.forEach((it, i) => {
-            const p = it.productVariant?.product?.name ?? "Produk";
-            const v = it.productVariant?.variantName ? ` — ${it.productVariant.variantName}` : "";
-            const dim = it.widthCm && it.heightCm ? ` [${it.widthCm}×${it.heightCm}${it.unitType || "cm"}]` : "";
-            const pcs = it.pcs && it.pcs > 1 ? ` ×${it.pcs}pcs` : "";
-            lines.push(`${i + 1}. ${p}${v}${dim}${pcs} (${it.quantity})${it.note ? `\n   _${it.note}_` : ""}`);
-        });
-        if (so.notes) lines.push("", `*Catatan:*\n${so.notes}`);
-        return lines.join("\n");
-    }, [so]);
-
-    async function sendWA() {
-        if (!session || !so) return;
-        setSending(true); setError(null);
-        try {
-            await designerSendWA(so.id, session.id, session.pin, waMessage.trim() || undefined);
-            await reload();
-        } catch (e: any) {
-            setError(e?.response?.data?.message || "Gagal kirim ke WA");
-        } finally {
-            setSending(false);
-        }
-    }
 
     async function cancel() {
         if (!session || !so) return;
@@ -144,7 +112,6 @@ export default function DesignerSODetailPage() {
     );
 
     const canEdit = so.status === "DRAFT" || so.status === "SENT";
-    const canSendWa = so.status === "DRAFT" || so.status === "SENT";
     const canCancel = so.status === "DRAFT" || so.status === "SENT";
 
     return (
@@ -232,21 +199,6 @@ export default function DesignerSODetailPage() {
                         </div>
                     )}
                 </Card>
-
-                {/* Kirim WA */}
-                {canSendWa && (
-                    <Card title="Kirim ke Group WA Internal">
-                        <p className="text-xs text-slate-500 mb-2">Broadcast ke group tim (desain/kasir/operator) dengan caption + gambar proof.</p>
-                        <textarea value={waMessage} onChange={e => setWaMessage(e.target.value)}
-                            placeholder={`Pesan tambahan (opsional)\n\nCaption auto:\n${caption.slice(0, 200)}...`}
-                            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white font-mono" rows={4} />
-                        <button onClick={sendWA} disabled={sending}
-                            className="w-full mt-2 inline-flex items-center justify-center gap-2 bg-green-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50">
-                            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                            {so.status === "SENT" ? "Kirim Ulang ke Group" : "Kirim ke Group WA"}
-                        </button>
-                    </Card>
-                )}
 
                 {/* Batalkan */}
                 {canCancel && (

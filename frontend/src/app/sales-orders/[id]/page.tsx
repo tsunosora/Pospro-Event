@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    ArrowLeft, Send, FileText, XCircle, Upload, Trash2, Loader2,
+    ArrowLeft, FileText, XCircle, Upload, Trash2, Loader2,
     User, Phone, MapPin, Calendar, Edit3, ExternalLink, CheckCircle2
 } from "lucide-react";
 import {
-    getSalesOrder, sendSOWhatsapp, cancelSO, uploadProofs, deleteProof,
+    getSalesOrder, cancelSO, uploadProofs, deleteProof,
     type SalesOrder, type SalesOrderStatus
 } from "@/lib/api/sales-orders";
 import dayjs from "dayjs";
@@ -34,7 +34,7 @@ const STATUS_BADGE: Record<SalesOrderStatus, string> = {
 
 const STATUS_LABEL: Record<SalesOrderStatus, string> = {
     DRAFT: 'Draft',
-    SENT: 'Terkirim ke Group WA',
+    SENT: 'Terkirim ke Discord',
     INVOICED: 'Sudah Dibuatkan Nota',
     CANCELLED: 'Dibatalkan',
 };
@@ -45,7 +45,6 @@ export default function SalesOrderDetailPage() {
     const queryClient = useQueryClient();
     const id = Number(params?.id);
 
-    const [waMessage, setWaMessage] = useState('');
     const [showCancel, setShowCancel] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -63,11 +62,6 @@ export default function SalesOrderDetailPage() {
         queryClient.invalidateQueries({ queryKey: ['so-pending-invoice-count'] });
     };
 
-    const sendMut = useMutation({
-        mutationFn: () => sendSOWhatsapp(id, waMessage.trim() || undefined),
-        onSuccess: () => { invalidate(); setError(null); },
-        onError: (e: any) => setError(e?.response?.data?.message || 'Gagal kirim WA'),
-    });
 
     const cancelMut = useMutation({
         mutationFn: () => cancelSO(id, cancelReason.trim()),
@@ -97,31 +91,6 @@ export default function SalesOrderDetailPage() {
 
     const totalItems = so?.items?.length ?? 0;
 
-    const estimatedCaption = useMemo(() => {
-        if (!so) return '';
-        const lines: string[] = [];
-        lines.push(`*SURAT ORDER ${so.soNumber}*`);
-        lines.push('');
-        lines.push(`Pelanggan: ${so.customerName}`);
-        if (so.customerPhone) lines.push(`HP: ${so.customerPhone}`);
-        lines.push(`Desainer: ${so.designerName}`);
-        if (so.deadline) lines.push(`Deadline: ${dayjs(so.deadline).format('DD MMM YYYY HH:mm')}`);
-        lines.push('');
-        lines.push('*Detail Item:*');
-        so.items.forEach((it, i) => {
-            const p = it.productVariant?.product?.name ?? 'Produk';
-            const v = it.productVariant?.variantName ? ` — ${it.productVariant.variantName}` : '';
-            const dim = (it.widthCm && it.heightCm) ? ` [${it.widthCm}×${it.heightCm}${it.unitType || 'cm'}]` : '';
-            const pcs = it.pcs && it.pcs > 1 ? ` ×${it.pcs}pcs` : '';
-            lines.push(`${i + 1}. ${p}${v}${dim}${pcs} (${it.quantity})${it.note ? `\n   _${it.note}_` : ''}`);
-        });
-        if (so.notes) {
-            lines.push('');
-            lines.push(`*Catatan:*\n${so.notes}`);
-        }
-        return lines.join('\n');
-    }, [so]);
-
     if (isLoading || !so) {
         return (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -131,7 +100,6 @@ export default function SalesOrderDetailPage() {
     }
 
     const canEdit = so.status === 'DRAFT' || so.status === 'SENT';
-    const canSendWa = so.status === 'DRAFT' || so.status === 'SENT';
     const canInvoice = so.status === 'SENT';
     const canCancel = so.status === 'DRAFT' || so.status === 'SENT';
 
@@ -150,7 +118,7 @@ export default function SalesOrderDetailPage() {
                     </div>
                     <p className="text-xs text-muted-foreground">
                         Dibuat {dayjs(so.createdAt).format('DD MMM YYYY HH:mm')}
-                        {so.sentToWaAt && ` • Terakhir dikirim WA ${dayjs(so.sentToWaAt).format('DD MMM HH:mm')}`}
+                        {so.sentToWaAt && ` • Terakhir dikirim ${dayjs(so.sentToWaAt).format('DD MMM HH:mm')}`}
                     </p>
                 </div>
             </div>
@@ -275,29 +243,6 @@ export default function SalesOrderDetailPage() {
 
                 {/* Right column — actions */}
                 <div className="space-y-4">
-                    {canSendWa && (
-                        <Section title="Kirim ke Group WA Internal">
-                            <p className="text-xs text-muted-foreground mb-2">
-                                Broadcast SO ini + gambar proof ke group WA tim (desain/kasir/operator). Bukan ke customer.
-                            </p>
-                            <textarea
-                                value={waMessage}
-                                onChange={e => setWaMessage(e.target.value)}
-                                placeholder={`Pesan tambahan (opsional).\n\nCaption auto:\n${estimatedCaption.slice(0, 180)}...`}
-                                className="w-full px-3 py-2 text-xs border border-border rounded-md bg-background font-mono"
-                                rows={4}
-                            />
-                            <button
-                                onClick={() => sendMut.mutate()}
-                                disabled={sendMut.isPending}
-                                className="w-full mt-2 inline-flex items-center justify-center gap-2 bg-green-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-                            >
-                                {sendMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                                {so.status === 'SENT' ? 'Kirim Ulang ke Group' : 'Kirim ke Group WA'}
-                            </button>
-                        </Section>
-                    )}
-
                     {canInvoice && (
                         <Section title="Buat Nota / Invoice">
                             <p className="text-xs text-muted-foreground mb-2">

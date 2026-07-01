@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { randomBytes } from 'crypto';
 
 export interface CreateAssignmentInput {
@@ -38,7 +38,7 @@ export interface WageTierInput {
 export class EventCrewService {
     constructor(
         private prisma: PrismaService,
-        private whatsapp: WhatsappService,
+        private notifications: NotificationsService,
     ) { }
 
     private genToken() {
@@ -146,34 +146,40 @@ export class EventCrewService {
             },
         });
 
-        // Auto-notify via WhatsApp (best-effort, non-blocking)
+        // Auto-notify ke channel Discord (best-effort, non-blocking)
         let notified = { crew: false, leader: false };
         if (opts.notify !== false) {
-            const baseUrl = opts.baseUrl ?? '';
-            const link = `${baseUrl}/public/crew/${created.accessToken}`;
-            const ev = created.event;
-            const teamLine = created.team ? `Team: ${created.team.name}\n` : '';
-            const roleLine = created.role ? `Tugas: ${created.role}\n` : '';
-            const venueLine = ev.venue ? `Venue: ${ev.venue}\n` : '';
-            const dateLine = ev.eventStart ? `Tanggal: ${new Date(ev.eventStart).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}\n` : '';
+            const settings = await this.prisma.storeSettings.findFirst();
+            const discordUrl = (settings as any)?.discordWebhookUrl;
+            if (discordUrl) {
+                const baseUrl = opts.baseUrl ?? '';
+                const link = `${baseUrl}/public/crew/${created.accessToken}`;
+                const ev = created.event;
+                const teamLine = created.team ? `\n👥 Team: ${created.team.name}` : '';
+                const roleLine = created.role ? `\n🧑‍🔧 Tugas: ${created.role}` : '';
+                const venueLine = ev.venue ? `\n📍 Venue: ${ev.venue}` : '';
+                const dateLine = ev.eventStart ? `\n📅 Tanggal: ${new Date(ev.eventStart).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}` : '';
 
-            // Crew message
-            const crewMsg =
-                `Halo ${created.worker.name},\n\n` +
-                `Kamu ditugaskan ke event:\n*${ev.name}* (${ev.code})\n${venueLine}${dateLine}${roleLine}${teamLine}\n` +
-                `Link check-in/out:\n${link}\n\n` +
-                `Tap link saat tiba di lokasi & saat selesai. Foto opsional.\n— Pospro Event`;
-            notified.crew = await this.whatsapp.sendDirect(created.worker.phone, crewMsg);
+                // Notifikasi penugasan crew
+                const crewMsg =
+                    `🎪 **Crew Ditugaskan — ${ev.name}** (${ev.code})\n` +
+                    `👤 ${created.worker.name}` +
+                    roleLine + teamLine + venueLine + dateLine +
+                    `\n🔗 Link check-in/out: ${link}`;
+                await this.notifications.sendToDiscord(discordUrl, crewMsg);
+                notified.crew = true;
 
-            // Leader message (only if team has leader & leader != crew)
-            const leader = created.team?.leader;
-            if (leader && leader.id !== created.worker.id && leader.phone) {
-                const leaderMsg =
-                    `Halo ${leader.name} (Leader Team ${created.team!.name}),\n\n` +
-                    `Anggota baru ditugaskan ke event ${ev.name}:\n` +
-                    `👤 ${created.worker.name}\n${roleLine}${venueLine}${dateLine}\n` +
-                    `Mohon koordinasi dengan ${created.worker.name} untuk eksekusi.\n— Pospro Event`;
-                notified.leader = await this.whatsapp.sendDirect(leader.phone, leaderMsg);
+                // Info tambahan untuk leader (jika team punya leader & bukan crew itu sendiri)
+                const leader = created.team?.leader;
+                if (leader && leader.id !== created.worker.id) {
+                    const leaderMsg =
+                        `👑 **Info Leader — Team ${created.team!.name}**\n` +
+                        `Anggota baru ditugaskan ke event **${ev.name}**:\n` +
+                        `👤 ${created.worker.name}` + roleLine + venueLine + dateLine +
+                        `\nMohon koordinasi dengan ${created.worker.name} untuk eksekusi.`;
+                    await this.notifications.sendToDiscord(discordUrl, leaderMsg);
+                    notified.leader = true;
+                }
             }
         }
 

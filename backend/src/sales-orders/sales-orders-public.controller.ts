@@ -102,16 +102,6 @@ export class SalesOrdersPublicController {
         return this.soService.removeProof(id, proofId);
     }
 
-    /** Kirim ke WA Group */
-    @Post(':id/send-wa')
-    async sendWa(
-        @Param('id', ParseIntPipe) id: number,
-        @Body() body: { designerId: number; pin: string; message?: string },
-    ) {
-        await verifyDesigner(this.designersService, Number(body.designerId), body.pin);
-        return this.soService.sendToWhatsappGroup(id, body.message);
-    }
-
     /** Batalkan SO */
     @Post(':id/cancel')
     async cancel(

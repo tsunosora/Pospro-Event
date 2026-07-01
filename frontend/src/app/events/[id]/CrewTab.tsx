@@ -77,8 +77,8 @@ export default function CrewTab({ eventId }: { eventId: number }) {
     const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<number>>(new Set());
     const [autoNotify, setAutoNotify] = useState(true);
 
-    // Assign crew terpilih (centang). Kalau WA aktif → loop single-create biar tiap crew
-    // dapat WA + link check-in; kalau tidak → bulk (1 request, cepat).
+    // Assign crew terpilih (centang). Kalau notif aktif → loop single-create biar tiap crew
+    // dapat notif Discord + link check-in; kalau tidak → bulk (1 request, cepat).
     const assignMut = useMutation({
         mutationFn: async () => {
             const ids = Array.from(bulkSelectedIds);
@@ -107,7 +107,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
             setShowForm(false);
             setBulkSelectedIds(new Set());
             setForm({ workerId: "", teamId: "", role: "", scheduledStart: "", scheduledEnd: "", wageTierId: "", dailyWageRate: "", overtimeRatePerHour: "" });
-            alert(`✅ Assign ${res.created} crew${res.skipped > 0 ? ` (${res.skipped} skip, sudah ter-assign)` : ""}${res.notified > 0 ? ` · WA terkirim ke ${res.notified}` : ""}`);
+            alert(`✅ Assign ${res.created} crew${res.skipped > 0 ? ` (${res.skipped} skip, sudah ter-assign)` : ""}${res.notified > 0 ? ` · notif Discord terkirim ke ${res.notified}` : ""}`);
         },
     });
 
@@ -513,7 +513,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                 checked={autoNotify}
                                 onChange={(e) => setAutoNotify(e.target.checked)}
                             />
-                            <span>💬 Kirim WA + link check-in ke tiap crew</span>
+                            <span>📢 Kirim notif Discord + link check-in ke tiap crew</span>
                         </label>
                         <div className="flex gap-2">
                             <button type="button" onClick={() => { setShowForm(false); setBulkSelectedIds(new Set()); }} className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted">Tutup</button>

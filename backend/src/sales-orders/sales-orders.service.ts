@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { WhatsappService } from '../whatsapp/whatsapp.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -32,7 +31,6 @@ export interface UpdateSalesOrderDto extends Partial<CreateSalesOrderDto> {}
 export class SalesOrdersService {
     constructor(
         private prisma: PrismaService,
-        private whatsapp: WhatsappService,
     ) {}
 
     private soInclude() {
@@ -229,73 +227,6 @@ export class SalesOrdersService {
         }
         await (this.prisma as any).salesOrderProof.delete({ where: { id: proofId } });
         return { success: true };
-    }
-
-    private buildCaption(so: any, customMessage?: string): string {
-        const lines: string[] = [];
-        lines.push(`*SURAT ORDER ${so.soNumber}*`);
-        lines.push('');
-        lines.push(`Pelanggan: ${so.customerName}`);
-        if (so.customerPhone) lines.push(`HP: ${so.customerPhone}`);
-        lines.push(`Desainer: ${so.designerName}`);
-        if (so.deadline) {
-            lines.push(`Deadline: ${new Date(so.deadline).toLocaleString('id-ID')}`);
-        }
-        lines.push('');
-        lines.push('*Detail Item:*');
-        (so.items || []).forEach((it: any, idx: number) => {
-            const productName = it.productVariant?.product?.name || 'Produk';
-            const variantName = it.productVariant?.variantName ? ` — ${it.productVariant.variantName}` : '';
-            let dim = '';
-            if (it.widthCm && it.heightCm) {
-                const u = it.unitType || 'm';
-                dim = ` [${it.widthCm}×${it.heightCm}${u}]`;
-            }
-            const pcsStr = it.pcs && it.pcs > 1 ? ` ×${it.pcs}pcs` : '';
-            const qtyStr = ` (${it.quantity})`;
-            const noteStr = it.note ? `\n     _${it.note}_` : '';
-            lines.push(`${idx + 1}. ${productName}${variantName}${dim}${pcsStr}${qtyStr}${noteStr}`);
-        });
-        if (so.notes) {
-            lines.push('');
-            lines.push(`*Catatan:*\n${so.notes}`);
-        }
-        if (customMessage && customMessage.trim()) {
-            lines.push('');
-            lines.push(customMessage.trim());
-        }
-        lines.push('');
-        lines.push('_Silakan kasir segera dibuatkan nota._');
-        return lines.join('\n');
-    }
-
-    async sendToWhatsappGroup(id: number, customMessage?: string) {
-        const so = await this.findOne(id);
-        if (so.status === 'INVOICED' || so.status === 'CANCELLED') {
-            throw new BadRequestException('SO yang sudah diinvoice / dibatalkan tidak dapat dikirim ulang');
-        }
-        const designGroupId = this.whatsapp.getDesignGroupId();
-        if (!designGroupId) {
-            throw new BadRequestException('Group WA internal belum di-set di Settings WhatsApp');
-        }
-
-        const caption = this.buildCaption(so, customMessage);
-        const imagePaths = (so.proofs || []).map((p: any) => p.filename);
-
-        const ok = await this.whatsapp.sendToDesignGroup(caption, imagePaths);
-        if (!ok) {
-            throw new BadRequestException('Gagal kirim ke WA — cek status bot di Settings WhatsApp');
-        }
-
-        const newStatus = so.status === 'DRAFT' ? 'SENT' : so.status;
-        return (this.prisma as any).salesOrder.update({
-            where: { id },
-            data: {
-                status: newStatus,
-                sentToWaAt: new Date(),
-            },
-            include: this.soInclude(),
-        });
     }
 
     async markCancelled(id: number, reason: string) {

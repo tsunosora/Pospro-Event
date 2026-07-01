@@ -296,7 +296,9 @@ export default function NotificationsSettingsPage() {
                 <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-sm text-indigo-800 flex gap-2">
                     <Info className="w-4 h-4 shrink-0 mt-0.5" />
                     <div>
-                        Notifikasi yang dikirim ke Discord: <strong>stok hampir habis</strong> dan <strong>ringkasan tutup shift</strong>.
+                        Notifikasi yang dikirim ke Discord: <strong>order/transaksi baru</strong>, <strong>stok hampir habis</strong>,
+                        {' '}<strong>laporan tutup shift</strong>, <strong>penugasan crew event</strong>,
+                        {' '}<strong>kirim Sales Order ke grup desain</strong>, dan <strong>commit GitHub</strong>.
                         Buat webhook di Discord: <em>Settings Channel › Integrations › Webhooks › New Webhook</em>.
                     </div>
                 </div>
