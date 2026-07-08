@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
     ChevronLeft, ChevronRight, Printer, Loader2, Search, X,
     AlertTriangle, Calendar, Copy, Download, Layers, Pencil,
-    Building2, Package, Users, MapPin, User, Share2, RefreshCw, Check,
+    Building2, Package, Users, MapPin, User, Share2, RefreshCw, Check, Tag, FileText,
 } from "lucide-react";
 import { getEvents, updateEvent, getTimelineShareToken, regenerateTimelineShareToken, type EventRecord, type EventBrand, type EventStatus } from "@/lib/api/events";
 import { getRabSummary } from "@/lib/api/rab";
@@ -1161,6 +1161,22 @@ function EventRow({
                             </div>
                         ) : null;
                     })()}
+                    {ev.productCategory?.trim() && (
+                        <div
+                            className="flex items-center gap-0.5 mt-0.5 px-1 py-0 text-[9px] text-primary bg-primary/10 rounded truncate max-w-full"
+                            title={`Kategori produk: ${ev.productCategory}`}
+                        >
+                            <Tag className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{ev.productCategory}</span>
+                        </div>
+                    )}
+                    {ev.orderDescription?.trim() && (
+                        <div
+                            className="flex items-center gap-0.5 mt-0.5 px-1 py-0 text-[9px] text-foreground/70 bg-muted/60 rounded truncate max-w-full"
+                            title={`Pesanan: ${ev.orderDescription}`}
+                        >
+                            <FileText className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{ev.orderDescription}</span>
+                        </div>
+                    )}
                     <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
                         <span className={`inline-block px-1 py-0 text-[8px] rounded ${status.cls} font-medium`}>{status.label}</span>
                         {ev._count?.withdrawals ? (
@@ -1305,6 +1321,12 @@ function QuickActionModal({ event: ev, phase, onClose }: { event: EventRecord; p
                     <div className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> <strong>{clientName(ev)}</strong></div>
                     <div className="flex items-center gap-1.5"><User className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> PIC: {picName(ev)}</div>
                     <div className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> {ev.venue ?? "—"}</div>
+                    {ev.productCategory?.trim() && (
+                        <div className="flex items-center gap-1.5"><Tag className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> Kategori: {ev.productCategory}</div>
+                    )}
+                    {ev.orderDescription?.trim() && (
+                        <div className="flex items-start gap-1.5"><FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" /> <span>Pesanan: <span className="text-foreground/70 whitespace-pre-line">{ev.orderDescription}</span></span></div>
+                    )}
                     <div className="flex items-center gap-2">
                         Status: <span className={`inline-block px-2 py-0.5 text-[10px] rounded ${STATUS_CFG[ev.status].cls} font-medium`}>{STATUS_CFG[ev.status].label}</span>
                     </div>

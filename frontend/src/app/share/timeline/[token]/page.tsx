@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, MapPin, User as UserIcon, Package, Loader2, ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import { CalendarDays, MapPin, User as UserIcon, Package, Loader2, ChevronLeft, ChevronRight, Lock, Tag } from "lucide-react";
 import { getPublicTimeline, type PublicTimelineEvent } from "@/lib/api/publicTimeline";
 
 const MONTHS_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
@@ -226,6 +226,11 @@ function EventRow({ ev, dayCells, rangeStart, rangeDays, today }: {
                 )}
                 {pic && (
                     <div className="text-sm text-muted-foreground flex items-center gap-1.5"><UserIcon className="h-4 w-4 shrink-0" /><span className="font-semibold text-foreground">{pic}</span></div>
+                )}
+                {ev.productCategory?.trim() && (
+                    <div className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5">
+                        <Tag className="h-4 w-4 shrink-0" />{ev.productCategory}
+                    </div>
                 )}
                 {ev.teams.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">

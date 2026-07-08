@@ -19,6 +19,7 @@ export type PublicTimelineEvent = {
     picWorker: { id: number; name: string; position: string | null } | null;
     teams: Array<{ id: number; name: string; color: string }>;
     orderDescription: string | null;
+    productCategory: string | null;
 };
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";

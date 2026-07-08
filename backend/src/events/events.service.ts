@@ -108,7 +108,7 @@ export class EventsService {
                 { departureStart: { gte: start, lt: end } },
             ];
         }
-        return this.prisma.event.findMany({
+        const events = await this.prisma.event.findMany({
             where,
             orderBy: [{ eventStart: 'asc' }, { createdAt: 'desc' }],
             include: {
@@ -123,6 +123,37 @@ export class EventsService {
                 },
             },
         });
+
+        // Enrich dengan productCategory & orderDescription dari Lead (via Customer: Lead.convertedCustomerId === event.customerId).
+        const leadByCustomer = await this.leadInfoByCustomer(events.map((e) => e.customerId));
+        return events.map((ev) => {
+            const info = ev.customerId != null ? leadByCustomer.get(ev.customerId) : undefined;
+            return {
+                ...ev,
+                productCategory: info?.productCategory ?? null,
+                orderDescription: info?.orderDescription ?? null,
+            };
+        });
+    }
+
+    /** Peta customerId → { productCategory, orderDescription } dari Lead yang sudah convert. Satu query untuk keduanya. */
+    private async leadInfoByCustomer(customerIdsRaw: (number | null)[]) {
+        const customerIds = Array.from(new Set(customerIdsRaw.filter((id): id is number => id != null)));
+        const map = new Map<number, { productCategory: string | null; orderDescription: string | null }>();
+        if (customerIds.length === 0) return map;
+        const leads = await this.prisma.lead.findMany({
+            where: { convertedCustomerId: { in: customerIds } },
+            select: { convertedCustomerId: true, productCategory: true, orderDescription: true },
+        });
+        for (const l of leads) {
+            if (l.convertedCustomerId != null) {
+                map.set(l.convertedCustomerId, {
+                    productCategory: l.productCategory ?? null,
+                    orderDescription: l.orderDescription ?? null,
+                });
+            }
+        }
+        return map;
     }
 
     /**
@@ -181,22 +212,8 @@ export class EventsService {
             },
         });
 
-        // Lookup orderDescription dari Lead via Customer (Lead.convertedCustomerId === event.customerId).
-        const customerIds = Array.from(
-            new Set(events.map((e) => e.customerId).filter((id): id is number => id != null)),
-        );
-        const descByCustomer = new Map<number, string>();
-        if (customerIds.length > 0) {
-            const leads = await this.prisma.lead.findMany({
-                where: { convertedCustomerId: { in: customerIds }, orderDescription: { not: null } },
-                select: { convertedCustomerId: true, orderDescription: true },
-            });
-            for (const l of leads) {
-                if (l.convertedCustomerId != null && l.orderDescription) {
-                    descByCustomer.set(l.convertedCustomerId, l.orderDescription);
-                }
-            }
-        }
+        // Lookup productCategory & orderDescription dari Lead via Customer (Lead.convertedCustomerId === event.customerId).
+        const leadByCustomer = await this.leadInfoByCustomer(events.map((e) => e.customerId));
 
         return events.map((ev) => {
             // Team unik per event (untuk chip & judul filter di halaman publik).
@@ -205,10 +222,12 @@ export class EventsService {
                 if (a.team) teamMap.set(a.team.id, a.team);
             }
             const { crewAssignments, ...rest } = ev;
+            const info = ev.customerId != null ? leadByCustomer.get(ev.customerId) : undefined;
             return {
                 ...rest,
                 teams: Array.from(teamMap.values()),
-                orderDescription: ev.customerId != null ? (descByCustomer.get(ev.customerId) ?? null) : null,
+                orderDescription: info?.orderDescription ?? null,
+                productCategory: info?.productCategory ?? null,
             };
         });
     }

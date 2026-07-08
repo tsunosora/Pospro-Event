@@ -12,6 +12,10 @@ export interface EventRecord {
     venue: string | null;
     customerId: number | null;
     customerName: string | null;
+    /** Kategori produk — di-enrich dari Lead (via Customer). Bisa null kalau event tak berasal dari lead. */
+    productCategory: string | null;
+    /** Deskripsi pesanan — di-enrich dari Lead (via Customer). Bisa null kalau event tak berasal dari lead. */
+    orderDescription: string | null;
     picWorkerId: number | null;
     picName: string | null;
     departureStart: string | null;

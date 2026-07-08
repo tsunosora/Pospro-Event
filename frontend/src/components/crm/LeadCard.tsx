@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -15,6 +16,72 @@ import { getWorkers, MARKETER_POSITIONS, type Worker } from "@/lib/api/workers";
 import { LevelBadge } from "./LevelBadge";
 import { WaButton } from "./WaButton";
 import { formatLeadEventDateRange, formatLeadEventDateRangeShort } from "@/lib/utils/date-range";
+
+/**
+ * Popover kartu — di-render via portal ke <body> dengan posisi fixed supaya TIDAK terpotong
+ * oleh overflow kartu / kolom kanban, dan tidak tertimpa kartu lain. Ikut reposisi saat scroll,
+ * auto flip ke atas kalau ruang bawah sempit, dan tutup saat klik di luar.
+ */
+function CardPopover({
+    anchor,
+    onClose,
+    width = 224,
+    children,
+}: {
+    anchor: HTMLElement | null;
+    onClose: () => void;
+    width?: number;
+    children: React.ReactNode;
+}) {
+    const ref = useRef<HTMLDivElement>(null);
+    const [style, setStyle] = useState<React.CSSProperties | null>(null);
+
+    useLayoutEffect(() => {
+        if (!anchor) return;
+        const update = () => {
+            const r = anchor.getBoundingClientRect();
+            const margin = 4;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            const h = ref.current?.offsetHeight ?? 260;
+            const spaceBelow = vh - r.bottom;
+            const openUp = spaceBelow < h + 16 && r.top > spaceBelow;
+            let left = r.left;
+            if (left + width + 8 > vw) left = vw - width - 8;
+            if (left < 8) left = 8;
+            const top = openUp ? Math.max(8, r.top - h - margin) : r.bottom + margin;
+            setStyle({ position: "fixed", top, left, width, zIndex: 60 });
+        };
+        update();
+        window.addEventListener("scroll", update, true);
+        window.addEventListener("resize", update);
+        return () => {
+            window.removeEventListener("scroll", update, true);
+            window.removeEventListener("resize", update);
+        };
+    }, [anchor, width]);
+
+    useEffect(() => {
+        const onDown = (e: MouseEvent) => {
+            const t = e.target as Node;
+            if (ref.current && !ref.current.contains(t) && anchor && !anchor.contains(t)) onClose();
+        };
+        document.addEventListener("mousedown", onDown);
+        return () => document.removeEventListener("mousedown", onDown);
+    }, [anchor, onClose]);
+
+    if (!anchor || typeof document === "undefined") return null;
+    return createPortal(
+        <div
+            ref={ref}
+            style={style ?? { position: "fixed", top: 0, left: 0, width, visibility: "hidden" }}
+            onClick={(e) => e.stopPropagation()}
+        >
+            {children}
+        </div>,
+        document.body,
+    );
+}
 
 /** Format tanggal singkat — kalau hari ini "Hari ini", kalau kemarin "Kemarin", lainnya "DD MMM" / "DD MMM YYYY" */
 function formatShortDate(iso: string): string {
@@ -76,20 +143,11 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
     const display = lead.name?.trim() || `— ${lead.phoneNormalized.slice(-4)}`;
     const labels = lead.labels ?? [];
 
-    // Inline edit state — popover open per field
+    // Inline edit state — popover open per field. anchorEl = tombol pemicu (untuk posisi portal).
     const [editing, setEditing] = useState<"marketing" | "brand" | "closing" | null>(null);
+    const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
     const [closingDraft, setClosingDraft] = useState("");
-    const popoverRef = useRef<HTMLDivElement>(null);
-
-    // Click outside → close popover
-    useEffect(() => {
-        if (!editing) return;
-        const handler = (e: MouseEvent) => {
-            if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) setEditing(null);
-        };
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, [editing]);
+    const closeEdit = () => { setEditing(null); setAnchorEl(null); };
 
     // Fetch active marketers (cached) — only when popover open to avoid useless calls
     const { data: marketers = [] } = useQuery<Worker[]>({
@@ -104,7 +162,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["crm-board"] });
             qc.invalidateQueries({ queryKey: ["crm-lead", lead.id] });
-            setEditing(null);
+            closeEdit();
         },
         onError: (e: any) => alert(`❌ ${e?.response?.data?.message || e?.message || "Gagal update"}`),
     });
@@ -187,7 +245,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                 <div className="relative">
                     <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setEditing(editing === "marketing" ? null : "marketing"); }}
+                        onClick={(e) => { e.stopPropagation(); if (editing === "marketing") { closeEdit(); } else { setAnchorEl(e.currentTarget); setEditing("marketing"); } }}
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-info/15 text-info border-info/30 hover:bg-info/25 cursor-pointer transition-colors"
                         title="Klik untuk ganti marketing"
                     >
@@ -196,8 +254,8 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                         <ChevronDown className="h-2.5 w-2.5 opacity-60" />
                     </button>
                     {editing === "marketing" && (
-                        <div ref={popoverRef} className="absolute z-30 top-full left-0 mt-1 w-56 bg-card border-2 border-border rounded-lg shadow-xl py-1 max-h-64 overflow-y-auto"
-                            onClick={(e) => e.stopPropagation()}>
+                        <CardPopover anchor={anchorEl} onClose={closeEdit} width={224}>
+                        <div className="w-full bg-card border-2 border-border rounded-lg shadow-xl py-1 max-h-64 overflow-y-auto">
                             <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground border-b">
                                 Pilih Marketing
                             </div>
@@ -226,13 +284,14 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                                 <div className="px-3 py-2 text-center"><Loader2 className="h-3 w-3 animate-spin inline" /></div>
                             )}
                         </div>
+                        </CardPopover>
                     )}
                 </div>
                 {/* Brand chip */}
                 <div className="relative">
                     <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setEditing(editing === "brand" ? null : "brand"); }}
+                        onClick={(e) => { e.stopPropagation(); if (editing === "brand") { closeEdit(); } else { setAnchorEl(e.currentTarget); setEditing("brand"); } }}
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border hover:opacity-80 cursor-pointer transition-opacity"
                         style={brandMeta ? { backgroundColor: `${brandMeta.color}20`, borderColor: `${brandMeta.color}60`, color: brandMeta.color } : { backgroundColor: "#f1f5f9", borderColor: "#cbd5e1", color: "#475569" }}
                         title="Klik untuk ganti brand"
@@ -241,8 +300,8 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                         <ChevronDown className="h-2.5 w-2.5 opacity-60" />
                     </button>
                     {editing === "brand" && (
-                        <div ref={popoverRef} className="absolute z-30 top-full left-0 mt-1 w-44 bg-card border-2 border-border rounded-lg shadow-xl py-1"
-                            onClick={(e) => e.stopPropagation()}>
+                        <CardPopover anchor={anchorEl} onClose={closeEdit} width={176}>
+                        <div className="w-full bg-card border-2 border-border rounded-lg shadow-xl py-1">
                             <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground border-b">
                                 Pilih Brand
                             </div>
@@ -266,6 +325,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                                 <div className="px-3 py-2 text-center"><Loader2 className="h-3 w-3 animate-spin inline" /></div>
                             )}
                         </div>
+                        </CardPopover>
                     )}
                 </div>
             </div>
@@ -360,8 +420,9 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                                 type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    if (editing === "closing") { setEditing(null); return; }
+                                    if (editing === "closing") { closeEdit(); return; }
                                     setClosingDraft(dayjs(lead.closedDealAt ?? undefined).format("YYYY-MM-DD"));
+                                    setAnchorEl(e.currentTarget);
                                     setEditing("closing");
                                 }}
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-success/15 text-success border border-success/30 hover:bg-success/25 cursor-pointer transition-colors"
@@ -372,8 +433,8 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                                 <ChevronDown className="h-2.5 w-2.5 opacity-60" />
                             </button>
                             {editing === "closing" && (
-                                <div ref={popoverRef} className="absolute z-30 top-full left-0 mt-1 w-52 bg-card border-2 border-border rounded-lg shadow-xl p-2.5 space-y-1.5"
-                                    onClick={(e) => e.stopPropagation()}>
+                                <CardPopover anchor={anchorEl} onClose={closeEdit} width={208}>
+                                <div className="w-full bg-card border-2 border-border rounded-lg shadow-xl p-2.5 space-y-1.5">
                                     <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Tanggal Closing (Deal)</div>
                                     <input
                                         type="date"
@@ -392,6 +453,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                                         {updateMut.isPending ? <Loader2 className="h-3 w-3 animate-spin inline" /> : "Simpan"}
                                     </button>
                                 </div>
+                                </CardPopover>
                             )}
                         </div>
                     )}
