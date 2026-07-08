@@ -1807,6 +1807,7 @@ model Lead {
   lastContactedAt     DateTime?  @map("last_contacted_at")
   convertedCustomerId Int?       @unique @map("converted_customer_id")
   convertedAt         DateTime?  @map("converted_at")
+  closedDealAt        DateTime?  @map("closed_deal_at")
   createdAt           DateTime   @default(now()) @map("created_at")
   updatedAt           DateTime   @updatedAt @map("updated_at")
 
@@ -1820,6 +1821,7 @@ model Lead {
   @@index([stageId, stageOrderIndex])
   @@index([phoneNormalized])
   @@index([assignedWorkerId, status])
+  @@index([assignedWorkerId, status, closedDealAt])
   @@index([leadCameAt])
   @@index([city])
   @@index([productCategory])

@@ -116,6 +116,16 @@ export class LeadsController {
         });
     }
 
+    @Get('performance/lead-outcomes')
+    leadOutcomes(
+        @Query('workerId') workerId: string,
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+        @Query('brand') brand?: EventBrand,
+    ) {
+        return this.svc.leadOutcomesByWorker({ workerId: Number(workerId), from, to, brand });
+    }
+
     @Get('dashboard/summary')
     dashboardSummary(
         @Query('from') from?: string,

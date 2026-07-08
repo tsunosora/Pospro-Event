@@ -211,6 +211,33 @@ export const getStuckLeads = async (
 ): Promise<StuckLead[]> =>
     (await api.get('/crm/performance/stuck-leads', { params })).data;
 
+/** Satu lead closing/lost di modal detail per marketing. */
+export interface OutcomeLead {
+    id: number;
+    name: string | null;
+    phone: string;
+    organization: string | null;
+    eventLocation: string | null;
+    city: string | null;
+    projectValueEst: string | null;
+    leadCameAt: string;
+    closedDealAt: string | null;
+    updatedAt: string;
+    stage: { id: number; name: string; color: string } | null;
+}
+
+export interface MarketerOutcomes {
+    workerId: number;
+    workerName: string;
+    closed: { count: number; totalValue: number; leads: OutcomeLead[] };
+    lost: { count: number; totalValue: number; leads: OutcomeLead[] };
+}
+
+export const getMarketerOutcomes = async (
+    params: { workerId: number; from?: string; to?: string; brand?: Brand },
+): Promise<MarketerOutcomes> =>
+    (await api.get('/crm/performance/lead-outcomes', { params })).data;
+
 export interface DashboardSummary {
     period: { from: string | null; to: string | null; days: number };
     total: number;

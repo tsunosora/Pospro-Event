@@ -278,7 +278,13 @@ export class LeadsService {
         if (input.source !== undefined) data.source = input.source;
         if (input.sourceDetail !== undefined) data.sourceDetail = input.sourceDetail?.trim() || null;
         if (input.greetingTemplate !== undefined) data.greetingTemplate = input.greetingTemplate?.trim() || null;
-        if (input.status !== undefined) data.status = input.status;
+        if (input.status !== undefined) {
+            data.status = input.status;
+            // Stempel tanggal closing saat lead BARU jadi CLOSED_DEAL (biar leaderboard hitung di bulan closing)
+            if (input.status === 'CLOSED_DEAL' && existing.status !== 'CLOSED_DEAL') {
+                (data as any).closedDealAt = new Date();
+            }
+        }
 
         // Detect transfer: assigned worker berubah & sebelumnya sudah ada owner
         let transferLog: { from: number; to: number | null } | null = null;
@@ -393,7 +399,12 @@ export class LeadsService {
                             ? 'IN_PROGRESS'
                             : lead.status;
                 if (newStatus !== lead.status) {
-                    await tx.lead.update({ where: { id: leadId }, data: { status: newStatus as LeadStatus } });
+                    const statusData: Prisma.LeadUpdateInput = { status: newStatus as LeadStatus };
+                    // Stempel tanggal closing saat lead BARU jadi CLOSED_DEAL
+                    if (newStatus === 'CLOSED_DEAL' && lead.status !== 'CLOSED_DEAL') {
+                        (statusData as any).closedDealAt = new Date();
+                    }
+                    await tx.lead.update({ where: { id: leadId }, data: statusData });
                 }
 
                 await tx.leadActivity.create({
@@ -767,10 +778,21 @@ export class LeadsService {
     async performanceByMarketer(params: { from?: string; to?: string; brand?: EventBrand }) {
         const where: Prisma.LeadWhereInput = {};
         if (params.brand) where.brand = params.brand;
+        // Filter "lead masuk" — dipakai untuk totalLeads, avg respon, stuck
         if (params.from || params.to) {
             where.leadCameAt = {};
             if (params.from) (where.leadCameAt as any).gte = new Date(params.from);
             if (params.to) (where.leadCameAt as any).lte = new Date(params.to);
+        }
+        // Filter "closing di periode ini" — dipakai untuk jumlah closing & omzet.
+        // Lead yang closing di bulan ini terhitung di sini walau masuk bulan sebelumnya.
+        const closedWhereBase: Prisma.LeadWhereInput = { status: 'CLOSED_DEAL' };
+        if (params.brand) closedWhereBase.brand = params.brand;
+        if (params.from || params.to) {
+            const closedRange: Prisma.DateTimeFilter = {};
+            if (params.from) closedRange.gte = new Date(params.from);
+            if (params.to) closedRange.lte = new Date(params.to);
+            closedWhereBase.closedDealAt = closedRange;
         }
 
         // Hanya hitung performa untuk role yang menangani lead di CRM
@@ -798,10 +820,10 @@ export class LeadsService {
                 const [total, won, valueAgg, respLeads, stuck] = await this.prisma.$transaction([
                     this.prisma.lead.count({ where: baseWhere }),
                     this.prisma.lead.count({
-                        where: { ...baseWhere, status: 'CLOSED_DEAL' },
+                        where: { ...closedWhereBase, assignedWorkerId: w.id },
                     }),
                     this.prisma.lead.aggregate({
-                        where: { ...baseWhere, status: 'CLOSED_DEAL' },
+                        where: { ...closedWhereBase, assignedWorkerId: w.id },
                         _sum: { projectValueEst: true },
                     }),
                     this.prisma.lead.findMany({
@@ -908,5 +930,57 @@ export class LeadsService {
                 daysStuck: Math.floor((now - ref.getTime()) / (24 * 60 * 60 * 1000)),
             };
         });
+    }
+
+    /**
+     * Detail hasil per marketing: daftar lead CLOSED_DEAL (omzet) & CLOSED_LOST (nominal lost)
+     * pada periode. Closing difilter by closedDealAt agar konsisten dg leaderboard.
+     * Lost difilter by updatedAt (belum ada kolom khusus tanggal lost).
+     */
+    async leadOutcomesByWorker(params: { workerId: number; from?: string; to?: string; brand?: EventBrand }) {
+        const worker = await this.prisma.worker.findUnique({
+            where: { id: params.workerId },
+            select: { id: true, name: true },
+        });
+        if (!worker) throw new NotFoundException(`Worker ${params.workerId} tidak ditemukan`);
+
+        const range = (field: 'closedDealAt' | 'updatedAt'): Prisma.LeadWhereInput => {
+            const w: Prisma.LeadWhereInput = { assignedWorkerId: params.workerId };
+            if (params.brand) w.brand = params.brand;
+            if (params.from || params.to) {
+                (w as any)[field] = {};
+                if (params.from) (w as any)[field].gte = new Date(params.from);
+                if (params.to) (w as any)[field].lte = new Date(params.to);
+            }
+            return w;
+        };
+
+        const select = {
+            id: true, name: true, phone: true, organization: true,
+            eventLocation: true, city: true, projectValueEst: true,
+            leadCameAt: true, closedDealAt: true, updatedAt: true,
+            stage: { select: { id: true, name: true, color: true } },
+        } satisfies Prisma.LeadSelect;
+
+        const [closed, lost] = await this.prisma.$transaction([
+            this.prisma.lead.findMany({
+                where: { ...range('closedDealAt'), status: 'CLOSED_DEAL' },
+                select, orderBy: { closedDealAt: 'desc' }, take: 500,
+            }),
+            this.prisma.lead.findMany({
+                where: { ...range('updatedAt'), status: 'CLOSED_LOST' },
+                select, orderBy: { updatedAt: 'desc' }, take: 500,
+            }),
+        ]);
+
+        const sum = (arr: { projectValueEst: Prisma.Decimal | null }[]) =>
+            arr.reduce((a, l) => a + Number(l.projectValueEst ?? 0), 0);
+
+        return {
+            workerId: worker.id,
+            workerName: worker.name,
+            closed: { count: closed.length, totalValue: sum(closed), leads: closed },
+            lost: { count: lost.length, totalValue: sum(lost), leads: lost },
+        };
     }
 }

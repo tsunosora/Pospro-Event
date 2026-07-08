@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { getMarketerPerformance, type MarketerPerformance } from "@/lib/api/crm";
 import { StuckLeadsModal } from "@/components/crm/StuckLeadsModal";
+import { MarketerDetailModal } from "@/components/crm/MarketerDetailModal";
 
 function fmtRp(v: number) {
     if (!isFinite(v) || v === 0) return "Rp 0";
@@ -51,6 +52,8 @@ export default function CrmPerformancePage() {
     const [period, setPeriod] = useState<"today" | "week" | "month" | "all">("month");
     /** Modal stuck leads — null = tertutup. workerId null = tampilkan semua marketing. */
     const [stuckModal, setStuckModal] = useState<{ workerId: number | null; workerName: string | null } | null>(null);
+    /** Modal detail closing & gagal per marketing — null = tertutup. */
+    const [detailModal, setDetailModal] = useState<{ workerId: number; workerName: string } | null>(null);
     /** Auto-popup peringatan hanya muncul sekali per buka halaman. */
     const [autoShown, setAutoShown] = useState(false);
 
@@ -191,6 +194,7 @@ export default function CrmPerformancePage() {
                                     rank={i + 1}
                                     row={r}
                                     onStuckClick={() => setStuckModal({ workerId: r.workerId, workerName: r.name })}
+                                    onRowClick={() => setDetailModal({ workerId: r.workerId, workerName: r.name })}
                                 />
                             ))}
                         </tbody>
@@ -221,11 +225,19 @@ export default function CrmPerformancePage() {
                 workerName={stuckModal?.workerName ?? null}
                 period={periodPreset(period)}
             />
+
+            <MarketerDetailModal
+                open={detailModal !== null}
+                onClose={() => setDetailModal(null)}
+                workerId={detailModal?.workerId ?? null}
+                workerName={detailModal?.workerName ?? null}
+                period={periodPreset(period)}
+            />
         </div>
     );
 }
 
-function PerformanceRow({ rank, row, onStuckClick }: { rank: number; row: MarketerPerformance; onStuckClick: () => void }) {
+function PerformanceRow({ rank, row, onStuckClick, onRowClick }: { rank: number; row: MarketerPerformance; onStuckClick: () => void; onRowClick: () => void }) {
     const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
     const convCls =
         row.conversionRate >= 30
@@ -239,7 +251,7 @@ function PerformanceRow({ rank, row, onStuckClick }: { rank: number; row: Market
     return (
         <tr className="border-t border-border hover:bg-muted/50 transition-colors">
             <td className="px-3 py-3 font-bold text-lg">{medal}</td>
-            <td className="px-3 py-3">
+            <td className="px-3 py-3 cursor-pointer" onClick={onRowClick} title="Klik untuk lihat detail closing & gagal">
                 <div className="flex items-center gap-2">
                     {row.photoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
