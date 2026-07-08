@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "compress:images": "ts-node --project tsconfig.seed.json scripts/compress-existing-images.ts",
     "seed:booth": "ts-node --project tsconfig.seed.json prisma/seed-booth-event.ts",
-    "seed:rab-categories": "ts-node --project tsconfig.seed.json prisma/seed-rab-categories.ts"
+    "seed:rab-categories": "ts-node --project tsconfig.seed.json prisma/seed-rab-categories.ts",
+    "backfill:closed-deal-at": "ts-node --project tsconfig.seed.json prisma/backfill-closed-deal-at.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
