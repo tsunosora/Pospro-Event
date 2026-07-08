@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, MapPin, User as UserIcon, Package, Loader2, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { getPublicTimeline, type PublicTimelineEvent } from "@/lib/api/publicTimeline";
@@ -41,16 +41,28 @@ function getPhaseRanges(ev: PublicTimelineEvent): Array<{ phase: Phase; start: D
 export default function PublicTimelinePage() {
     const params = useParams<{ token: string }>();
     const token = params.token;
+    const searchParams = useSearchParams();
+    const teamId = searchParams.get("team") ? Number(searchParams.get("team")) : null;
     const today = new Date();
     const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
     const year = cursor.getFullYear();
     const month = cursor.getMonth() + 1;
 
     const { data: events = [], isLoading, error } = useQuery({
-        queryKey: ["public-timeline", token, year, month],
-        queryFn: () => getPublicTimeline(token, year, month),
+        queryKey: ["public-timeline", token, year, month, teamId],
+        queryFn: () => getPublicTimeline(token, year, month, teamId),
         retry: false,
     });
+
+    // Nama team terpilih (bila link difilter per team) — diambil dari data event.
+    const teamName = useMemo(() => {
+        if (!teamId) return null;
+        for (const e of events) {
+            const t = e.teams.find((x) => x.id === teamId);
+            if (t) return t.name;
+        }
+        return null;
+    }, [events, teamId]);
 
     const range = useMemo(() => {
         const start = new Date(year, month - 1, 1);
@@ -97,7 +109,11 @@ export default function PublicTimelinePage() {
                         <CalendarDays className="h-7 w-7 text-primary shrink-0" />
                         <div>
                             <h1 className="text-xl md:text-2xl font-bold leading-tight">Jadwal Event</h1>
-                            <p className="text-sm md:text-base text-muted-foreground">Timeline & barang yang dikerjakan</p>
+                            <p className="text-sm md:text-base text-muted-foreground">
+                                {teamId
+                                    ? <>Khusus team: <span className="font-semibold text-foreground">{teamName ?? `#${teamId}`}</span></>
+                                    : "Timeline & barang yang dikerjakan"}
+                            </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -193,6 +209,15 @@ function EventRow({ ev, dayCells, rangeStart, rangeDays, today }: {
                 )}
                 {pic && (
                     <div className="text-sm text-muted-foreground flex items-center gap-1.5"><UserIcon className="h-4 w-4 shrink-0" /><span className="font-semibold text-foreground">{pic}</span></div>
+                )}
+                {ev.teams.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                        {ev.teams.map((t) => (
+                            <span key={t.id} className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: t.color + "22", color: t.color }}>
+                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />{t.name}
+                            </span>
+                        ))}
+                    </div>
                 )}
                 {/* BAWAH: order description (produk yang dipesan) */}
                 {ev.orderDescription ? (

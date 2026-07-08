@@ -109,6 +109,7 @@ export default function EventTimelinePage() {
     const [shareToken, setShareToken] = useState<string | null>(null);
     const [shareBusy, setShareBusy] = useState(false);
     const [shareCopied, setShareCopied] = useState(false);
+    const [shareTeam, setShareTeam] = useState<number | "">("");
 
     /**
      * Template preset jump — set cursor & zoom dalam 1 klik.
@@ -543,8 +544,10 @@ export default function EventTimelinePage() {
         }
     }
 
-    // Link publik timeline bertoken — dibuka tukang tanpa login.
-    const shareUrl = shareToken ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/timeline/${shareToken}` : "";
+    // Link publik timeline bertoken — dibuka tukang tanpa login. Bisa difilter per team.
+    const shareUrl = shareToken
+        ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/timeline/${shareToken}${shareTeam ? `?team=${shareTeam}` : ""}`
+        : "";
 
     async function openSharePopover() {
         setShowSharePopover((v) => !v);
@@ -709,6 +712,20 @@ export default function EventTimelinePage() {
                             <div className="absolute top-full right-0 mt-1 z-50 bg-card border border-border rounded-md shadow-lg p-3 w-[320px]">
                                 <div className="text-xs font-semibold text-foreground mb-1">Link publik timeline</div>
                                 <p className="text-[11px] text-muted-foreground mb-2">Bisa dibuka tukang tanpa login. Jaga kerahasiaan link ini.</p>
+                                {/* Filter team sebelum bagikan — link hanya menampilkan event team terpilih */}
+                                <label className="block mb-2">
+                                    <span className="text-[11px] font-medium text-muted-foreground">Bagikan untuk team</span>
+                                    <select
+                                        value={shareTeam === "" ? "" : String(shareTeam)}
+                                        onChange={(e) => { setShareTeam(e.target.value ? Number(e.target.value) : ""); setShareCopied(false); }}
+                                        className="w-full mt-0.5 border border-border rounded px-2 py-1.5 text-xs bg-background"
+                                    >
+                                        <option value="">Semua team</option>
+                                        {teamOptions.map((t) => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                        ))}
+                                    </select>
+                                </label>
                                 {shareBusy && !shareToken ? (
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground py-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Menyiapkan link…</div>
                                 ) : (

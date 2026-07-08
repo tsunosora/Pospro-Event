@@ -11,10 +11,12 @@ export class PublicEventsController {
         @Param('token') token: string,
         @Query('year') year?: string,
         @Query('month') month?: string,
+        @Query('team') team?: string,
     ) {
         return this.svc.findTimelineByToken(token, {
             year: year ? Number(year) : undefined,
             month: month ? Number(month) : undefined,
+            teamId: team ? Number(team) : undefined,
         });
     }
 

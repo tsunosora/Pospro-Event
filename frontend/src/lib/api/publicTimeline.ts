@@ -17,13 +17,16 @@ export type PublicTimelineEvent = {
     eventStart: string | null; eventEnd: string | null;
     customer: { id: number; name: string; companyName: string | null } | null;
     picWorker: { id: number; name: string; position: string | null } | null;
+    teams: Array<{ id: number; name: string; color: string }>;
     orderDescription: string | null;
 };
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-export async function getPublicTimeline(token: string, year: number, month: number): Promise<PublicTimelineEvent[]> {
-    const r = await fetch(`${apiBase}/public/events/timeline/${encodeURIComponent(token)}?year=${year}&month=${month}`, {
+export async function getPublicTimeline(token: string, year: number, month: number, teamId?: number | null): Promise<PublicTimelineEvent[]> {
+    const params = new URLSearchParams({ year: String(year), month: String(month) });
+    if (teamId) params.set("team", String(teamId));
+    const r = await fetch(`${apiBase}/public/events/timeline/${encodeURIComponent(token)}?${params.toString()}`, {
         cache: "no-store",
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.message || "Link timeline tidak valid atau sudah dicabut");

@@ -131,7 +131,7 @@ export class EventsService {
      * orderDescription dari Lead (via Customer) supaya tukang tahu barang yang dipesan.
      * Tidak memuat data finansial/RAB.
      */
-    async findAllPublic(filter: { year?: number; month?: number } = {}) {
+    async findAllPublic(filter: { year?: number; month?: number; teamId?: number } = {}) {
         const where: any = {
             status: { in: [EventStatus.SCHEDULED, EventStatus.IN_PROGRESS, EventStatus.COMPLETED] },
         };
@@ -146,6 +146,10 @@ export class EventsService {
                 { setupStart: { gte: start, lt: end } },
                 { departureStart: { gte: start, lt: end } },
             ];
+        }
+        // Filter per team/bagian — hanya event yang punya crew dari team tsb.
+        if (filter.teamId) {
+            where.crewAssignments = { some: { teamId: filter.teamId } };
         }
 
         const events = await this.prisma.event.findMany({
@@ -167,6 +171,9 @@ export class EventsService {
                 eventStart: true, eventEnd: true,
                 customer: { select: { id: true, name: true, companyName: true } },
                 picWorker: { select: { id: true, name: true, position: true } },
+                crewAssignments: {
+                    select: { team: { select: { id: true, name: true, color: true } } },
+                },
             },
         });
 
@@ -187,10 +194,19 @@ export class EventsService {
             }
         }
 
-        return events.map((ev) => ({
-            ...ev,
-            orderDescription: ev.customerId != null ? (descByCustomer.get(ev.customerId) ?? null) : null,
-        }));
+        return events.map((ev) => {
+            // Team unik per event (untuk chip & judul filter di halaman publik).
+            const teamMap = new Map<number, { id: number; name: string; color: string }>();
+            for (const a of ev.crewAssignments ?? []) {
+                if (a.team) teamMap.set(a.team.id, a.team);
+            }
+            const { crewAssignments, ...rest } = ev;
+            return {
+                ...rest,
+                teams: Array.from(teamMap.values()),
+                orderDescription: ev.customerId != null ? (descByCustomer.get(ev.customerId) ?? null) : null,
+            };
+        });
     }
 
     // ── Token link publik Event Timeline (kiosk tukang) ──────────────────
@@ -233,7 +249,7 @@ export class EventsService {
     }
 
     /** Endpoint publik: validasi token lalu kembalikan data timeline. */
-    async findTimelineByToken(token: string, filter: { year?: number; month?: number } = {}) {
+    async findTimelineByToken(token: string, filter: { year?: number; month?: number; teamId?: number } = {}) {
         const s = await this.prisma.storeSettings.findFirst({
             orderBy: { id: 'asc' },
             select: { timelineShareToken: true },
