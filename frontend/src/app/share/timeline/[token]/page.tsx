@@ -7,39 +7,25 @@ import { CalendarDays, MapPin, User as UserIcon, Package, Loader2, ChevronLeft, 
 import { getPublicTimeline, type PublicTimelineEvent } from "@/lib/api/publicTimeline";
 
 const MONTHS_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-const DOW_ID = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
-const MON_SHORT = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const DOW_ID = ["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
 
 type Phase = "departure" | "setup" | "event" | "dismantle";
-const PHASE_COLOR: Record<Phase, { solid: string; text: string; label: string }> = {
-    departure: { solid: "bg-slate-500",  text: "text-slate-700",  label: "Berangkat" },
-    setup:     { solid: "bg-red-600",    text: "text-red-700",    label: "Pasang / Setup" },
-    event:     { solid: "bg-amber-500",  text: "text-amber-700",  label: "Hari Event" },
-    dismantle: { solid: "bg-blue-600",   text: "text-blue-700",   label: "Bongkar" },
+const PHASE_COLOR: Record<Phase, { solid: string; label: string }> = {
+    departure: { solid: "bg-slate-500",  label: "Berangkat" },
+    setup:     { solid: "bg-red-600",    label: "Pasang / Setup" },
+    event:     { solid: "bg-amber-500",  label: "Hari Event" },
+    dismantle: { solid: "bg-blue-600",   label: "Bongkar" },
 };
-const BRAND_CFG: Record<string, { label: string; cls: string }> = {
-    EXINDO: { label: "Exindo", cls: "bg-indigo-600 text-white" },
-    XPOSER: { label: "Xposer", cls: "bg-pink-600 text-white" },
-    OTHER:  { label: "Lainnya", cls: "bg-gray-600 text-white" },
-};
-const STATUS_CFG: Record<string, string> = {
-    DRAFT: "Draft", SCHEDULED: "Terjadwal", IN_PROGRESS: "Berlangsung",
-    COMPLETED: "Selesai", CANCELLED: "Dibatalkan",
-};
+
+// Ukuran grid — dibesarkan supaya jelas di semua perangkat.
+const LEFT_W = 280;   // lebar kolom kiri (nama event + order)
+const CELL_W = 40;    // lebar 1 kolom hari
+const ROW_H = 76;     // tinggi baris event
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
 function daysBetween(a: Date, b: Date) {
     return Math.floor((startOfDay(b).getTime() - startOfDay(a).getTime()) / 86400000);
 }
-function fmtDate(d: Date) {
-    return `${DOW_ID[d.getDay()]}, ${d.getDate()} ${MON_SHORT[d.getMonth()]} ${d.getFullYear()}`;
-}
-function fmtRange(s: Date, e: Date) {
-    if (startOfDay(s).getTime() === startOfDay(e).getTime()) return fmtDate(s);
-    return `${d1(s)} → ${fmtDate(e)}`;
-}
-function d1(d: Date) { return `${d.getDate()} ${MON_SHORT[d.getMonth()]}`; }
-
 function getPhaseRanges(ev: PublicTimelineEvent): Array<{ phase: Phase; start: Date; end: Date }> {
     const out: Array<{ phase: Phase; start: Date; end: Date }> = [];
     const push = (phase: Phase, s?: string | null, e?: string | null) => {
@@ -49,7 +35,7 @@ function getPhaseRanges(ev: PublicTimelineEvent): Array<{ phase: Phase; start: D
     push("setup",     ev.setupStart,     ev.setupEnd);
     push("event",     ev.eventStart,     ev.eventEnd);
     push("dismantle", ev.loadingStart,   ev.loadingEnd);
-    return out.sort((a, b) => a.start.getTime() - b.start.getTime());
+    return out;
 }
 
 export default function PublicTimelinePage() {
@@ -66,12 +52,24 @@ export default function PublicTimelinePage() {
         retry: false,
     });
 
-    const monthStart = useMemo(() => new Date(year, month - 1, 1), [year, month]);
-    const monthEnd = useMemo(() => new Date(year, month, 0), [year, month]);
+    const range = useMemo(() => {
+        const start = new Date(year, month - 1, 1);
+        const days = new Date(year, month, 0).getDate();
+        return { start, days };
+    }, [year, month]);
+
+    const dayCells = useMemo(() => Array.from({ length: range.days }, (_, i) => {
+        const d = new Date(range.start); d.setDate(d.getDate() + i);
+        return {
+            idx: i, date: d, day: d.getDate(), dow: DOW_ID[d.getDay()],
+            isToday: startOfDay(d).getTime() === startOfDay(today).getTime(),
+            isWeekend: d.getDay() === 0 || d.getDay() === 6,
+        };
+    }), [range, today]);
 
     const filtered = useMemo(() => events.filter((e) =>
-        getPhaseRanges(e).some((r) => r.end >= monthStart && r.start <= monthEnd)
-    ), [events, monthStart, monthEnd]);
+        getPhaseRanges(e).some((r) => r.end >= range.start && daysBetween(range.start, r.start) < range.days)
+    ), [events, range]);
 
     const shift = (delta: number) => setCursor(new Date(year, month - 1 + delta, 1));
 
@@ -91,15 +89,15 @@ export default function PublicTimelinePage() {
     }
 
     return (
-        <div className="min-h-screen w-full bg-background text-foreground flex flex-col">
+        <div className="h-screen w-full bg-background text-foreground flex flex-col">
             {/* ── Header sticky, full width, huruf besar ── */}
-            <header className="sticky top-0 z-30 bg-card border-b-2 border-border">
+            <header className="shrink-0 bg-card border-b-2 border-border">
                 <div className="w-full px-4 md:px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-2.5">
                         <CalendarDays className="h-7 w-7 text-primary shrink-0" />
                         <div>
                             <h1 className="text-xl md:text-2xl font-bold leading-tight">Jadwal Event</h1>
-                            <p className="text-sm md:text-base text-muted-foreground">Rincian barang & jadwal yang dikerjakan</p>
+                            <p className="text-sm md:text-base text-muted-foreground">Timeline & barang yang dikerjakan</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -114,8 +112,8 @@ export default function PublicTimelinePage() {
                 </div>
             </header>
 
-            {/* ── Konten ── */}
-            <main className="flex-1 w-full px-4 md:px-6 py-5">
+            {/* ── Gantt (mengisi sisa layar, scroll bila perlu) ── */}
+            <div className="flex-1 overflow-auto">
                 {isLoading ? (
                     <div className="py-20 text-center text-lg text-muted-foreground">
                         <Loader2 className="h-7 w-7 animate-spin inline mr-2 align-middle" /> Memuat jadwal…
@@ -123,18 +121,37 @@ export default function PublicTimelinePage() {
                 ) : filtered.length === 0 ? (
                     <div className="py-20 text-center text-lg text-muted-foreground">Tidak ada event di bulan ini.</div>
                 ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 md:gap-5">
-                        {filtered.map((ev) => (
-                            <EventCard key={ev.id} ev={ev} today={today} />
-                        ))}
-                    </div>
+                    <table className="border-collapse min-w-max">
+                        <thead className="sticky top-0 bg-card z-20">
+                            <tr className="border-b-2 border-border">
+                                <th className="text-left text-base font-bold px-3 py-3 sticky left-0 bg-card border-r-2 border-border" style={{ width: LEFT_W, minWidth: LEFT_W }}>
+                                    Event & Barang
+                                </th>
+                                {dayCells.map((d) => (
+                                    <th
+                                        key={d.idx}
+                                        className={`text-center py-2 border-l border-border/50 ${d.isToday ? "bg-primary/15" : d.isWeekend ? "bg-muted/40" : ""}`}
+                                        style={{ width: CELL_W, minWidth: CELL_W }}
+                                    >
+                                        <div className="text-xs text-muted-foreground leading-none">{d.dow}</div>
+                                        <div className={`text-lg font-bold leading-tight ${d.isToday ? "text-primary" : ""}`}>{d.day}</div>
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.map((ev) => (
+                                <EventRow key={ev.id} ev={ev} dayCells={dayCells} rangeStart={range.start} rangeDays={range.days} today={today} />
+                            ))}
+                        </tbody>
+                    </table>
                 )}
-            </main>
+            </div>
 
             {/* ── Legend fase, huruf besar ── */}
-            <footer className="w-full px-4 md:px-6 py-4 border-t-2 border-border bg-muted/20">
+            <footer className="shrink-0 w-full px-4 md:px-6 py-3 border-t-2 border-border bg-muted/20">
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-base">
-                    <span className="font-semibold text-muted-foreground">Keterangan warna:</span>
+                    <span className="font-semibold text-muted-foreground">Warna:</span>
                     {(Object.keys(PHASE_COLOR) as Phase[]).map((p) => (
                         <span key={p} className="flex items-center gap-2">
                             <span className={`inline-block w-4 h-4 rounded ${PHASE_COLOR[p].solid}`} />
@@ -147,74 +164,63 @@ export default function PublicTimelinePage() {
     );
 }
 
-// ── Kartu per event — huruf besar, jelas, responsif ──
-function EventCard({ ev, today }: { ev: PublicTimelineEvent; today: Date }) {
-    const ranges = getPhaseRanges(ev);
-    const brand = BRAND_CFG[ev.brand] ?? BRAND_CFG.OTHER;
+// ── Baris event: kolom kiri (nama + order) + bar fase per hari ──
+function EventRow({ ev, dayCells, rangeStart, rangeDays, today }: {
+    ev: PublicTimelineEvent;
+    dayCells: Array<{ idx: number; date: Date; isToday: boolean; isWeekend: boolean }>;
+    rangeStart: Date; rangeDays: number; today: Date;
+}) {
+    const dayPhase = new Map<number, Phase>();
+    const order: Record<Phase, number> = { event: 4, setup: 3, dismantle: 2, departure: 1 };
+    getPhaseRanges(ev).forEach((r) => {
+        const s = Math.max(0, daysBetween(rangeStart, r.start));
+        const e = Math.min(rangeDays - 1, daysBetween(rangeStart, r.end));
+        for (let d = s; d <= e; d++) {
+            const cur = dayPhase.get(d);
+            if (!cur || order[r.phase] > order[cur]) dayPhase.set(d, r.phase);
+        }
+    });
+
     const pic = ev.picWorker?.name ?? ev.picName;
 
-    // Apakah sedang berlangsung hari ini?
-    const t = startOfDay(today).getTime();
-    const isActiveToday = ranges.some((r) => startOfDay(r.start).getTime() <= t && t <= startOfDay(r.end).getTime());
-
     return (
-        <article className={`rounded-2xl border-2 bg-card p-4 md:p-5 flex flex-col gap-3 ${isActiveToday ? "border-primary shadow-md" : "border-border"}`}>
-            {/* Judul + brand/status */}
-            <div className="flex items-start justify-between gap-2">
-                <h2 className="text-xl md:text-2xl font-bold leading-snug">{ev.name}</h2>
-                <span className={`shrink-0 text-sm font-semibold px-2.5 py-1 rounded-full ${brand.cls}`}>{brand.label}</span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="px-2.5 py-1 rounded-full bg-muted font-medium">{STATUS_CFG[ev.status] ?? ev.status}</span>
-                {isActiveToday && <span className="px-2.5 py-1 rounded-full bg-primary text-primary-foreground font-semibold">Berlangsung hari ini</span>}
-            </div>
-
-            {/* Info lokasi & PIC — huruf besar */}
-            <div className="space-y-1.5 text-base md:text-lg">
+        <tr className="border-b-2 border-border/60 align-top">
+            <td className="px-3 py-2.5 sticky left-0 bg-card border-r-2 border-border" style={{ width: LEFT_W, minWidth: LEFT_W, height: ROW_H }}>
+                {/* ATAS: nama event + venue + PIC (huruf besar) */}
+                <div className="font-bold text-base md:text-lg leading-snug">{ev.name}</div>
                 {ev.venue && (
-                    <div className="flex items-start gap-2.5">
-                        <MapPin className="h-6 w-6 text-muted-foreground shrink-0 mt-0.5" />
-                        <span>{ev.venue}</span>
-                    </div>
+                    <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1"><MapPin className="h-4 w-4 shrink-0" />{ev.venue}</div>
                 )}
                 {pic && (
-                    <div className="flex items-center gap-2.5">
-                        <UserIcon className="h-6 w-6 text-muted-foreground shrink-0" />
-                        <span><span className="text-muted-foreground">PIC:</span> <span className="font-semibold">{pic}</span></span>
-                    </div>
+                    <div className="text-sm text-muted-foreground flex items-center gap-1.5"><UserIcon className="h-4 w-4 shrink-0" /><span className="font-semibold text-foreground">{pic}</span></div>
                 )}
-            </div>
-
-            {/* Jadwal fase — daftar jelas, huruf besar */}
-            <div className="rounded-xl border border-border overflow-hidden">
-                {ranges.length === 0 ? (
-                    <div className="p-3 text-base text-muted-foreground italic">Jadwal belum diisi</div>
-                ) : (
-                    <ul className="divide-y divide-border">
-                        {ranges.map((r, i) => (
-                            <li key={i} className="flex items-center gap-3 p-3">
-                                <span className={`inline-block w-4 h-4 rounded shrink-0 ${PHASE_COLOR[r.phase].solid}`} />
-                                <span className="w-32 md:w-36 shrink-0 font-semibold text-base md:text-lg">{PHASE_COLOR[r.phase].label}</span>
-                                <span className="text-base md:text-lg">{fmtRange(r.start, r.end)}</span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </div>
-
-            {/* Order description — paling menonjol, huruf besar */}
-            <div className="rounded-xl bg-primary/5 border-2 border-primary/20 p-3.5">
-                <div className="flex items-center gap-2 mb-1.5">
-                    <Package className="h-6 w-6 text-primary shrink-0" />
-                    <span className="text-base font-bold uppercase tracking-wide text-primary">Yang dikerjakan / barang</span>
-                </div>
+                {/* BAWAH: order description (produk yang dipesan) */}
                 {ev.orderDescription ? (
-                    <p className="text-base md:text-lg leading-relaxed whitespace-pre-line">{ev.orderDescription}</p>
+                    <div className="mt-1.5 flex items-start gap-1.5 text-sm bg-primary/5 border border-primary/20 rounded-lg px-2 py-1.5 leading-relaxed">
+                        <Package className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
+                        <span className="whitespace-pre-line">{ev.orderDescription}</span>
+                    </div>
                 ) : (
-                    <p className="text-base text-muted-foreground italic">Rincian order belum diisi.</p>
+                    <div className="text-sm text-muted-foreground italic mt-1.5">Order belum diisi</div>
                 )}
-            </div>
-        </article>
+            </td>
+            {dayCells.map((d) => {
+                const phase = dayPhase.get(d.idx);
+                return (
+                    <td
+                        key={d.idx}
+                        className={`p-0 border-l border-border/50 ${d.isToday ? "bg-primary/10" : d.isWeekend ? "bg-muted/30" : ""}`}
+                        style={{ width: CELL_W, minWidth: CELL_W, height: ROW_H }}
+                    >
+                        {phase && (
+                            <div
+                                className={`${PHASE_COLOR[phase].solid} h-[60%] my-[20%] mx-0.5 rounded`}
+                                title={`${PHASE_COLOR[phase].label} — ${ev.name}`}
+                            />
+                        )}
+                    </td>
+                );
+            })}
+        </tr>
     );
 }
