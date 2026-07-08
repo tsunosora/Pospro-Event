@@ -109,7 +109,8 @@ export default function EventTimelinePage() {
     const [shareToken, setShareToken] = useState<string | null>(null);
     const [shareBusy, setShareBusy] = useState(false);
     const [shareCopied, setShareCopied] = useState(false);
-    const [shareTeam, setShareTeam] = useState<number | "">("");
+    const [shareTeams, setShareTeams] = useState<number[]>([]);
+    const [sharePics, setSharePics] = useState<number[]>([]);
 
     /**
      * Template preset jump — set cursor & zoom dalam 1 klik.
@@ -291,6 +292,14 @@ export default function EventTimelinePage() {
             (e.crewAssignments ?? []).forEach((a) => {
                 if (a.team) map.set(a.team.id, a.team);
             });
+        });
+        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    }, [allEvents]);
+    // Daftar PIC (worker) unik untuk pilihan share link — pakai id worker.
+    const picWorkerOptions = useMemo(() => {
+        const map = new Map<number, { id: number; name: string }>();
+        allEvents.forEach((e) => {
+            if (e.picWorker?.id) map.set(e.picWorker.id, { id: e.picWorker.id, name: e.picWorker.name });
         });
         return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
     }, [allEvents]);
@@ -544,10 +553,17 @@ export default function EventTimelinePage() {
         }
     }
 
-    // Link publik timeline bertoken — dibuka tukang tanpa login. Bisa difilter per team.
-    const shareUrl = shareToken
-        ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/timeline/${shareToken}${shareTeam ? `?team=${shareTeam}` : ""}`
-        : "";
+    // Link publik timeline bertoken — dibuka tukang tanpa login. Bisa difilter multi team & PIC.
+    const shareUrl = useMemo(() => {
+        if (!shareToken) return "";
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const qs: string[] = [];
+        if (shareTeams.length) qs.push(`team=${shareTeams.join(",")}`);
+        if (sharePics.length) qs.push(`pic=${sharePics.join(",")}`);
+        return `${origin}/share/timeline/${shareToken}${qs.length ? `?${qs.join("&")}` : ""}`;
+    }, [shareToken, shareTeams, sharePics]);
+    const toggleShareTeam = (id: number) => { setShareTeams((a) => a.includes(id) ? a.filter((x) => x !== id) : [...a, id]); setShareCopied(false); };
+    const toggleSharePic = (id: number) => { setSharePics((a) => a.includes(id) ? a.filter((x) => x !== id) : [...a, id]); setShareCopied(false); };
 
     async function openSharePopover() {
         setShowSharePopover((v) => !v);
@@ -712,20 +728,46 @@ export default function EventTimelinePage() {
                             <div className="absolute top-full right-0 mt-1 z-50 bg-card border border-border rounded-md shadow-lg p-3 w-[320px]">
                                 <div className="text-xs font-semibold text-foreground mb-1">Link publik timeline</div>
                                 <p className="text-[11px] text-muted-foreground mb-2">Bisa dibuka tukang tanpa login. Jaga kerahasiaan link ini.</p>
-                                {/* Filter team sebelum bagikan — link hanya menampilkan event team terpilih */}
-                                <label className="block mb-2">
-                                    <span className="text-[11px] font-medium text-muted-foreground">Bagikan untuk team</span>
-                                    <select
-                                        value={shareTeam === "" ? "" : String(shareTeam)}
-                                        onChange={(e) => { setShareTeam(e.target.value ? Number(e.target.value) : ""); setShareCopied(false); }}
-                                        className="w-full mt-0.5 border border-border rounded px-2 py-1.5 text-xs bg-background"
-                                    >
-                                        <option value="">Semua team</option>
-                                        {teamOptions.map((t) => (
-                                            <option key={t.id} value={t.id}>{t.name}</option>
-                                        ))}
-                                    </select>
-                                </label>
+                                {/* Filter multi team & PIC sebelum bagikan — link hanya menampilkan event yang cocok */}
+                                <div className="mb-2 space-y-2">
+                                    <div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[11px] font-medium text-muted-foreground">Team ({shareTeams.length || "semua"})</span>
+                                            {shareTeams.length > 0 && <button onClick={() => { setShareTeams([]); setShareCopied(false); }} className="text-[10px] text-muted-foreground hover:text-foreground">reset</button>}
+                                        </div>
+                                        {teamOptions.length === 0 ? (
+                                            <div className="text-[10px] text-muted-foreground italic py-1">Belum ada team.</div>
+                                        ) : (
+                                            <div className="mt-1 max-h-28 overflow-auto rounded border border-border divide-y divide-border">
+                                                {teamOptions.map((t) => (
+                                                    <label key={t.id} className="flex items-center gap-2 px-2 py-1 text-xs cursor-pointer hover:bg-muted">
+                                                        <input type="checkbox" checked={shareTeams.includes(t.id)} onChange={() => toggleShareTeam(t.id)} />
+                                                        <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
+                                                        {t.name}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[11px] font-medium text-muted-foreground">PIC ({sharePics.length || "semua"})</span>
+                                            {sharePics.length > 0 && <button onClick={() => { setSharePics([]); setShareCopied(false); }} className="text-[10px] text-muted-foreground hover:text-foreground">reset</button>}
+                                        </div>
+                                        {picWorkerOptions.length === 0 ? (
+                                            <div className="text-[10px] text-muted-foreground italic py-1">Belum ada PIC.</div>
+                                        ) : (
+                                            <div className="mt-1 max-h-28 overflow-auto rounded border border-border divide-y divide-border">
+                                                {picWorkerOptions.map((p) => (
+                                                    <label key={p.id} className="flex items-center gap-2 px-2 py-1 text-xs cursor-pointer hover:bg-muted">
+                                                        <input type="checkbox" checked={sharePics.includes(p.id)} onChange={() => toggleSharePic(p.id)} />
+                                                        {p.name}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                                 {shareBusy && !shareToken ? (
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground py-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Menyiapkan link…</div>
                                 ) : (

@@ -23,9 +23,15 @@ export type PublicTimelineEvent = {
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-export async function getPublicTimeline(token: string, year: number, month: number, teamId?: number | null): Promise<PublicTimelineEvent[]> {
+export async function getPublicTimeline(
+    token: string,
+    year: number,
+    month: number,
+    opts: { teamIds?: number[]; picIds?: number[] } = {},
+): Promise<PublicTimelineEvent[]> {
     const params = new URLSearchParams({ year: String(year), month: String(month) });
-    if (teamId) params.set("team", String(teamId));
+    if (opts.teamIds?.length) params.set("team", opts.teamIds.join(","));
+    if (opts.picIds?.length) params.set("pic", opts.picIds.join(","));
     const r = await fetch(`${apiBase}/public/events/timeline/${encodeURIComponent(token)}?${params.toString()}`, {
         cache: "no-store",
     });

@@ -50,27 +50,36 @@ function PublicTimelineInner() {
     const params = useParams<{ token: string }>();
     const token = params.token;
     const searchParams = useSearchParams();
-    const teamId = searchParams.get("team") ? Number(searchParams.get("team")) : null;
+    const parseIds = (v: string | null) => v ? v.split(",").map(Number).filter((n) => Number.isFinite(n)) : [];
+    const teamIds = parseIds(searchParams.get("team"));
+    const picIds = parseIds(searchParams.get("pic"));
+    const teamKey = teamIds.join(",");
+    const picKey = picIds.join(",");
     const today = new Date();
     const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
     const year = cursor.getFullYear();
     const month = cursor.getMonth() + 1;
 
     const { data: events = [], isLoading, error } = useQuery({
-        queryKey: ["public-timeline", token, year, month, teamId],
-        queryFn: () => getPublicTimeline(token, year, month, teamId),
+        queryKey: ["public-timeline", token, year, month, teamKey, picKey],
+        queryFn: () => getPublicTimeline(token, year, month, { teamIds, picIds }),
         retry: false,
     });
 
-    // Nama team terpilih (bila link difilter per team) — diambil dari data event.
-    const teamName = useMemo(() => {
-        if (!teamId) return null;
+    // Label filter aktif (nama team & PIC) — diambil dari data event.
+    const filterLabel = useMemo(() => {
+        if (!teamIds.length && !picIds.length) return null;
+        const teamNames = new Set<string>();
+        const picNames = new Set<string>();
         for (const e of events) {
-            const t = e.teams.find((x) => x.id === teamId);
-            if (t) return t.name;
+            e.teams.forEach((t) => { if (teamIds.includes(t.id)) teamNames.add(t.name); });
+            if (e.picWorker && picIds.includes(e.picWorker.id) && e.picWorker.name) picNames.add(e.picWorker.name);
         }
-        return null;
-    }, [events, teamId]);
+        const parts: string[] = [];
+        if (teamIds.length) parts.push(`Team: ${teamNames.size ? Array.from(teamNames).join(", ") : "—"}`);
+        if (picIds.length) parts.push(`PIC: ${picNames.size ? Array.from(picNames).join(", ") : "—"}`);
+        return parts.join(" · ");
+    }, [events, teamKey, picKey]);
 
     const range = useMemo(() => {
         const start = new Date(year, month - 1, 1);
@@ -118,8 +127,8 @@ function PublicTimelineInner() {
                         <div>
                             <h1 className="text-xl md:text-2xl font-bold leading-tight">Jadwal Event</h1>
                             <p className="text-sm md:text-base text-muted-foreground">
-                                {teamId
-                                    ? <>Khusus team: <span className="font-semibold text-foreground">{teamName ?? `#${teamId}`}</span></>
+                                {filterLabel
+                                    ? <>Khusus <span className="font-semibold text-foreground">{filterLabel}</span></>
                                     : "Timeline & barang yang dikerjakan"}
                             </p>
                         </div>

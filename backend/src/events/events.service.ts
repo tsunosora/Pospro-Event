@@ -131,7 +131,7 @@ export class EventsService {
      * orderDescription dari Lead (via Customer) supaya tukang tahu barang yang dipesan.
      * Tidak memuat data finansial/RAB.
      */
-    async findAllPublic(filter: { year?: number; month?: number; teamId?: number } = {}) {
+    async findAllPublic(filter: { year?: number; month?: number; teamIds?: number[]; picIds?: number[] } = {}) {
         const where: any = {
             status: { in: [EventStatus.SCHEDULED, EventStatus.IN_PROGRESS, EventStatus.COMPLETED] },
         };
@@ -147,9 +147,13 @@ export class EventsService {
                 { departureStart: { gte: start, lt: end } },
             ];
         }
-        // Filter per team/bagian — hanya event yang punya crew dari team tsb.
-        if (filter.teamId) {
-            where.crewAssignments = { some: { teamId: filter.teamId } };
+        // Filter per team/bagian — event yang punya crew dari salah satu team terpilih.
+        if (filter.teamIds?.length) {
+            where.crewAssignments = { some: { teamId: { in: filter.teamIds } } };
+        }
+        // Filter per PIC — event yang PIC-nya salah satu worker terpilih.
+        if (filter.picIds?.length) {
+            where.picWorkerId = { in: filter.picIds };
         }
 
         const events = await this.prisma.event.findMany({
@@ -249,7 +253,7 @@ export class EventsService {
     }
 
     /** Endpoint publik: validasi token lalu kembalikan data timeline. */
-    async findTimelineByToken(token: string, filter: { year?: number; month?: number; teamId?: number } = {}) {
+    async findTimelineByToken(token: string, filter: { year?: number; month?: number; teamIds?: number[]; picIds?: number[] } = {}) {
         const s = await this.prisma.storeSettings.findFirst({
             orderBy: { id: 'asc' },
             select: { timelineShareToken: true },
