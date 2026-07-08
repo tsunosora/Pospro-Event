@@ -125,6 +125,74 @@ export class EventsService {
         });
     }
 
+    /**
+     * Versi publik untuk timeline yang dibagikan ke tukang (tanpa login).
+     * Hanya event status operasional (bukan DRAFT/CANCELLED). Melampirkan
+     * orderDescription dari Lead (via Customer) supaya tukang tahu barang yang dipesan.
+     * Tidak memuat data finansial/RAB.
+     */
+    async findAllPublic(filter: { year?: number; month?: number } = {}) {
+        const where: any = {
+            status: { in: [EventStatus.SCHEDULED, EventStatus.IN_PROGRESS, EventStatus.COMPLETED] },
+        };
+        if (filter.year) {
+            const start = new Date(filter.year, filter.month ? filter.month - 1 : 0, 1);
+            const end = filter.month
+                ? new Date(filter.year, filter.month, 1)
+                : new Date(filter.year + 1, 0, 1);
+            where.OR = [
+                { eventStart: { gte: start, lt: end } },
+                { eventEnd: { gte: start, lt: end } },
+                { setupStart: { gte: start, lt: end } },
+                { departureStart: { gte: start, lt: end } },
+            ];
+        }
+
+        const events = await this.prisma.event.findMany({
+            where,
+            orderBy: [{ eventStart: 'asc' }, { createdAt: 'desc' }],
+            select: {
+                id: true,
+                code: true,
+                name: true,
+                brand: true,
+                status: true,
+                venue: true,
+                customerId: true,
+                customerName: true,
+                picName: true,
+                departureStart: true, departureEnd: true,
+                setupStart: true, setupEnd: true,
+                loadingStart: true, loadingEnd: true,
+                eventStart: true, eventEnd: true,
+                customer: { select: { id: true, name: true, companyName: true } },
+                picWorker: { select: { id: true, name: true, position: true } },
+            },
+        });
+
+        // Lookup orderDescription dari Lead via Customer (Lead.convertedCustomerId === event.customerId).
+        const customerIds = Array.from(
+            new Set(events.map((e) => e.customerId).filter((id): id is number => id != null)),
+        );
+        const descByCustomer = new Map<number, string>();
+        if (customerIds.length > 0) {
+            const leads = await this.prisma.lead.findMany({
+                where: { convertedCustomerId: { in: customerIds }, orderDescription: { not: null } },
+                select: { convertedCustomerId: true, orderDescription: true },
+            });
+            for (const l of leads) {
+                if (l.convertedCustomerId != null && l.orderDescription) {
+                    descByCustomer.set(l.convertedCustomerId, l.orderDescription);
+                }
+            }
+        }
+
+        return events.map((ev) => ({
+            ...ev,
+            orderDescription: ev.customerId != null ? (descByCustomer.get(ev.customerId) ?? null) : null,
+        }));
+    }
+
     async findOne(id: number) {
         const ev = await this.prisma.event.findUnique({
             where: { id },
