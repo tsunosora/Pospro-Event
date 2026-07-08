@@ -6,9 +6,9 @@ import Link from "next/link";
 import {
     ChevronLeft, ChevronRight, Printer, Loader2, Search, X,
     AlertTriangle, Calendar, Copy, Download, Layers, Pencil,
-    Building2, Package, Users, MapPin, User, Share2,
+    Building2, Package, Users, MapPin, User, Share2, RefreshCw, Check,
 } from "lucide-react";
-import { getEvents, updateEvent, type EventRecord, type EventBrand, type EventStatus } from "@/lib/api/events";
+import { getEvents, updateEvent, getTimelineShareToken, regenerateTimelineShareToken, type EventRecord, type EventBrand, type EventStatus } from "@/lib/api/events";
 import { getRabSummary } from "@/lib/api/rab";
 
 // ─── Constants ──────────────────────────────────────────────────────────
@@ -104,6 +104,11 @@ export default function EventTimelinePage() {
     const [showRangePopover, setShowRangePopover] = useState(false);
     const [rangeStart, setRangeStart] = useState("");
     const [rangeEnd, setRangeEnd] = useState("");
+    // Share link publik timeline (bertoken)
+    const [showSharePopover, setShowSharePopover] = useState(false);
+    const [shareToken, setShareToken] = useState<string | null>(null);
+    const [shareBusy, setShareBusy] = useState(false);
+    const [shareCopied, setShareCopied] = useState(false);
 
     /**
      * Template preset jump — set cursor & zoom dalam 1 klik.
@@ -538,14 +543,44 @@ export default function EventTimelinePage() {
         }
     }
 
-    // Salin link publik timeline (bisa dibuka tukang tanpa login).
-    async function copyPublicTimelineLink() {
-        const url = `${window.location.origin}/share/timeline`;
+    // Link publik timeline bertoken — dibuka tukang tanpa login.
+    const shareUrl = shareToken ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/timeline/${shareToken}` : "";
+
+    async function openSharePopover() {
+        setShowSharePopover((v) => !v);
+        if (!shareToken && !shareBusy) {
+            setShareBusy(true);
+            try {
+                setShareToken(await getTimelineShareToken());
+            } catch {
+                alert("Gagal mengambil link. Coba lagi.");
+            } finally {
+                setShareBusy(false);
+            }
+        }
+    }
+
+    async function copyShareUrl() {
+        if (!shareUrl) return;
         try {
-            await navigator.clipboard.writeText(url);
-            alert(`Link publik timeline disalin:\n${url}\n\nBisa dibuka tukang tanpa login.`);
+            await navigator.clipboard.writeText(shareUrl);
+            setShareCopied(true);
+            setTimeout(() => setShareCopied(false), 1500);
         } catch {
-            alert("Gagal menyalin link. Salin manual: " + url);
+            alert("Gagal menyalin. Salin manual: " + shareUrl);
+        }
+    }
+
+    async function regenerateShareLink() {
+        if (!confirm("Buat link baru? Link lama yang sudah dibagikan akan langsung tidak berlaku.")) return;
+        setShareBusy(true);
+        try {
+            setShareToken(await regenerateTimelineShareToken());
+            setShareCopied(false);
+        } catch {
+            alert("Gagal membuat link baru. Coba lagi.");
+        } finally {
+            setShareBusy(false);
         }
     }
 
@@ -666,9 +701,44 @@ export default function EventTimelinePage() {
                     <button onClick={copyWhatsappSummary} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted cursor-pointer transition-colors">
                         <Copy className="h-3.5 w-3.5" /> Copy WA
                     </button>
-                    <button onClick={copyPublicTimelineLink} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted cursor-pointer transition-colors" title="Salin link publik untuk tukang (tanpa login)">
-                        <Share2 className="h-3.5 w-3.5" /> Bagikan
-                    </button>
+                    <div className="relative">
+                        <button onClick={openSharePopover} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted cursor-pointer transition-colors" title="Link publik bertoken untuk tukang (tanpa login)">
+                            <Share2 className="h-3.5 w-3.5" /> Bagikan
+                        </button>
+                        {showSharePopover && (
+                            <div className="absolute top-full right-0 mt-1 z-50 bg-card border border-border rounded-md shadow-lg p-3 w-[320px]">
+                                <div className="text-xs font-semibold text-foreground mb-1">Link publik timeline</div>
+                                <p className="text-[11px] text-muted-foreground mb-2">Bisa dibuka tukang tanpa login. Jaga kerahasiaan link ini.</p>
+                                {shareBusy && !shareToken ? (
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Menyiapkan link…</div>
+                                ) : (
+                                    <>
+                                        <div className="flex items-center gap-1">
+                                            <input
+                                                readOnly
+                                                value={shareUrl}
+                                                onFocus={(e) => e.currentTarget.select()}
+                                                className="flex-1 min-w-0 border border-border rounded px-2 py-1 text-[11px] bg-muted/40 font-mono"
+                                            />
+                                            <button onClick={copyShareUrl} className="shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:opacity-90">
+                                                {shareCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                                                {shareCopied ? "Tersalin" : "Salin"}
+                                            </button>
+                                        </div>
+                                        <button
+                                            onClick={regenerateShareLink}
+                                            disabled={shareBusy}
+                                            className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs rounded border border-border hover:bg-muted disabled:opacity-50"
+                                            title="Cabut link lama & buat link baru"
+                                        >
+                                            {shareBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                                            Buat link baru (cabut link lama)
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
                     <button
                         onClick={() => setEditMode((m) => !m)}
                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium ${

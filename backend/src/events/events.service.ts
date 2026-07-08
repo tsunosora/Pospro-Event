@@ -193,6 +193,57 @@ export class EventsService {
         }));
     }
 
+    // ── Token link publik Event Timeline (kiosk tukang) ──────────────────
+    private async getStoreSettingsRow() {
+        // orderBy id asc → baris kanonik yang stabil (bisa ada >1 baris storeSettings).
+        let s = await this.prisma.storeSettings.findFirst({
+            orderBy: { id: 'asc' },
+            select: { id: true, timelineShareToken: true },
+        });
+        if (!s) {
+            s = await this.prisma.storeSettings.create({
+                data: { storeName: 'PosPro', storeAddress: '' },
+                select: { id: true, timelineShareToken: true },
+            });
+        }
+        return s;
+    }
+
+    /** Ambil token timeline yang ada, atau buat baru bila belum ada. */
+    async ensureTimelineShareToken() {
+        const s = await this.getStoreSettingsRow();
+        if (s.timelineShareToken) return s.timelineShareToken;
+        const token = crypto.randomBytes(16).toString('hex');
+        await this.prisma.storeSettings.update({
+            where: { id: s.id },
+            data: { timelineShareToken: token },
+        });
+        return token;
+    }
+
+    /** Buat token baru — mencabut akses link timeline lama. */
+    async regenerateTimelineShareToken() {
+        const s = await this.getStoreSettingsRow();
+        const token = crypto.randomBytes(16).toString('hex');
+        await this.prisma.storeSettings.update({
+            where: { id: s.id },
+            data: { timelineShareToken: token },
+        });
+        return token;
+    }
+
+    /** Endpoint publik: validasi token lalu kembalikan data timeline. */
+    async findTimelineByToken(token: string, filter: { year?: number; month?: number } = {}) {
+        const s = await this.prisma.storeSettings.findFirst({
+            orderBy: { id: 'asc' },
+            select: { timelineShareToken: true },
+        });
+        if (!token || !s?.timelineShareToken || s.timelineShareToken !== token) {
+            throw new NotFoundException('Link timeline tidak valid atau sudah dicabut');
+        }
+        return this.findAllPublic(filter);
+    }
+
     async findOne(id: number) {
         const ev = await this.prisma.event.findUnique({
             where: { id },

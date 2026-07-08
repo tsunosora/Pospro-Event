@@ -284,3 +284,10 @@ export const downloadProjectReportsZip = async (eventIds: number[]): Promise<{ c
 
     return { count, failed };
 };
+
+// ── Token link publik Event Timeline (kiosk tukang) ──────────────────────
+export const getTimelineShareToken = async () =>
+    (await api.get<{ token: string }>('/events/timeline/share-token')).data.token;
+
+export const regenerateTimelineShareToken = async () =>
+    (await api.post<{ token: string }>('/events/timeline/share-token/regenerate')).data.token;

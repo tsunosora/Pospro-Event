@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, MapPin, User as UserIcon, Package, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, MapPin, User as UserIcon, Package, Loader2, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { getPublicTimeline, type PublicTimelineEvent } from "@/lib/api/publicTimeline";
 
 const MONTHS_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
@@ -33,14 +34,17 @@ function getPhaseRanges(ev: PublicTimelineEvent): Array<{ phase: Phase; start: D
 }
 
 export default function PublicTimelinePage() {
+    const params = useParams<{ token: string }>();
+    const token = params.token;
     const today = new Date();
     const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
     const year = cursor.getFullYear();
     const month = cursor.getMonth() + 1;
 
     const { data: events = [], isLoading, error } = useQuery({
-        queryKey: ["public-timeline", year, month],
-        queryFn: () => getPublicTimeline(year, month),
+        queryKey: ["public-timeline", token, year, month],
+        queryFn: () => getPublicTimeline(token, year, month),
+        retry: false,
     });
 
     const range = useMemo(() => {
@@ -64,6 +68,19 @@ export default function PublicTimelinePage() {
 
     const shift = (delta: number) => setCursor(new Date(year, month - 1 + delta, 1));
 
+    // Link dicabut / token salah → tampilkan halaman terkunci
+    if (error) {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-6 bg-background">
+                <div className="max-w-sm text-center space-y-2">
+                    <Lock className="h-8 w-8 text-muted-foreground mx-auto" />
+                    <h1 className="text-lg font-bold">Link tidak tersedia</h1>
+                    <p className="text-sm text-muted-foreground">Link timeline tidak valid atau sudah dicabut. Minta link baru ke admin.</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-background">
             {/* Header ringkas */}
@@ -81,8 +98,6 @@ export default function PublicTimelinePage() {
 
             {isLoading ? (
                 <div className="p-8 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Memuat…</div>
-            ) : error ? (
-                <div className="p-8 text-center text-destructive text-sm">Gagal memuat jadwal.</div>
             ) : filtered.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground text-sm">Tidak ada event di bulan ini.</div>
             ) : (

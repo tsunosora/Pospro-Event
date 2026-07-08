@@ -61,6 +61,19 @@ export class EventsController {
         return this.svc.findAll(filter);
     }
 
+    // Token link publik Event Timeline (kiosk tukang). Statik → harus di atas ':id'.
+    @Get('timeline/share-token')
+    async getTimelineShareToken() {
+        const token = await this.svc.ensureTimelineShareToken();
+        return { token };
+    }
+
+    @Post('timeline/share-token/regenerate')
+    async regenerateTimelineShareToken() {
+        const token = await this.svc.regenerateTimelineShareToken();
+        return { token };
+    }
+
     @Get(':id')
     get(@Param('id', ParseIntPipe) id: number) {
         return this.svc.findOne(id);

@@ -5,13 +5,14 @@ import { EventsService } from './events.service';
 export class PublicEventsController {
     constructor(private svc: EventsService) { }
 
-    // Timeline publik untuk tukang — tanpa login. Harus DI ATAS ':token'.
-    @Get('timeline')
+    // Timeline publik untuk tukang — dibatasi token rahasia (tanpa login).
+    @Get('timeline/:token')
     async timeline(
+        @Param('token') token: string,
         @Query('year') year?: string,
         @Query('month') month?: string,
     ) {
-        return this.svc.findAllPublic({
+        return this.svc.findTimelineByToken(token, {
             year: year ? Number(year) : undefined,
             month: month ? Number(month) : undefined,
         });

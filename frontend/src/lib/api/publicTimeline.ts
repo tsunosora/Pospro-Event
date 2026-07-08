@@ -22,10 +22,10 @@ export type PublicTimelineEvent = {
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-export async function getPublicTimeline(year: number, month: number): Promise<PublicTimelineEvent[]> {
-    const r = await fetch(`${apiBase}/public/events/timeline?year=${year}&month=${month}`, {
+export async function getPublicTimeline(token: string, year: number, month: number): Promise<PublicTimelineEvent[]> {
+    const r = await fetch(`${apiBase}/public/events/timeline/${encodeURIComponent(token)}?year=${year}&month=${month}`, {
         cache: "no-store",
     });
-    if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.message || "Gagal memuat timeline");
+    if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.message || "Link timeline tidak valid atau sudah dicabut");
     return r.json();
 }
