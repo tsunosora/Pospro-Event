@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
     ChevronLeft, ChevronRight, Printer, Loader2, Search, X,
     AlertTriangle, Calendar, Copy, Download, Layers, Pencil,
-    Building2, Package, Users, MapPin, User,
+    Building2, Package, Users, MapPin, User, Share2,
 } from "lucide-react";
 import { getEvents, updateEvent, type EventRecord, type EventBrand, type EventStatus } from "@/lib/api/events";
 import { getRabSummary } from "@/lib/api/rab";
@@ -538,6 +538,17 @@ export default function EventTimelinePage() {
         }
     }
 
+    // Salin link publik timeline (bisa dibuka tukang tanpa login).
+    async function copyPublicTimelineLink() {
+        const url = `${window.location.origin}/share/timeline`;
+        try {
+            await navigator.clipboard.writeText(url);
+            alert(`Link publik timeline disalin:\n${url}\n\nBisa dibuka tukang tanpa login.`);
+        } catch {
+            alert("Gagal menyalin link. Salin manual: " + url);
+        }
+    }
+
     return (
         <div className="flex flex-col h-[calc(100vh-4rem)] bg-background">
             {/* ── Header ── */}
@@ -654,6 +665,9 @@ export default function EventTimelinePage() {
                     </button>
                     <button onClick={copyWhatsappSummary} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted cursor-pointer transition-colors">
                         <Copy className="h-3.5 w-3.5" /> Copy WA
+                    </button>
+                    <button onClick={copyPublicTimelineLink} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted cursor-pointer transition-colors" title="Salin link publik untuk tukang (tanpa login)">
+                        <Share2 className="h-3.5 w-3.5" /> Bagikan
                     </button>
                     <button
                         onClick={() => setEditMode((m) => !m)}
