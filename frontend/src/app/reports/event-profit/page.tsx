@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
     TrendingUp, ArrowUpRight, ArrowDownRight, Trophy, Loader2, Download, Calendar, MapPin, ExternalLink, FileDown,
+    Package, User, ClipboardList,
 } from "lucide-react";
 import { getAllEventsProfit, type EventProfitRow } from "@/lib/api";
 import { downloadProjectReportPdf, downloadProjectReportsZip } from "@/lib/api/events";
-import { Package } from "lucide-react";
 import dayjs from "dayjs";
 
 type PeriodKey = 'today' | 'yesterday' | 'this_week' | 'this_month' | 'last_month' | 'last_3_months' | 'this_year' | 'all' | 'custom';
@@ -45,25 +45,25 @@ const fmtShort = (n: number) => {
 };
 
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-    DRAFT: { label: "Draft", cls: "bg-gray-100 text-gray-700" },
-    SCHEDULED: { label: "Terjadwal", cls: "bg-blue-100 text-blue-700" },
-    IN_PROGRESS: { label: "Berlangsung", cls: "bg-amber-100 text-amber-800" },
-    COMPLETED: { label: "Selesai", cls: "bg-green-100 text-green-700" },
-    CANCELLED: { label: "Batal", cls: "bg-red-100 text-red-700" },
+    DRAFT: { label: "Draft", cls: "bg-muted text-muted-foreground" },
+    SCHEDULED: { label: "Terjadwal", cls: "bg-info/15 text-info" },
+    IN_PROGRESS: { label: "Berlangsung", cls: "bg-warning/15 text-warning" },
+    COMPLETED: { label: "Selesai", cls: "bg-success/15 text-success" },
+    CANCELLED: { label: "Batal", cls: "bg-destructive/12 text-destructive" },
 };
 
 function marginColor(pct: number) {
-    if (pct >= 30) return "text-green-600";
-    if (pct >= 15) return "text-amber-600";
-    if (pct < 0) return "text-red-600";
-    return "text-red-500";
+    if (pct >= 30) return "text-success";
+    if (pct >= 15) return "text-warning";
+    if (pct < 0) return "text-destructive";
+    return "text-destructive";
 }
 
 function marginBg(pct: number) {
-    if (pct >= 30) return "bg-green-50 border-green-200";
-    if (pct >= 15) return "bg-amber-50 border-amber-200";
-    if (pct < 0) return "bg-red-50 border-red-200";
-    return "bg-red-50 border-red-200";
+    if (pct >= 30) return "bg-success/10 border-success/30";
+    if (pct >= 15) return "bg-warning/10 border-warning/30";
+    if (pct < 0) return "bg-destructive/10 border-destructive/30";
+    return "bg-destructive/10 border-destructive/30";
 }
 
 function medal(idx: number) {
@@ -232,7 +232,7 @@ export default function EventProfitPage() {
     return (
         <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <Trophy className="h-6 w-6 text-amber-500" />
@@ -312,8 +312,8 @@ export default function EventProfitPage() {
                     {/* Grand summary */}
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                         <StatCard label="Total Event" value={String(data.summary.eventCount)} />
-                        <StatCard label="Total Income" value={fmtShort(data.summary.totalIncome)} valueClass="text-green-600" />
-                        <StatCard label="Total Expense" value={fmtShort(data.summary.totalExpense)} valueClass="text-red-600" />
+                        <StatCard label="Total Income" value={fmtShort(data.summary.totalIncome)} valueClass="text-success" />
+                        <StatCard label="Total Expense" value={fmtShort(data.summary.totalExpense)} valueClass="text-destructive" />
                         <StatCard
                             label="Total Profit"
                             value={fmtShort(data.summary.grossProfit)}
@@ -327,8 +327,8 @@ export default function EventProfitPage() {
                     </div>
 
                     {/* Leaderboard */}
-                    <div className="border rounded-lg overflow-hidden bg-background">
-                        <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-between flex-wrap gap-2">
+                    <div className="glass rounded-xl overflow-hidden">
+                        <div className="px-4 py-3 border-b border-border bg-muted/30 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between flex-wrap">
                             <h2 className="font-semibold flex items-center gap-2">
                                 <Trophy className="h-4 w-4 text-amber-500" /> Leaderboard ({filteredRows.length} event)
                             </h2>
@@ -394,7 +394,7 @@ export default function EventProfitPage() {
                                                     <span className={`px-1.5 py-0.5 text-[10px] rounded ${status.cls} font-medium`}>{status.label}</span>
                                                 </div>
                                                 <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
-                                                    <span>👤 {r.customerName}{r.customerCompany ? ` (${r.customerCompany})` : ""}</span>
+                                                    <span className="flex items-center gap-1"><User className="h-3 w-3" /> {r.customerName}{r.customerCompany ? ` (${r.customerCompany})` : ""}</span>
                                                     {r.venue && (
                                                         <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {r.venue}</span>
                                                     )}
@@ -404,25 +404,25 @@ export default function EventProfitPage() {
                                                             {new Date(r.eventStart).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
                                                         </span>
                                                     )}
-                                                    <span>📋 {r.entryCount} entry</span>
+                                                    <span className="flex items-center gap-1"><ClipboardList className="h-3 w-3" /> {r.entryCount} entry</span>
                                                 </div>
 
                                                 {/* Bar */}
                                                 <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
                                                     <div
-                                                        className={`h-full ${isPositive ? (i < 3 ? "bg-amber-500" : "bg-primary/60") : "bg-red-500"}`}
+                                                        className={`h-full ${isPositive ? (i < 3 ? "bg-warning" : "bg-primary/60") : "bg-destructive"}`}
                                                         style={{ width: `${pct}%` }}
                                                     />
                                                 </div>
 
                                                 <div className="mt-1.5 flex items-center gap-4 text-xs flex-wrap">
-                                                    <span className="text-green-600">
+                                                    <span className="text-success nums">
                                                         <ArrowUpRight className="h-3 w-3 inline" /> {fmtShort(r.totalIncome)}
                                                     </span>
-                                                    <span className="text-red-600">
+                                                    <span className="text-destructive nums">
                                                         <ArrowDownRight className="h-3 w-3 inline" /> {fmtShort(r.totalExpense)}
                                                     </span>
-                                                    <span className={`font-bold ${marginColor(r.marginPct)} flex items-center gap-1 ml-auto`}>
+                                                    <span className={`font-bold nums ${marginColor(r.marginPct)} flex items-center gap-1 ml-auto`}>
                                                         <TrendingUp className="h-3 w-3" />
                                                         {fmt(r.grossProfit)} · {r.marginPct.toFixed(1)}%
                                                     </span>
@@ -462,9 +462,9 @@ export default function EventProfitPage() {
 
 function StatCard({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
     return (
-        <div className="border rounded-lg bg-background p-3">
+        <div className="glass rounded-xl p-3">
             <div className="text-xs text-muted-foreground mb-1">{label}</div>
-            <div className={`text-xl font-bold ${valueClass ?? ""}`}>{value}</div>
+            <div className={`text-xl font-bold nums ${valueClass ?? ""}`}>{value}</div>
         </div>
     );
 }

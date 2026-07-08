@@ -7,6 +7,7 @@ import { Plus, Pencil, Trash2, ChevronDown, Phone, Mail, MapPin, Package, Search
 import { Supplier, SupplierItem, Product } from "./types";
 import { SupplierFormModal } from "./SupplierFormModal";
 import { DetailModal } from "./DetailModal";
+import { Button } from "@/components/ui/button";
 
 export default function SuppliersPage() {
   const qc = useQueryClient();
@@ -76,18 +77,18 @@ export default function SuppliersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Data Supplier</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Kelola daftar supplier dan harga beli per produk</p>
         </div>
-        <button
+        <Button
           onClick={() => setFormModal({ open: true, supplier: null })}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          className="shrink-0"
         >
           <Plus className="h-4 w-4" />
           Tambah Supplier
-        </button>
+        </Button>
       </div>
 
       <div className="relative max-w-sm">
@@ -122,7 +123,7 @@ export default function SuppliersPage() {
       {!isLoading && filtered.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((supplier) => (
-            <div key={supplier.id} className="rounded-xl border border-border bg-card shadow-sm hover:shadow-md transition-shadow">
+            <div key={supplier.id} className="glass rounded-xl hover:shadow-md transition-shadow">
               <div className="p-5">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="min-w-0">
@@ -165,7 +166,7 @@ export default function SuppliersPage() {
                     <div className="mb-3 flex flex-wrap gap-1.5">
                       <span className="text-xs text-muted-foreground">Menyediakan:</span>
                       {matched.slice(0, 4).map((item) => (
-                        <span key={item.id} className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                        <span key={item.id} className="inline-flex items-center gap-1 rounded-md bg-success/15 border border-success/30 px-2 py-0.5 text-xs text-success font-medium">
                           {item.productVariant.product.name}
                           {item.productVariant.variantName && ` — ${item.productVariant.variantName}`}
                         </span>

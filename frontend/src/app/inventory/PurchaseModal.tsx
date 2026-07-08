@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Search, Plus, Trash2, ShoppingCart, ChevronDown, Package } from 'lucide-react';
+import { X, Search, Trash2, ShoppingCart, ChevronDown, Package } from 'lucide-react';
 import { getProducts, getSuppliers, createStockPurchase } from '@/lib/api';
 
 interface CartItem {
@@ -124,14 +124,14 @@ export default function PurchaseModal({ onClose }: Props) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+            <div className="glass-strong rounded-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
                     <div>
                         <h2 className="text-base font-semibold text-foreground">Pembelian Bahan Baku</h2>
                         <p className="text-xs text-muted-foreground mt-0.5">Catat pembelian stok masuk dari supplier</p>
                     </div>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer">
                         <X className="h-4 w-4 text-muted-foreground" />
                     </button>
                 </div>
@@ -206,7 +206,7 @@ export default function PurchaseModal({ onClose }: Props) {
                                                     type="button"
                                                     disabled={inCart}
                                                     onClick={() => addToCart(v)}
-                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${inCart ? 'opacity-40 cursor-not-allowed' : 'hover:bg-muted'}`}
+                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${inCart ? 'opacity-40 cursor-not-allowed' : 'hover:bg-muted cursor-pointer'}`}
                                                 >
                                                     <Package className="h-4 w-4 text-muted-foreground shrink-0" />
                                                     <div className="flex-1 min-w-0">
@@ -253,7 +253,7 @@ export default function PurchaseModal({ onClose }: Props) {
                                                 min="1"
                                                 value={c.quantity}
                                                 onChange={e => updateCart(c.variantId, 'quantity', e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm text-right outline-none focus:border-primary"
+                                                className="w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm text-right outline-none focus:border-primary nums"
                                             />
                                             <input
                                                 type="number"
@@ -261,12 +261,12 @@ export default function PurchaseModal({ onClose }: Props) {
                                                 value={c.unitPrice}
                                                 onChange={e => updateCart(c.variantId, 'unitPrice', e.target.value)}
                                                 placeholder="—"
-                                                className="w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm text-right outline-none focus:border-primary"
+                                                className="w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm text-right outline-none focus:border-primary nums"
                                             />
                                             <button
                                                 type="button"
                                                 onClick={() => removeFromCart(c.variantId)}
-                                                className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                                className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                                             >
                                                 <Trash2 className="h-3.5 w-3.5" />
                                             </button>
@@ -276,7 +276,7 @@ export default function PurchaseModal({ onClose }: Props) {
                                     {totalNilai > 0 && (
                                         <div className="px-3 py-2 border-t border-border bg-muted/30 flex justify-between items-center">
                                             <span className="text-xs text-muted-foreground">Total Nilai Pembelian</span>
-                                            <span className="text-sm font-semibold text-foreground">Rp {totalNilai.toLocaleString('id-ID')}</span>
+                                            <span className="text-sm font-semibold text-foreground nums">Rp {totalNilai.toLocaleString('id-ID')}</span>
                                         </div>
                                     )}
                                     </div>
@@ -294,18 +294,18 @@ export default function PurchaseModal({ onClose }: Props) {
                     </div>
 
                     {/* Footer */}
-                    <div className="px-5 py-4 border-t border-border shrink-0 flex items-center justify-between gap-3">
-                        <span className="text-xs text-muted-foreground">
+                    <div className="px-5 py-4 border-t border-border shrink-0 flex flex-wrap items-center justify-between gap-3">
+                        <span className="text-xs text-muted-foreground min-w-0">
                             {cart.length > 0 ? `${cart.length} item · stok akan bertambah setelah simpan` : 'Belum ada item'}
                         </span>
-                        <div className="flex gap-2">
-                            <button type="button" onClick={onClose} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors">
+                        <div className="flex flex-wrap gap-2">
+                            <button type="button" onClick={onClose} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer">
                                 Batal
                             </button>
                             <button
                                 type="submit"
                                 disabled={cart.length === 0 || mutation.isPending}
-                                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer"
                             >
                                 {mutation.isPending ? 'Menyimpan...' : 'Simpan Pembelian'}
                             </button>

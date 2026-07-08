@@ -24,7 +24,7 @@ export function Footer() {
                 <span className="text-border">·</span>
                 <Link
                     href="/help"
-                    className="inline-flex items-center gap-1 text-violet-600 hover:text-violet-700 hover:underline transition"
+                    className="inline-flex items-center gap-1 text-primary hover:text-primary/80 hover:underline transition-colors"
                 >
                     <BookOpen className="h-3 w-3" />
                     Bantuan

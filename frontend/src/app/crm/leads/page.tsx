@@ -15,6 +15,7 @@ import {
     Tag,
     Users as UsersIcon,
     X,
+    ClipboardList,
 } from "lucide-react";
 import {
     listLeads,
@@ -83,9 +84,12 @@ export default function CrmLeadsListPage() {
     return (
         <div className="p-4 space-y-4">
             {/* Header */}
-            <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold">📋 Daftar Lead</h1>
+                    <h1 className="text-2xl font-bold flex items-center gap-2">
+                        <ClipboardList className="w-6 h-6" />
+                        Daftar Lead
+                    </h1>
                     <p className="text-sm text-muted-foreground">
                         Filter berdasarkan kota, produk, atau marketing yang handle. Klik baris untuk detail.
                     </p>
@@ -93,21 +97,21 @@ export default function CrmLeadsListPage() {
                 <div className="flex gap-2 flex-wrap">
                     <Link
                         href="/crm/performance"
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border-2 border-violet-300 bg-violet-50 text-violet-700 text-sm font-semibold hover:bg-violet-100"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border-2 border-info/30 bg-info/15 text-info text-sm font-semibold hover:bg-info/25 transition-colors"
                     >
                         <BarChart3 className="h-4 w-4" />
                         Performa Marketing
                     </Link>
                     <Link
                         href="/crm/import"
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border-2 border-slate-200 bg-white text-sm font-semibold hover:bg-slate-50"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border-2 border-border bg-card text-foreground text-sm font-semibold hover:bg-muted transition-colors"
                     >
                         <Upload className="h-4 w-4" />
                         Import
                     </Link>
                     <Link
                         href="/crm/leads/new"
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-blue-600 text-white text-sm font-bold hover:bg-blue-700"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors"
                     >
                         <Plus className="h-4 w-4" />
                         Tambah Lead
@@ -116,7 +120,7 @@ export default function CrmLeadsListPage() {
             </div>
 
             {/* Filter bar */}
-            <div className="rounded-xl border-2 border-slate-200 bg-white p-3 space-y-2">
+            <div className="rounded-xl border border-border bg-card p-3 space-y-2">
                 <div className="flex flex-wrap gap-2 items-center">
                     <div className="relative flex-1 min-w-[220px] max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -124,13 +128,13 @@ export default function CrmLeadsListPage() {
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Cari nama / HP / organisasi / kota..."
-                            className="w-full pl-10 pr-2 py-2 text-sm rounded-md border-2 border-slate-200 bg-white focus:border-blue-500 outline-none"
+                            className="w-full pl-10 pr-2 py-2 text-sm rounded-md border border-border bg-background focus:border-primary outline-none transition-colors"
                         />
                     </div>
                     {hasFilter && (
                         <button
                             onClick={clearFilters}
-                            className="inline-flex items-center gap-1 px-2.5 py-2 text-xs rounded-md bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+                            className="inline-flex items-center gap-1 px-2.5 py-2 text-xs rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/30 cursor-pointer transition-colors"
                         >
                             <X className="h-3.5 w-3.5" />
                             Reset
@@ -142,13 +146,13 @@ export default function CrmLeadsListPage() {
                 </div>
                 {/* Brand pills */}
                 <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600 mr-1">Brand:</span>
+                    <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground mr-1">Brand:</span>
                     <button
                         type="button"
                         onClick={() => setBrandFilter("")}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-full border-2 transition ${brandFilter === ""
-                            ? "bg-slate-700 text-white border-slate-700"
-                            : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-full border-2 transition cursor-pointer ${brandFilter === ""
+                            ? "bg-foreground text-background border-foreground"
+                            : "bg-card text-foreground border-border hover:border-foreground/50"
                             }`}
                     >
                         Semua
@@ -161,9 +165,9 @@ export default function CrmLeadsListPage() {
                                 key={b}
                                 type="button"
                                 onClick={() => setBrandFilter(b)}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1 ${active
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-full border-2 transition cursor-pointer inline-flex items-center gap-1 ${active
                                     ? `${meta.bg} ${meta.text} ${meta.border}`
-                                    : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                                    : "bg-card text-foreground border-border hover:border-foreground/50"
                                     }`}
                             >
                                 <span>{meta.emoji}</span>
@@ -226,10 +230,10 @@ export default function CrmLeadsListPage() {
             </div>
 
             {/* Table */}
-            <div className="rounded-xl border-2 border-slate-200 bg-white overflow-hidden">
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+                        <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground">
                             <tr>
                                 <th className="px-3 py-2.5 text-left">Brand</th>
                                 <th className="px-3 py-2.5 text-left">Nama</th>
@@ -263,7 +267,7 @@ export default function CrmLeadsListPage() {
                                 <tr
                                     key={l.id}
                                     onClick={() => setDrawerId(l.id)}
-                                    className="border-t border-slate-100 hover:bg-blue-50/40 cursor-pointer"
+                                    className="border-t border-border hover:bg-primary/5 cursor-pointer transition-colors"
                                 >
                                     <td className="px-3 py-2.5">
                                         <BrandBadge brand={l.brand} size="xs" />
@@ -273,12 +277,12 @@ export default function CrmLeadsListPage() {
                                             <span className="text-muted-foreground italic">— anonim —</span>
                                         )}
                                     </td>
-                                    <td className="px-3 py-2.5 font-mono text-xs">{l.phone}</td>
+                                    <td className="px-3 py-2.5 font-mono text-xs nums">{l.phone}</td>
                                     <td className="px-3 py-2.5 text-xs">{l.organization || "—"}</td>
                                     <td className="px-3 py-2.5 text-xs">
                                         {l.city ? (
                                             <span className="inline-flex items-center gap-1">
-                                                <MapPin className="h-3 w-3 text-slate-400" />
+                                                <MapPin className="h-3 w-3 text-muted-foreground" />
                                                 {l.city}
                                             </span>
                                         ) : (
@@ -288,7 +292,7 @@ export default function CrmLeadsListPage() {
                                     <td className="px-3 py-2.5 text-xs">
                                         {l.eventLocation ? (
                                             <span className="inline-flex items-center gap-1">
-                                                <Building2 className="h-3 w-3 text-slate-400" />
+                                                <Building2 className="h-3 w-3 text-muted-foreground" />
                                                 {l.eventLocation}
                                             </span>
                                         ) : (
@@ -314,14 +318,14 @@ export default function CrmLeadsListPage() {
                                     </td>
                                     <td className="px-3 py-2.5 text-xs">
                                         <div className="flex flex-col gap-0.5">
-                                            <span className="font-medium text-slate-800">
+                                            <span className="font-medium text-foreground">
                                                 {l.assignedWorker?.name || (
-                                                    <span className="text-slate-400 italic">belum di-assign</span>
+                                                    <span className="text-muted-foreground italic">belum di-assign</span>
                                                 )}
                                             </span>
                                             {l.previousAssignedWorker && (
                                                 <span
-                                                    className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full w-fit"
+                                                    className="inline-flex items-center gap-1 text-[10px] text-warning bg-warning/15 px-1.5 py-0.5 rounded-full w-fit"
                                                     title={`Sebelumnya dipegang ${l.previousAssignedWorker.name}`}
                                                 >
                                                     <Repeat className="h-2.5 w-2.5" />
@@ -336,7 +340,7 @@ export default function CrmLeadsListPage() {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             onClick={(e) => e.stopPropagation()}
-                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-success/30 bg-success/15 text-success hover:bg-success/25 transition-colors"
                                         >
                                             <MessageCircle className="h-3 w-3" />
                                             WA
@@ -373,14 +377,14 @@ function FilterSelect({
 }) {
     return (
         <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500 flex items-center gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
                 {icon}
                 {label}
             </span>
             <select
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                className="text-sm rounded-md border-2 border-slate-200 bg-white py-1.5 px-2 focus:border-blue-500 outline-none"
+                className="text-sm rounded-md border border-border bg-background py-1.5 px-2 focus:border-primary outline-none transition-colors"
             >
                 {options.map((opt) => (
                     <option key={opt.value} value={opt.value}>

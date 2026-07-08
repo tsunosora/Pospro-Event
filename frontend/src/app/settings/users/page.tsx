@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getUsers, getRoles, updateUser, deleteUser, createRole, updateRole, deleteRole, createUser } from "@/lib/api";
-import { Loader2, ShieldAlert, UserCog, Plus, Trash2, Edit, X, Shield, Key } from "lucide-react";
+import { Loader2, UserCog, Plus, Trash2, Edit, X, Shield, Key } from "lucide-react";
 
 export default function UserManagementSettings() {
     const [users, setUsers] = useState<any[]>([]);
@@ -141,6 +141,7 @@ export default function UserManagementSettings() {
                     </div>
 
                     <div className="glass bg-card/50 rounded-xl border border-border overflow-hidden">
+                        <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-border">
                             <thead className="bg-muted/50">
                                 <tr>
@@ -154,9 +155,9 @@ export default function UserManagementSettings() {
                                         <td className="px-4 py-3 font-medium text-sm">{role.name}</td>
                                         <td className="px-4 py-3 text-right space-x-2">
                                             <button onClick={() => setRoleModal({ isOpen: true, mode: 'edit', id: role.id, name: role.name })}
-                                                className="text-muted-foreground hover:text-primary transition-colors p-1"><Edit className="w-4 h-4" /></button>
+                                                className="text-muted-foreground hover:text-primary transition-colors p-1 cursor-pointer"><Edit className="w-4 h-4" /></button>
                                             <button onClick={() => handleDeleteRole(role.id)}
-                                                className="text-muted-foreground hover:text-destructive transition-colors p-1"><Trash2 className="w-4 h-4" /></button>
+                                                className="text-muted-foreground hover:text-destructive transition-colors p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                                         </td>
                                     </tr>
                                 ))}
@@ -165,6 +166,7 @@ export default function UserManagementSettings() {
                                 )}
                             </tbody>
                         </table>
+                        </div>
                     </div>
 
                     <div className="p-4 border border-primary/20 bg-primary/5 rounded-xl text-xs space-y-2">
@@ -203,7 +205,7 @@ export default function UserManagementSettings() {
                                 {users.map((user) => (
                                     <tr key={user.id} className="hover:bg-muted/20 transition-colors">
                                         <td className="px-4 py-3 whitespace-nowrap whitespace-normal">
-                                            <div className="flex items-center hidden sm:flex">
+                                            <div className="hidden sm:flex items-center">
                                                 <div className="h-8 w-8 flex-shrink-0 bg-primary/10 rounded-full flex justify-center items-center font-bold text-primary text-xs">
                                                     {(user.name || user.email).charAt(0).toUpperCase()}
                                                 </div>
@@ -227,9 +229,9 @@ export default function UserManagementSettings() {
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-right space-x-2">
                                             <button onClick={() => setUserModal({ isOpen: true, mode: 'edit', id: user.id, name: user.name || '', email: user.email || '', phone: user.phone || '', roleId: user.roleId || '', password: '' })}
-                                                className="text-muted-foreground hover:text-primary transition-colors p-1"><Edit className="w-4 h-4" /></button>
+                                                className="text-muted-foreground hover:text-primary transition-colors p-1 cursor-pointer"><Edit className="w-4 h-4" /></button>
                                             <button onClick={() => handleDeleteUser(user.id)}
-                                                className="text-muted-foreground hover:text-destructive transition-colors p-1"><Trash2 className="w-4 h-4" /></button>
+                                                className="text-muted-foreground hover:text-destructive transition-colors p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                                         </td>
                                     </tr>
                                 ))}
@@ -245,7 +247,7 @@ export default function UserManagementSettings() {
                     <div className="bg-card w-full max-w-sm rounded-2xl border border-border shadow-2xl overflow-hidden glass">
                         <div className="flex justify-between items-center p-4 border-b border-border">
                             <h3 className="font-bold">{roleModal.mode === 'add' ? 'Tambah Role Baru' : 'Edit Role'}</h3>
-                            <button onClick={() => setRoleModal({ ...roleModal, isOpen: false })} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+                            <button onClick={() => setRoleModal({ ...roleModal, isOpen: false })} className="text-muted-foreground hover:text-foreground cursor-pointer"><X className="w-5 h-5" /></button>
                         </div>
                         <form onSubmit={handleSaveRole} className="p-4 space-y-4">
                             <div className="space-y-1.5">
@@ -271,7 +273,7 @@ export default function UserManagementSettings() {
                                 {userModal.mode === 'add' ? <Plus className="w-5 h-5 text-primary" /> : <Edit className="w-5 h-5 text-primary" />}
                                 {userModal.mode === 'add' ? 'Register Karyawan Baru' : 'Edit Data Karyawan'}
                             </h3>
-                            <button onClick={() => setUserModal({ ...userModal, isOpen: false })} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+                            <button onClick={() => setUserModal({ ...userModal, isOpen: false })} className="text-muted-foreground hover:text-foreground cursor-pointer"><X className="w-5 h-5" /></button>
                         </div>
                         <form onSubmit={handleSaveUser} className="p-5 space-y-4">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

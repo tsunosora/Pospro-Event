@@ -147,18 +147,18 @@ export function TagChipInput({
 
     return (
         <div className="relative">
-            <div className="flex flex-wrap items-center gap-1.5 border-2 rounded-lg px-2 py-1.5 bg-background focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30 transition">
+            <div className="flex flex-wrap items-center gap-1.5 border-2 border-border rounded-lg px-2 py-1.5 bg-background focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30 transition">
                 {value.map((t, i) => (
                     <span
                         key={`${t}-${i}`}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-info/15 text-info border border-info/30"
                     >
                         <TagIcon className="h-3 w-3" />
                         {t}
                         <button
                             type="button"
                             onClick={() => onChange(value.filter((_, j) => j !== i))}
-                            className="hover:bg-blue-200 rounded p-0.5"
+                            className="hover:bg-info/20 rounded p-0.5 cursor-pointer transition-colors"
                             title="Hapus tag"
                         >
                             <X className="h-2.5 w-2.5" />
@@ -179,12 +179,12 @@ export function TagChipInput({
 
             {/* Suggestion dropdown */}
             {open && (filtered.length > 0 || (input.trim() && !value.some((v) => v.toLowerCase() === input.trim().toLowerCase()))) && (
-                <div className="absolute z-30 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-background border rounded-md shadow-lg text-sm">
+                <div className="absolute z-30 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-background border border-border rounded-md shadow-lg text-sm">
                     {input.trim() && !filtered.some((t) => t.toLowerCase() === input.trim().toLowerCase()) && (
                         <button
                             type="button"
                             onMouseDown={(e) => { e.preventDefault(); commit(input); }}
-                            className="w-full text-left px-3 py-2 hover:bg-muted text-primary border-b"
+                            className="w-full text-left px-3 py-2 hover:bg-muted text-primary border-b border-border cursor-pointer transition-colors"
                         >
                             + Tambah tag baru: <b>"{input.trim()}"</b>
                         </button>
@@ -202,7 +202,7 @@ export function TagChipInput({
                                 <button
                                     type="button"
                                     onMouseDown={(e) => { e.preventDefault(); commit(t); }}
-                                    className="flex-1 text-left px-3 py-1.5 inline-flex items-center gap-1.5"
+                                    className="flex-1 text-left px-3 py-1.5 inline-flex items-center gap-1.5 cursor-pointer"
                                 >
                                     <TagIcon className="h-3 w-3 text-muted-foreground" />
                                     {t}
@@ -231,7 +231,7 @@ export function TagChipInput({
                                                 ? `Hapus tag "${t}" dari ${sug?.count ?? 0} RAB`
                                                 : `Sembunyikan preset "${t}" dari sugestion`
                                         }
-                                        className="p-1 rounded hover:bg-red-100 text-muted-foreground hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-40"
+                                        className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-40 cursor-pointer"
                                     >
                                         <Trash2 className="h-3 w-3" />
                                     </button>
@@ -240,7 +240,7 @@ export function TagChipInput({
                         );
                     })}
                     {hiddenPresets.length > 0 && (
-                        <div className="border-t mt-1 pt-1 px-3 py-1.5 flex items-center justify-between gap-2 bg-muted/30">
+                        <div className="border-t border-border mt-1 pt-1 px-3 py-1.5 flex items-center justify-between gap-2 bg-muted/30">
                             <span className="text-[10px] text-muted-foreground">
                                 {hiddenPresets.length} preset disembunyikan
                             </span>
@@ -251,7 +251,7 @@ export function TagChipInput({
                                     e.stopPropagation();
                                     persistHidden([]);
                                 }}
-                                className="text-[10px] font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                className="text-[10px] font-medium text-info hover:text-info hover:underline cursor-pointer transition-colors"
                             >
                                 Tampilkan kembali
                             </button>

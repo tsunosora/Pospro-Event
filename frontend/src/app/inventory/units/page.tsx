@@ -96,7 +96,7 @@ export default function UnitsPage() {
                         ) : (
                             units?.map((unit: any) => (
                                 <tr key={unit.id} className="hover:bg-muted/20 transition-colors group">
-                                    <td className="px-5 py-3.5 text-sm text-muted-foreground font-mono">{unit.id}</td>
+                                    <td className="px-5 py-3.5 text-sm text-muted-foreground font-mono nums">{unit.id}</td>
                                     <td className="px-5 py-3.5">
                                         {editingId === unit.id ? (
                                             <input
@@ -114,7 +114,7 @@ export default function UnitsPage() {
                                         <div className="flex items-center justify-end gap-1.5">
                                             {editingId === unit.id ? (
                                                 <>
-                                                    <button onClick={saveEdit} disabled={updateMutation.isPending} className="p-1.5 rounded-md bg-green-500/10 text-green-600 hover:bg-green-500/20 transition-colors" title="Simpan">
+                                                    <button onClick={saveEdit} disabled={updateMutation.isPending} className="p-1.5 rounded-md bg-success/15 text-success hover:bg-success/20 transition-colors" title="Simpan">
                                                         <Check className="w-4 h-4" />
                                                     </button>
                                                     <button onClick={cancelEdit} className="p-1.5 rounded-md bg-muted text-muted-foreground hover:bg-muted/70 transition-colors" title="Batal">

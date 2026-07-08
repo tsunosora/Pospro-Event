@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Users, Plus, Trash2, Copy, RefreshCw, Loader2, Camera, Clock, Check, Pencil, X,
+    Wallet, AlertTriangle, Crown, Bell,
 } from "lucide-react";
 import {
     listCrewByEvent,
@@ -250,7 +251,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
 
     return (
         <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                     <Users className="h-4 w-4 text-muted-foreground" />
                     Crew Lapangan ({assignments.length})
@@ -259,7 +260,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                     <button
                         onClick={() => setShowForm(true)}
                         disabled={availableWorkers.length === 0}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer"
                     >
                         <Plus className="h-3.5 w-3.5" /> Assign Crew
                     </button>
@@ -267,9 +268,9 @@ export default function CrewTab({ eventId }: { eventId: number }) {
             </div>
 
             {/* ── Tarif Gaji (Tier) per event ── */}
-            <details className="border border-emerald-200 bg-emerald-50/40 rounded-lg">
-                <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-emerald-800 flex items-center gap-2">
-                    💰 Tarif Gaji (Tier) — {tiers.length}
+            <details className="border border-success/30 bg-success/10 rounded-lg">
+                <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-success flex items-center gap-2 transition-colors">
+                    <Wallet className="h-4 w-4" /> Tarif Gaji (Tier) — {tiers.length}
                     <span className="text-[11px] font-normal text-muted-foreground ml-auto">klik untuk atur ▾</span>
                 </summary>
                 <div className="px-3 pb-3 space-y-2">
@@ -316,8 +317,8 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                         <span className="w-px h-5 bg-border mx-1" />
                         {/* Reassign Team dropdown */}
                         <details className="relative">
-                            <summary className="text-xs px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer list-none">
-                                🔄 Pindah Team ▾
+                            <summary className="text-xs px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer list-none transition-colors inline-flex items-center gap-1">
+                                <RefreshCw className="h-3 w-3" /> Pindah Team ▾
                             </summary>
                             <div className="absolute right-0 mt-1 w-48 bg-background border border-border rounded-md shadow-lg z-10">
                                 <button
@@ -344,8 +345,8 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                         </details>
                         {/* Set Tier (tarif gaji) dropdown */}
                         <details className="relative">
-                            <summary className="text-xs px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer list-none">
-                                💰 Set Tarif Gaji ▾
+                            <summary className="text-xs px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer list-none transition-colors inline-flex items-center gap-1">
+                                <Wallet className="h-3 w-3" /> Set Tarif Gaji ▾
                             </summary>
                             <div className="absolute right-0 mt-1 w-56 bg-background border border-border rounded-md shadow-lg z-10">
                                 <button
@@ -377,7 +378,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                         <button
                             onClick={handleBulkDelete}
                             disabled={bulkDeleteMut.isPending}
-                            className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 inline-flex items-center gap-1"
+                            className="text-xs px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 inline-flex items-center gap-1 transition-colors cursor-pointer"
                         >
                             <Trash2 className="h-3 w-3" /> Hapus ({selectedAssignmentIds.size})
                         </button>
@@ -419,7 +420,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                     <div className="text-xs font-semibold text-primary">2. Atur untuk {bulkSelectedIds.size} crew terpilih</div>
                     <div className="grid md:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">💰 Tarif Gaji (Tier)</label>
+                        <label className="text-xs text-muted-foreground flex items-center gap-1"><Wallet className="h-3 w-3" /> Tarif Gaji (Tier)</label>
                         <select
                             value={form.wageTierId}
                             onChange={(e) => setForm({ ...form, wageTierId: e.target.value })}
@@ -499,21 +500,23 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                     </div>
                     </div>
                     {(form.dailyWageRate || form.overtimeRatePerHour) && (
-                        <p className="text-[11px] text-amber-700">
-                            ⚠️ Override gaji manual ini diterapkan ke <b>semua</b> {bulkSelectedIds.size} crew terpilih. Untuk beda per orang, pakai tombol ✏️ Edit di tiap crew, atau pilih Tier berbeda.
+                        <p className="text-[11px] text-warning flex items-start gap-1">
+                            <AlertTriangle className="h-3 w-3 mt-px shrink-0" />
+                            Override gaji manual ini diterapkan ke <b>semua</b> {bulkSelectedIds.size} crew terpilih. Untuk beda per orang, pakai tombol <Pencil className="h-3 w-3 inline mx-0.5" /> Edit di tiap crew, atau pilih Tier berbeda.
                         </p>
                     )}
                     </div>
                     )}
 
                     <div className="flex items-center justify-between gap-2 pt-2 border-t">
-                        <label className="flex items-center gap-1.5 text-xs text-foreground/80">
+                        <label className="flex items-center gap-1.5 text-xs text-foreground/80 cursor-pointer">
                             <input
                                 type="checkbox"
                                 checked={autoNotify}
                                 onChange={(e) => setAutoNotify(e.target.checked)}
                             />
-                            <span>📢 Kirim notif Discord + link check-in ke tiap crew</span>
+                            <Bell className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>Kirim notif Discord + link check-in ke tiap crew</span>
                         </label>
                         <div className="flex gap-2">
                             <button type="button" onClick={() => { setShowForm(false); setBulkSelectedIds(new Set()); }} className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted">Tutup</button>
@@ -555,8 +558,8 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: team.color }} />
                                             <strong>{team.name}</strong>
                                             {team.leader && (
-                                                <span className="text-muted-foreground">
-                                                    👑 {team.leader.name}
+                                                <span className="text-muted-foreground flex items-center gap-1">
+                                                    <Crown className="h-3 w-3" /> {team.leader.name}
                                                     {team.leader.phone && ` · ${team.leader.phone}`}
                                                 </span>
                                             )}
@@ -573,9 +576,9 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                             a.finishedAt ? "DONE" :
                                             a.startedAt ? "ON_SITE" : "ASSIGNED";
                                         const statusCls =
-                                            status === "DONE" ? "bg-green-100 text-green-700" :
-                                            status === "ON_SITE" ? "bg-amber-100 text-amber-800" :
-                                            "bg-gray-100 text-gray-700";
+                                            status === "DONE" ? "bg-success/15 text-success" :
+                                            status === "ON_SITE" ? "bg-warning/15 text-warning" :
+                                            "bg-muted text-muted-foreground";
                                         const statusLabel =
                                             status === "DONE" ? "Selesai" :
                                             status === "ON_SITE" ? "On-Site" : "Belum Check-in";
@@ -609,10 +612,11 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                             if (daily == null && !a.wageTier) return null;
                                             return (
                                                 <div className="text-xs mt-1">
-                                                    <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">
-                                                        💰 {manual ? "Gaji custom" : `Tier: ${a.wageTier?.name}`}
-                                                        {daily != null && `: Rp ${daily.toLocaleString("id-ID")}/hari`}
-                                                        {ot != null && ` · lembur Rp ${Number(ot).toLocaleString("id-ID")}/jam`}
+                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-success/15 text-success font-medium">
+                                                        <Wallet className="h-3 w-3" />
+                                                        {manual ? "Gaji custom" : `Tier: ${a.wageTier?.name}`}
+                                                        {daily != null && <span className="nums">: Rp {daily.toLocaleString("id-ID")}/hari</span>}
+                                                        {ot != null && <span className="nums"> · lembur Rp {Number(ot).toLocaleString("id-ID")}/jam</span>}
                                                     </span>
                                                 </div>
                                             );
@@ -620,15 +624,15 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1">
-                                        <button onClick={() => copyLink(a.accessToken)} className="p-1.5 rounded hover:bg-muted" title="Copy link">
+                                        <button onClick={() => copyLink(a.accessToken)} className="p-1.5 rounded hover:bg-muted transition-colors cursor-pointer" title="Copy link">
                                             <Copy className="h-3.5 w-3.5 text-muted-foreground" />
                                         </button>
-                                        <button onClick={() => shareWa(a)} className="px-2 py-1 text-xs rounded-md border border-border hover:bg-muted" title="Kirim ke WA">
-                                            💬 WA
+                                        <button onClick={() => shareWa(a)} className="px-2 py-1 text-xs rounded-md border border-border hover:bg-muted transition-colors cursor-pointer" title="Kirim ke WA">
+                                            WA
                                         </button>
                                         <button
                                             onClick={() => (editingId === a.id ? setEditingId(null) : startEdit(a))}
-                                            className="p-1.5 rounded hover:bg-muted"
+                                            className="p-1.5 rounded hover:bg-muted transition-colors cursor-pointer"
                                             title="Edit gaji / role"
                                         >
                                             <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
@@ -637,7 +641,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                             onClick={() => {
                                                 if (confirm("Generate token baru? Link lama tidak akan bisa dipakai.")) regenMut.mutate(a.id);
                                             }}
-                                            className="p-1.5 rounded hover:bg-muted"
+                                            className="p-1.5 rounded hover:bg-muted transition-colors cursor-pointer"
                                             title="Regenerate token"
                                         >
                                             <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
@@ -646,7 +650,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                             onClick={() => {
                                                 if (confirm(`Hapus assignment ${a.worker.name}?`)) deleteMut.mutate(a.id);
                                             }}
-                                            className="p-1.5 rounded hover:bg-red-50 text-red-600"
+                                            className="p-1.5 rounded hover:bg-destructive/10 text-destructive transition-colors cursor-pointer"
                                             title="Hapus"
                                         >
                                             <Trash2 className="h-3.5 w-3.5" />
@@ -655,8 +659,8 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                 </div>
 
                                 {editingId === a.id && (
-                                    <div className="mt-2 p-2 rounded-md border border-emerald-300 bg-emerald-50/50 space-y-2">
-                                        <div className="text-[11px] font-bold text-emerald-800">✏️ Edit gaji / role — {a.worker.name}</div>
+                                    <div className="mt-2 p-2 rounded-md border border-success/30 bg-success/10 space-y-2">
+                                        <div className="text-[11px] font-bold text-success flex items-center gap-1"><Pencil className="h-3 w-3" /> Edit gaji / role — {a.worker.name}</div>
                                         <div className="grid md:grid-cols-2 gap-2">
                                             <div className="space-y-0.5">
                                                 <label className="text-[11px] text-muted-foreground">Role / Tugas</label>
@@ -711,14 +715,14 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                             <button
                                                 onClick={saveEdit}
                                                 disabled={updateMut.isPending}
-                                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-md bg-success text-white hover:bg-success/90 disabled:opacity-50 transition-colors cursor-pointer"
                                             >
                                                 {updateMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                                                 Simpan
                                             </button>
                                             <button
                                                 onClick={() => setEditingId(null)}
-                                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md border border-border hover:bg-muted"
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md border border-border hover:bg-muted transition-colors cursor-pointer"
                                             >
                                                 <X className="h-3.5 w-3.5" /> Batal
                                             </button>
@@ -818,13 +822,13 @@ function TierRow({ tier, onSave, onDelete, saving }: {
                     <button
                         onClick={() => onSave({ name: name.trim() || "Tier", dailyWageRate: daily || null, overtimeRatePerHour: ot || null })}
                         disabled={saving}
-                        className="px-2 py-1 text-xs rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                        className="px-2 py-1 text-xs rounded-md bg-success text-white hover:bg-success/90 disabled:opacity-50 transition-colors cursor-pointer"
                         title="Simpan tier"
                     >
                         <Check className="h-3.5 w-3.5" />
                     </button>
                 )}
-                <button onClick={onDelete} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Hapus tier">
+                <button onClick={onDelete} className="p-1.5 rounded hover:bg-destructive/10 text-destructive transition-colors cursor-pointer" title="Hapus tier">
                     <Trash2 className="h-3.5 w-3.5" />
                 </button>
             </div>
@@ -846,7 +850,7 @@ function AddTierForm({ onAdd, pending }: {
         setName(""); setDaily(""); setOt("");
     }
     return (
-        <div className="grid grid-cols-[1.3fr_1fr_1fr_auto] gap-2 items-center pt-1 border-t border-dashed border-emerald-200">
+        <div className="grid grid-cols-[1.3fr_1fr_1fr_auto] gap-2 items-center pt-1 border-t border-dashed border-success/30">
             <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}

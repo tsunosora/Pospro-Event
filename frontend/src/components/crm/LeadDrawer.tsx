@@ -11,7 +11,6 @@ import {
     removeLeadImage,
     updateLead,
     uploadLeadImage,
-    waLink,
     LEAD_STATUS_META,
     LEAD_STATUS_ORDER,
     LEAD_SOURCE_META,
@@ -28,7 +27,7 @@ import { BrandBadge } from "@/components/BrandBadge";
 import { AdditionalEventsEditor, additionalEventsToEditor, editorToAdditionalEvents, type AdditionalEvent } from "./AdditionalEventsEditor";
 import { createQuotationFromLead } from "@/lib/api/quotations";
 import { useRouter } from "next/navigation";
-import { Building2, Check, ImagePlus, Loader2, MapPin, Pencil, Trash2, X, MessageCircle, FileText, Send, CheckCircle2 } from "lucide-react";
+import { Building2, Check, ImagePlus, Loader2, MapPin, Pencil, Trash2, X, MessageCircle, FileText, Send, CheckCircle2, RefreshCw, Tent, Lightbulb, BarChart3, Calculator, User, Wallet, Sparkles } from "lucide-react";
 
 const LEAD_LEVELS: Array<{ value: "" | "HOT" | "WARM" | "COLD" | "UNQUALIFIED"; label: string }> = [
     { value: "", label: "— (kosong)" },
@@ -254,12 +253,12 @@ export function LeadDrawer({
                         )}
                         {lead?.assignedWorker && (
                             <div className="text-xs text-muted-foreground mt-0.5">
-                                Marketing: <span className="font-medium text-slate-800">{lead.assignedWorker.name}</span>
+                                Marketing: <span className="font-medium text-foreground">{lead.assignedWorker.name}</span>
                             </div>
                         )}
                         {lead?.previousAssignedWorker && (
-                            <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
-                                🔄 Sebelumnya dipegang oleh <b>{lead.previousAssignedWorker.name}</b>
+                            <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-warning bg-warning/15 border border-warning/30 px-2 py-0.5 rounded-full">
+                                <RefreshCw className="h-3 w-3 shrink-0" /> Sebelumnya dipegang oleh <b>{lead.previousAssignedWorker.name}</b>
                             </div>
                         )}
                     </div>
@@ -330,7 +329,7 @@ export function LeadDrawer({
                                                 if (confirm("Hapus foto referensi lead?")) removeImageMut.mutate();
                                             }}
                                             disabled={removeImageMut.isPending || uploadImageMut.isPending}
-                                            className="px-2 py-1 rounded-md text-[10px] font-medium bg-red-500/90 text-white hover:bg-red-600 shadow disabled:opacity-50"
+                                            className="px-2 py-1 rounded-md text-[10px] font-medium bg-destructive/90 text-white hover:bg-destructive shadow disabled:opacity-50"
                                             title="Hapus foto"
                                         >
                                             {removeImageMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Hapus"}
@@ -432,13 +431,13 @@ export function LeadDrawer({
                                 <Field label="Event Location" value={lead.eventLocation} icon={<MapPin className="h-3 w-3" />} />
                                 {lead.additionalEvents && lead.additionalEvents.length > 0 && (
                                     <div className="space-y-1">
-                                        <div className="text-[10px] font-semibold text-muted-foreground uppercase">🎪 Event Tambahan ({lead.additionalEvents.length})</div>
+                                        <div className="text-[10px] font-semibold text-muted-foreground uppercase inline-flex items-center gap-1"><Tent className="h-3 w-3 shrink-0" /> Event Tambahan ({lead.additionalEvents.length})</div>
                                         {lead.additionalEvents.map((ev, idx) => (
-                                            <div key={idx} className="text-xs bg-slate-50 border border-slate-200 rounded p-2 space-y-0.5">
-                                                <div className="font-semibold text-slate-800">#{idx + 2} {ev.name || <span className="italic text-slate-400">(tanpa nama)</span>}</div>
-                                                {ev.location && <div className="flex items-center gap-1 text-[11px]"><MapPin className="h-3 w-3 text-slate-400" />{ev.location}</div>}
+                                            <div key={idx} className="text-xs bg-muted border border-border rounded p-2 space-y-0.5">
+                                                <div className="font-semibold text-foreground">#{idx + 2} {ev.name || <span className="italic text-muted-foreground">(tanpa nama)</span>}</div>
+                                                {ev.location && <div className="flex items-center gap-1 text-[11px]"><MapPin className="h-3 w-3 text-muted-foreground" />{ev.location}</div>}
                                                 {(ev.dateStart || ev.dateEnd) && (
-                                                    <div className="text-[10px] text-slate-500">
+                                                    <div className="text-[10px] text-muted-foreground">
                                                         {ev.dateStart ? new Date(ev.dateStart).toLocaleDateString("id-ID") : "?"}
                                                         {ev.dateEnd ? ` — ${new Date(ev.dateEnd).toLocaleDateString("id-ID")}` : ""}
                                                     </div>
@@ -529,12 +528,12 @@ export function LeadDrawer({
                                         disabled={!editForm.eventDateStart}
                                         className="w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background disabled:opacity-50 disabled:cursor-not-allowed"
                                     />
-                                    <p className="text-[9px] text-muted-foreground">💡 Untuk event multi-hari (mis. 1-3 Mei).</p>
+                                    <p className="text-[9px] text-muted-foreground inline-flex items-center gap-1"><Lightbulb className="h-3 w-3 shrink-0" /> Untuk event multi-hari (mis. 1-3 Mei).</p>
                                 </div>
                                 <EditField label="Event Location" value={editForm.eventLocation} onChange={v => setEditForm(f => ({ ...f, eventLocation: v }))} />
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-medium text-muted-foreground">
-                                        🎪 Event Tambahan (multi-kota / multi-tanggal)
+                                    <label className="text-[10px] font-medium text-muted-foreground inline-flex items-center gap-1">
+                                        <Tent className="h-3 w-3 shrink-0" /> Event Tambahan (multi-kota / multi-tanggal)
                                     </label>
                                     <AdditionalEventsEditor
                                         value={editAdditionalEvents}
@@ -551,26 +550,26 @@ export function LeadDrawer({
 
                         {/* Status Dokumen — sebelum tombol Hapus Lead. Hanya kalau lead sudah converted. */}
                         {lead.convertedCustomerId && (
-                            <div className="rounded-md border border-emerald-200 bg-emerald-50/30 p-3 space-y-2">
+                            <div className="rounded-md border border-success/30 bg-success/5 p-3 space-y-2">
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-700 flex items-center gap-1">
-                                        📊 Status Dokumen
+                                    <span className="text-[11px] font-bold uppercase tracking-wide text-success flex items-center gap-1">
+                                        <BarChart3 className="h-3 w-3 shrink-0" /> Status Dokumen
                                     </span>
                                     <a
                                         href={`/customers/${lead.convertedCustomerId}`}
-                                        className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 border border-violet-200 hover:bg-violet-200 font-semibold"
+                                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 border border-violet-200 hover:bg-violet-200 font-semibold transition-colors"
                                     >
-                                        👤 Customer #{lead.convertedCustomerId}
+                                        <User className="h-3 w-3 shrink-0" /> Customer #{lead.convertedCustomerId}
                                     </a>
                                 </div>
 
                                 {/* RAB section */}
                                 <div className="space-y-1">
                                     <div className="flex items-center justify-between gap-2">
-                                        <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                                            🧮 RAB
+                                        <span className="text-xs font-semibold text-foreground flex items-center gap-1">
+                                            <Calculator className="h-3 w-3 shrink-0" /> RAB
                                         </span>
-                                        <span className="text-[10px] text-slate-500">
+                                        <span className="text-[10px] text-muted-foreground nums">
                                             {lead.convertedCustomer?.rabPlans?.length ?? 0} dokumen
                                         </span>
                                     </div>
@@ -580,18 +579,18 @@ export function LeadDrawer({
                                                 <a
                                                     key={r.id}
                                                     href={`/rab/${r.id}`}
-                                                    className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-400 transition"
+                                                    className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-success/10 border border-success/30 hover:bg-success/20 hover:border-success/50 transition-colors"
                                                 >
-                                                    <span className="text-[10px] font-mono font-bold text-emerald-800">{r.code}</span>
-                                                    <span className="text-[11px] text-slate-700 truncate flex-1">{r.title}</span>
-                                                    <span className="text-[10px] text-emerald-700">→</span>
+                                                    <span className="text-[10px] font-mono font-bold text-success">{r.code}</span>
+                                                    <span className="text-[11px] text-foreground truncate flex-1">{r.title}</span>
+                                                    <span className="text-[10px] text-success">→</span>
                                                 </a>
                                             ))}
                                         </div>
                                     ) : (
                                         <a
                                             href={`/rab?customerId=${lead.convertedCustomerId}`}
-                                            className="block text-center px-2 py-1.5 rounded text-[11px] font-medium border-2 border-dashed border-slate-300 text-slate-500 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700"
+                                            className="block text-center px-2 py-1.5 rounded text-[11px] font-medium border-2 border-dashed border-border text-muted-foreground hover:border-warning/50 hover:bg-warning/10 hover:text-warning transition-colors"
                                         >
                                             + Belum ada RAB — klik untuk buat baru
                                         </a>
@@ -599,12 +598,12 @@ export function LeadDrawer({
                                 </div>
 
                                 {/* Penawaran section */}
-                                <div className="space-y-1 pt-1 border-t border-dashed border-emerald-200">
+                                <div className="space-y-1 pt-1 border-t border-dashed border-success/30">
                                     <div className="flex items-center justify-between gap-2">
-                                        <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                                            📄 Penawaran
+                                        <span className="text-xs font-semibold text-foreground flex items-center gap-1">
+                                            <FileText className="h-3 w-3 shrink-0" /> Penawaran
                                         </span>
-                                        <span className="text-[10px] text-slate-500">
+                                        <span className="text-[10px] text-muted-foreground nums">
                                             {lead.convertedCustomer?.invoices?.length ?? 0} dokumen
                                         </span>
                                     </div>
@@ -614,22 +613,22 @@ export function LeadDrawer({
                                                 <a
                                                     key={q.id}
                                                     href={`/penawaran/${q.id}`}
-                                                    className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-400 transition"
+                                                    className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-info/10 border border-info/30 hover:bg-info/20 hover:border-info/50 transition-colors"
                                                 >
-                                                    <span className="text-[10px] font-mono font-bold text-blue-800">{q.invoiceNumber}</span>
+                                                    <span className="text-[10px] font-mono font-bold text-info">{q.invoiceNumber}</span>
                                                     <span className="flex-1 text-right">
-                                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 font-semibold">
+                                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border font-semibold">
                                                             {q.status}
                                                         </span>
                                                     </span>
-                                                    <span className="text-[10px] text-blue-700">→</span>
+                                                    <span className="text-[10px] text-info">→</span>
                                                 </a>
                                             ))}
                                         </div>
                                     ) : (
                                         <a
                                             href={`/penawaran?customerId=${lead.convertedCustomerId}`}
-                                            className="block text-center px-2 py-1.5 rounded text-[11px] font-medium border-2 border-dashed border-slate-300 text-slate-500 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700"
+                                            className="block text-center px-2 py-1.5 rounded text-[11px] font-medium border-2 border-dashed border-border text-muted-foreground hover:border-warning/50 hover:bg-warning/10 hover:text-warning transition-colors"
                                         >
                                             + Belum ada Penawaran — klik untuk buat baru
                                         </a>
@@ -643,7 +642,7 @@ export function LeadDrawer({
                                 onClick={() => {
                                     if (confirm("Hapus lead ini?")) deleteMut.mutate();
                                 }}
-                                className="mt-4 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-red-200 bg-red-50 text-red-700 text-sm font-medium hover:bg-red-100"
+                                className="mt-4 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-destructive/30 bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 cursor-pointer transition-colors"
                             >
                                 <Trash2 className="h-4 w-4" />
                                 Hapus Lead
@@ -752,8 +751,8 @@ export function LeadDrawer({
                     <div className="p-3 space-y-3">
                         {alreadyConverted ? (
                             <div className="space-y-2">
-                                <div className="p-3 rounded-md bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
-                                    ✓ Lead ini sudah di-convert ke Customer{" "}
+                                <div className="p-3 rounded-md bg-success/10 border border-success/30 text-sm text-success flex flex-wrap items-center gap-1">
+                                    <CheckCircle2 className="h-4 w-4 shrink-0" /> Lead ini sudah di-convert ke Customer{" "}
                                     <a href={`/customers/${lead.convertedCustomerId}`} className="underline font-medium">
                                         #{lead.convertedCustomerId}
                                     </a>
@@ -775,26 +774,26 @@ export function LeadDrawer({
                                             alert(`❌ Gagal: ${e?.response?.data?.message || e?.message}`);
                                         }
                                     }}
-                                    className="w-full text-left px-3 py-2 rounded-md border-2 border-blue-300 bg-blue-50 text-sm hover:bg-blue-100 text-blue-800 font-medium"
+                                    className="w-full text-left px-3 py-2 rounded-md border-2 border-info/40 bg-info/10 text-sm hover:bg-info/20 text-info font-medium cursor-pointer transition-colors"
                                 >
-                                    📄 Buat Penawaran (auto-pull event & multi-kota dari Lead)
+                                    <FileText className="h-4 w-4 inline mr-1 align-[-3px]" /> Buat Penawaran (auto-pull event & multi-kota dari Lead)
                                     {lead.additionalEvents && lead.additionalEvents.length > 0 && (
-                                        <span className="block text-[10px] mt-0.5 text-blue-600">
-                                            ✨ Lead ini punya {lead.additionalEvents.length + 1} event — semua akan ter-copy otomatis
+                                        <span className="flex items-center gap-1 text-[10px] mt-0.5 text-info">
+                                            <Sparkles className="h-3 w-3 shrink-0" /> Lead ini punya {lead.additionalEvents.length + 1} event — semua akan ter-copy otomatis
                                         </span>
                                     )}
                                 </button>
                                 <a
                                     href={`/penawaran?customerId=${lead.convertedCustomerId}`}
-                                    className="block px-3 py-2 rounded-md border border-border bg-background text-xs hover:bg-muted text-muted-foreground"
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border bg-background text-xs hover:bg-muted text-muted-foreground transition-colors"
                                 >
-                                    📄 Atau buat Penawaran kosong dari customer ini
+                                    <FileText className="h-3.5 w-3.5 shrink-0" /> Atau buat Penawaran kosong dari customer ini
                                 </a>
                                 <a
                                     href={`/rab?customerId=${lead.convertedCustomerId}`}
-                                    className="block px-3 py-2 rounded-md border border-border bg-background text-sm hover:bg-muted"
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border bg-background text-sm hover:bg-muted transition-colors"
                                 >
-                                    💰 Buat RAB untuk customer ini
+                                    <Wallet className="h-4 w-4 shrink-0" /> Buat RAB untuk customer ini
                                 </a>
                                 <a
                                     href={(() => {
@@ -815,15 +814,15 @@ export function LeadDrawer({
                                         if (lead.notes) params.set("notes", lead.notes.slice(0, 500));
                                         return `/events/new?${params.toString()}`;
                                     })()}
-                                    className="block px-3 py-2 rounded-md border-2 border-emerald-300 bg-emerald-50 text-sm hover:bg-emerald-100 text-emerald-800 font-medium"
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-md border-2 border-success/40 bg-success/10 text-sm hover:bg-success/20 text-success font-medium transition-colors"
                                 >
-                                    🎪 Jadikan Event
+                                    <Tent className="h-4 w-4 shrink-0" /> Jadikan Event
                                 </a>
                                 <a
                                     href={`/customers/${lead.convertedCustomerId}`}
-                                    className="block px-3 py-2 rounded-md border border-border bg-background text-sm hover:bg-muted"
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border bg-background text-sm hover:bg-muted transition-colors"
                                 >
-                                    👤 Buka detail customer
+                                    <User className="h-4 w-4 shrink-0" /> Buka detail customer
                                 </a>
                             </div>
                         ) : (
@@ -833,12 +832,12 @@ export function LeadDrawer({
                                     di pospenawaran. Setelah convert, lead tetap tersimpan untuk histori.
                                 </p>
                                 {!isWinStage && (
-                                    <div className="p-2 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                                    <div className="p-2 rounded-md bg-warning/15 border border-warning/30 text-xs text-warning">
                                         Lead masih di stage <strong>{lead.stage?.name}</strong>. Disarankan pindahkan ke stage <strong>Closed Deal</strong> dulu.
                                     </div>
                                 )}
                                 {!lead.name?.trim() && (
-                                    <div className="p-2 rounded-md bg-red-50 border border-red-200 text-xs text-red-800">
+                                    <div className="p-2 rounded-md bg-destructive/10 border border-destructive/30 text-xs text-destructive">
                                         Nama lead masih kosong — isi dulu via tab Detail.
                                     </div>
                                 )}
@@ -889,7 +888,7 @@ function EditField({
         <div className="space-y-1">
             <label className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
                 {label}
-                {required && <span className="text-red-500">*</span>}
+                {required && <span className="text-destructive">*</span>}
             </label>
             {multiline ? (
                 <textarea

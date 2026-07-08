@@ -1,7 +1,6 @@
 import { Metadata } from "next";
 import { UserAuthForm } from "@/components/user-auth-form";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
-import { Footer } from "@/components/layout/Footer";
 
 export const metadata: Metadata = {
     title: "Login",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from '@tanstack/react-query';
-import { X, TrendingUp, TrendingDown, RefreshCw, ArrowUpCircle, ArrowDownCircle, MinusCircle } from 'lucide-react';
+import { X, RefreshCw, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { getVariantStockHistory } from '@/lib/api';
 
 interface Props {
@@ -11,9 +11,9 @@ interface Props {
 }
 
 const TYPE_CONFIG = {
-    IN:     { label: 'Masuk',     icon: ArrowUpCircle,   color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/30', badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300', sign: '+' },
-    OUT:    { label: 'Keluar',    icon: ArrowDownCircle, color: 'text-rose-500',     bg: 'bg-rose-50 dark:bg-rose-950/30',       badge: 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300',         sign: '-' },
-    ADJUST: { label: 'Koreksi',  icon: RefreshCw,        color: 'text-blue-500',    bg: 'bg-blue-50 dark:bg-blue-950/30',       badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',         sign: '~' },
+    IN:     { label: 'Masuk',     icon: ArrowUpCircle,   color: 'text-success',     bg: 'bg-success/15',     badge: 'bg-success/15 text-success',         sign: '+' },
+    OUT:    { label: 'Keluar',    icon: ArrowDownCircle, color: 'text-destructive',  bg: 'bg-destructive/12', badge: 'bg-destructive/12 text-destructive',  sign: '-' },
+    ADJUST: { label: 'Koreksi',  icon: RefreshCw,        color: 'text-info',        bg: 'bg-info/15',        badge: 'bg-info/15 text-info',               sign: '~' },
 };
 
 function reasonLabel(reason: string | null): string {
@@ -49,14 +49,14 @@ export default function StockHistoryModal({ variant, productName, onClose }: Pro
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
+            <div className="glass-strong rounded-xl w-full max-w-lg flex flex-col max-h-[85vh]">
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
                     <div>
                         <h2 className="text-base font-semibold text-foreground">Riwayat Stok</h2>
                         <p className="text-xs text-muted-foreground mt-0.5">{title} · SKU: {variant.sku}</p>
                     </div>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer">
                         <X className="h-4 w-4 text-muted-foreground" />
                     </button>
                 </div>
@@ -91,11 +91,11 @@ export default function StockHistoryModal({ variant, productName, onClose }: Pro
                                 </div>
                                 {/* Qty */}
                                 <div className="shrink-0 text-right">
-                                    <span className={`text-sm font-bold ${m.type === 'IN' ? 'text-emerald-600 dark:text-emerald-400' : m.type === 'OUT' ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                                    <span className={`text-sm font-bold nums ${m.type === 'IN' ? 'text-success' : m.type === 'OUT' ? 'text-destructive' : 'text-info'}`}>
                                         {cfg.sign}{qtyDisplay}
                                     </span>
                                     {m.balanceAfter != null && (
-                                        <p className="text-[10px] text-muted-foreground mt-0.5">Sisa: {Number.isInteger(Number(m.balanceAfter)) ? Number(m.balanceAfter) : Number(m.balanceAfter).toFixed(4).replace(/\.?0+$/, '')}</p>
+                                        <p className="text-[10px] text-muted-foreground mt-0.5 nums">Sisa: {Number.isInteger(Number(m.balanceAfter)) ? Number(m.balanceAfter) : Number(m.balanceAfter).toFixed(4).replace(/\.?0+$/, '')}</p>
                                     )}
                                 </div>
                             </div>

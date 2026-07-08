@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Plus, FileText, FileDown, Pencil, Trash2, Loader2, GitBranch, Hash, Eye, X, Download, Users, Search, ScrollText, Copy,
+    Wrench, Send, CheckCircle2, XCircle, Receipt, AlertTriangle, Wallet, Lightbulb,
 } from "lucide-react";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
@@ -14,11 +15,11 @@ import {
     assignQuotationNumber, editQuotationNumber, reviseQuotation, duplicateQuotation, downloadQuotationExport,
     backfillQuotationStatus,
     markInvoiceSent, markInvoicePaid, cancelInvoice,
-    type Quotation, type QuotationVariant, type PaymentMethodType,
+    type Quotation, type QuotationVariant,
 } from "@/lib/api/quotations";
 import { ACTIVE_BRANDS, BRAND_META, listBrands, type Brand } from "@/lib/api/brands";
 import { BrandBadge } from "@/components/BrandBadge";
-import { listQuotationVariants, type QuotationVariantConfig } from "@/lib/api/quotation-variants";
+import { listQuotationVariants } from "@/lib/api/quotation-variants";
 import { getWorkers, MARKETER_POSITIONS } from "@/lib/api/workers";
 import { getCustomer, type Customer } from "@/lib/api/customers";
 import { CustomerPickerModal } from "@/components/CustomerPickerModal";
@@ -35,14 +36,14 @@ const VARIANT_LABEL: Record<QuotationVariant, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-    DRAFT: "bg-gray-100 text-gray-700",
-    SENT: "bg-blue-100 text-blue-700",
-    PAID: "bg-emerald-100 text-emerald-800 font-bold",
-    PARTIALLY_PAID: "bg-amber-100 text-amber-800",
-    ACCEPTED: "bg-green-100 text-green-700",
-    REJECTED: "bg-red-100 text-red-700",
-    EXPIRED: "bg-yellow-100 text-yellow-700",
-    CANCELLED: "bg-red-50 text-red-600 line-through",
+    DRAFT: "bg-muted text-muted-foreground",
+    SENT: "bg-info/15 text-info",
+    PAID: "bg-success/15 text-success font-bold",
+    PARTIALLY_PAID: "bg-warning/15 text-warning",
+    ACCEPTED: "bg-success/15 text-success",
+    REJECTED: "bg-destructive/12 text-destructive",
+    EXPIRED: "bg-warning/15 text-warning",
+    CANCELLED: "bg-destructive/12 text-destructive line-through",
 };
 
 function rp(v: string | number) {
@@ -338,12 +339,12 @@ function PenawaranListPageInner() {
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <FileText className="w-6 h-6" /> Penawaran Booth &amp; Event
                     </h1>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                         Kelola dokumen Penawaran Sewa Perlengkapan Event &amp; Pengadaan Booth Special Design
                     </p>
                 </div>
@@ -352,13 +353,13 @@ function PenawaranListPageInner() {
                         onClick={handleBackfillStatus}
                         disabled={backfillStatusMut.isPending}
                         title="Fix data lama: penawaran yang sudah punya nomor resmi tapi status masih DRAFT → ubah ke SENT"
-                        className="flex items-center gap-2 px-3 py-2 border-2 border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-3 py-2 border-2 border-warning/30 bg-warning/15 hover:bg-warning/20 text-warning rounded-lg text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >
-                        {backfillStatusMut.isPending ? "Memproses..." : "🔧 Fix Status Lama"}
+                        {backfillStatusMut.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Memproses...</> : <><Wrench className="w-4 h-4" /> Fix Status Lama</>}
                     </button>
                     <button
                         onClick={() => setShowCreate(true)}
-                        className={`flex items-center gap-2 px-4 py-2 ${typeFilter === 'INVOICE' ? 'bg-pink-600 hover:bg-pink-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-lg font-medium`}
+                        className={`flex items-center gap-2 px-4 py-2 ${typeFilter === 'INVOICE' ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'} text-white rounded-lg font-medium transition-colors cursor-pointer`}
                     >
                         <Plus className="w-4 h-4" /> {typeFilter === 'INVOICE' ? 'Buat Invoice Langsung' : 'Buat Penawaran'}
                     </button>
@@ -394,30 +395,30 @@ function PenawaranListPageInner() {
             </div>
 
             {/* Tab tipe dokumen: Penawaran / Invoice / Semua */}
-            <div className="mb-3 inline-flex gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+            <div className="mb-3 inline-flex gap-1 bg-muted p-1 rounded-lg border border-border">
                 <button
                     onClick={() => setTypeFilter('QUOTATION')}
-                    className={`px-4 py-1.5 rounded-md text-sm font-bold transition ${typeFilter === 'QUOTATION'
-                        ? 'bg-white text-blue-700 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
+                    className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-bold transition cursor-pointer ${typeFilter === 'QUOTATION'
+                        ? 'bg-card text-primary shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
                         }`}
                 >
-                    📄 Penawaran
+                    <FileText className="w-4 h-4" /> Penawaran
                 </button>
                 <button
                     onClick={() => setTypeFilter('INVOICE')}
-                    className={`px-4 py-1.5 rounded-md text-sm font-bold transition ${typeFilter === 'INVOICE'
-                        ? 'bg-white text-pink-700 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
+                    className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-bold transition cursor-pointer ${typeFilter === 'INVOICE'
+                        ? 'bg-card text-destructive shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
                         }`}
                 >
-                    📑 Invoice
+                    <ScrollText className="w-4 h-4" /> Invoice
                 </button>
                 <button
                     onClick={() => setTypeFilter('ALL')}
-                    className={`px-4 py-1.5 rounded-md text-sm font-bold transition ${typeFilter === 'ALL'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
+                    className={`px-4 py-1.5 rounded-md text-sm font-bold transition cursor-pointer ${typeFilter === 'ALL'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
                         }`}
                 >
                     Semua
@@ -428,9 +429,9 @@ function PenawaranListPageInner() {
             <div className="flex gap-2 mb-4 flex-wrap items-center">
                 <button
                     onClick={() => setVariantFilter("")}
-                    className={`px-3 py-1.5 rounded-md text-sm font-semibold transition ${variantFilter === ""
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 hover:bg-gray-200 text-slate-700"
+                    className={`px-3 py-1.5 rounded-md text-sm font-semibold transition cursor-pointer ${variantFilter === ""
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
                         }`}
                 >
                     Semua
@@ -454,7 +455,7 @@ function PenawaranListPageInner() {
                 })}
                 <Link
                     href="/settings/quotation-variants"
-                    className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs text-violet-700 border border-dashed border-violet-300 hover:bg-violet-50"
+                    className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs text-primary border border-dashed border-primary/30 hover:bg-primary/10 transition-colors"
                     title="Kelola daftar varian penawaran"
                 >
                     <Plus className="h-3.5 w-3.5" /> Tambah Varian
@@ -472,17 +473,18 @@ function PenawaranListPageInner() {
             </div>
 
             {isLoading ? (
-                <div className="flex items-center justify-center py-16 text-gray-500">
+                <div className="flex items-center justify-center py-16 text-muted-foreground">
                     <Loader2 className="w-6 h-6 animate-spin mr-2" /> Memuat...
                 </div>
             ) : quotations.length === 0 ? (
-                <div className="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-500">
+                <div className="glass rounded-xl p-12 text-center text-muted-foreground">
                     Belum ada penawaran. Klik "Buat Penawaran" untuk mulai.
                 </div>
             ) : (
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div className="glass rounded-xl overflow-hidden">
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-700 text-left">
+                        <thead className="bg-muted text-muted-foreground text-left">
                             <tr>
                                 <th className="px-3 py-2">No. Penawaran</th>
                                 <th className="px-3 py-2">Brand</th>
@@ -533,14 +535,14 @@ function PenawaranListPageInner() {
                                                     onClick={() => handleEditNumber(q)}
                                                     disabled={editNumberMut.isPending}
                                                     title={`Edit nomor ${q.type === 'INVOICE' ? 'invoice' : 'penawaran'}`}
-                                                    className="opacity-0 group-hover:opacity-100 transition p-0.5 rounded text-slate-500 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                                                    className="opacity-0 group-hover:opacity-100 transition p-0.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 disabled:opacity-50 cursor-pointer"
                                                 >
                                                     <Pencil className="w-3 h-3" />
                                                 </button>
                                             )}
                                         </div>
                                         {q.revisionNumber > 0 && (
-                                            <span className="ml-2 text-xs bg-red-100 text-red-700 px-1.5 rounded">Rev. {q.revisionNumber}</span>
+                                            <span className="ml-2 text-xs bg-destructive/12 text-destructive px-1.5 rounded">Rev. {q.revisionNumber}</span>
                                         )}
                                     </td>
                                     <td className="px-3 py-2">
@@ -548,7 +550,7 @@ function PenawaranListPageInner() {
                                             <BrandBadge brand={q.brand} size="xs" />
                                             {q.language === 'en' && (
                                                 <span
-                                                    className="text-[10px] px-1 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-300 font-bold"
+                                                    className="text-[10px] px-1 py-0.5 rounded bg-info/15 text-info border border-info/30 font-bold"
                                                     title="Surat dalam Bahasa Inggris"
                                                 >
                                                     🇬🇧 EN
@@ -578,23 +580,23 @@ function PenawaranListPageInner() {
                                     </td>
                                     <td className="px-3 py-2">
                                         <div className="font-medium">{q.clientCompany || q.clientName}</div>
-                                        {q.projectName && <div className="text-xs text-gray-500">{q.projectName}</div>}
+                                        {q.projectName && <div className="text-xs text-muted-foreground">{q.projectName}</div>}
                                     </td>
                                     <td className="px-3 py-2 text-xs">
                                         {q.signedByWorker ? (
                                             <div className="flex flex-col">
-                                                <span className="font-medium text-slate-800">{q.signedByWorker.name}</span>
+                                                <span className="font-medium text-foreground">{q.signedByWorker.name}</span>
                                                 {q.signedByWorker.position && <span className="text-[10px] text-muted-foreground">{q.signedByWorker.position}</span>}
                                                 {!q.signedByWorker.signatureImageUrl && (
-                                                    <span className="text-[10px] text-amber-700 mt-0.5">⚠ TTD belum ada</span>
+                                                    <span className="text-[10px] text-warning mt-0.5 flex items-center gap-0.5"><AlertTriangle className="w-3 h-3" /> TTD belum ada</span>
                                                 )}
                                             </div>
                                         ) : (
                                             <span className="text-muted-foreground italic">— belum dipilih —</span>
                                         )}
                                     </td>
-                                    <td className="px-3 py-2 text-gray-600">{dayjs(q.date).format("DD MMM YYYY")}</td>
-                                    <td className="px-3 py-2 text-right font-medium">
+                                    <td className="px-3 py-2 text-muted-foreground">{dayjs(q.date).format("DD MMM YYYY")}</td>
+                                    <td className="px-3 py-2 text-right font-medium nums">
                                         {/* Untuk Invoice → tampil amountToPay (DP/Pelunasan/Full sesuai invoicePart),
                                             karena total quotation utuh tidak relevan saat ini invoice cuma menagih sebagian.
                                             Untuk Penawaran → tampil total grand quotation. */}
@@ -610,19 +612,19 @@ function PenawaranListPageInner() {
                                             <div className="flex flex-col items-end">
                                                 <span>{rp(net)}</span>
                                                 {q.invoicePart && (
-                                                    <span className="text-[10px] text-slate-500 font-normal">
+                                                    <span className="text-[10px] text-muted-foreground font-normal">
                                                         {q.invoicePart === "DP" ? "Down Payment" :
                                                          q.invoicePart === "PELUNASAN" ? "Final Payment" :
                                                          q.invoicePart === "FULL" ? "Full Payment" : q.invoicePart}
                                                     </span>
                                                 )}
                                                 {dpPaid > 0 && (
-                                                    <span className="text-[10px] text-amber-700 font-normal">
+                                                    <span className="text-[10px] text-warning font-normal nums">
                                                         DP dibayar: -{rp(dpPaid)}
                                                     </span>
                                                 )}
                                                 {Number((q as any).paidAmount ?? 0) > 0 && (
-                                                    <span className="text-[10px] text-emerald-700 font-normal">
+                                                    <span className="text-[10px] text-success font-normal nums">
                                                         Terbayar: {rp((q as any).paidAmount)}
                                                     </span>
                                                 )}
@@ -633,7 +635,7 @@ function PenawaranListPageInner() {
                                         )}
                                     </td>
                                     <td className="px-3 py-2">
-                                        <span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLOR[q.status] || "bg-gray-100"}`}>
+                                        <span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLOR[q.status] || "bg-muted text-muted-foreground"}`}>
                                             {q.status}
                                         </span>
                                     </td>
@@ -644,7 +646,7 @@ function PenawaranListPageInner() {
                                                     onClick={() => assignMut.mutate(q.id)}
                                                     disabled={assignMut.isPending}
                                                     title="Assign Nomor"
-                                                    className="p-1.5 text-green-700 hover:bg-green-50 rounded"
+                                                    className="p-1.5 text-success hover:bg-success/10 rounded transition-colors cursor-pointer"
                                                 >
                                                     <Hash className="w-4 h-4" />
                                                 </button>
@@ -654,7 +656,7 @@ function PenawaranListPageInner() {
                                                     onClick={() => reviseMut.mutate(q.id)}
                                                     disabled={reviseMut.isPending}
                                                     title="Buat Revisi (linked ke penawaran ini)"
-                                                    className="p-1.5 text-amber-700 hover:bg-amber-50 rounded"
+                                                    className="p-1.5 text-warning hover:bg-warning/10 rounded transition-colors cursor-pointer"
                                                 >
                                                     <GitBranch className="w-4 h-4" />
                                                 </button>
@@ -669,7 +671,7 @@ function PenawaranListPageInner() {
                                                     }}
                                                     disabled={duplicateMut.isPending}
                                                     title="Duplicate Penawaran (jadi template, standalone)"
-                                                    className="p-1.5 text-cyan-700 hover:bg-cyan-50 rounded"
+                                                    className="p-1.5 text-info hover:bg-info/10 rounded transition-colors cursor-pointer"
                                                 >
                                                     <Copy className="w-4 h-4" />
                                                 </button>
@@ -682,25 +684,25 @@ function PenawaranListPageInner() {
                                                             onClick={() => handleMarkSent(q)}
                                                             disabled={markSentMut.isPending}
                                                             title="Tandai Sent (sudah dikirim ke klien)"
-                                                            className="p-1.5 text-blue-700 hover:bg-blue-50 rounded"
+                                                            className="p-1.5 text-info hover:bg-info/10 rounded transition-colors cursor-pointer"
                                                         >
-                                                            📤
+                                                            <Send className="w-4 h-4" />
                                                         </button>
                                                     )}
                                                     <button
                                                         onClick={() => setMarkPaidTarget(q)}
                                                         title="Tandai Pembayaran Masuk"
-                                                        className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded font-bold"
+                                                        className="p-1.5 text-success hover:bg-success/10 rounded transition-colors cursor-pointer"
                                                     >
-                                                        ✅
+                                                        <CheckCircle2 className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => handleCancelInvoice(q)}
                                                         disabled={cancelInvoiceMut.isPending}
                                                         title="Cancel Invoice"
-                                                        className="p-1.5 text-red-700 hover:bg-red-50 rounded"
+                                                        className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
                                                     >
-                                                        ❌
+                                                        <XCircle className="w-4 h-4" />
                                                     </button>
                                                 </>
                                             )}
@@ -709,45 +711,45 @@ function PenawaranListPageInner() {
                                                 <button
                                                     onClick={() => setPaymentDetailTarget(q)}
                                                     title={`Lihat Detail Pembayaran${q.paymentProofUrl ? " (ada bukti)" : ""}`}
-                                                    className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded relative"
+                                                    className="p-1.5 text-success hover:bg-success/10 rounded relative transition-colors cursor-pointer"
                                                 >
-                                                    🧾
+                                                    <Receipt className="w-4 h-4" />
                                                     {q.paymentProofUrl && (
-                                                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full border border-white" title="Bukti tersedia" />
+                                                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-info rounded-full border border-white" title="Bukti tersedia" />
                                                     )}
                                                 </button>
                                             )}
                                             <button
                                                 onClick={() => handlePreview(q)}
                                                 title="Preview surat penawaran"
-                                                className="p-1.5 text-violet-700 hover:bg-violet-50 rounded"
+                                                className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors cursor-pointer"
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleExport(q.id, "pdf", q.invoiceNumber)}
                                                 title="Export PDF Penawaran"
-                                                className="p-1.5 text-red-700 hover:bg-red-50 rounded"
+                                                className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
                                             >
                                                 <FileDown className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleExport(q.id, "spk-pdf", q.invoiceNumber)}
                                                 title="Export SPK (Surat Perintah Kerja)"
-                                                className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded"
+                                                className="p-1.5 text-success hover:bg-success/10 rounded transition-colors cursor-pointer"
                                             >
                                                 <ScrollText className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleExport(q.id, "docx", q.invoiceNumber)}
                                                 title="Export DOCX"
-                                                className="p-1.5 text-blue-700 hover:bg-blue-50 rounded"
+                                                className="p-1.5 text-info hover:bg-info/10 rounded transition-colors cursor-pointer"
                                             >
                                                 <FileText className="w-4 h-4" />
                                             </button>
                                             <Link
                                                 href={`/penawaran/${q.id}`}
-                                                className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"
+                                                className="p-1.5 text-muted-foreground hover:bg-muted rounded transition-colors"
                                                 title="Detail / Edit"
                                             >
                                                 <Pencil className="w-4 h-4" />
@@ -758,7 +760,7 @@ function PenawaranListPageInner() {
                                                 }}
                                                 disabled={deleteMut.isPending}
                                                 title="Hapus"
-                                                className="p-1.5 text-red-700 hover:bg-red-50 rounded"
+                                                className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -769,6 +771,7 @@ function PenawaranListPageInner() {
                             })}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             )}
 
@@ -788,15 +791,15 @@ function PenawaranListPageInner() {
                     className="fixed inset-0 z-[100] bg-black/70 flex flex-col"
                     onClick={(e) => { if (e.target === e.currentTarget) closePreview(); }}
                 >
-                    <div className="bg-white border-b px-4 py-2.5 flex items-center justify-between gap-3 shadow-sm">
+                    <div className="bg-card border-b border-border px-4 py-2.5 flex items-center justify-between gap-3 shadow-sm">
                         <div className="flex items-center gap-2">
                             {previewType === "spk-pdf" ? (
-                                <ScrollText className="h-5 w-5 text-emerald-600" />
+                                <ScrollText className="h-5 w-5 text-success" />
                             ) : (
-                                <Eye className="h-5 w-5 text-violet-600" />
+                                <Eye className="h-5 w-5 text-primary" />
                             )}
                             <div>
-                                <h2 className="font-bold text-slate-900">
+                                <h2 className="font-bold text-foreground">
                                     {previewType === "spk-pdf"
                                         ? "Preview SPK"
                                         : previewQ.type === 'INVOICE'
@@ -812,56 +815,56 @@ function PenawaranListPageInner() {
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
                             {/* Type switcher: Penawaran/Invoice ↔ SPK */}
-                            <div className="inline-flex gap-0.5 bg-slate-100 p-0.5 rounded-md border" title="Pilih dokumen yang di-preview">
+                            <div className="inline-flex gap-0.5 bg-muted p-0.5 rounded-md border border-border" title="Pilih dokumen yang di-preview">
                                 <button
                                     type="button"
                                     onClick={() => switchPreviewType("pdf")}
                                     disabled={previewLoading}
-                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${previewType === 'pdf'
-                                        ? 'bg-white text-violet-700 shadow-sm'
-                                        : 'text-slate-600 hover:text-slate-900'
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 cursor-pointer ${previewType === 'pdf'
+                                        ? 'bg-card text-primary shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
                                         }`}
                                 >
-                                    {previewQ.type === 'INVOICE' ? '🧾 Invoice' : '📄 Penawaran'}
+                                    {previewQ.type === 'INVOICE' ? <><Receipt className="w-3.5 h-3.5" /> Invoice</> : <><FileText className="w-3.5 h-3.5" /> Penawaran</>}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => switchPreviewType("spk-pdf")}
                                     disabled={previewLoading}
-                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${previewType === 'spk-pdf'
-                                        ? 'bg-white text-emerald-700 shadow-sm'
-                                        : 'text-slate-600 hover:text-slate-900'
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 cursor-pointer ${previewType === 'spk-pdf'
+                                        ? 'bg-card text-success shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
                                         }`}
                                 >
-                                    📜 SPK
+                                    <ScrollText className="w-3.5 h-3.5" /> SPK
                                 </button>
                             </div>
                             <button
                                 onClick={() => handleExport(previewQ.id, previewType, previewQ.invoiceNumber)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${previewType === 'spk-pdf' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'} text-white rounded-md text-sm font-semibold`}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${previewType === 'spk-pdf' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'} text-white rounded-md text-sm font-semibold transition-colors`}
                             >
                                 <Download className="h-4 w-4" /> Download {previewType === 'spk-pdf' ? 'SPK' : 'PDF'}
                             </button>
                             {previewType === "pdf" && (
                                 <button
                                     onClick={() => handleExport(previewQ.id, "docx", previewQ.invoiceNumber)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition-colors"
                                 >
                                     <FileText className="h-4 w-4" /> DOCX
                                 </button>
                             )}
                             <button
                                 onClick={closePreview}
-                                className="p-2 rounded-md hover:bg-slate-100 text-slate-700"
+                                className="p-2 rounded-md hover:bg-muted text-muted-foreground transition-colors cursor-pointer"
                                 aria-label="Tutup"
                             >
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
                     </div>
-                    <div className="flex-1 bg-slate-200 overflow-hidden flex items-center justify-center">
+                    <div className="flex-1 bg-muted overflow-hidden flex items-center justify-center">
                         {previewLoading ? (
-                            <div className="flex flex-col items-center gap-2 text-slate-600">
+                            <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                 <Loader2 className="h-8 w-8 animate-spin" />
                                 <span className="text-sm">Membuat preview PDF...</span>
                             </div>
@@ -872,7 +875,7 @@ function PenawaranListPageInner() {
                                 title="Preview PDF"
                             />
                         ) : (
-                            <div className="text-slate-500 text-sm">Tidak ada preview</div>
+                            <div className="text-muted-foreground text-sm">Tidak ada preview</div>
                         )}
                     </div>
                 </div>
@@ -983,9 +986,9 @@ function CreateQuotationModal(props: {
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-                <h2 className="text-lg font-bold mb-4">
-                    {isInvoiceMode ? "🧾 Buat Invoice Langsung" : "Buat Penawaran Baru"}
+            <div className="bg-card rounded-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    {isInvoiceMode ? <><Receipt className="w-5 h-5 text-destructive" /> Buat Invoice Langsung</> : "Buat Penawaran Baru"}
                 </h2>
                 {isInvoiceMode && (
                     <p className="text-xs text-muted-foreground mb-4 -mt-3">
@@ -995,7 +998,7 @@ function CreateQuotationModal(props: {
                 <div className="space-y-3">
                     <div>
                         <label className="block text-sm font-semibold mb-1.5">
-                            Brand / Perusahaan <span className="text-red-500">*</span>
+                            Brand / Perusahaan <span className="text-destructive">*</span>
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                             {ACTIVE_BRANDS.map((b) => {
@@ -1008,12 +1011,12 @@ function CreateQuotationModal(props: {
                                         onClick={() => setBrand(b)}
                                         className={`p-3 rounded-lg border-2 transition flex items-center gap-2 ${active
                                             ? `${meta.bg} ${meta.border}`
-                                            : "bg-white border-slate-200 hover:border-slate-300"
+                                            : "bg-card border-border hover:border-border/80"
                                             }`}
                                     >
                                         <span className="text-2xl">{meta.emoji}</span>
                                         <div className="text-left flex-1 min-w-0">
-                                            <div className={`text-sm font-bold ${active ? meta.text : "text-slate-700"}`}>
+                                            <div className={`text-sm font-bold ${active ? meta.text : "text-foreground"}`}>
                                                 {meta.short}
                                             </div>
                                             <div className="text-[10px] text-muted-foreground truncate">{meta.label}</div>
@@ -1028,12 +1031,12 @@ function CreateQuotationModal(props: {
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-1">
-                            Varian Penawaran <span className="text-red-500">*</span>
+                            Varian Penawaran <span className="text-destructive">*</span>
                         </label>
                         <select
                             value={variantCode}
                             onChange={(e) => setVariantCode(e.target.value)}
-                            className="w-full border rounded-md px-3 py-2"
+                            className="w-full border border-border rounded-md px-3 py-2 bg-background focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
                             disabled={variantConfigs.length === 0}
                         >
                             {variantConfigs.length === 0 && (
@@ -1047,19 +1050,19 @@ function CreateQuotationModal(props: {
                             <p className="text-[11px] text-muted-foreground mt-1">{selectedVariant.description}</p>
                         )}
                         <p className="text-[11px] text-muted-foreground mt-0.5">
-                            Belum ada varian yang sesuai? <Link href="/settings/quotation-variants" className="text-violet-600 hover:underline">Tambah varian baru</Link>
+                            Belum ada varian yang sesuai? <Link href="/settings/quotation-variants" className="text-primary hover:underline">Tambah varian baru</Link>
                         </p>
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium mb-1">
-                            Marketing yang Menandatangani {!isInvoiceMode && <span className="text-red-500">*</span>}
+                            Marketing yang Menandatangani {!isInvoiceMode && <span className="text-destructive">*</span>}
                             {isInvoiceMode && <span className="text-[11px] font-normal text-muted-foreground"> (opsional)</span>}
                         </label>
                         <select
                             value={signedByWorkerId ?? ""}
                             onChange={(e) => setSignedByWorkerId(e.target.value ? Number(e.target.value) : null)}
-                            className="w-full border rounded-md px-3 py-2"
+                            className="w-full border border-border rounded-md px-3 py-2 bg-background focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
                             disabled={marketers.length === 0}
                         >
                             <option value="">— {isInvoiceMode ? "Tidak ada / pakai Admin" : "Pilih Marketing"} —</option>
@@ -1072,7 +1075,7 @@ function CreateQuotationModal(props: {
                         </select>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
                             TTD & stempel ngikut yang dipilih. Ingat last-used otomatis (per browser).
-                            {marketers.length === 0 && <> · <Link href="/settings/workers" className="text-blue-600 hover:underline">Tambah marketing</Link></>}
+                            {marketers.length === 0 && <> · <Link href="/settings/workers" className="text-primary hover:underline">Tambah marketing</Link></>}
                         </p>
                     </div>
                     {/* ── Customer Picker — auto-fill nama / perusahaan / alamat / telp / email ── */}
@@ -1097,7 +1100,7 @@ function CreateQuotationModal(props: {
                             </button>
                         </div>
                         {pickedCustomer && (
-                            <div className="rounded-md bg-white border border-primary/30 p-2 flex items-center justify-between gap-2">
+                            <div className="rounded-md bg-card border border-primary/30 p-2 flex items-center justify-between gap-2">
                                 <div className="min-w-0 flex-1 text-xs">
                                     <div className="font-semibold truncate">{pickedCustomer.companyName || pickedCustomer.name}</div>
                                     <div className="text-muted-foreground truncate">
@@ -1113,7 +1116,7 @@ function CreateQuotationModal(props: {
                                         setClientName(""); setClientCompany(""); setClientAddress("");
                                         setClientPhone(""); setClientEmail("");
                                     }}
-                                    className="shrink-0 p-1 hover:bg-red-50 text-red-600 rounded"
+                                    className="shrink-0 p-1 hover:bg-destructive/10 text-destructive rounded transition-colors cursor-pointer"
                                     title="Lepas klien (isi manual)"
                                 >
                                     <X className="h-3.5 w-3.5" />
@@ -1123,11 +1126,11 @@ function CreateQuotationModal(props: {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-1">Nama PIC Klien <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium mb-1">Nama PIC Klien <span className="text-destructive">*</span></label>
                         <input
                             value={clientName}
                             onChange={(e) => setClientName(e.target.value)}
-                            className="w-full border rounded-md px-3 py-2"
+                            className="w-full border border-border rounded-md px-3 py-2 bg-background focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
                             placeholder="Contoh: Bpk. Marco"
                         />
                     </div>
@@ -1136,7 +1139,7 @@ function CreateQuotationModal(props: {
                         <input
                             value={clientCompany}
                             onChange={(e) => setClientCompany(e.target.value)}
-                            className="w-full border rounded-md px-3 py-2"
+                            className="w-full border border-border rounded-md px-3 py-2 bg-background focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
                             placeholder="PT / CV / event organizer"
                         />
                     </div>
@@ -1175,7 +1178,7 @@ function CreateQuotationModal(props: {
                         <input
                             value={clientAddress}
                             onChange={(e) => setClientAddress(e.target.value)}
-                            className="w-full border rounded-md px-3 py-2"
+                            className="w-full border border-border rounded-md px-3 py-2 bg-background focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
                             placeholder="Alamat lengkap klien"
                         />
                     </div>
@@ -1184,7 +1187,7 @@ function CreateQuotationModal(props: {
                         <input
                             value={projectName}
                             onChange={(e) => setProjectName(e.target.value)}
-                            className="w-full border rounded-md px-3 py-2"
+                            className="w-full border border-border rounded-md px-3 py-2 bg-background focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
                             placeholder="Summer Musik Festival, PETFEST, dll."
                         />
                     </div>
@@ -1193,7 +1196,7 @@ function CreateQuotationModal(props: {
                         <input
                             value={eventLocation}
                             onChange={(e) => setEventLocation(e.target.value)}
-                            className="w-full border rounded-md px-3 py-2"
+                            className="w-full border border-border rounded-md px-3 py-2 bg-background focus:border-primary focus:ring-2 focus:ring-primary/30 focus:outline-none"
                             placeholder="JEC, ICE BSD, dll."
                         />
                     </div>
@@ -1201,8 +1204,8 @@ function CreateQuotationModal(props: {
                 {/* ─── Detail Invoice — cuma untuk mode INVOICE langsung ─── */}
                 {isInvoiceMode && (
                     <div className="mt-3 rounded-lg border-2 border-pink-200 bg-pink-50/50 p-3 space-y-3">
-                        <div className="text-xs font-bold text-pink-800 uppercase tracking-wider">
-                            🧾 Detail Invoice
+                        <div className="text-xs font-bold text-pink-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <Receipt className="w-3.5 h-3.5" /> Detail Invoice
                         </div>
                         <div>
                             <label className="block text-xs font-semibold mb-1.5">
@@ -1211,7 +1214,7 @@ function CreateQuotationModal(props: {
                             <select
                                 value={signedByAdminId ?? ""}
                                 onChange={(e) => setSignedByAdminId(e.target.value ? Number(e.target.value) : null)}
-                                className="w-full border border-pink-200 rounded-md px-2 py-1.5 text-sm bg-white"
+                                className="w-full border border-pink-200 rounded-md px-2 py-1.5 text-sm bg-background"
                                 disabled={admins.length === 0}
                             >
                                 <option value="">— Tidak ada admin —</option>
@@ -1224,7 +1227,7 @@ function CreateQuotationModal(props: {
                             </select>
                             <p className="text-[10px] text-pink-700 mt-0.5">
                                 Admin/Finance biasanya TTD invoice (vs Marketing untuk penawaran). Kosongkan kalau pakai Marketing di atas atau tanpa TTD.
-                                {admins.length === 0 && <> · <Link href="/settings/workers" className="text-pink-600 hover:underline">Tambah admin</Link></>}
+                                {admins.length === 0 && <> · <Link href="/settings/workers" className="text-destructive hover:underline">Tambah admin</Link></>}
                             </p>
                         </div>
                         <div>
@@ -1235,12 +1238,12 @@ function CreateQuotationModal(props: {
                                         key={p}
                                         type="button"
                                         onClick={() => setInvoicePart(p)}
-                                        className={`px-2 py-1.5 rounded-md text-xs font-bold border-2 transition ${invoicePart === p
-                                            ? 'bg-pink-500 text-white border-pink-500'
-                                            : 'bg-white text-slate-700 border-slate-200 hover:border-pink-300'
+                                        className={`inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-bold border-2 transition cursor-pointer ${invoicePart === p
+                                            ? 'bg-destructive text-white border-destructive'
+                                            : 'bg-card text-foreground border-border hover:border-destructive/30'
                                             }`}
                                     >
-                                        {p === 'DP' ? '💰 DP' : p === 'PELUNASAN' ? '✅ Pelunasan' : '💯 Full'}
+                                        {p === 'DP' ? <><Wallet className="w-3.5 h-3.5" /> DP</> : p === 'PELUNASAN' ? <><CheckCircle2 className="w-3.5 h-3.5" /> Pelunasan</> : 'Full'}
                                     </button>
                                 ))}
                             </div>
@@ -1255,7 +1258,7 @@ function CreateQuotationModal(props: {
                                     step="0.5"
                                     value={dpPercentInvoice}
                                     onChange={(e) => setDpPercentInvoice(parseFloat(e.target.value) || 50)}
-                                    className="w-full border-2 border-pink-200 rounded-md px-2 py-1.5 text-sm font-mono text-right focus:border-pink-500 outline-none bg-white"
+                                    className="w-full border-2 border-pink-200 rounded-md px-2 py-1.5 text-sm font-mono text-right focus:border-pink-500 outline-none bg-background"
                                 />
                                 <p className="text-[10px] text-pink-700 mt-0.5">Persentase DP dari total invoice. Sisa = pelunasan nanti.</p>
                             </div>
@@ -1266,12 +1269,12 @@ function CreateQuotationModal(props: {
                                 type="date"
                                 value={dueDate}
                                 onChange={(e) => setDueDate(e.target.value)}
-                                className="w-full border-2 border-pink-200 rounded-md px-2 py-1.5 text-sm focus:border-pink-500 outline-none bg-white"
+                                className="w-full border-2 border-pink-200 rounded-md px-2 py-1.5 text-sm focus:border-pink-500 outline-none bg-background"
                             />
                             <p className="text-[10px] text-pink-700 mt-0.5">Opsional. Bisa di-edit nanti.</p>
                         </div>
-                        <p className="text-[11px] text-pink-700 border-t border-pink-200 pt-2">
-                            💡 Items, harga, &amp; total ditambahkan setelah invoice tercipta (halaman detail).
+                        <p className="text-[11px] text-pink-700 border-t border-pink-200 pt-2 flex items-center gap-1">
+                            <Lightbulb className="w-3.5 h-3.5 shrink-0" /> Items, harga, &amp; total ditambahkan setelah invoice tercipta (halaman detail).
                         </p>
                     </div>
                 )}
@@ -1279,7 +1282,7 @@ function CreateQuotationModal(props: {
                 <div className="flex justify-end gap-2 mt-6">
                     <button
                         onClick={props.onClose}
-                        className="px-4 py-2 border rounded-md hover:bg-gray-50"
+                        className="px-4 py-2 border border-border rounded-md hover:bg-muted transition-colors cursor-pointer"
                     >
                         Batal
                     </button>
@@ -1322,7 +1325,7 @@ function CreateQuotationModal(props: {
                                 }),
                             });
                         }}
-                        className={`px-4 py-2 ${isInvoiceMode ? 'bg-pink-600 hover:bg-pink-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-md disabled:opacity-50`}
+                        className={`px-4 py-2 ${isInvoiceMode ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'} text-white rounded-md disabled:opacity-50 transition-colors cursor-pointer`}
                     >
                         {props.isPending ? "Menyimpan..." : (isInvoiceMode ? "Buat Invoice" : "Simpan &amp; Lanjut")}
                     </button>

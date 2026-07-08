@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Search, ChevronDown } from "lucide-react";
+import { X, Search, ChevronDown, Loader2 } from "lucide-react";
 import { SupplierItem, Product, ProductVariant } from "./types";
 
 interface ItemFormModalProps {
@@ -51,7 +51,7 @@ export function ItemFormModal({ item, products, onClose, onSave, isSaving }: Ite
           <h2 className="text-lg font-semibold text-foreground">
             {item ? "Edit Barang Supplier" : "Tambah Barang"}
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={onClose} className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -138,7 +138,7 @@ export function ItemFormModal({ item, products, onClose, onSave, isSaving }: Ite
               value={purchasePrice}
               onChange={(e) => setPurchasePrice(e.target.value)}
               placeholder="0"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring nums"
             />
           </div>
 
@@ -164,9 +164,16 @@ export function ItemFormModal({ item, products, onClose, onSave, isSaving }: Ite
             <button
               type="submit"
               disabled={isSaving || !selectedVariantId}
-              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
+              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              {isSaving ? "Menyimpan..." : "Simpan"}
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                "Simpan"
+              )}
             </button>
           </div>
         </form>

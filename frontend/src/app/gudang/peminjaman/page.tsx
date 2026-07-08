@@ -4,22 +4,22 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
-    Package, Clock, AlertTriangle, Check, Camera, Loader2, ArrowLeft,
+    Package, AlertTriangle, Camera, Loader2,
     Plus, User as UserIcon, CheckCheck, RotateCcw, X, Eye, CalendarDays,
 } from "lucide-react";
 import {
     getWithdrawals, returnWithdrawal, cancelWithdrawal,
-    type Withdrawal, type WithdrawalItem,
+    type Withdrawal,
 } from "@/lib/api/withdrawals";
 import { getEvents } from "@/lib/api/events";
 import { CameraCaptureModal } from "@/components/CameraCaptureModal";
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-    CHECKED_OUT: { label: "Dipinjam", cls: "bg-blue-50 text-blue-700" },
-    PARTIAL_RETURNED: { label: "Sebagian Kembali", cls: "bg-amber-50 text-amber-700" },
-    OVERDUE: { label: "Terlambat", cls: "bg-red-50 text-red-700" },
-    RETURNED: { label: "Selesai", cls: "bg-green-50 text-green-700" },
-    CANCELLED: { label: "Dibatalkan", cls: "bg-gray-100 text-gray-600" },
+    CHECKED_OUT: { label: "Dipinjam", cls: "bg-info/15 text-info" },
+    PARTIAL_RETURNED: { label: "Sebagian Kembali", cls: "bg-warning/15 text-warning" },
+    OVERDUE: { label: "Terlambat", cls: "bg-destructive/12 text-destructive" },
+    RETURNED: { label: "Selesai", cls: "bg-success/15 text-success" },
+    CANCELLED: { label: "Dibatalkan", cls: "bg-muted text-muted-foreground" },
 };
 
 export default function GudangPeminjamanPage() {
@@ -110,6 +110,7 @@ export default function GudangPeminjamanPage() {
             </div>
 
             <div className="border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-left">
                         <tr>
@@ -154,7 +155,7 @@ export default function GudangPeminjamanPage() {
                                     </td>
                                     <td className="p-2 text-xs">{w.warehouse?.name}</td>
                                     <td className="p-2">
-                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${w.type === "BORROW" ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"}`}>
+                                        <span className={`text-xs px-1.5 py-0.5 rounded ${w.type === "BORROW" ? "bg-info/15 text-info" : "bg-primary/15 text-primary"}`}>
                                             {w.type === "BORROW" ? "PINJAM" : "PAKAI"}
                                         </span>
                                     </td>
@@ -167,20 +168,20 @@ export default function GudangPeminjamanPage() {
                                         ) : <span className="text-muted-foreground">—</span>}
                                     </td>
                                     <td className="p-2 text-xs truncate max-w-[200px]">{w.purpose}</td>
-                                    <td className="p-2 text-center font-mono text-xs">{w._count?.items ?? w.items.length}</td>
+                                    <td className="p-2 text-center font-mono text-xs nums">{w._count?.items ?? w.items.length}</td>
                                     <td className="p-2 text-xs">
                                         {w.scheduledReturnAt ? (
-                                            <div className={overdue ? "text-red-600 font-semibold" : ""}>
+                                            <div className={overdue ? "text-destructive font-semibold" : ""}>
                                                 {new Date(w.scheduledReturnAt).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}
                                                 {overdue && <AlertTriangle className="h-3 w-3 inline ml-1" />}
                                             </div>
                                         ) : "—"}
                                     </td>
                                     <td className="p-2 text-center">
-                                        <span className={`text-[10px] px-2 py-0.5 rounded ${badge.cls}`}>{badge.label}</span>
+                                        <span className={`text-xs px-2 py-0.5 rounded ${badge.cls}`}>{badge.label}</span>
                                     </td>
                                     <td className="p-2 text-center">
-                                        <button onClick={() => setDetail(w)} className="p-1.5 hover:bg-muted rounded" title="Detail">
+                                        <button onClick={() => setDetail(w)} className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors" title="Detail">
                                             <Eye className="h-3.5 w-3.5" />
                                         </button>
                                     </td>
@@ -189,6 +190,7 @@ export default function GudangPeminjamanPage() {
                         })}
                     </tbody>
                 </table>
+                </div>
             </div>
 
             {detail && (
@@ -279,7 +281,7 @@ function WithdrawalDetailModal({
                             {new Date(withdrawal.createdAt).toLocaleString("id-ID")}
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-1 hover:bg-muted rounded"><X className="h-4 w-4" /></button>
+                    <button onClick={onClose} className="p-1 hover:bg-muted rounded cursor-pointer transition-colors"><X className="h-4 w-4" /></button>
                 </div>
 
                 <div className="overflow-y-auto">
@@ -320,6 +322,7 @@ function WithdrawalDetailModal({
                                 </button>
                             )}
                         </div>
+                        <div className="overflow-x-auto">
                         <table className="w-full text-sm border rounded overflow-hidden">
                             <thead className="bg-muted/50 text-left text-xs">
                                 <tr>
@@ -338,8 +341,8 @@ function WithdrawalDetailModal({
                                                 <div className="text-sm">{it.productVariant?.product.name}</div>
                                                 {it.productVariant?.variantName && <div className="text-xs text-muted-foreground">{it.productVariant.variantName}</div>}
                                             </td>
-                                            <td className="p-2 text-right font-mono text-xs">{Number(it.quantity)}</td>
-                                            <td className="p-2 text-right font-mono text-xs">{Number(it.returnedQty)}</td>
+                                            <td className="p-2 text-right font-mono text-xs nums">{Number(it.quantity)}</td>
+                                            <td className="p-2 text-right font-mono text-xs nums">{Number(it.returnedQty)}</td>
                                             {canReturn && (
                                                 <td className="p-2">
                                                     <input
@@ -357,6 +360,7 @@ function WithdrawalDetailModal({
                                 })}
                             </tbody>
                         </table>
+                        </div>
 
                         {canReturn && (
                             <div className="mt-3">
@@ -369,7 +373,7 @@ function WithdrawalDetailModal({
                                 />
                             </div>
                         )}
-                        {error && <div className="text-xs text-red-600 mt-2">{error}</div>}
+                        {error && <div className="text-xs text-destructive mt-2">{error}</div>}
                     </div>
                 </div>
 
@@ -381,7 +385,7 @@ function WithdrawalDetailModal({
                                 if (confirm("Batalkan pengambilan ini? Stok akan dikembalikan ke gudang.")) cancelMut.mutate();
                             }}
                             disabled={cancelMut.isPending}
-                            className="flex items-center gap-1 px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded hover:bg-red-50 disabled:opacity-50"
+                            className="flex items-center gap-1 px-3 py-1.5 text-sm border border-destructive/30 text-destructive rounded hover:bg-destructive/10 disabled:opacity-50"
                         >
                             {cancelMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                             <RotateCcw className="h-3.5 w-3.5" /> Batalkan

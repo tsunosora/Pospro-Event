@@ -16,7 +16,11 @@ import {
   TrendingUp,
   TrendingDown,
   Wallet,
-  BarChart3,
+  Target,
+  Building2,
+  Trophy,
+  Lightbulb,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import dayjs from "dayjs";
@@ -861,7 +865,7 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
         <RabKpiCard
           label="Saldo Bersih (Riil)"
           value={fmtShortRp(stats.totalSaldoBersih)}
-          subtext={isHealthy ? "✅ Income menutupi cost" : "⚠ Pelunasan belum masuk"}
+          subtext={isHealthy ? "Income menutupi cost" : "Pelunasan belum masuk"}
           icon={Wallet}
           color={isHealthy ? "emerald" : "amber"}
         />
@@ -872,7 +876,8 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
         {/* Pie chart: status distribution */}
         <div className="glass rounded-xl p-4 sm:p-5">
           <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5">
-            🎯 Distribusi RAB by Status Event
+            <Target className="w-4 h-4 text-primary" />
+            Distribusi RAB by Status Event
           </h3>
           <p className="text-[11px] text-muted-foreground mb-2">
             Pipeline health — berapa banyak project di tiap fase
@@ -913,7 +918,8 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
         {/* Bar chart: brand comparison */}
         <div className="glass rounded-xl p-4 sm:p-5">
           <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5">
-            🏢 Perbandingan Nilai per Brand
+            <Building2 className="w-4 h-4 text-primary" />
+            Perbandingan Nilai per Brand
           </h3>
           <p className="text-[11px] text-muted-foreground mb-2">
             Total nilai RAB & cost per brand (Exindo / Xposer)
@@ -952,19 +958,21 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
         <div className="flex items-center justify-between mb-2">
           <div>
             <h3 className="text-sm font-bold flex items-center gap-1.5">
-              🏆 Top 5 Project — Margin Terbesar
+              <Trophy className="w-4 h-4 text-warning" />
+              Top 5 Project — Margin Terbesar
             </h3>
             <p className="text-[11px] text-muted-foreground">
               RAB dengan profit proyeksi tertinggi
-              <span className="text-amber-600"> · RAB tanpa real cost di-exclude</span>
+              <span className="text-warning"> · RAB tanpa real cost di-exclude</span>
             </p>
           </div>
         </div>
 
         {/* Warning kalau ada RAB dengan missing cost */}
         {stats.rabWithMissingCost > 0 && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800 mb-2">
-            ⚠️ <b>{stats.rabWithMissingCost} RAB</b> punya item dengan Real Cost belum diisi — margin angkanya kemungkinan over-estimate. Update di detail RAB supaya akurat.
+          <div className="rounded-md border border-warning/30 bg-warning/10 p-2 text-[11px] text-warning mb-2 flex items-start gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span><b>{stats.rabWithMissingCost} RAB</b> punya item dengan Real Cost belum diisi — margin angkanya kemungkinan over-estimate. Update di detail RAB supaya akurat.</span>
           </div>
         )}
 
@@ -990,7 +998,7 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center justify-center">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-warning/15 text-warning text-xs font-bold flex items-center justify-center">
                         #{i + 1}
                       </span>
                       <div className="min-w-0">
@@ -999,9 +1007,9 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
                           {r.missingCostCount > 0 && (
                             <span
                               title={`${r.missingCostCount} item belum ada Real Cost — margin partial estimate`}
-                              className="shrink-0 text-[9px] px-1 py-0 rounded bg-amber-100 text-amber-700 border border-amber-300 font-medium"
+                              className="shrink-0 inline-flex items-center gap-0.5 text-[9px] px-1 py-0 rounded bg-warning/15 text-warning border border-warning/30 font-medium"
                             >
-                              ⚠ {r.missingCostCount}
+                              <AlertTriangle className="w-2.5 h-2.5" /> {r.missingCostCount}
                             </span>
                           )}
                         </div>
@@ -1013,7 +1021,7 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className={`text-xs sm:text-sm font-bold font-mono ${isUntung ? "text-emerald-600" : "text-red-600"}`}>
+                      <div className={`text-xs sm:text-sm font-bold font-mono ${isUntung ? "text-success" : "text-destructive"}`}>
                         {isUntung ? "+" : "−"}{fmtShortRp(Math.abs(r.selisih))}
                       </div>
                       <div className="text-[10px] text-muted-foreground">
@@ -1024,7 +1032,7 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
                   {/* Progress bar */}
                   <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                     <div
-                      className={`h-full ${isUntung ? "bg-emerald-500" : "bg-red-500"} transition-all`}
+                      className={`h-full ${isUntung ? "bg-success" : "bg-destructive"} transition-all`}
                       style={{ width: `${widthPct}%` }}
                     />
                   </div>
@@ -1036,8 +1044,9 @@ function RabDashboardSection({ rabs }: { rabs: RabPlan[] }) {
       </div>
 
       {/* Hint footer */}
-      <div className="text-[10px] text-muted-foreground italic text-center">
-        💡 Diagram update otomatis tiap 60 detik. Klik RAB di top 5 untuk buka detail.
+      <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground italic text-center">
+        <Lightbulb className="w-3 h-3" />
+        Diagram update otomatis tiap 60 detik. Klik RAB di top 5 untuk buka detail.
       </div>
     </div>
   );
@@ -1054,10 +1063,10 @@ function RabKpiCard({
 }) {
   const colorMap: Record<string, string> = {
     primary: "bg-primary/15 text-primary border-primary/30",
-    blue: "bg-blue-500/15 text-blue-600 border-blue-300/40",
-    emerald: "bg-emerald-500/15 text-emerald-600 border-emerald-300/40",
-    amber: "bg-amber-500/15 text-amber-600 border-amber-300/40",
-    red: "bg-red-500/15 text-red-600 border-red-300/40",
+    blue: "bg-info/15 text-info border-info/30",
+    emerald: "bg-success/15 text-success border-success/30",
+    amber: "bg-warning/15 text-warning border-warning/30",
+    red: "bg-destructive/12 text-destructive border-destructive/30",
   };
   return (
     <div className="glass rounded-xl p-3 sm:p-4">

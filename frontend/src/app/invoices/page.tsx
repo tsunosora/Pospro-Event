@@ -6,7 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import {
     AlertTriangle, ArrowUpRight, Loader2, Phone, Search,
     TrendingUp, Users, Wallet, Receipt, AlertCircle, ChevronRight,
-    ExternalLink, Edit3,
+    ExternalLink, Edit3, CheckCircle2, MapPin, TrendingDown,
+    MessageCircle, CalendarDays, User, Clock, FileText, Info,
 } from "lucide-react";
 import { getReceivablesDashboard, getQuotation, type ReceivablesDashboard, type Quotation } from "@/lib/api/quotations";
 import { PaymentDetailModal } from "@/components/PaymentDetailModal";
@@ -47,13 +48,13 @@ function nearestUnpaidDue(
 
 /** Badge tanggal jatuh tempo — warna berubah kalau sudah/hampir lewat tempo. */
 function DueBadge({ date }: { date: string | null }) {
-    if (!date) return <span className="text-slate-400">—</span>;
+    if (!date) return <span className="text-muted-foreground">—</span>;
     const ms = new Date(date).getTime();
     const days = Math.floor((ms - Date.now()) / (1000 * 60 * 60 * 24));
-    let cls = "text-slate-600";
+    let cls = "text-muted-foreground";
     let note = "";
-    if (days < 0) { cls = "text-red-700 font-bold"; note = `telat ${-days}h`; }
-    else if (days <= 7) { cls = "text-amber-700 font-semibold"; note = `${days}h lagi`; }
+    if (days < 0) { cls = "text-destructive font-bold"; note = `telat ${-days}h`; }
+    else if (days <= 7) { cls = "text-warning font-semibold"; note = `${days}h lagi`; }
     return (
         <span className={`text-xs ${cls}`}>
             {fmtDate(date)}
@@ -63,18 +64,18 @@ function DueBadge({ date }: { date: string | null }) {
 }
 
 function severity(days: number) {
-    if (days <= 7) return { cls: "bg-amber-100 text-amber-800 border-amber-300", label: "Hampir Tempo" };
-    if (days <= 30) return { cls: "bg-orange-100 text-orange-800 border-orange-300", label: "Lewat Tempo" };
-    if (days <= 90) return { cls: "bg-red-100 text-red-800 border-red-300", label: "Telat Berat" };
-    return { cls: "bg-red-200 text-red-900 border-red-400 font-bold", label: "Macet" };
+    if (days <= 7) return { cls: "bg-warning/15 text-warning border-warning/30", label: "Hampir Tempo" };
+    if (days <= 30) return { cls: "bg-warning/15 text-warning border-warning/30", label: "Lewat Tempo" };
+    if (days <= 90) return { cls: "bg-destructive/12 text-destructive border-destructive/30", label: "Telat Berat" };
+    return { cls: "bg-destructive/20 text-destructive border-destructive/50 font-bold", label: "Macet" };
 }
 
 function customerSeverity(c: ReceivablesDashboard["byCustomer"][number]) {
-    if (c.sisaTagihan === 0) return { cls: "text-emerald-700", emoji: "✅" };
-    if (c.overdueCount > 0) return { cls: "text-red-700", emoji: "🚨" };
-    if (c.oldestUnpaidDays > 60) return { cls: "text-orange-700", emoji: "⚠️" };
-    if (c.oldestUnpaidDays > 30) return { cls: "text-amber-700", emoji: "⏳" };
-    return { cls: "text-slate-700", emoji: "📋" };
+    if (c.sisaTagihan === 0) return { cls: "text-success", icon: <CheckCircle2 className="h-4 w-4" /> };
+    if (c.overdueCount > 0) return { cls: "text-destructive", icon: <AlertTriangle className="h-4 w-4" /> };
+    if (c.oldestUnpaidDays > 60) return { cls: "text-warning", icon: <AlertTriangle className="h-4 w-4" /> };
+    if (c.oldestUnpaidDays > 30) return { cls: "text-warning", icon: <Clock className="h-4 w-4" /> };
+    return { cls: "text-foreground", icon: <FileText className="h-4 w-4" /> };
 }
 
 export default function InvoicesPiutangPage() {
@@ -140,7 +141,7 @@ export default function InvoicesPiutangPage() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-[60vh] text-slate-600">
+            <div className="flex items-center justify-center min-h-[60vh] text-muted-foreground">
                 <Loader2 className="h-6 w-6 animate-spin mr-2" />
                 Memuat dashboard piutang...
             </div>
@@ -150,8 +151,8 @@ export default function InvoicesPiutangPage() {
     if (error || !data) {
         return (
             <div className="p-6">
-                <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700 text-sm">
-                    ❌ Gagal memuat data piutang. Pastikan backend sudah running &amp; schema sudah di-migrate.
+                <div className="bg-destructive/12 border border-destructive/30 rounded p-4 text-destructive text-sm">
+                    Gagal memuat data piutang. Pastikan backend sudah running &amp; schema sudah di-migrate.
                     <br />
                     <code className="text-xs mt-2 block">{(error as any)?.message ?? "no error message"}</code>
                 </div>
@@ -162,22 +163,23 @@ export default function InvoicesPiutangPage() {
     return (
         <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4">
             <div>
-                <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                    <Receipt className="h-7 w-7 text-emerald-600" />
+                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                    <Receipt className="h-7 w-7 text-primary" />
                     Dashboard Piutang &amp; Pemasukan
                 </h1>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-muted-foreground">
                     Rekap semua invoice — siapa belum bayar, berapa lama, &amp; pemasukan dari Cashflow.
                 </p>
             </div>
 
             {/* Date filter — berlaku untuk SEMUA section (KPI, per-customer, overdue, income).
                 Backend re-aggregat data sesuai range yang dipilih. */}
-            <div className="bg-white border rounded-lg p-3">
+            <div className="glass rounded-xl p-3">
                 <DateRangeFilter value={dateRange} onChange={setDateRange} />
                 {hasDateFilter && (
-                    <p className="text-[10px] text-emerald-700 font-semibold mt-1.5">
-                        ✅ Filter aktif — semua section (KPI, per-customer, overdue, income) menampilkan data dalam rentang yang dipilih.
+                    <p className="text-[10px] text-success font-semibold mt-1.5 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
+                        Filter aktif — semua section (KPI, per-customer, overdue, income) menampilkan data dalam rentang yang dipilih.
                     </p>
                 )}
             </div>
@@ -193,7 +195,7 @@ export default function InvoicesPiutangPage() {
                     icon={<Wallet className="h-5 w-5" />}
                 />
                 <KpiCard
-                    title={hasDateFilter ? "🚨 Overdue (filtered)" : "🚨 Overdue"}
+                    title={hasDateFilter ? "Overdue (filtered)" : "Overdue"}
                     value={fmtShort(data.kpi.overdueAmount)}
                     fullValue={fmtRp(data.kpi.overdueAmount)}
                     sub={`${data.kpi.overdueCount} invoice lewat tempo`}
@@ -201,7 +203,7 @@ export default function InvoicesPiutangPage() {
                     icon={<AlertTriangle className="h-5 w-5" />}
                 />
                 <KpiCard
-                    title={hasDateFilter ? "💰 Pemasukan (filtered)" : "💰 Pemasukan Bulan Ini"}
+                    title={hasDateFilter ? "Pemasukan (filtered)" : "Pemasukan Bulan Ini"}
                     value={fmtShort(data.kpi.totalIncomeMonth)}
                     fullValue={fmtRp(data.kpi.totalIncomeMonth)}
                     sub={hasDateFilter ? "dalam rentang filter" : "dari pembayaran invoice"}
@@ -209,7 +211,7 @@ export default function InvoicesPiutangPage() {
                     icon={<ArrowUpRight className="h-5 w-5" />}
                 />
                 <KpiCard
-                    title={hasDateFilter ? "📈 Total dalam rentang" : "📈 Pemasukan YTD"}
+                    title={hasDateFilter ? "Total dalam rentang" : "Pemasukan YTD"}
                     value={fmtShort(data.kpi.totalIncomeYTD)}
                     fullValue={fmtRp(data.kpi.totalIncomeYTD)}
                     sub={hasDateFilter ? "akumulasi pemasukan" : "tahun berjalan"}
@@ -220,39 +222,39 @@ export default function InvoicesPiutangPage() {
 
             {/* PPh tracking banner — untuk laporan pajak owner */}
             {(data.kpi.totalPphPotongan ?? 0) > 0 && (
-                <div className="bg-rose-50 border-l-4 border-rose-500 rounded p-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="bg-destructive/8 border-l-4 border-destructive rounded p-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                     <div>
-                        <div className="text-[10px] text-rose-700 uppercase font-bold tracking-wide">💰 Gross Sebelum PPh</div>
-                        <div className="text-base font-bold text-rose-900 font-mono">{fmtRp(data.kpi.totalGrossBeforePph ?? 0)}</div>
-                        <div className="text-[10px] text-rose-700">Nilai invoice sebelum PPh dipotong klien</div>
+                        <div className="text-[10px] text-destructive uppercase font-bold tracking-wide flex items-center gap-1"><Wallet className="h-3 w-3" /> Gross Sebelum PPh</div>
+                        <div className="text-base font-bold text-foreground font-mono nums">{fmtRp(data.kpi.totalGrossBeforePph ?? 0)}</div>
+                        <div className="text-[10px] text-destructive">Nilai invoice sebelum PPh dipotong klien</div>
                     </div>
-                    <div className="md:border-x md:border-rose-200 md:px-3">
-                        <div className="text-[10px] text-rose-700 uppercase font-bold tracking-wide">📉 Total PPh Dipotong</div>
-                        <div className="text-base font-bold text-rose-900 font-mono">- {fmtRp(data.kpi.totalPphPotongan ?? 0)}</div>
-                        <div className="text-[10px] text-rose-700">Klien sudah potong, jadi pajak vendor</div>
+                    <div className="md:border-x md:border-destructive/20 md:px-3">
+                        <div className="text-[10px] text-destructive uppercase font-bold tracking-wide flex items-center gap-1"><TrendingDown className="h-3 w-3" /> Total PPh Dipotong</div>
+                        <div className="text-base font-bold text-foreground font-mono nums">- {fmtRp(data.kpi.totalPphPotongan ?? 0)}</div>
+                        <div className="text-[10px] text-destructive">Klien sudah potong, jadi pajak vendor</div>
                     </div>
                     <div>
-                        <div className="text-[10px] text-emerald-700 uppercase font-bold tracking-wide">✅ Net Diterima (Piutang)</div>
-                        <div className="text-base font-bold text-emerald-900 font-mono">{fmtRp((data.kpi.totalGrossBeforePph ?? 0) - (data.kpi.totalPphPotongan ?? 0))}</div>
-                        <div className="text-[10px] text-emerald-700">Yang masuk ke kas vendor</div>
+                        <div className="text-[10px] text-success uppercase font-bold tracking-wide flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Net Diterima (Piutang)</div>
+                        <div className="text-base font-bold text-success font-mono nums">{fmtRp((data.kpi.totalGrossBeforePph ?? 0) - (data.kpi.totalPphPotongan ?? 0))}</div>
+                        <div className="text-[10px] text-success">Yang masuk ke kas vendor</div>
                     </div>
                 </div>
             )}
 
             {/* Warning banner kalau ada overdue */}
             {data.kpi.overdueCount > 0 && (
-                <div className="bg-red-50 border-l-4 border-red-500 rounded p-3 flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="bg-destructive/8 border-l-4 border-destructive rounded p-3 flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
-                        <h3 className="font-bold text-red-900 text-sm">
-                            ⚠️ Ada {data.kpi.overdueCount} invoice lewat tempo senilai {fmtRp(data.kpi.overdueAmount)}!
+                        <h3 className="font-bold text-destructive text-sm">
+                            Ada {data.kpi.overdueCount} invoice lewat tempo senilai {fmtRp(data.kpi.overdueAmount)}!
                         </h3>
-                        <p className="text-xs text-red-700 mt-0.5">
+                        <p className="text-xs text-destructive mt-0.5">
                             Disarankan segera kontak customer atau kirim reminder pembayaran.
                         </p>
                         <button
                             onClick={() => setActiveTab("overdue")}
-                            className="text-xs text-red-700 underline hover:text-red-900 mt-1 font-semibold"
+                            className="text-xs text-destructive underline hover:opacity-80 mt-1 font-semibold cursor-pointer transition-colors"
                         >
                             Lihat daftar overdue →
                         </button>
@@ -261,9 +263,9 @@ export default function InvoicesPiutangPage() {
             )}
 
             {/* Tabs */}
-            <div className="border-b border-slate-200 flex gap-1 overflow-x-auto">
+            <div className="border-b border-border flex gap-1 overflow-x-auto">
                 <TabButton active={activeTab === "event"} onClick={() => setActiveTab("event")}>
-                    🎪 Per Event/Penawaran ({data.byQuotation?.length ?? 0})
+                    <CalendarDays className="h-4 w-4" /> Per Event/Penawaran ({data.byQuotation?.length ?? 0})
                 </TabButton>
                 <TabButton active={activeTab === "customer"} onClick={() => setActiveTab("customer")}>
                     <Users className="h-4 w-4" /> Per Customer ({data.byCustomer.length})
@@ -279,24 +281,25 @@ export default function InvoicesPiutangPage() {
             {/* TAB: Per Event/Penawaran — group invoice by parent quotation */}
             {activeTab === "event" && (
                 <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-xs text-slate-600">
-                        <span>📌 <b>Tip:</b> 1 baris = 1 event/penawaran. Klik baris untuk expand list invoice (DP1, DP2, Pelunasan, dll) dengan status masing-masing.</span>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Info className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span><b>Tip:</b> 1 baris = 1 event/penawaran. Klik baris untuk expand list invoice (DP1, DP2, Pelunasan, dll) dengan status masing-masing.</span>
                     </div>
                     {(data.byQuotation ?? []).length === 0 ? (
-                        <div className="bg-white border rounded-lg p-8 text-center text-slate-500">
+                        <div className="glass rounded-xl p-8 text-center text-muted-foreground">
                             Belum ada Penawaran dengan invoice yang ter-generate.
                         </div>
                     ) : (
-                        <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
+                        <div className="glass rounded-xl overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b text-xs">
+                                <thead className="bg-muted/50 border-b text-xs">
                                     <tr>
-                                        <th className="text-left px-3 py-2 font-semibold text-slate-700">Event / Penawaran</th>
-                                        <th className="text-center px-3 py-2 font-semibold text-slate-700">Invoice</th>
-                                        <th className="text-right px-3 py-2 font-semibold text-slate-700">Total Tagihan</th>
-                                        <th className="text-right px-3 py-2 font-semibold text-slate-700">Terbayar</th>
-                                        <th className="text-right px-3 py-2 font-semibold text-slate-700">Sisa</th>
-                                        <th className="text-center px-3 py-2 font-semibold text-slate-700">Jatuh Tempo</th>
+                                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Event / Penawaran</th>
+                                        <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Invoice</th>
+                                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Total Tagihan</th>
+                                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Terbayar</th>
+                                        <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Sisa</th>
+                                        <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Jatuh Tempo</th>
                                         <th className="px-3 py-2"></th>
                                     </tr>
                                 </thead>
@@ -308,136 +311,139 @@ export default function InvoicesPiutangPage() {
                                         return (
                                             <FragmentRows key={q.quotationId}>
                                                 <tr
-                                                    className={`border-b hover:bg-slate-50 cursor-pointer ${hasOverdue ? "bg-red-50/30" : ""}`}
+                                                    className={`border-b hover:bg-muted/40 cursor-pointer transition-colors ${hasOverdue ? "bg-destructive/8" : ""}`}
                                                     onClick={() => setExpandedQuotation(isExpanded ? null : q.quotationId)}
                                                 >
                                                     <td className="px-3 py-2">
                                                         <div className="flex items-center gap-2">
-                                                            <ChevronRight className={`h-3.5 w-3.5 text-slate-400 transition-transform flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`} />
-                                                            <span className="text-lg">{hasOverdue ? "🚨" : "🎪"}</span>
+                                                            <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`} />
+                                                            {hasOverdue
+                                                                ? <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
+                                                                : <CalendarDays className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+
                                                             <div className="flex-1 min-w-0">
                                                                 <Link
                                                                     href={`/penawaran/${q.quotationId}`}
                                                                     onClick={(e) => e.stopPropagation()}
-                                                                    className="font-semibold text-blue-700 hover:underline text-xs font-mono block truncate"
+                                                                    className="font-semibold text-info hover:underline text-xs font-mono block truncate"
                                                                 >
                                                                     {q.quotationNumber}
                                                                 </Link>
                                                                 {q.projectName && (
-                                                                    <div className="text-[11px] text-slate-700 font-semibold truncate">{q.projectName}</div>
+                                                                    <div className="text-[11px] text-foreground font-semibold truncate">{q.projectName}</div>
                                                                 )}
-                                                                <div className="text-[10px] text-slate-500 truncate">
-                                                                    👤 {q.customerName}{q.companyName ? ` · ${q.companyName}` : ""}
+                                                                <div className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+                                                                    <User className="h-3 w-3 flex-shrink-0" /> {q.customerName}{q.companyName ? ` · ${q.companyName}` : ""}
                                                                 </div>
                                                                 {q.eventLocation && (
-                                                                    <div className="text-[10px] text-slate-400 truncate">📍 {q.eventLocation}</div>
+                                                                    <div className="text-[10px] text-muted-foreground truncate flex items-center gap-1"><MapPin className="h-3 w-3 flex-shrink-0" /> {q.eventLocation}</div>
                                                                 )}
                                                             </div>
                                                         </div>
                                                     </td>
                                                     <td className="px-3 py-2 text-center">
-                                                        <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                                                        <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-info/15 text-info border border-info/30 font-semibold">
                                                             {q.invoiceCount} invoice
                                                         </span>
                                                         {hasOverdue && (
-                                                            <div className="text-[9px] text-red-700 font-bold mt-0.5">⚠️ Ada overdue</div>
+                                                            <div className="text-[9px] text-destructive font-bold mt-0.5 flex items-center gap-0.5"><AlertTriangle className="h-2.5 w-2.5" /> Ada overdue</div>
                                                         )}
                                                     </td>
                                                     <td className="px-3 py-2 text-right">
-                                                        <div className="font-mono font-semibold">{fmtShort(q.totalInvoiced)}</div>
-                                                        <div className="text-[10px] text-slate-500">Quotation: {fmtShort(q.quotationTotal)}</div>
+                                                        <div className="font-mono font-semibold nums">{fmtShort(q.totalInvoiced)}</div>
+                                                        <div className="text-[10px] text-muted-foreground">Quotation: {fmtShort(q.quotationTotal)}</div>
                                                     </td>
                                                     <td className="px-3 py-2 text-right">
-                                                        <div className="font-mono text-emerald-700 font-semibold">{fmtShort(q.totalPaid)}</div>
-                                                        <div className="text-[10px] text-slate-500">{paidPct.toFixed(0)}% dari tagihan</div>
+                                                        <div className="font-mono text-success font-semibold nums">{fmtShort(q.totalPaid)}</div>
+                                                        <div className="text-[10px] text-muted-foreground">{paidPct.toFixed(0)}% dari tagihan</div>
                                                     </td>
                                                     <td className="px-3 py-2 text-right">
-                                                        <div className={`font-mono font-bold ${q.sisaTagihan > 0 ? "text-amber-700" : "text-emerald-700"}`}>
-                                                            {q.sisaTagihan > 0 ? fmtShort(q.sisaTagihan) : "✅ LUNAS"}
+                                                        <div className={`font-mono font-bold nums ${q.sisaTagihan > 0 ? "text-warning" : "text-success"}`}>
+                                                            {q.sisaTagihan > 0 ? fmtShort(q.sisaTagihan) : <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> LUNAS</span>}
                                                         </div>
                                                     </td>
                                                     <td className="px-3 py-2 text-center">
                                                         {q.sisaTagihan > 0
                                                             ? <DueBadge date={nearestUnpaidDue(q.invoices)} />
-                                                            : <span className="text-slate-400">—</span>}
+                                                            : <span className="text-muted-foreground">—</span>}
                                                     </td>
                                                     <td className="px-3 py-2 text-right">
                                                         <Link
                                                             href={`/penawaran/${q.quotationId}`}
                                                             onClick={(e) => e.stopPropagation()}
-                                                            className="text-[11px] text-blue-600 hover:underline inline-flex items-center gap-0.5"
+                                                            className="text-[11px] text-info hover:underline inline-flex items-center gap-0.5"
                                                         >
                                                             Detail <ChevronRight className="h-3 w-3" />
                                                         </Link>
                                                     </td>
                                                 </tr>
                                                 {isExpanded && (
-                                                    <tr className="bg-slate-50/70">
+                                                    <tr className="bg-muted/30">
                                                         <td colSpan={7} className="px-3 py-2">
-                                                            <div className="text-[10px] font-bold text-slate-600 uppercase mb-1.5">
+                                                            <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5">
                                                                 Breakdown Invoice ({q.invoices.length}):
                                                             </div>
                                                             <div className="space-y-1.5">
                                                                 {q.invoices.map((iv) => {
                                                                     const STATUS_CLS: Record<string, string> = {
-                                                                        PAID: "bg-emerald-100 text-emerald-800",
-                                                                        PARTIALLY_PAID: "bg-amber-100 text-amber-800",
-                                                                        SENT: "bg-blue-100 text-blue-800",
-                                                                        DRAFT: "bg-slate-100 text-slate-700",
-                                                                        CANCELLED: "bg-red-100 text-red-700",
+                                                                        PAID: "bg-success/15 text-success",
+                                                                        PARTIALLY_PAID: "bg-warning/15 text-warning",
+                                                                        SENT: "bg-info/15 text-info",
+                                                                        DRAFT: "bg-muted text-muted-foreground",
+                                                                        CANCELLED: "bg-destructive/12 text-destructive",
                                                                     };
                                                                     return (
-                                                                        <div key={iv.id} className={`bg-white border rounded p-2 flex items-center justify-between gap-2 text-xs ${iv.isOverdue ? "border-red-300 bg-red-50/30" : "border-slate-200"}`}>
+                                                                        <div key={iv.id} className={`bg-card border rounded p-2 flex items-center justify-between gap-2 text-xs ${iv.isOverdue ? "border-destructive/30 bg-destructive/8" : "border-border"}`}>
                                                                             <div className="flex-1 min-w-0">
                                                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                                                    <Link href={`/penawaran/${iv.id}`} className="font-mono font-bold text-blue-700 hover:underline">
+                                                                                    <Link href={`/penawaran/${iv.id}`} className="font-mono font-bold text-info hover:underline">
                                                                                         {iv.invoiceNumber}
                                                                                     </Link>
                                                                                     {iv.invoicePart && (
-                                                                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-bold">
-                                                                                            {iv.invoicePart === "DP" ? "💰 Down Payment" :
-                                                                                             iv.invoicePart === "PELUNASAN" ? "✅ Final Payment" :
-                                                                                             iv.invoicePart === "FULL" ? "💯 Full Payment" : iv.invoicePart}
+                                                                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-info/15 text-info border border-info/30 font-bold">
+                                                                                            {iv.invoicePart === "DP" ? "Down Payment" :
+                                                                                             iv.invoicePart === "PELUNASAN" ? "Final Payment" :
+                                                                                             iv.invoicePart === "FULL" ? "Full Payment" : iv.invoicePart}
                                                                                         </span>
                                                                                     )}
-                                                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded ${STATUS_CLS[iv.status] ?? "bg-slate-100 text-slate-700"} font-semibold`}>
+                                                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded ${STATUS_CLS[iv.status] ?? "bg-muted text-muted-foreground"} font-semibold`}>
                                                                                         {iv.status}
                                                                                     </span>
                                                                                     {iv.isOverdue && (
-                                                                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-300 font-bold">
-                                                                                            🚨 Telat {iv.daysOverdue}h
+                                                                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-destructive/12 text-destructive border border-destructive/30 font-bold inline-flex items-center gap-0.5">
+                                                                                            <AlertTriangle className="h-2.5 w-2.5" /> Telat {iv.daysOverdue}h
                                                                                         </span>
                                                                                     )}
                                                                                 </div>
-                                                                                <div className="text-[10px] text-slate-500 mt-0.5">
+                                                                                <div className="text-[10px] text-muted-foreground mt-0.5">
                                                                                     Terbit: {fmtDate(iv.date)}
                                                                                     {iv.dueDate && ` · Tempo: ${fmtDate(iv.dueDate)}${iv.dueDateEnd ? ` - ${fmtDate(iv.dueDateEnd)}` : ""}`}
                                                                                 </div>
                                                                             </div>
                                                                             <div className="text-right flex-shrink-0">
-                                                                                <div className="text-[10px] text-slate-500">
-                                                                                    Tagih: <span className="font-mono">{fmtShort(iv.amountToPay)}</span>
+                                                                                <div className="text-[10px] text-muted-foreground">
+                                                                                    Tagih: <span className="font-mono nums">{fmtShort(iv.amountToPay)}</span>
                                                                                 </div>
-                                                                                <div className="text-[10px] text-emerald-700 font-semibold">
-                                                                                    Bayar: <span className="font-mono">{fmtShort(iv.paidAmount)}</span>
+                                                                                <div className="text-[10px] text-success font-semibold">
+                                                                                    Bayar: <span className="font-mono nums">{fmtShort(iv.paidAmount)}</span>
                                                                                 </div>
                                                                                 {iv.sisa > 0 && (
-                                                                                    <div className="text-[10px] text-amber-700 font-bold">
-                                                                                        Sisa: <span className="font-mono">{fmtShort(iv.sisa)}</span>
+                                                                                    <div className="text-[10px] text-warning font-bold">
+                                                                                        Sisa: <span className="font-mono nums">{fmtShort(iv.sisa)}</span>
                                                                                     </div>
                                                                                 )}
                                                                             </div>
                                                                             <div className="flex items-center gap-1">
                                                                                 <button
                                                                                     onClick={() => setDetailTargetId(iv.id)}
-                                                                                    className="p-1 rounded text-emerald-700 hover:bg-emerald-50 border border-emerald-200"
+                                                                                    className="p-1 rounded text-success hover:bg-success/10 border border-success/30 cursor-pointer transition-colors"
                                                                                     title="Lihat detail pembayaran"
                                                                                 >
                                                                                     <Receipt className="h-3.5 w-3.5" />
                                                                                 </button>
                                                                                 <Link
                                                                                     href={`/penawaran/${iv.id}`}
-                                                                                    className="p-1 rounded text-blue-700 hover:bg-blue-50 border border-blue-200"
+                                                                                    className="p-1 rounded text-info hover:bg-info/10 border border-info/30 transition-colors"
                                                                                     title="Buka invoice"
                                                                                 >
                                                                                     <Edit3 className="h-3.5 w-3.5" />
@@ -465,7 +471,7 @@ export default function InvoicesPiutangPage() {
                 <div className="space-y-3">
                     <div className="flex items-center gap-2">
                         <div className="relative flex-1 max-w-md">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <input
                                 type="text"
                                 value={filter}
@@ -476,22 +482,22 @@ export default function InvoicesPiutangPage() {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
+                    <div className="glass rounded-xl overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b text-xs">
+                            <thead className="bg-muted/50 border-b text-xs">
                                 <tr>
-                                    <th className="text-left px-3 py-2 font-semibold text-slate-700">Customer</th>
-                                    <th className="text-right px-3 py-2 font-semibold text-slate-700">Total Invoice</th>
-                                    <th className="text-right px-3 py-2 font-semibold text-slate-700">Sudah Bayar</th>
-                                    <th className="text-right px-3 py-2 font-semibold text-slate-700">Sisa Piutang</th>
-                                    <th className="text-center px-3 py-2 font-semibold text-slate-700">Jatuh Tempo</th>
-                                    <th className="text-center px-3 py-2 font-semibold text-slate-700">Status</th>
+                                    <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Customer</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Total Invoice</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Sudah Bayar</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Sisa Piutang</th>
+                                    <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Jatuh Tempo</th>
+                                    <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Status</th>
                                     <th className="px-3 py-2"></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredCustomers.length === 0 ? (
-                                    <tr><td colSpan={7} className="text-center py-6 text-slate-500 text-xs">
+                                    <tr><td colSpan={7} className="text-center py-6 text-muted-foreground text-xs">
                                         {filter ? "Tidak ada customer cocok dengan filter." : "Belum ada data invoice."}
                                     </td></tr>
                                 ) : filteredCustomers.map((c) => {
@@ -502,26 +508,26 @@ export default function InvoicesPiutangPage() {
                                     return (
                                         <FragmentRows key={customerKey}>
                                         <tr
-                                            className="border-b hover:bg-slate-50 cursor-pointer"
+                                            className="border-b hover:bg-muted/40 cursor-pointer transition-colors"
                                             onClick={() => setExpandedCustomer(isExpanded ? null : customerKey)}
                                         >
                                             <td className="px-3 py-2">
                                                 <div className="flex items-center gap-2">
-                                                    <ChevronRight className={`h-3.5 w-3.5 text-slate-400 transition-transform flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`} />
-                                                    <span className="text-lg">{sev.emoji}</span>
+                                                    <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`} />
+                                                    <span className={sev.cls}>{sev.icon}</span>
                                                     <div>
                                                         {c.customerId ? (
-                                                            <Link href={`/customers/${c.customerId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-slate-900 hover:text-blue-600 hover:underline">
+                                                            <Link href={`/customers/${c.customerId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-foreground hover:text-info hover:underline">
                                                                 {c.customerName}
                                                             </Link>
                                                         ) : (
-                                                            <span className="font-semibold text-slate-900">{c.customerName}</span>
+                                                            <span className="font-semibold text-foreground">{c.customerName}</span>
                                                         )}
                                                         {c.companyName && (
-                                                            <div className="text-[11px] text-slate-500">{c.companyName}</div>
+                                                            <div className="text-[11px] text-muted-foreground">{c.companyName}</div>
                                                         )}
                                                         {c.phone && (
-                                                            <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                                            <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
                                                                 <Phone className="h-2.5 w-2.5" /> {c.phone}
                                                             </div>
                                                         )}
@@ -529,19 +535,19 @@ export default function InvoicesPiutangPage() {
                                                 </div>
                                             </td>
                                             <td className="px-3 py-2 text-right">
-                                                <div className="font-mono font-semibold">{fmtShort(c.totalInvoiced)}</div>
-                                                <div className="text-[10px] text-slate-500">{c.invoiceCount} invoice</div>
+                                                <div className="font-mono font-semibold nums">{fmtShort(c.totalInvoiced)}</div>
+                                                <div className="text-[10px] text-muted-foreground">{c.invoiceCount} invoice</div>
                                             </td>
                                             <td className="px-3 py-2 text-right">
-                                                <div className="font-mono text-emerald-700 font-semibold">{fmtShort(c.totalPaid)}</div>
-                                                <div className="text-[10px] text-slate-500">{paidPct.toFixed(0)}%</div>
+                                                <div className="font-mono text-success font-semibold nums">{fmtShort(c.totalPaid)}</div>
+                                                <div className="text-[10px] text-muted-foreground">{paidPct.toFixed(0)}%</div>
                                             </td>
                                             <td className="px-3 py-2 text-right">
-                                                <div className={`font-mono font-bold ${c.sisaTagihan > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                                                <div className={`font-mono font-bold nums ${c.sisaTagihan > 0 ? "text-warning" : "text-success"}`}>
                                                     {c.sisaTagihan > 0 ? fmtShort(c.sisaTagihan) : "LUNAS"}
                                                 </div>
                                                 {c.sisaTagihan > 0 && c.oldestUnpaidDays > 0 && (
-                                                    <div className="text-[10px] text-slate-500">
+                                                    <div className="text-[10px] text-muted-foreground">
                                                         {c.oldestUnpaidDays} hari sejak invoice terlama
                                                     </div>
                                                 )}
@@ -549,28 +555,28 @@ export default function InvoicesPiutangPage() {
                                             <td className="px-3 py-2 text-center">
                                                 {c.sisaTagihan > 0
                                                     ? <DueBadge date={c.nearestUnpaidDueDate} />
-                                                    : <span className="text-slate-400">—</span>}
+                                                    : <span className="text-muted-foreground">—</span>}
                                             </td>
                                             <td className="px-3 py-2 text-center">
                                                 <div className="inline-flex flex-col gap-0.5">
                                                     {c.overdueCount > 0 && (
-                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-300 font-semibold">
-                                                            🚨 {c.overdueCount} overdue
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/12 text-destructive border border-destructive/30 font-semibold inline-flex items-center gap-0.5">
+                                                            <AlertTriangle className="h-2.5 w-2.5" /> {c.overdueCount} overdue
                                                         </span>
                                                     )}
                                                     {c.partialCount > 0 && (
-                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300">
-                                                            ⏳ {c.partialCount} partial
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning border border-warning/30 inline-flex items-center gap-0.5">
+                                                            <Clock className="h-2.5 w-2.5" /> {c.partialCount} partial
                                                         </span>
                                                     )}
                                                     {c.unpaidCount > 0 && (
-                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300">
-                                                            📝 {c.unpaidCount} belum bayar
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border inline-flex items-center gap-0.5">
+                                                            <FileText className="h-2.5 w-2.5" /> {c.unpaidCount} belum bayar
                                                         </span>
                                                     )}
                                                     {c.sisaTagihan === 0 && (
-                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-300 font-semibold">
-                                                            ✅ Lunas Semua
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success border border-success/30 font-semibold inline-flex items-center gap-0.5">
+                                                            <CheckCircle2 className="h-2.5 w-2.5" /> Lunas Semua
                                                         </span>
                                                     )}
                                                 </div>
@@ -579,14 +585,14 @@ export default function InvoicesPiutangPage() {
                                                 <Link
                                                     href={c.customerId ? `/customers/${c.customerId}` : "/penawaran"}
                                                     onClick={(e) => e.stopPropagation()}
-                                                    className="text-[11px] text-blue-600 hover:underline inline-flex items-center gap-0.5"
+                                                    className="text-[11px] text-info hover:underline inline-flex items-center gap-0.5"
                                                 >
                                                     Customer <ChevronRight className="h-3 w-3" />
                                                 </Link>
                                             </td>
                                         </tr>
                                         {isExpanded && (
-                                            <tr className="bg-slate-50/70">
+                                            <tr className="bg-muted/30">
                                                 <td colSpan={7} className="px-3 py-2">
                                                     <CustomerInvoices invoiceIds={c.invoiceIds} onOpenDetail={setDetailTargetId} />
                                                 </td>
@@ -603,71 +609,71 @@ export default function InvoicesPiutangPage() {
 
             {/* TAB: Overdue */}
             {activeTab === "overdue" && (
-                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div className="glass rounded-xl overflow-hidden">
                     {filteredOverdueInvoices.length === 0 ? (
-                        <div className="text-center py-10 text-slate-500">
-                            <div className="text-4xl mb-2">🎉</div>
-                            <div className="font-semibold text-emerald-700">Tidak ada invoice lewat tempo!</div>
+                        <div className="text-center py-10 text-muted-foreground">
+                            <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-success" />
+                            <div className="font-semibold text-success">Tidak ada invoice lewat tempo!</div>
                             <div className="text-xs mt-1">Semua piutang masih dalam masa pembayaran.</div>
                         </div>
                     ) : (
                         <table className="w-full text-sm">
-                            <thead className="bg-red-50 border-b text-xs">
+                            <thead className="bg-destructive/8 border-b text-xs">
                                 <tr>
-                                    <th className="text-left px-3 py-2 font-semibold text-red-900">Invoice</th>
-                                    <th className="text-left px-3 py-2 font-semibold text-red-900">Customer</th>
-                                    <th className="text-right px-3 py-2 font-semibold text-red-900">Sisa Tagihan</th>
-                                    <th className="text-center px-3 py-2 font-semibold text-red-900">Jatuh Tempo</th>
-                                    <th className="text-center px-3 py-2 font-semibold text-red-900">Telat</th>
-                                    <th className="text-center px-3 py-2 font-semibold text-red-900">Aksi</th>
+                                    <th className="text-left px-3 py-2 font-semibold text-destructive">Invoice</th>
+                                    <th className="text-left px-3 py-2 font-semibold text-destructive">Customer</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-destructive">Sisa Tagihan</th>
+                                    <th className="text-center px-3 py-2 font-semibold text-destructive">Jatuh Tempo</th>
+                                    <th className="text-center px-3 py-2 font-semibold text-destructive">Telat</th>
+                                    <th className="text-center px-3 py-2 font-semibold text-destructive">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredOverdueInvoices.map((inv) => {
                                     const sev = severity(inv.daysOverdue);
                                     return (
-                                        <tr key={inv.id} className="border-b hover:bg-red-50/30">
+                                        <tr key={inv.id} className="border-b hover:bg-destructive/8 transition-colors">
                                             <td className="px-3 py-2">
                                                 <button
                                                     onClick={() => setDetailTargetId(inv.id)}
-                                                    className="font-mono text-xs text-blue-600 hover:underline font-semibold"
+                                                    className="font-mono text-xs text-info hover:underline font-semibold cursor-pointer"
                                                     title="Lihat detail pembayaran"
                                                 >
                                                     {inv.invoiceNumber}
                                                 </button>
-                                                <div className="text-[10px] text-slate-500">Terbit: {fmtDate(inv.date)}</div>
+                                                <div className="text-[10px] text-muted-foreground">Terbit: {fmtDate(inv.date)}</div>
                                             </td>
                                             <td className="px-3 py-2">
                                                 {inv.customerId ? (
-                                                    <Link href={`/customers/${inv.customerId}`} className="font-semibold text-slate-900 hover:text-blue-600 hover:underline text-xs">
+                                                    <Link href={`/customers/${inv.customerId}`} className="font-semibold text-foreground hover:text-info hover:underline text-xs">
                                                         {inv.customerName}
                                                     </Link>
                                                 ) : (
                                                     <span className="font-semibold text-xs">{inv.customerName}</span>
                                                 )}
                                                 {inv.companyName && (
-                                                    <div className="text-[10px] text-slate-500">{inv.companyName}</div>
+                                                    <div className="text-[10px] text-muted-foreground">{inv.companyName}</div>
                                                 )}
                                                 {inv.phone && (
                                                     <a
                                                         href={`https://wa.me/${inv.phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Halo, mohon konfirmasi pembayaran invoice ${inv.invoiceNumber}`)}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-[10px] text-green-600 hover:underline inline-flex items-center gap-0.5 mt-0.5"
+                                                        className="text-[10px] text-success hover:underline inline-flex items-center gap-0.5 mt-0.5"
                                                     >
-                                                        💬 WA: {inv.phone}
+                                                        <MessageCircle className="h-2.5 w-2.5" /> WA: {inv.phone}
                                                     </a>
                                                 )}
                                             </td>
                                             <td className="px-3 py-2 text-right">
-                                                <div className="font-mono font-bold text-red-700">{fmtShort(inv.sisa)}</div>
-                                                <div className="text-[10px] text-slate-500">dari {fmtShort(inv.amountToPay)}</div>
+                                                <div className="font-mono font-bold text-destructive nums">{fmtShort(inv.sisa)}</div>
+                                                <div className="text-[10px] text-muted-foreground">dari {fmtShort(inv.amountToPay)}</div>
                                             </td>
                                             <td className="px-3 py-2 text-center text-xs">
                                                 {inv.dueDateEnd ? (
                                                     <>
                                                         <div>{fmtDate(inv.dueDate)}</div>
-                                                        <div className="text-[10px] text-slate-500">— s.d. —</div>
+                                                        <div className="text-[10px] text-muted-foreground">— s.d. —</div>
                                                         <div>{fmtDate(inv.dueDateEnd)}</div>
                                                     </>
                                                 ) : (
@@ -684,8 +690,8 @@ export default function InvoicesPiutangPage() {
                                                     {/* Warning icon — overdue → buka invoice untuk extend dueDate */}
                                                     <Link
                                                         href={`/penawaran/${inv.id}`}
-                                                        title="⚠️ Overdue! Klik untuk perpanjang jatuh tempo (klien belum bayar)"
-                                                        className="p-1.5 rounded-full bg-red-100 hover:bg-red-200 text-red-700 hover:text-red-900 border border-red-300 transition animate-pulse"
+                                                        title="Overdue! Klik untuk perpanjang jatuh tempo (klien belum bayar)"
+                                                        className="p-1.5 rounded-full bg-destructive/12 hover:bg-destructive/20 text-destructive border border-destructive/30 transition animate-pulse"
                                                     >
                                                         <AlertTriangle className="h-3.5 w-3.5" />
                                                     </Link>
@@ -693,7 +699,7 @@ export default function InvoicesPiutangPage() {
                                                     <Link
                                                         href={`/penawaran/${inv.id}`}
                                                         title="Buka invoice di tab baru"
-                                                        className="inline-flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 font-semibold"
+                                                        className="inline-flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-info/15 hover:bg-info/20 text-info border border-info/30 font-semibold transition-colors"
                                                     >
                                                         <Edit3 className="h-3 w-3" /> Edit
                                                     </Link>
@@ -701,7 +707,7 @@ export default function InvoicesPiutangPage() {
                                                     <button
                                                         onClick={() => setDetailTargetId(inv.id)}
                                                         title="Lihat detail pembayaran"
-                                                        className="p-1.5 rounded text-emerald-700 hover:bg-emerald-50 border border-emerald-200"
+                                                        className="p-1.5 rounded text-success hover:bg-success/10 border border-success/30 cursor-pointer transition-colors"
                                                     >
                                                         <Receipt className="h-3.5 w-3.5" />
                                                     </button>
@@ -718,12 +724,12 @@ export default function InvoicesPiutangPage() {
 
             {/* TAB: Income Chart */}
             {activeTab === "income" && (
-                <div className="bg-white rounded-lg shadow-sm border p-4">
-                    <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5 text-emerald-600" />
+                <div className="glass rounded-xl p-4">
+                    <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-success" />
                         Pemasukan {hasDateFilter ? `(${filteredIncomeMonthly.length} bulan terfilter)` : "12 Bulan Terakhir"}
                     </h3>
-                    <p className="text-xs text-slate-500 mb-4">
+                    <p className="text-xs text-muted-foreground mb-4">
                         Sumber: Cashflow IN kategori &quot;Pembayaran Invoice&quot;. Auto-tercatat saat admin Tandai Lunas.
                     </p>
                     <div className="space-y-1.5">
@@ -731,15 +737,15 @@ export default function InvoicesPiutangPage() {
                             const pct = (m.amount / (hasDateFilter ? filteredMaxIncome : maxIncome)) * 100;
                             return (
                                 <div key={m.month} className="flex items-center gap-2 text-xs">
-                                    <div className="w-14 text-slate-600 font-semibold text-right flex-shrink-0">
+                                    <div className="w-14 text-muted-foreground font-semibold text-right flex-shrink-0">
                                         {m.label}
                                     </div>
-                                    <div className="flex-1 bg-slate-100 rounded h-6 relative overflow-hidden">
+                                    <div className="flex-1 bg-muted rounded h-6 relative overflow-hidden">
                                         <div
                                             className={`h-full ${m.amount > 0 ? "bg-gradient-to-r from-emerald-400 to-emerald-600" : ""}`}
                                             style={{ width: `${Math.max(pct, 0)}%` }}
                                         />
-                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-slate-900 mix-blend-difference">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold nums text-foreground mix-blend-difference">
                                             {m.amount > 0 ? fmtShort(m.amount) : "—"}
                                         </span>
                                     </div>
@@ -748,10 +754,10 @@ export default function InvoicesPiutangPage() {
                         })}
                     </div>
                     <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs">
-                        <span className="text-slate-600">
+                        <span className="text-muted-foreground">
                             Total pemasukan {hasDateFilter ? "(filtered)" : "12 bulan"}:
                         </span>
-                        <span className="font-mono font-bold text-emerald-700">
+                        <span className="font-mono font-bold nums text-success">
                             {fmtRp(hasDateFilter ? filteredIncomeTotal : data.incomeMonthly.reduce((s, m) => s + m.amount, 0))}
                         </span>
                     </div>
@@ -788,7 +794,7 @@ function CustomerInvoices({ invoiceIds, onOpenDetail }: { invoiceIds: number[]; 
 
     if (isLoading) {
         return (
-            <div className="text-xs text-slate-500 py-2 flex items-center gap-2">
+            <div className="text-xs text-muted-foreground py-2 flex items-center gap-2">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Memuat invoice...
             </div>
@@ -796,32 +802,32 @@ function CustomerInvoices({ invoiceIds, onOpenDetail }: { invoiceIds: number[]; 
     }
 
     if (!data || data.length === 0) {
-        return <div className="text-xs text-slate-500 py-2 italic">Tidak ada invoice.</div>;
+        return <div className="text-xs text-muted-foreground py-2 italic">Tidak ada invoice.</div>;
     }
 
     const STATUS_BADGE: Record<string, string> = {
-        PAID: "bg-emerald-100 text-emerald-800",
-        PARTIALLY_PAID: "bg-amber-100 text-amber-800",
-        SENT: "bg-blue-100 text-blue-800",
-        DRAFT: "bg-slate-100 text-slate-700",
-        CANCELLED: "bg-red-100 text-red-700",
+        PAID: "bg-success/15 text-success",
+        PARTIALLY_PAID: "bg-warning/15 text-warning",
+        SENT: "bg-info/15 text-info",
+        DRAFT: "bg-muted text-muted-foreground",
+        CANCELLED: "bg-destructive/12 text-destructive",
     };
 
     return (
         <div className="space-y-1.5">
-            <div className="text-[10px] font-bold text-slate-600 uppercase mb-1">Daftar Invoice ({data.length})</div>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Daftar Invoice ({data.length})</div>
             {data.map((inv) => {
                 const amountToPay = Number(inv.amountToPay ?? inv.total ?? 0);
                 const paidAmount = Number((inv as any).paidAmount ?? 0);
                 const sisa = Math.max(0, amountToPay - paidAmount);
-                const badgeCls = STATUS_BADGE[inv.status] ?? "bg-slate-100 text-slate-700";
+                const badgeCls = STATUS_BADGE[inv.status] ?? "bg-muted text-muted-foreground";
                 return (
-                    <div key={inv.id} className="bg-white border border-slate-200 rounded p-2 flex items-center justify-between gap-2 text-xs hover:border-emerald-400 transition">
+                    <div key={inv.id} className="bg-card border border-border rounded p-2 flex items-center justify-between gap-2 text-xs hover:border-success transition-colors">
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => onOpenDetail(inv.id)}
-                                    className="font-mono font-bold text-blue-600 hover:underline"
+                                    className="font-mono font-bold text-info hover:underline cursor-pointer"
                                 >
                                     {inv.invoiceNumber}
                                 </button>
@@ -829,40 +835,40 @@ function CustomerInvoices({ invoiceIds, onOpenDetail }: { invoiceIds: number[]; 
                                     {inv.status}
                                 </span>
                                 {inv.invoicePart && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-info/15 text-info border border-info/30">
                                         {inv.invoicePart}
                                     </span>
                                 )}
                             </div>
-                            <div className="text-[10px] text-slate-500 mt-0.5">
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
                                 Terbit: {fmtDate(inv.date)}
                                 {inv.projectName && ` · ${inv.projectName}`}
                             </div>
                         </div>
                         <div className="text-right flex-shrink-0">
-                            <div className="text-[10px] text-slate-500">
-                                Total: <span className="font-mono">{fmtShort(amountToPay)}</span>
+                            <div className="text-[10px] text-muted-foreground">
+                                Total: <span className="font-mono nums">{fmtShort(amountToPay)}</span>
                             </div>
-                            <div className="text-[10px] text-emerald-700 font-semibold">
-                                Bayar: <span className="font-mono">{fmtShort(paidAmount)}</span>
+                            <div className="text-[10px] text-success font-semibold">
+                                Bayar: <span className="font-mono nums">{fmtShort(paidAmount)}</span>
                             </div>
                             {sisa > 0 && (
-                                <div className="text-[10px] text-amber-700 font-bold">
-                                    Sisa: <span className="font-mono">{fmtShort(sisa)}</span>
+                                <div className="text-[10px] text-warning font-bold">
+                                    Sisa: <span className="font-mono nums">{fmtShort(sisa)}</span>
                                 </div>
                             )}
                         </div>
                         <div className="flex items-center gap-1">
                             <button
                                 onClick={() => onOpenDetail(inv.id)}
-                                className="text-[10px] px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded font-semibold whitespace-nowrap"
+                                className="text-[10px] px-2 py-1 bg-success/10 hover:bg-success/20 text-success border border-success/30 rounded font-semibold whitespace-nowrap inline-flex items-center gap-0.5 cursor-pointer transition-colors"
                                 title="Lihat semua cicilan + bukti transfer"
                             >
-                                🧾 Detail
+                                <Receipt className="h-3 w-3" /> Detail
                             </button>
                             <Link
                                 href={`/penawaran/${inv.id}`}
-                                className="text-[10px] px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 rounded font-semibold whitespace-nowrap inline-flex items-center gap-0.5"
+                                className="text-[10px] px-2 py-1 bg-info/15 hover:bg-info/20 text-info border border-info/30 rounded font-semibold whitespace-nowrap inline-flex items-center gap-0.5 transition-colors"
                                 title="Buka invoice (edit, extend dueDate, dll)"
                             >
                                 <ExternalLink className="h-3 w-3" /> Buka
@@ -884,26 +890,26 @@ function KpiCard({ title, value, fullValue, sub, color, icon }: {
     icon: React.ReactNode;
 }) {
     const colorMap = {
-        amber: "bg-amber-50 border-amber-200 text-amber-900",
-        red: "bg-red-50 border-red-300 text-red-900",
-        emerald: "bg-emerald-50 border-emerald-200 text-emerald-900",
-        blue: "bg-blue-50 border-blue-200 text-blue-900",
-        slate: "bg-slate-50 border-slate-200 text-slate-900",
+        amber: "bg-warning/15 border-warning/30 text-warning",
+        red: "bg-destructive/12 border-destructive/30 text-destructive",
+        emerald: "bg-success/15 border-success/30 text-success",
+        blue: "bg-info/15 border-info/30 text-info",
+        slate: "bg-muted border-border text-foreground",
     };
     const iconColorMap = {
-        amber: "text-amber-600",
-        red: "text-red-600",
-        emerald: "text-emerald-600",
-        blue: "text-blue-600",
-        slate: "text-slate-600",
+        amber: "text-warning",
+        red: "text-destructive",
+        emerald: "text-success",
+        blue: "text-info",
+        slate: "text-muted-foreground",
     };
     return (
-        <div className={`rounded-lg border p-3 ${colorMap[color]}`} title={fullValue}>
+        <div className={`glass rounded-xl border p-3 ${colorMap[color]}`} title={fullValue}>
             <div className="flex items-start justify-between mb-1">
                 <div className="text-[10px] font-semibold uppercase tracking-wide opacity-75">{title}</div>
                 <span className={iconColorMap[color]}>{icon}</span>
             </div>
-            <div className="text-xl font-bold font-mono">{value}</div>
+            <div className="text-xl font-bold font-mono nums">{value}</div>
             <div className="text-[10px] opacity-70 mt-0.5">{sub}</div>
         </div>
     );
@@ -913,9 +919,9 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
     return (
         <button
             onClick={onClick}
-            className={`px-3 py-2 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition whitespace-nowrap ${active
-                ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-slate-600 hover:text-slate-900"
+            className={`px-3 py-2 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition-colors whitespace-nowrap ${active
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
         >
             {children}

@@ -18,16 +18,16 @@ import CrewTab from "./CrewTab";
 import ProfitTab from "./ProfitTab";
 
 const STATUS_CFG: Record<EventStatus, { label: string; cls: string }> = {
-    DRAFT: { label: "Draft", cls: "bg-gray-100 text-gray-700" },
-    SCHEDULED: { label: "Terjadwal", cls: "bg-blue-50 text-blue-700" },
-    IN_PROGRESS: { label: "Berlangsung", cls: "bg-amber-50 text-amber-700" },
-    COMPLETED: { label: "Selesai", cls: "bg-green-50 text-green-700" },
-    CANCELLED: { label: "Dibatalkan", cls: "bg-red-50 text-red-700" },
+    DRAFT: { label: "Draft", cls: "bg-muted text-muted-foreground" },
+    SCHEDULED: { label: "Terjadwal", cls: "bg-info/15 text-info" },
+    IN_PROGRESS: { label: "Berlangsung", cls: "bg-warning/15 text-warning" },
+    COMPLETED: { label: "Selesai", cls: "bg-success/15 text-success" },
+    CANCELLED: { label: "Dibatalkan", cls: "bg-destructive/12 text-destructive" },
 };
 const BRAND_CFG: Record<EventBrand, { label: string; cls: string }> = {
-    EXINDO: { label: "CV. Exindo", cls: "bg-indigo-50 text-indigo-700 border-indigo-200" },
-    XPOSER: { label: "CV. Xposer", cls: "bg-pink-50 text-pink-700 border-pink-200" },
-    OTHER: { label: "Lain", cls: "bg-gray-50 text-gray-700 border-gray-200" },
+    EXINDO: { label: "CV. Exindo", cls: "bg-info/15 text-info border-info/30" },
+    XPOSER: { label: "CV. Xposer", cls: "bg-primary/15 text-primary border-primary/30" },
+    OTHER: { label: "Lain", cls: "bg-muted text-muted-foreground border-border" },
 };
 
 function fmtDateTime(d: string | null | undefined) {
@@ -104,19 +104,19 @@ export default function EventDetailPage() {
     return (
         <div className="space-y-4">
             <div className="flex items-center flex-wrap gap-2">
-                <Link href="/events" className="p-1.5 hover:bg-muted rounded">
+                <Link href="/events" className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors">
                     <ArrowLeft className="h-4 w-4" />
                 </Link>
                 <h1 className="text-xl font-bold flex items-center gap-2">
                     <CalendarDays className="h-5 w-5 text-primary" /> {ev.name}
                 </h1>
                 <span className="font-mono text-xs text-muted-foreground">{ev.code}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${brand.cls}`}>{brand.label}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded ${status.cls}`}>{status.label}</span>
+                <span className={`text-xs px-1.5 py-0.5 rounded border ${brand.cls}`}>{brand.label}</span>
+                <span className={`text-xs px-2 py-0.5 rounded ${status.cls}`}>{status.label}</span>
                 <div className="ml-auto flex items-center gap-2 flex-wrap">
                     <button
                         onClick={openShare}
-                        className="inline-flex items-center gap-1.5 border px-3 py-1.5 rounded text-sm hover:bg-muted"
+                        className="inline-flex items-center gap-1.5 border px-3 py-1.5 rounded text-sm hover:bg-muted cursor-pointer transition-colors"
                     >
                         <Share2 className="h-3.5 w-3.5" /> Share
                     </button>
@@ -124,13 +124,13 @@ export default function EventDetailPage() {
                         href={exportEventPdfUrl(id)}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 border px-3 py-1.5 rounded text-sm hover:bg-muted"
+                        className="inline-flex items-center gap-1.5 border px-3 py-1.5 rounded text-sm hover:bg-muted transition-colors"
                     >
                         <FileDown className="h-3.5 w-3.5" /> PDF
                     </a>
                     <Link
                         href={`/events/${id}/edit`}
-                        className="inline-flex items-center gap-1.5 border px-3 py-1.5 rounded text-sm hover:bg-muted"
+                        className="inline-flex items-center gap-1.5 border px-3 py-1.5 rounded text-sm hover:bg-muted transition-colors"
                     >
                         <Edit className="h-3.5 w-3.5" /> Edit
                     </Link>
@@ -156,7 +156,7 @@ export default function EventDetailPage() {
                             <input
                                 readOnly
                                 value={shareUrl ?? (shareMut.isPending ? "Membuat link…" : "")}
-                                className="flex-1 border rounded px-2 py-1 text-xs bg-white font-mono"
+                                className="flex-1 border rounded px-2 py-1 text-xs bg-background font-mono"
                                 placeholder="Link akan muncul di sini"
                             />
                             <button
@@ -200,12 +200,13 @@ export default function EventDetailPage() {
                 </div>
             )}
 
+            <div className="overflow-x-auto">
             <div className="inline-flex border rounded overflow-hidden text-sm">
                 {([
                     { k: "info", label: "Info" },
                     { k: "packing", label: "Packing List" },
                     { k: "crew", label: "Crew" },
-                    { k: "profit", label: "💰 Profit" },
+                    { k: "profit", label: "Profit" },
                     { k: "items", label: "Ringkasan Barang" },
                     { k: "withdrawals", label: `Pengeluaran (${ev.withdrawals.length})` },
                 ] as const).map((t) => (
@@ -218,10 +219,11 @@ export default function EventDetailPage() {
                     </button>
                 ))}
             </div>
+            </div>
 
             {tab === "info" && (
                 <div className="grid md:grid-cols-2 gap-4">
-                    <div className="border rounded-lg p-3 space-y-2 text-sm">
+                    <div className="glass rounded-xl p-3 space-y-2 text-sm">
                         <div className="font-semibold text-xs text-muted-foreground mb-2">Info Event</div>
                         {ev.venue && <div className="flex gap-2"><MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" /><div>{ev.venue}</div></div>}
                         <div><b>Klien:</b> {ev.customer?.name ?? ev.customerName ?? "—"}{ev.customer?.companyName ? ` (${ev.customer.companyName})` : ""}</div>
@@ -240,12 +242,12 @@ export default function EventDetailPage() {
                         )}
                     </div>
 
-                    <div className="border rounded-lg p-3 space-y-2 text-sm">
+                    <div className="glass rounded-xl p-3 space-y-2 text-sm">
                         <div className="font-semibold text-xs text-muted-foreground mb-2">Jadwal Fase</div>
-                        <PhaseRow label="Berangkat" cls="bg-yellow-100 border-yellow-300" a={ev.departureStart} b={ev.departureEnd} />
-                        <PhaseRow label="Pasang / Setup" cls="bg-orange-100 border-orange-300" a={ev.setupStart} b={ev.setupEnd} />
-                        <PhaseRow label="Event" cls="bg-emerald-100 border-emerald-300" a={ev.eventStart} b={ev.eventEnd} />
-                        <PhaseRow label="Bongkar / Dismantle" cls="bg-sky-100 border-sky-300" a={ev.loadingStart} b={ev.loadingEnd} />
+                        <PhaseRow label="Berangkat" cls="bg-warning/15 border-warning/30" a={ev.departureStart} b={ev.departureEnd} />
+                        <PhaseRow label="Pasang / Setup" cls="bg-warning/10 border-warning/20" a={ev.setupStart} b={ev.setupEnd} />
+                        <PhaseRow label="Event" cls="bg-success/15 border-success/30" a={ev.eventStart} b={ev.eventEnd} />
+                        <PhaseRow label="Bongkar / Dismantle" cls="bg-info/15 border-info/30" a={ev.loadingStart} b={ev.loadingEnd} />
                     </div>
                 </div>
             )}
@@ -270,6 +272,7 @@ export default function EventDetailPage() {
                                 <Stat label="Total Qty" value={String(summary.totalQty)} />
                                 <Stat label="Belum Kembali" value={String(summary.totalOutstanding)} />
                             </div>
+                            <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="bg-muted/50 text-left text-xs">
                                     <tr>
@@ -289,12 +292,13 @@ export default function EventDetailPage() {
                                             </td>
                                             <td className="p-2 text-right font-mono text-xs">{it.totalQuantity}</td>
                                             <td className="p-2 text-right font-mono text-xs">{it.totalReturned}</td>
-                                            <td className={`p-2 text-right font-mono text-xs ${it.outstanding > 0 ? "text-amber-600" : ""}`}>{it.outstanding}</td>
+                                            <td className={`p-2 text-right font-mono text-xs ${it.outstanding > 0 ? "text-warning" : ""}`}>{it.outstanding}</td>
                                             <td className="p-2 text-right font-mono text-xs">{it.withdrawalCount}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
+                            </div>
                         </>
                     )}
                 </div>
@@ -307,6 +311,7 @@ export default function EventDetailPage() {
                             Belum ada pengeluaran barang untuk event ini.
                         </div>
                     ) : (
+                        <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50 text-left text-xs">
                                 <tr>
@@ -326,7 +331,7 @@ export default function EventDetailPage() {
                                         <td className="p-2">{w.worker.name}</td>
                                         <td className="p-2 text-xs">{w.warehouse.name}</td>
                                         <td className="p-2">
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${w.type === "BORROW" ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"}`}>
+                                            <span className={`text-xs px-1.5 py-0.5 rounded ${w.type === "BORROW" ? "bg-info/15 text-info" : "bg-muted text-muted-foreground"}`}>
                                                 {w.type === "BORROW" ? "PINJAM" : "PAKAI"}
                                             </span>
                                         </td>
@@ -337,6 +342,7 @@ export default function EventDetailPage() {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                     )}
                 </div>
             )}
@@ -363,7 +369,7 @@ function Stat({ label, value }: { label: string; value: string }) {
     return (
         <div>
             <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="text-lg font-bold flex items-center gap-1.5">
+            <div className="text-lg font-bold flex items-center gap-1.5 nums">
                 <Boxes className="h-4 w-4 text-muted-foreground" />
                 {value}
             </div>

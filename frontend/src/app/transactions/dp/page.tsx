@@ -4,9 +4,8 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTransactions, payOffTransaction, addDPTransaction, getSettings, getBankAccounts, getUsers } from '@/lib/api';
 import { mapTransactionToReceipt, handlePrintSnap, handleShareWA } from '@/lib/receipt';
-import { CreditCard, Banknote, Landmark, Wallet, CheckCircle2, X, Printer, MessageCircle, PenSquare, Search, PlusCircle } from "lucide-react";
+import { CreditCard, Banknote, Landmark, Wallet, CheckCircle2, X, Printer, MessageCircle, PenSquare, Search, PlusCircle, AlertTriangle } from "lucide-react";
 import dayjs from "dayjs";
-import Link from 'next/link';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import EditTransactionModal from '@/app/reports/sales/EditTransactionModal';
 import { DateRangeFilter, presetToRange, type DateRange } from '@/components/DateRangeFilter';
@@ -152,7 +151,7 @@ export default function DPTransactionsPage() {
                         className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-all ${
                             activeTab === tab
                                 ? tab === 'Kredit' ? 'bg-violet-600 text-white border-violet-600'
-                                : tab === 'Bayar Nanti' ? 'bg-sky-600 text-white border-sky-600'
+                                : tab === 'Bayar Nanti' ? 'bg-info text-white border-info'
                                 : 'bg-primary text-primary-foreground border-primary'
                                 : 'bg-background border-border text-muted-foreground hover:border-primary/40'
                         }`}>
@@ -191,9 +190,9 @@ export default function DPTransactionsPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="glass p-6 rounded-xl border border-orange-500/20 bg-orange-500/5 flex flex-col justify-center">
-                    <p className="text-sm font-medium text-orange-700 mb-1">Total Tagihan Belum Lunas</p>
-                    <h2 className="text-3xl font-bold text-orange-600">
+                <div className="glass p-6 rounded-xl border border-warning/30 bg-warning/10 flex flex-col justify-center">
+                    <p className="text-sm font-medium text-warning mb-1">Total Tagihan Belum Lunas</p>
+                    <h2 className="text-3xl font-bold text-warning nums">
                         Rp {visibleTransactions.reduce((acc: number, t: any) => acc + (t.status === 'PENDING' ? Number(t.grandTotal) : Number(t.grandTotal) - Number(t.downPayment)), 0).toLocaleString('id-ID')}
                     </h2>
                 </div>
@@ -234,29 +233,29 @@ export default function DPTransactionsPage() {
                                                 <span className="text-sm text-primary font-mono">{trx.invoiceNumber}</span>
                                                 <span className="text-xs text-muted-foreground">• {dayjs(trx.createdAt).format('DD MMM YYYY')}</span>
                                                 {isPending
-                                                    ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-500/10 text-sky-600 border border-sky-500/20">BAYAR NANTI</span>
+                                                    ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-info/15 text-info border border-info/30">BAYAR NANTI</span>
                                                     : isKredit
                                                     ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600 border border-violet-500/20">KREDIT</span>
-                                                    : <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">DP</span>
+                                                    : <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/30">DP</span>
                                                 }
                                             </div>
                                             {trx.dueDate && (
-                                                <p className={`text-[11px] mt-0.5 font-medium ${isOverdue ? 'text-red-500' : 'text-muted-foreground'}`}>
-                                                    {isOverdue ? '⚠ Lewat jatuh tempo: ' : 'Jatuh tempo: '}
+                                                <p className={`text-[11px] mt-0.5 font-medium flex items-center gap-0.5 ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                                    {isOverdue ? <><AlertTriangle className="w-3 h-3 shrink-0" />Lewat jatuh tempo: </> : 'Jatuh tempo: '}
                                                     {dayjs(trx.dueDate).format('DD MMM YYYY')}
                                                 </p>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground text-right border-l border-border/50">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground text-right border-l border-border/50 nums">
                                             Rp {grandTotal.toLocaleString('id-ID')}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
                                             {isPending
-                                                ? <span className="text-sky-500 font-semibold text-xs">Belum Bayar</span>
-                                                : <span className="text-emerald-600">Rp {dp.toLocaleString('id-ID')}</span>
+                                                ? <span className="text-info font-semibold text-xs">Belum Bayar</span>
+                                                : <span className="text-success nums">Rp {dp.toLocaleString('id-ID')}</span>
                                             }
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-orange-600 text-right bg-orange-500/5">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-warning text-right bg-warning/10 nums">
                                             Rp {balance.toLocaleString('id-ID')}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -278,7 +277,7 @@ export default function DPTransactionsPage() {
                                                 <button
                                                     onClick={() => setEditTrx(trx)}
                                                     title={isManager ? 'Edit Transaksi' : 'Ajukan Perubahan'}
-                                                    className="p-1.5 bg-muted text-muted-foreground hover:bg-amber-500/10 hover:text-amber-600 rounded-lg transition-colors outline-none"
+                                                    className="p-1.5 bg-muted text-muted-foreground hover:bg-warning/10 hover:text-warning rounded-lg transition-colors outline-none"
                                                 >
                                                     <PenSquare className="w-4 h-4" />
                                                 </button>
@@ -296,7 +295,7 @@ export default function DPTransactionsPage() {
                             {visibleTransactions.length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-12 text-center">
-                                        <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3 opacity-20" />
+                                        <CheckCircle2 className="w-12 h-12 text-success mx-auto mb-3 opacity-20" />
                                         <p className="text-base font-medium text-foreground">Tidak ada piutang aktif</p>
                                         <p className="text-sm text-muted-foreground mt-1">
                                             {q ? `Tidak ada hasil untuk "${search}".`
@@ -353,7 +352,7 @@ export default function DPTransactionsPage() {
                                 return (
                                     <div className="text-center space-y-1 pb-2 border-b border-dashed border-border">
                                         <p className="text-xs text-muted-foreground">Sisa tagihan {selectedTrx.customerName || selectedTrx.invoiceNumber}</p>
-                                        <p className="text-3xl font-bold text-orange-600">Rp {sisaTagihan.toLocaleString('id-ID')}</p>
+                                        <p className="text-3xl font-bold text-warning nums">Rp {sisaTagihan.toLocaleString('id-ID')}</p>
                                         {selectedTrx.status === 'PARTIAL' && Number(selectedTrx.downPayment) > 0 && (
                                             <p className="text-xs text-muted-foreground">
                                                 Total Rp {Number(selectedTrx.grandTotal).toLocaleString('id-ID')} · DP masuk Rp {Number(selectedTrx.downPayment).toLocaleString('id-ID')}
@@ -366,12 +365,12 @@ export default function DPTransactionsPage() {
                             {/* Toggle mode bayar */}
                             <div className="grid grid-cols-2 gap-2">
                                 <button type="button" onClick={() => { setPayMode('PARTIAL'); setNominalBayar(''); }}
-                                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${payMode === 'PARTIAL' ? 'border-amber-500 bg-amber-500/10 text-amber-700' : 'border-border bg-muted/30 text-muted-foreground hover:border-amber-400/50'}`}>
+                                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${payMode === 'PARTIAL' ? 'border-warning bg-warning/15 text-warning' : 'border-border bg-muted/30 text-muted-foreground hover:border-warning/40'}`}>
                                     <PlusCircle className="w-4 h-4" />
                                     Tambah DP
                                 </button>
                                 <button type="button" onClick={() => { setPayMode('FULL'); setNominalBayar(''); }}
-                                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${payMode === 'FULL' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700' : 'border-border bg-muted/30 text-muted-foreground hover:border-emerald-400/50'}`}>
+                                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${payMode === 'FULL' ? 'border-success bg-success/15 text-success' : 'border-border bg-muted/30 text-muted-foreground hover:border-success/40'}`}>
                                     <CheckCircle2 className="w-4 h-4" />
                                     Lunas Penuh
                                 </button>
@@ -396,25 +395,25 @@ export default function DPTransactionsPage() {
                                                 placeholder="Masukkan nominal DP..."
                                                 min="1"
                                                 max={sisaTagihan}
-                                                className="w-full pl-12 pr-4 py-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-amber-400 outline-none font-bold text-lg"
+                                                className="w-full pl-12 pr-4 py-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-warning outline-none font-bold text-lg nums"
                                                 required={payMode === 'PARTIAL'}
                                                 autoFocus
                                             />
                                         </div>
                                         {nominalBayar !== '' && nominalNum > 0 && (
                                             nominalNum >= sisaTagihan ? (
-                                                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs text-emerald-700 font-semibold text-center">
+                                                <div className="p-2.5 bg-success/15 border border-success/30 rounded-lg text-xs text-success font-semibold text-center">
                                                     Nominal mencukupi — transaksi akan otomatis <strong>LUNAS</strong>
                                                 </div>
                                             ) : (
-                                                <div className="flex justify-between items-center p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-700 font-semibold">
+                                                <div className="flex justify-between items-center p-2.5 bg-warning/15 border border-warning/30 rounded-lg text-xs text-warning font-semibold">
                                                     <span>Sisa setelah DP ini:</span>
-                                                    <span>Rp {sisaSetelah.toLocaleString('id-ID')}</span>
+                                                    <span className="nums">Rp {sisaSetelah.toLocaleString('id-ID')}</span>
                                                 </div>
                                             )
                                         )}
                                         {nominalBayar !== '' && nominalNum > sisaTagihan && (
-                                            <p className="text-xs text-red-500 font-medium">Nominal melebihi sisa tagihan!</p>
+                                            <p className="text-xs text-destructive font-medium">Nominal melebihi sisa tagihan!</p>
                                         )}
                                     </div>
                                 );
@@ -436,13 +435,13 @@ export default function DPTransactionsPage() {
                                                 value={nominalBayar}
                                                 onChange={e => setNominalBayar(e.target.value)}
                                                 placeholder={sisaTagihan.toString()}
-                                                className="w-full pl-12 pr-4 py-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none font-bold text-lg"
+                                                className="w-full pl-12 pr-4 py-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none font-bold text-lg nums"
                                             />
                                         </div>
                                         {kembalian > 0 && (
-                                            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex justify-between items-center text-emerald-700 text-sm">
+                                            <div className="p-2.5 bg-success/15 border border-success/30 rounded-lg flex justify-between items-center text-success text-sm">
                                                 <span>Uang Kembalian:</span>
-                                                <span className="font-bold">Rp {kembalian.toLocaleString('id-ID')}</span>
+                                                <span className="font-bold nums">Rp {kembalian.toLocaleString('id-ID')}</span>
                                             </div>
                                         )}
                                     </div>
@@ -463,7 +462,7 @@ export default function DPTransactionsPage() {
                                             { id: 'BANK_TRANSFER', label: 'Transfer', icon: <Landmark className="w-4 h-4" /> },
                                         ] as const).map(m => (
                                             <button key={m.id} type="button" onClick={() => { setPaymentMethod(m.id); if (m.id !== 'BANK_TRANSFER') setPayoffBankId(''); }}
-                                                className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 text-xs font-bold transition-all ${paymentMethod === m.id ? 'border-amber-500 bg-amber-500/10 text-amber-700' : 'border-border bg-muted/30 text-muted-foreground hover:border-amber-400/40'}`}>
+                                                className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 text-xs font-bold transition-all ${paymentMethod === m.id ? 'border-warning bg-warning/15 text-warning' : 'border-border bg-muted/30 text-muted-foreground hover:border-warning/40'}`}>
                                                 {m.icon}{m.label}
                                             </button>
                                         ))}
@@ -558,8 +557,8 @@ export default function DPTransactionsPage() {
                                     <button type="submit" disabled={isPending || isPartialDisabled}
                                         className={`w-full py-3 rounded-xl font-bold transition-colors shadow-md disabled:opacity-50 flex justify-center items-center gap-2 text-sm ${
                                             payMode === 'PARTIAL'
-                                                ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
-                                                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
+                                                ? 'bg-warning hover:bg-warning/90 text-warning-foreground shadow-warning/20'
+                                                : 'bg-success hover:bg-success/90 text-white shadow-success/20'
                                         }`}>
                                         {isPending ? 'Memproses...' : payMode === 'PARTIAL'
                                             ? (nominalBayar && nominalNum >= sisaTagihan ? <><CheckCircle2 className="w-4 h-4" /> Bayar DP (akan LUNAS)</> : <><PlusCircle className="w-4 h-4" /> Tambah DP</>)

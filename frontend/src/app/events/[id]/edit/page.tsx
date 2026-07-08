@@ -24,7 +24,7 @@ export default function EditEventPage() {
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-2">
-                <Link href={`/events/${id}`} className="p-1.5 hover:bg-muted rounded">
+                <Link href={`/events/${id}`} className="p-1.5 hover:bg-muted rounded-lg transition-colors cursor-pointer">
                     <ArrowLeft className="h-4 w-4" />
                 </Link>
                 <h1 className="text-xl font-bold flex items-center gap-2">

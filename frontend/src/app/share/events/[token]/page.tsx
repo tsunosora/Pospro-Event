@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
     CalendarDays, MapPin, User as UserIcon, Package, Loader2,
-    HardHat, LogOut, CheckCircle2, Circle, X, Package2, Droplet,
+    HardHat, LogOut, CheckCircle2, Circle, X, Package2, Droplet, Lock,
 } from "lucide-react";
 
 type Phase = { label: string; cls: string; a: string | null; b: string | null };
@@ -127,9 +127,9 @@ export default function PublicEventSharePage() {
 
     if (error) {
         return (
-            <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
+            <div className="min-h-screen flex items-center justify-center p-6 bg-background">
                 <div className="max-w-sm text-center space-y-2">
-                    <div className="text-4xl">🔒</div>
+                    <Lock className="h-8 w-8 text-muted-foreground mx-auto" />
                     <h1 className="text-lg font-bold">Link tidak tersedia</h1>
                     <p className="text-sm text-muted-foreground">{error}</p>
                 </div>
@@ -138,7 +138,7 @@ export default function PublicEventSharePage() {
     }
     if (!data) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="min-h-screen flex items-center justify-center bg-background">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
         );
@@ -147,10 +147,10 @@ export default function PublicEventSharePage() {
     const { event: ev, summary } = data;
     const brand = BRAND_CFG[ev.brand] ?? BRAND_CFG.OTHER;
     const phases: Phase[] = [
-        { label: "Berangkat", cls: "bg-yellow-100 border-yellow-300", a: ev.departureStart, b: ev.departureEnd },
-        { label: "Pasang / Setup", cls: "bg-orange-100 border-orange-300", a: ev.setupStart, b: ev.setupEnd },
-        { label: "Event", cls: "bg-emerald-100 border-emerald-300", a: ev.eventStart, b: ev.eventEnd },
-        { label: "Bongkar / Dismantle", cls: "bg-sky-100 border-sky-300", a: ev.loadingStart, b: ev.loadingEnd },
+        { label: "Berangkat", cls: "bg-warning/15 border-warning/30", a: ev.departureStart, b: ev.departureEnd },
+        { label: "Pasang / Setup", cls: "bg-warning/15 border-warning/30", a: ev.setupStart, b: ev.setupEnd },
+        { label: "Event", cls: "bg-success/15 border-success/30", a: ev.eventStart, b: ev.eventEnd },
+        { label: "Bongkar / Dismantle", cls: "bg-info/15 border-info/30", a: ev.loadingStart, b: ev.loadingEnd },
     ];
 
     const submitCheck = async (itemId: number, isChecked: boolean, disposition?: Disposition | null) => {
@@ -186,7 +186,7 @@ export default function PublicEventSharePage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-24">
+        <div className="min-h-screen bg-background pb-24">
             <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-4">
                 <div className={`rounded-lg p-4 ${brand.cls}`}>
                     <div className="text-xs opacity-80">{brand.label} • {STATUS_CFG[ev.status] ?? ev.status}</div>
@@ -196,7 +196,7 @@ export default function PublicEventSharePage() {
                     <div className="text-xs font-mono opacity-75 mt-1">{ev.code}</div>
                 </div>
 
-                <div className="bg-white border rounded-lg p-4 space-y-2 text-sm">
+                <div className="glass rounded-xl p-4 space-y-2 text-sm">
                     <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Info Event</div>
                     {ev.venue && (
                         <div className="flex gap-2">
@@ -214,7 +214,7 @@ export default function PublicEventSharePage() {
                     </div>
                 </div>
 
-                <div className="bg-white border rounded-lg p-4 space-y-2">
+                <div className="glass rounded-xl p-4 space-y-2">
                     <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Jadwal Fase</div>
                     {phases.map((p) => (
                         <div key={p.label} className={`border rounded p-2 ${p.cls}`}>
@@ -227,18 +227,18 @@ export default function PublicEventSharePage() {
                 </div>
 
                 {ev.notes && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                        <div className="text-xs font-semibold text-amber-900 uppercase tracking-wide mb-1">Catatan</div>
+                    <div className="bg-warning/15 border border-warning/30 rounded-lg p-4">
+                        <div className="text-xs font-semibold text-warning uppercase tracking-wide mb-1">Catatan</div>
                         <div className="text-sm whitespace-pre-line">{ev.notes}</div>
                     </div>
                 )}
 
                 {ev.packingItems && ev.packingItems.length > 0 && (
-                    <div className="bg-white border rounded-lg overflow-hidden">
+                    <div className="glass rounded-xl overflow-hidden">
                         <div className="px-4 py-3 border-b flex items-center gap-2">
                             <Package className="h-4 w-4 text-muted-foreground" />
                             <div className="text-sm font-semibold">Packing List ({ev.packingItems.length} barang)</div>
-                            {session && <span className="ml-auto text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">Mode Petugas</span>}
+                            {session && <span className="ml-auto text-[10px] text-success bg-success/15 border border-success/30 px-1.5 py-0.5 rounded">Mode Petugas</span>}
                         </div>
                         <div className="divide-y">
                             {ev.packingItems.map((p) => {
@@ -247,13 +247,13 @@ export default function PublicEventSharePage() {
                                     <div
                                         key={p.id}
                                         onClick={() => clickable && handleItemTap(p)}
-                                        className={`p-3 ${clickable ? "cursor-pointer active:bg-slate-100" : ""} ${p.isChecked ? "bg-emerald-50/40" : ""}`}
+                                        className={`p-3 transition-colors ${clickable ? "cursor-pointer active:bg-muted" : ""} ${p.isChecked ? "bg-success/10" : ""}`}
                                     >
                                         <div className="flex items-start gap-2">
                                             {p.isChecked ? (
-                                                <CheckCircle2 className="h-6 w-6 mt-0.5 text-emerald-600 shrink-0" />
+                                                <CheckCircle2 className="h-6 w-6 mt-0.5 text-success shrink-0" />
                                             ) : (
-                                                <Circle className="h-6 w-6 mt-0.5 text-gray-400 shrink-0" />
+                                                <Circle className="h-6 w-6 mt-0.5 text-muted-foreground shrink-0" />
                                             )}
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -261,7 +261,7 @@ export default function PublicEventSharePage() {
                                                         {p.productVariant.product.name}
                                                     </div>
                                                     {p.isChecked && p.disposition && (
-                                                        <span className={`text-[9px] px-1.5 py-0.5 rounded border font-medium ${p.disposition === "PINJAM" ? "bg-blue-50 text-blue-700 border-blue-300" : "bg-orange-50 text-orange-700 border-orange-300"}`}>
+                                                        <span className={`text-[9px] px-1.5 py-0.5 rounded border font-medium ${p.disposition === "PINJAM" ? "bg-info/15 text-info border-info/30" : "bg-warning/15 text-warning border-warning/30"}`}>
                                                             {p.disposition}
                                                         </span>
                                                     )}
@@ -270,7 +270,7 @@ export default function PublicEventSharePage() {
                                                     {p.productVariant.sku}{p.productVariant.variantName ? ` • ${p.productVariant.variantName}` : ""}
                                                 </div>
                                                 <div className="text-xs mt-1 flex items-center gap-1">
-                                                    <b>Qty:</b> {Number(p.quantity)}
+                                                    <b>Qty:</b> <span className="nums">{Number(p.quantity)}</span>
                                                 </div>
                                                 <div className="text-xs mt-1">
                                                     {p.storageLocation ? (
@@ -281,11 +281,12 @@ export default function PublicEventSharePage() {
                                                     ) : (
                                                         <div className="text-muted-foreground italic">Lokasi belum diset</div>
                                                     )}
-                                                    {p.locationNote && <div className="text-[10px] text-muted-foreground mt-0.5">“{p.locationNote}”</div>}
+                                                    {p.locationNote && <div className="text-[10px] text-muted-foreground mt-0.5">"{p.locationNote}"</div>}
                                                 </div>
                                                 {p.checkedBy && (
-                                                    <div className="text-[10px] text-emerald-700 mt-1">
-                                                        ✓ {p.checkedBy.name}
+                                                    <div className="text-[10px] text-success mt-1 flex items-center gap-1">
+                                                        <CheckCircle2 className="h-3 w-3 shrink-0" />
+                                                        {p.checkedBy.name}
                                                         {p.checkedAt ? ` • ${new Date(p.checkedAt).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}` : ""}
                                                     </div>
                                                 )}
@@ -299,30 +300,32 @@ export default function PublicEventSharePage() {
                 )}
 
                 {summary.items.length > 0 && (
-                    <div className="bg-white border rounded-lg overflow-hidden">
+                    <div className="glass rounded-xl overflow-hidden">
                         <div className="px-4 py-3 border-b flex items-center gap-2">
                             <Package className="h-4 w-4 text-muted-foreground" />
-                            <div className="text-sm font-semibold">Ringkasan Pengeluaran ({summary.totalUniqueItems} jenis, qty {summary.totalQty})</div>
+                            <div className="text-sm font-semibold">Ringkasan Pengeluaran ({summary.totalUniqueItems} jenis, qty <span className="nums">{summary.totalQty}</span>)</div>
                         </div>
-                        <table className="w-full text-sm">
-                            <thead className="bg-slate-50 text-xs text-left">
-                                <tr>
-                                    <th className="p-2">Produk / SKU</th>
-                                    <th className="p-2 w-20 text-right">Qty</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {summary.items.map((it) => (
-                                    <tr key={it.productVariantId} className="border-t">
-                                        <td className="p-2">
-                                            <div>{it.productName}</div>
-                                            <div className="text-[10px] text-muted-foreground font-mono">{it.sku}{it.variantName ? ` • ${it.variantName}` : ""}</div>
-                                        </td>
-                                        <td className="p-2 text-right font-mono text-xs">{it.totalQuantity}</td>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted text-xs text-left">
+                                    <tr>
+                                        <th className="p-2">Produk / SKU</th>
+                                        <th className="p-2 w-20 text-right">Qty</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {summary.items.map((it) => (
+                                        <tr key={it.productVariantId} className="border-t">
+                                            <td className="p-2">
+                                                <div>{it.productName}</div>
+                                                <div className="text-[10px] text-muted-foreground font-mono">{it.sku}{it.variantName ? ` • ${it.variantName}` : ""}</div>
+                                            </td>
+                                            <td className="p-2 text-right font-mono text-xs nums">{it.totalQuantity}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
 
@@ -332,13 +335,13 @@ export default function PublicEventSharePage() {
             </div>
 
             {/* Floating bottom bar: login / logout */}
-            <div className="fixed bottom-0 inset-x-0 p-3 bg-white border-t shadow-lg z-40">
+            <div className="fixed bottom-0 inset-x-0 p-3 bg-card border-t shadow-lg z-40">
                 <div className="max-w-2xl mx-auto flex items-center gap-2">
                     {session ? (
                         <>
                             <div className="flex-1 text-sm">
                                 <div className="flex items-center gap-1.5">
-                                    <HardHat className="h-4 w-4 text-emerald-600" />
+                                    <HardHat className="h-4 w-4 text-success" />
                                     <span className="font-semibold">{session.workerName}</span>
                                 </div>
                                 <div className="text-[10px] text-muted-foreground">
@@ -347,7 +350,7 @@ export default function PublicEventSharePage() {
                             </div>
                             <button
                                 onClick={logout}
-                                className="inline-flex items-center gap-1.5 border px-3 py-2 rounded text-sm hover:bg-muted"
+                                className="inline-flex items-center gap-1.5 border px-3 py-2 rounded text-sm hover:bg-muted cursor-pointer transition-colors"
                             >
                                 <LogOut className="h-4 w-4" /> Keluar
                             </button>
@@ -359,7 +362,7 @@ export default function PublicEventSharePage() {
                             </div>
                             <button
                                 onClick={() => setShowLogin(true)}
-                                className="inline-flex items-center gap-1.5 bg-emerald-600 text-white px-4 py-2 rounded text-sm hover:bg-emerald-700 font-semibold"
+                                className="inline-flex items-center gap-1.5 bg-success text-white px-4 py-2 rounded text-sm hover:bg-success/90 font-semibold cursor-pointer transition-colors"
                             >
                                 <HardHat className="h-4 w-4" /> Mode Petugas
                             </button>
@@ -399,15 +402,15 @@ function DispositionPickModal({ item, onClose, onPick }: {
 }) {
     return (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-            <div className="bg-white w-full md:max-w-sm md:rounded-lg rounded-t-lg p-4 space-y-3">
+            <div className="bg-card w-full md:max-w-sm md:rounded-lg rounded-t-lg p-4 space-y-3">
                 <div className="flex items-center gap-2">
                     <div className="font-semibold">Klasifikasi barang</div>
-                    <button onClick={onClose} className="ml-auto p-1 hover:bg-muted rounded"><X className="h-4 w-4" /></button>
+                    <button onClick={onClose} className="ml-auto p-1 hover:bg-muted rounded cursor-pointer transition-colors"><X className="h-4 w-4" /></button>
                 </div>
                 <div className="text-sm">
                     <div className="font-medium">{item.productVariant.product.name}</div>
                     <div className="text-[11px] text-muted-foreground font-mono">
-                        {item.productVariant.sku} • qty {Number(item.quantity)}
+                        {item.productVariant.sku} • qty <span className="nums">{Number(item.quantity)}</span>
                     </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -416,11 +419,11 @@ function DispositionPickModal({ item, onClose, onPick }: {
 
                 <button
                     onClick={() => onPick("PINJAM")}
-                    className="w-full flex items-start gap-3 border-2 border-blue-200 hover:bg-blue-50 rounded-lg p-3 text-left"
+                    className="w-full flex items-start gap-3 border-2 border-info/30 hover:bg-info/15 rounded-lg p-3 text-left cursor-pointer transition-colors"
                 >
-                    <Package2 className="h-6 w-6 text-blue-600 shrink-0 mt-0.5" />
+                    <Package2 className="h-6 w-6 text-info shrink-0 mt-0.5" />
                     <div>
-                        <div className="font-semibold text-blue-800">📦 Pinjam (balik lagi)</div>
+                        <div className="font-semibold text-info">Pinjam (balik lagi)</div>
                         <div className="text-[11px] text-muted-foreground">
                             Stand, tenda, meja, dll. Masuk ke kategori <b>Perlengkapan</b> di RAB.
                         </div>
@@ -429,11 +432,11 @@ function DispositionPickModal({ item, onClose, onPick }: {
 
                 <button
                     onClick={() => onPick("OPERASIONAL")}
-                    className="w-full flex items-start gap-3 border-2 border-orange-200 hover:bg-orange-50 rounded-lg p-3 text-left"
+                    className="w-full flex items-start gap-3 border-2 border-warning/30 hover:bg-warning/15 rounded-lg p-3 text-left cursor-pointer transition-colors"
                 >
-                    <Droplet className="h-6 w-6 text-orange-600 shrink-0 mt-0.5" />
+                    <Droplet className="h-6 w-6 text-warning shrink-0 mt-0.5" />
                     <div>
-                        <div className="font-semibold text-orange-800">🧴 Habis Pakai / Operasional</div>
+                        <div className="font-semibold text-warning">Habis Pakai / Operasional</div>
                         <div className="text-[11px] text-muted-foreground">
                             Lakban, konsumsi, bahan habis. Masuk ke kategori <b>Lain-lain</b> di RAB.
                         </div>
@@ -493,11 +496,11 @@ function PetugasLoginModal({ token, apiBase, onClose, onSuccess }: {
 
     return (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-            <div className="bg-white w-full md:max-w-sm md:rounded-lg rounded-t-lg p-4 space-y-3">
+            <div className="bg-card w-full md:max-w-sm md:rounded-lg rounded-t-lg p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                    <HardHat className="h-5 w-5 text-emerald-600" />
+                    <HardHat className="h-5 w-5 text-success" />
                     <div className="font-semibold">Mode Petugas</div>
-                    <button onClick={onClose} className="ml-auto p-1 hover:bg-muted rounded"><X className="h-4 w-4" /></button>
+                    <button onClick={onClose} className="ml-auto p-1 hover:bg-muted rounded cursor-pointer transition-colors"><X className="h-4 w-4" /></button>
                 </div>
                 <p className="text-xs text-muted-foreground">
                     Pilih nama pekerja lalu masukkan PIN gudang. Sesi berlaku 4 jam.
@@ -531,12 +534,12 @@ function PetugasLoginModal({ token, apiBase, onClose, onSuccess }: {
                     />
                 </div>
 
-                {err && <div className="text-xs text-red-600">{err}</div>}
+                {err && <div className="text-xs text-destructive">{err}</div>}
 
                 <button
                     onClick={submit}
                     disabled={busy}
-                    className="w-full inline-flex items-center justify-center gap-1.5 bg-emerald-600 text-white px-3 py-2.5 rounded text-sm hover:bg-emerald-700 font-semibold disabled:opacity-50"
+                    className="w-full inline-flex items-center justify-center gap-1.5 bg-success text-white px-3 py-2.5 rounded text-sm hover:bg-success/90 font-semibold disabled:opacity-50 cursor-pointer transition-colors"
                 >
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <HardHat className="h-4 w-4" />}
                     Masuk

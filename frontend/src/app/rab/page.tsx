@@ -19,6 +19,7 @@ import {
     Image as ImageIcon, Pencil, ImageOff, MapPin, Calendar, User as UserIcon,
     TrendingUp, TrendingDown, Building2, Clock, CheckCircle2, PlayCircle, CalendarOff,
     LayoutGrid, List as ListIcon, Table as TableIcon,
+    ClipboardList, Wallet, AlertTriangle, Info, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
 import { BrandBadge } from "@/components/BrandBadge";
@@ -26,7 +27,7 @@ import { CustomerPickerModal } from "@/components/CustomerPickerModal";
 import { getCustomer, type Customer } from "@/lib/api/customers";
 import { Users as UsersIcon, Tag as TagIcon } from "lucide-react";
 import { TagChipInput } from "@/components/TagChipInput";
-import { parseRabTags, getRabTags } from "@/lib/api/rab";
+import { parseRabTags } from "@/lib/api/rab";
 import { DateRangeFilter, presetToRange, type DateRange } from "@/components/DateRangeFilter";
 
 type ViewMode = "card" | "list" | "details";
@@ -48,30 +49,30 @@ const STATUS_META: Record<EventStatus, {
         label: "Akan Datang",
         short: "Akan Datang",
         emoji: "📅",
-        bg: "bg-blue-50",
-        text: "text-blue-700",
-        border: "border-blue-300",
-        bar: "bg-blue-500",
+        bg: "bg-info/15",
+        text: "text-info",
+        border: "border-info/30",
+        bar: "bg-info",
         icon: Clock,
     },
     ONGOING: {
         label: "Sedang Berjalan",
         short: "Berjalan",
         emoji: "🟢",
-        bg: "bg-emerald-50",
-        text: "text-emerald-700",
-        border: "border-emerald-400",
-        bar: "bg-emerald-500",
+        bg: "bg-success/15",
+        text: "text-success",
+        border: "border-success/30",
+        bar: "bg-success",
         icon: PlayCircle,
     },
     FINISHED: {
         label: "Selesai Event",
         short: "Selesai Event",
         emoji: "✅",
-        bg: "bg-slate-50",
-        text: "text-slate-600",
-        border: "border-slate-300",
-        bar: "bg-slate-400",
+        bg: "bg-muted",
+        text: "text-muted-foreground",
+        border: "border-border",
+        bar: "bg-muted-foreground",
         icon: CheckCircle2,
     },
     REPORT_DONE: {
@@ -88,10 +89,10 @@ const STATUS_META: Record<EventStatus, {
         label: "Tanpa Tanggal",
         short: "—",
         emoji: "❔",
-        bg: "bg-amber-50",
-        text: "text-amber-700",
-        border: "border-amber-300",
-        bar: "bg-amber-400",
+        bg: "bg-warning/15",
+        text: "text-warning",
+        border: "border-warning/30",
+        bar: "bg-warning",
         icon: CalendarOff,
     },
 };
@@ -182,8 +183,8 @@ function ViewModeBtn({
             onClick={onClick}
             title={`Tampilkan sebagai ${label}`}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold transition ${active
-                ? "bg-white text-blue-700 shadow-sm border border-blue-200"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-card text-primary shadow-sm border border-primary/30"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
         >
             {icon}
@@ -206,16 +207,16 @@ function StatusTab({
     color: "slate" | "emerald" | "blue" | "amber";
 }) {
     const activeMap: Record<string, string> = {
-        slate: "bg-slate-700 text-white border-slate-700",
-        emerald: "bg-emerald-600 text-white border-emerald-600",
-        blue: "bg-blue-600 text-white border-blue-600",
-        amber: "bg-amber-500 text-white border-amber-500",
+        slate: "bg-foreground text-background border-foreground",
+        emerald: "bg-success text-white border-success",
+        blue: "bg-info text-white border-info",
+        amber: "bg-warning text-warning-foreground border-warning",
     };
     const idleMap: Record<string, string> = {
-        slate: "bg-white text-slate-700 border-slate-200 hover:border-slate-400",
-        emerald: "bg-white text-emerald-700 border-emerald-200 hover:border-emerald-400",
-        blue: "bg-white text-blue-700 border-blue-200 hover:border-blue-400",
-        amber: "bg-white text-amber-700 border-amber-200 hover:border-amber-400",
+        slate: "bg-card text-muted-foreground border-border hover:border-foreground/40",
+        emerald: "bg-card text-success border-success/30 hover:border-success/50",
+        blue: "bg-card text-info border-info/30 hover:border-info/50",
+        amber: "bg-card text-warning border-warning/30 hover:border-warning/50",
     };
     return (
         <button
@@ -226,7 +227,7 @@ function StatusTab({
         >
             <span>{label}</span>
             <span
-                className={`text-[10px] sm:text-[11px] font-mono font-bold px-1 sm:px-1.5 rounded-full ${active ? "bg-white/20" : "bg-slate-100 text-slate-700"
+                className={`text-[10px] sm:text-[11px] font-mono font-bold px-1 sm:px-1.5 rounded-full ${active ? "bg-white/20" : "bg-muted text-foreground"
                     }`}
             >
                 {count}
@@ -298,12 +299,12 @@ function RabTagFilterStrip({
                     setSearch("");
                 }}
                 className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1.5 ${isActive
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-blue-700 border-blue-200 hover:border-blue-400"
+                    ? "bg-info text-white border-info"
+                    : "bg-card text-info border-info/30 hover:border-info/50"
                     }`}
             >
                 {tag}
-                <span className={`text-[10px] font-mono px-1 rounded-full ${isActive ? "bg-white/30" : "bg-blue-50 text-blue-700"}`}>
+                <span className={`text-[10px] font-mono px-1 rounded-full ${isActive ? "bg-white/30" : "bg-info/15 text-info"}`}>
                     {count}
                 </span>
             </button>
@@ -313,13 +314,13 @@ function RabTagFilterStrip({
     return (
         <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 w-[56px] uppercase tracking-wider">🏷️ Tag</span>
+                <span className="text-xs font-bold text-muted-foreground shrink-0 w-[56px] uppercase tracking-wider inline-flex items-center gap-1"><TagIcon className="h-3.5 w-3.5" /> Tag</span>
                 <button
                     type="button"
                     onClick={() => onChange("")}
                     className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition ${active === ""
-                        ? "bg-slate-700 text-white border-slate-700"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                        ? "bg-foreground text-background border-foreground"
+                        : "bg-card text-foreground border-border hover:border-foreground/40"
                         }`}
                 >
                     Semua
@@ -330,33 +331,33 @@ function RabTagFilterStrip({
                     <button
                         type="button"
                         onClick={() => setShowAll((v) => !v)}
-                        className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:border-slate-400 transition"
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full border-2 border-dashed border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:border-border transition"
                     >
-                        {showAll ? "▲ Sembunyikan" : `▼ +${hiddenCount} lainnya`}
+                        {showAll ? <><ChevronUp className="h-3 w-3" /> Sembunyikan</> : <><ChevronDown className="h-3 w-3" /> +{hiddenCount} lainnya</>}
                     </button>
                 )}
             </div>
 
             {/* Drawer expandable — search + list semua tag */}
             {showAll && (
-                <div className="ml-[64px] border-2 border-dashed border-slate-200 rounded-lg p-2.5 bg-slate-50/40">
+                <div className="ml-[64px] border-2 border-dashed border-border rounded-lg p-2.5 bg-muted/40">
                     <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cari tag:</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Cari tag:</span>
                         <input
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Ketik untuk filter..."
                             autoFocus
-                            className="flex-1 max-w-xs border rounded px-2 py-1 text-xs"
+                            className="flex-1 max-w-xs border border-border rounded px-2 py-1 text-xs bg-background"
                         />
-                        <span className="text-[10px] text-slate-500">
+                        <span className="text-[10px] text-muted-foreground">
                             {filteredHidden.length} tag
                         </span>
                     </div>
                     <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto [scrollbar-width:thin]">
                         {filteredHidden.length === 0 ? (
-                            <p className="text-[11px] text-slate-400 italic">Tidak ada tag cocok.</p>
+                            <p className="text-[11px] text-muted-foreground italic">Tidak ada tag cocok.</p>
                         ) : (
                             filteredHidden.map(({ tag, count }) => renderChip(tag, count))
                         )}
@@ -655,7 +656,7 @@ function RabListPageInner() {
             {/* ─── Header — Mobile-first responsive ─── */}
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4 sm:mb-6">
                 <div className="min-w-0">
-                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">📋 RAB — Anggaran Proyek</h1>
+                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold flex items-center gap-2"><ClipboardList className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" /> RAB — Anggaran Proyek</h1>
                     <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-0.5 sm:mt-1">
                         Daftar perhitungan biaya tiap proyek booth/event.
                     </p>
@@ -675,10 +676,10 @@ function RabListPageInner() {
               ║   Middle : Klasifikasi (Brand + Tag) — apa jenis project
               ║   Bottom : Temporal (Tanggal + Status) — kapan project
               ╚════════════════════════════════════════════════════════════*/}
-            <div className="mb-4 sm:mb-6 rounded-xl border border-slate-200 bg-slate-50/40 dark:bg-slate-900/20 dark:border-slate-800 overflow-hidden">
+            <div className="mb-4 sm:mb-6 rounded-xl border border-border bg-muted/40 overflow-hidden">
 
                 {/* ── TOP BAR: Search + View Mode ── */}
-                <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40">
+                <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-border bg-card/60">
                     <div className="relative flex-1 min-w-0">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                         <input
@@ -706,7 +707,7 @@ function RabListPageInner() {
                         </span>
                     )}
                     {/* View mode toggle */}
-                    <div className="inline-flex items-center gap-0.5 bg-white dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0">
+                    <div className="inline-flex items-center gap-0.5 bg-card p-0.5 rounded-lg border border-border shrink-0">
                         <ViewModeBtn
                             active={viewMode === "card"}
                             onClick={() => setViewMode("card")}
@@ -743,7 +744,7 @@ function RabListPageInner() {
                                 setDateRange({ preset: "ALL" });
                                 setStatusFilter("ALL");
                             }}
-                            className="text-[11px] text-red-600 hover:underline"
+                            className="text-[11px] text-destructive hover:underline"
                         >
                             Reset semua
                         </button>
@@ -751,16 +752,16 @@ function RabListPageInner() {
                 )}
 
                 {/* ── KLASIFIKASI: Brand + Tag ── */}
-                <div className="px-3 sm:px-4 py-2.5 sm:py-3 space-y-2 border-b border-slate-200 dark:border-slate-800">
+                <div className="px-3 sm:px-4 py-2.5 sm:py-3 space-y-2 border-b border-border">
                     {/* Brand row */}
                     <div className="flex items-center gap-2 overflow-x-auto sm:flex-wrap whitespace-nowrap pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0 [scrollbar-width:thin]">
-                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 w-[56px] uppercase tracking-wider">Brand</span>
+                        <span className="text-xs font-bold text-muted-foreground shrink-0 w-[56px] uppercase tracking-wider">Brand</span>
                         <button
                             type="button"
                             onClick={() => setBrandFilter("")}
                             className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition ${brandFilter === ""
-                                ? "bg-slate-700 text-white border-slate-700"
-                                : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                                ? "bg-foreground text-background border-foreground"
+                                : "bg-card text-foreground border-border hover:border-foreground/40"
                                 }`}
                         >
                             Semua
@@ -776,20 +777,20 @@ function RabListPageInner() {
                                     onClick={() => setBrandFilter(b)}
                                     className={`shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1.5 ${active
                                         ? `${meta.bg} ${meta.text} ${meta.border}`
-                                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                                        : "bg-card text-foreground border-border hover:border-foreground/40"
                                         }`}
                                 >
                                     <span>{meta.emoji}</span>
                                     {meta.short}
-                                    <span className={`text-[10px] font-mono px-1 rounded-full ${active ? "bg-white/30" : "bg-slate-100"}`}>
+                                    <span className={`text-[10px] font-mono px-1 rounded-full ${active ? "bg-white/30" : "bg-muted"}`}>
                                         {count}
                                     </span>
                                 </button>
                             );
                         })}
                         {(rabs ?? []).some((r) => !r.brand) && (
-                            <span className="shrink-0 text-[10px] text-amber-700 bg-amber-50 border border-amber-300 rounded-full px-2 py-0.5">
-                                ⚠ {(rabs ?? []).filter((r) => !r.brand).length} belum tag
+                            <span className="shrink-0 inline-flex items-center gap-1 text-[10px] text-warning bg-warning/15 border border-warning/30 rounded-full px-2 py-0.5">
+                                <AlertTriangle className="h-3 w-3" /> {(rabs ?? []).filter((r) => !r.brand).length} belum tag
                             </span>
                         )}
                     </div>
@@ -799,10 +800,10 @@ function RabListPageInner() {
                 </div>
 
                 {/* ── TEMPORAL: Tanggal + Status ── */}
-                <div className="px-3 sm:px-4 py-2.5 sm:py-3 space-y-2 bg-slate-50/30 dark:bg-slate-900/10">
+                <div className="px-3 sm:px-4 py-2.5 sm:py-3 space-y-2 bg-muted/20">
                     {/* Tanggal row — filter by tanggal event (periodStart) */}
                     <div className="flex items-start gap-2">
-                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 w-[56px] uppercase tracking-wider mt-1.5">Tanggal</span>
+                        <span className="text-xs font-bold text-muted-foreground shrink-0 w-[56px] uppercase tracking-wider mt-1.5">Tanggal</span>
                         <div className="flex-1 min-w-0">
                             <DateRangeFilter value={dateRange} onChange={setDateRange} label="" />
                         </div>
@@ -810,7 +811,7 @@ function RabListPageInner() {
 
                     {/* Status row */}
                     <div className="flex items-center gap-2 overflow-x-auto sm:flex-wrap whitespace-nowrap pb-1 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0 [scrollbar-width:thin]">
-                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0 w-[56px] uppercase tracking-wider">Status</span>
+                        <span className="text-xs font-bold text-muted-foreground shrink-0 w-[56px] uppercase tracking-wider">Status</span>
                         <StatusTab
                             active={statusFilter === "ALL"}
                             onClick={() => setStatusFilter("ALL")}
@@ -821,28 +822,28 @@ function RabListPageInner() {
                         <StatusTab
                             active={statusFilter === "ONGOING"}
                             onClick={() => setStatusFilter("ONGOING")}
-                            label="🟢 Berjalan"
+                            label="Berjalan"
                             count={statusCounts.ONGOING}
                             color="emerald"
                         />
                         <StatusTab
                             active={statusFilter === "UPCOMING"}
                             onClick={() => setStatusFilter("UPCOMING")}
-                            label="📅 Akan Datang"
+                            label="Akan Datang"
                             count={statusCounts.UPCOMING}
                             color="blue"
                         />
                         <StatusTab
                             active={statusFilter === "FINISHED"}
                             onClick={() => setStatusFilter("FINISHED")}
-                            label="✅ Selesai Event"
+                            label="Selesai Event"
                             count={statusCounts.FINISHED}
                             color="slate"
                         />
                         <StatusTab
                             active={statusFilter === "REPORT_DONE"}
                             onClick={() => setStatusFilter("REPORT_DONE")}
-                            label="📄 Laporan Lengkap"
+                            label="Laporan Lengkap"
                             count={statusCounts.REPORT_DONE}
                             color="blue"
                         />
@@ -850,7 +851,7 @@ function RabListPageInner() {
                             <StatusTab
                                 active={statusFilter === "NO_DATE"}
                                 onClick={() => setStatusFilter("NO_DATE")}
-                                label="❔ Tanpa Tanggal"
+                                label="Tanpa Tanggal"
                                 count={statusCounts.NO_DATE}
                                 color="amber"
                             />
@@ -876,7 +877,7 @@ function RabListPageInner() {
                 </div>
             ) : !rabs || rabs.length === 0 ? (
                 <div className="border-2 border-dashed rounded-xl p-6 sm:p-12 text-center">
-                    <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📋</div>
+                    <ClipboardList className="h-16 w-16 mx-auto mb-3 sm:mb-4 text-muted-foreground/40" />
                     <h3 className="text-lg sm:text-xl font-semibold mb-2">Belum Ada RAB</h3>
                     <p className="text-sm text-muted-foreground mb-4">
                         Klik tombol di atas untuk membuat RAB pertama Anda.
@@ -955,16 +956,16 @@ function RabListPageInner() {
                         const otherVal = parseFloat(rab.incomeOther as any) || 0;
                         const paymentStatus: { label: string; emoji: string; cls: string; hint: string } =
                             totalIncome === 0
-                                ? { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-slate-100 text-slate-700 border-slate-300", hint: "Belum ada DP/pelunasan masuk" }
+                                ? { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-muted text-foreground border-border", hint: "Belum ada DP/pelunasan masuk" }
                                 : pelVal > 0 && dpVal > 0
-                                    ? { label: "Lunas (DP + Pelunasan)", emoji: "✅", cls: "bg-emerald-100 text-emerald-800 border-emerald-300", hint: "Sudah DP & pelunasan — saldo bersih = untung riil" }
+                                    ? { label: "Lunas (DP + Pelunasan)", emoji: "✅", cls: "bg-success/15 text-success border-success/30", hint: "Sudah DP & pelunasan — saldo bersih = untung riil" }
                                     : pelVal > 0
-                                        ? { label: "Lunas", emoji: "✅", cls: "bg-emerald-100 text-emerald-800 border-emerald-300", hint: "Pelunasan sudah masuk" }
+                                        ? { label: "Lunas", emoji: "✅", cls: "bg-success/15 text-success border-success/30", hint: "Pelunasan sudah masuk" }
                                         : dpVal > 0
-                                            ? { label: "Baru DP — belum pelunasan", emoji: "🟡", cls: "bg-amber-100 text-amber-800 border-amber-300", hint: "Baru bayar DP. Saldo minus wajar — pelunasan belum masuk." }
+                                            ? { label: "Baru DP — belum pelunasan", emoji: "🟡", cls: "bg-warning/15 text-warning border-warning/30", hint: "Baru bayar DP. Saldo minus wajar — pelunasan belum masuk." }
                                             : otherVal > 0
-                                                ? { label: "Income Lain saja", emoji: "ℹ️", cls: "bg-blue-100 text-blue-800 border-blue-300", hint: "Hanya ada income lain (bukan DP/pelunasan)" }
-                                                : { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-slate-100 text-slate-700 border-slate-300", hint: "Belum ada DP/pelunasan masuk" };
+                                                ? { label: "Income Lain saja", emoji: "ℹ️", cls: "bg-info/15 text-info border-info/30", hint: "Hanya ada income lain (bukan DP/pelunasan)" }
+                                                : { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-muted text-foreground border-border", hint: "Belum ada DP/pelunasan masuk" };
                         const eventStatus = getRabEventStatus(rab);
                         const statusMeta = STATUS_META[eventStatus];
                         const StatusIcon = statusMeta.icon;
@@ -1016,7 +1017,7 @@ function RabListPageInner() {
                                                     handleSelectImageFor(rab.id);
                                                 }}
                                                 disabled={uploadingId === rab.id}
-                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white/90 text-slate-800 text-xs font-semibold hover:bg-white shadow-sm disabled:opacity-50"
+                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-card/90 text-foreground text-xs font-semibold hover:bg-card shadow-sm disabled:opacity-50"
                                                 title="Ganti foto"
                                             >
                                                 {uploadingId === rab.id ? (
@@ -1032,7 +1033,7 @@ function RabListPageInner() {
                                                     e.stopPropagation();
                                                     handleRemoveImage(rab);
                                                 }}
-                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-600/90 text-white text-xs font-semibold hover:bg-red-700 shadow-sm"
+                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-destructive/90 text-white text-xs font-semibold hover:bg-destructive shadow-sm"
                                                 title="Hapus foto"
                                             >
                                                 <ImageOff className="h-3 w-3" />
@@ -1094,10 +1095,10 @@ function RabListPageInner() {
                                         <div
                                             className={`rounded-lg p-2.5 border-2 ${
                                                 isMarginFake
-                                                    ? "bg-amber-50 border-amber-300 dark:bg-amber-950/20 dark:border-amber-800"
+                                                    ? "bg-warning/15 border-warning/30"
                                                     : isUntung
-                                                        ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800"
-                                                        : "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800"
+                                                        ? "bg-success/15 border-success/30"
+                                                        : "bg-destructive/12 border-destructive/20"
                                             }`}
                                             title={isMarginFake
                                                 ? "⚠ Margin 100% karena Real Cost belum diisi sama sekali. Update cost di detail RAB supaya margin akurat."
@@ -1106,31 +1107,31 @@ function RabListPageInner() {
                                         >
                                             <div className="flex items-center gap-1 mb-1">
                                                 {isMarginFake ? (
-                                                    <span className="text-amber-600 dark:text-amber-400 text-base leading-none">⚠️</span>
+                                                    <AlertTriangle className="h-3.5 w-3.5 text-warning" />
                                                 ) : isUntung ? (
-                                                    <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                                                    <TrendingUp className="h-3.5 w-3.5 text-success" />
                                                 ) : (
-                                                    <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                                                    <TrendingDown className="h-3.5 w-3.5 text-destructive" />
                                                 )}
                                                 <span className={`text-[11px] font-semibold uppercase tracking-wide ${
                                                     isMarginFake
-                                                        ? "text-amber-800 dark:text-amber-300"
-                                                        : isUntung ? "text-green-800 dark:text-green-300" : "text-red-800 dark:text-red-300"
+                                                        ? "text-warning"
+                                                        : isUntung ? "text-success" : "text-destructive"
                                                 }`}>
                                                     Selisih RAB
                                                 </span>
                                             </div>
-                                            <div className={`text-sm sm:text-base font-bold font-mono leading-tight break-all ${
+                                            <div className={`text-sm sm:text-base font-bold nums font-mono leading-tight break-all ${
                                                 isMarginFake
-                                                    ? "text-amber-700 dark:text-amber-300"
-                                                    : isUntung ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"
+                                                    ? "text-warning"
+                                                    : isUntung ? "text-success" : "text-destructive"
                                             }`}>
                                                 {isUntung ? "+" : "−"}{fmtRp(Math.abs(selisih))}
                                             </div>
                                             <div className={`text-[10px] mt-0.5 ${
                                                 isMarginFake
-                                                    ? "text-amber-700 dark:text-amber-400 italic"
-                                                    : isUntung ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                                    ? "text-warning italic"
+                                                    : isUntung ? "text-success" : "text-destructive"
                                             }`}>
                                                 {isMarginFake
                                                     ? "⚠ Real Cost belum diisi"
@@ -1145,28 +1146,28 @@ function RabListPageInner() {
                                         <div
                                             className={`rounded-lg p-2.5 border-2 ${
                                                 totalIncome === 0
-                                                    ? "bg-slate-50 border-slate-200 dark:bg-slate-900/20 dark:border-slate-700"
+                                                    ? "bg-muted border-border"
                                                     : isSaldoUntung
-                                                        ? "bg-emerald-50 border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-700"
-                                                        : "bg-amber-50 border-amber-300 dark:bg-amber-950/20 dark:border-amber-700"
+                                                        ? "bg-success/15 border-success/30"
+                                                        : "bg-warning/15 border-warning/30"
                                             }`}
                                             title="Saldo bersih riil: Pendapatan masuk (DP + Pelunasan + Lain) − Total COST. Jika baru DP, bisa minus karena cost belum tertutup."
                                         >
                                             <div className="flex items-center gap-1 mb-1">
-                                                <span className="text-sm">💰</span>
+                                                <Wallet className={`h-3.5 w-3.5 ${totalIncome === 0 ? "text-muted-foreground" : isSaldoUntung ? "text-success" : "text-warning"}`} />
                                                 <span className={`text-[11px] font-semibold uppercase tracking-wide ${
                                                     totalIncome === 0
-                                                        ? "text-slate-600 dark:text-slate-400"
+                                                        ? "text-muted-foreground"
                                                         : isSaldoUntung
-                                                            ? "text-emerald-800 dark:text-emerald-300"
-                                                            : "text-amber-800 dark:text-amber-300"
+                                                            ? "text-success"
+                                                            : "text-warning"
                                                 }`}>
                                                     Saldo Bersih
                                                 </span>
                                             </div>
                                             {totalIncome === 0 ? (
                                                 <>
-                                                    <div className="text-base font-bold font-mono leading-tight text-slate-500 dark:text-slate-400">
+                                                    <div className="text-base font-bold font-mono nums leading-tight text-muted-foreground">
                                                         —
                                                     </div>
                                                     <div className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${paymentStatus.cls}`} title={paymentStatus.hint}>
@@ -1175,24 +1176,24 @@ function RabListPageInner() {
                                                 </>
                                             ) : (
                                                 <>
-                                                    <div className={`text-sm sm:text-base font-bold font-mono leading-tight break-all ${
+                                                    <div className={`text-sm sm:text-base font-bold font-mono nums leading-tight break-all ${
                                                         isSaldoUntung
-                                                            ? "text-emerald-700 dark:text-emerald-300"
-                                                            : "text-amber-700 dark:text-amber-300"
+                                                            ? "text-success"
+                                                            : "text-warning"
                                                     }`}>
                                                         {isSaldoUntung ? "+" : "−"}{fmtRp(Math.abs(saldoBersih))}
                                                     </div>
                                                     <div className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${paymentStatus.cls}`} title={paymentStatus.hint}>
                                                         {paymentStatus.emoji} {paymentStatus.label}
                                                     </div>
-                                                    <div className={`text-[10px] mt-1 ${
+                                                    <div className={`text-[10px] mt-1 nums ${
                                                         isSaldoUntung
-                                                            ? "text-emerald-600 dark:text-emerald-400"
-                                                            : "text-amber-700 dark:text-amber-400"
+                                                            ? "text-success"
+                                                            : "text-warning"
                                                     }`}>
                                                         Income {fmtRp(totalIncome)}
                                                         {pelVal === 0 && dpVal > 0 && (
-                                                            <span className="block italic mt-0.5 text-amber-600">
+                                                            <span className="block italic mt-0.5 text-warning">
                                                                 ⚠ Minus karena pelunasan belum diterima
                                                             </span>
                                                         )}
@@ -1233,9 +1234,9 @@ function RabListPageInner() {
                                                         type="button"
                                                         onClick={(e) => { e.stopPropagation(); e.preventDefault(); setTagFilter(t); }}
                                                         title={`Filter RAB dengan tag "${t}"`}
-                                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200 transition"
+                                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-info/15 text-info border border-info/30 hover:bg-info/25 transition"
                                                     >
-                                                        🏷️ {t}
+                                                        <TagIcon className="h-2.5 w-2.5" /> {t}
                                                     </button>
                                                 ))}
                                             </div>
@@ -1257,11 +1258,11 @@ function RabListPageInner() {
                                     <div className="bg-muted/30 rounded-lg p-3 mb-4 space-y-1.5 text-sm">
                                         <div className="flex items-center justify-between">
                                             <span className="text-muted-foreground">Harga Perkiraan</span>
-                                            <span className="font-mono font-semibold">{fmtRp(totalRab)}</span>
+                                            <span className="font-mono nums font-semibold">{fmtRp(totalRab)}</span>
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <span className="text-muted-foreground">Biaya Modal</span>
-                                            <span className="font-mono text-muted-foreground">{fmtRp(totalCost)}</span>
+                                            <span className="font-mono nums text-muted-foreground">{fmtRp(totalCost)}</span>
                                         </div>
                                     </div>
 
@@ -1272,7 +1273,7 @@ function RabListPageInner() {
                                     <div className="grid grid-cols-3 gap-2 mb-2">
                                         <button
                                             onClick={() => setPreviewId(rab.id)}
-                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-sm font-medium transition-colors dark:bg-blue-950/30 dark:hover:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800"
+                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-info/10 hover:bg-info/20 text-info border border-info/30 text-sm font-medium transition-colors"
                                             title="Lihat detail RAB tanpa membuka editor"
                                         >
                                             <Eye className="h-4 w-4" />
@@ -1280,7 +1281,7 @@ function RabListPageInner() {
                                         </button>
                                         <Link
                                             href={`/rab/${rab.id}`}
-                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-sm font-medium transition-colors dark:bg-amber-950/30 dark:hover:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800"
+                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-warning/10 hover:bg-warning/20 text-warning border border-warning/30 text-sm font-medium transition-colors"
                                             title="Edit isi RAB ini"
                                         >
                                             <Pencil className="h-4 w-4" />
@@ -1289,7 +1290,7 @@ function RabListPageInner() {
                                         <button
                                             onClick={() => handleDownloadXlsx(rab)}
                                             disabled={downloadingId === rab.id}
-                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-sm font-medium transition-colors disabled:opacity-50 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
+                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-success/10 hover:bg-success/20 text-success border border-success/30 text-sm font-medium transition-colors disabled:opacity-50"
                                             title="Download dalam format Excel"
                                         >
                                             {downloadingId === rab.id ? (
@@ -1321,7 +1322,7 @@ function RabListPageInner() {
                                                 <button
                                                     onClick={() => handleRemoveImage(rab)}
                                                     disabled={removeImageMut.isPending}
-                                                    className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
+                                                    className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded text-xs text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
                                                     title="Hapus foto"
                                                 >
                                                     <ImageOff className="h-3 w-3" />
@@ -1344,7 +1345,7 @@ function RabListPageInner() {
                                                         deleteMut.mutate(rab.id);
                                                     }
                                                 }}
-                                                className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                                className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded text-xs text-destructive hover:bg-destructive/10 transition-colors"
                                                 title="Hapus RAB"
                                             >
                                                 <Trash2 className="h-3 w-3" />
@@ -1379,7 +1380,7 @@ function RabListPageInner() {
 
                         <div>
                             <label className="text-sm font-semibold block mb-1.5">
-                                Brand / Perusahaan <span className="text-red-500">*</span>
+                                Brand / Perusahaan <span className="text-destructive">*</span>
                             </label>
                             <div className="grid grid-cols-2 gap-2">
                                 {ACTIVE_BRANDS.map((b) => {
@@ -1392,11 +1393,11 @@ function RabListPageInner() {
                                             onClick={() => setForm({ ...form, brand: b })}
                                             className={`p-3 rounded-lg border-2 transition flex items-center gap-2 ${active
                                                 ? `${meta.bg} ${meta.border}`
-                                                : "bg-white border-slate-200 hover:border-slate-300"
+                                                : "bg-card border-border hover:border-border/80"
                                                 }`}
                                         >
                                             <span className="text-2xl">{meta.emoji}</span>
-                                            <span className={`text-sm font-bold ${active ? meta.text : "text-slate-700"}`}>
+                                            <span className={`text-sm font-bold ${active ? meta.text : "text-foreground"}`}>
                                                 {meta.short}
                                             </span>
                                         </button>
@@ -1407,7 +1408,7 @@ function RabListPageInner() {
 
                         <div>
                             <label className="text-sm font-semibold block mb-1.5">
-                                Judul Proyek <span className="text-red-500">*</span>
+                                Judul Proyek <span className="text-destructive">*</span>
                             </label>
                             <input
                                 type="text"
@@ -1463,7 +1464,7 @@ function RabListPageInner() {
                                         <button
                                             type="button"
                                             onClick={() => setForm({ ...form, customer: null })}
-                                            className="p-1 hover:bg-red-50 text-red-600 rounded"
+                                            className="p-1 hover:bg-destructive/10 text-destructive rounded"
                                             title="Hapus pilihan"
                                         >
                                             <X className="h-3.5 w-3.5" />
@@ -1507,8 +1508,8 @@ function RabListPageInner() {
                                 onChange={(tags) => setForm({ ...form, tags })}
                                 placeholder="Mis. Stand Standar 3x3, Pengadaan, Indoor…"
                             />
-                            <p className="text-[11px] text-muted-foreground mt-1">
-                                💡 Bisa pilih dari preset atau ketik baru. Tag dipakai untuk filter di daftar RAB.
+                            <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+                                <Info className="h-3 w-3 shrink-0" /> Bisa pilih dari preset atau ketik baru. Tag dipakai untuk filter di daftar RAB.
                             </p>
                         </div>
 
@@ -1627,10 +1628,10 @@ function RabListView({
                 const dpV = parseFloat(rab.dpAmount as any) || 0;
                 const pelV = parseFloat(rab.pelunasan as any) || 0;
                 const payStatus =
-                    totalIncome === 0 ? { label: "Belum bayar", cls: "bg-slate-100 text-slate-600 border-slate-300" }
-                        : pelV > 0 ? { label: "Lunas", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" }
-                        : dpV > 0 ? { label: "Baru DP", cls: "bg-amber-100 text-amber-700 border-amber-300" }
-                        : { label: "Income lain", cls: "bg-blue-100 text-blue-700 border-blue-300" };
+                    totalIncome === 0 ? { label: "Belum bayar", cls: "bg-muted text-muted-foreground border-border" }
+                        : pelV > 0 ? { label: "Lunas", cls: "bg-success/15 text-success border-success/30" }
+                        : dpV > 0 ? { label: "Baru DP", cls: "bg-warning/15 text-warning border-warning/30" }
+                        : { label: "Income lain", cls: "bg-info/15 text-info border-info/30" };
 
                 return (
                     <div
@@ -1678,9 +1679,9 @@ function RabListView({
                                     {tags.slice(0, 4).map((t) => (
                                         <span
                                             key={t}
-                                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-info/15 text-info border border-info/30"
                                         >
-                                            🏷️ {t}
+                                            <TagIcon className="h-2.5 w-2.5" /> {t}
                                         </span>
                                     ))}
                                     {tags.length > 4 && (
@@ -1714,29 +1715,29 @@ function RabListView({
                         {/* Angka — disembunyikan di mobile */}
                         <div className="hidden md:flex flex-col justify-center items-end px-3 text-xs min-w-[140px]">
                             <div className="text-muted-foreground">RAB</div>
-                            <div className="font-mono font-semibold">{fmtRp(totalRab)}</div>
+                            <div className="font-mono nums font-semibold">{fmtRp(totalRab)}</div>
                             <div className="text-muted-foreground mt-1">Cost</div>
-                            <div className="font-mono">{fmtRp(totalCost)}</div>
+                            <div className="font-mono nums">{fmtRp(totalCost)}</div>
                         </div>
 
                         {/* Selisih + Saldo Bersih + Payment Status */}
                         <div className="hidden sm:flex flex-col justify-center items-end px-3 min-w-[160px] gap-1">
                             <div className="flex items-center gap-1.5">
-                                <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded ${isUntung ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                                <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded ${isUntung ? "bg-success/15 text-success" : "bg-destructive/12 text-destructive"}`}>
                                     {isUntung ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
                                     Selisih
                                 </span>
-                                <span className={`font-mono font-semibold text-xs ${isUntung ? "text-emerald-700" : "text-red-700"}`}>
+                                <span className={`font-mono nums font-semibold text-xs ${isUntung ? "text-success" : "text-destructive"}`}>
                                     {isUntung ? "+" : "−"}{fmtRp(Math.abs(selisih))}
                                 </span>
                             </div>
                             <div className="flex items-center gap-1.5" title="Saldo Bersih: pendapatan riil masuk − total cost">
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                                    💰 Saldo
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted text-foreground inline-flex items-center gap-0.5">
+                                    <Wallet className="h-2.5 w-2.5" /> Saldo
                                 </span>
-                                <span className={`font-mono text-xs ${
-                                    totalIncome === 0 ? "text-slate-400"
-                                        : saldoBersih >= 0 ? "text-emerald-700" : "text-amber-700"
+                                <span className={`font-mono nums text-xs ${
+                                    totalIncome === 0 ? "text-muted-foreground"
+                                        : saldoBersih >= 0 ? "text-success" : "text-warning"
                                 }`}>
                                     {totalIncome === 0 ? "—" : `${saldoBersih >= 0 ? "+" : "−"}${fmtRp(Math.abs(saldoBersih))}`}
                                 </span>
@@ -1750,14 +1751,14 @@ function RabListView({
                         <div className="flex items-center gap-0.5 px-2">
                             <Link
                                 href={`/rab/${rab.id}`}
-                                className="p-2 rounded-md hover:bg-blue-50 text-blue-600"
+                                className="p-2 rounded-md hover:bg-info/10 text-info"
                                 title="Buka detail"
                             >
                                 <Eye className="h-4 w-4" />
                             </Link>
                             <Link
                                 href={`/rab/${rab.id}`}
-                                className="p-2 rounded-md hover:bg-amber-50 text-amber-600 hidden sm:inline-flex"
+                                className="p-2 rounded-md hover:bg-warning/10 text-warning hidden sm:inline-flex"
                                 title="Edit"
                             >
                                 <Pencil className="h-4 w-4" />
@@ -1765,7 +1766,7 @@ function RabListView({
                             <button
                                 onClick={() => onDownload(rab)}
                                 disabled={downloadingId === rab.id}
-                                className="p-2 rounded-md hover:bg-emerald-50 text-emerald-600 disabled:opacity-50 hidden sm:inline-flex"
+                                className="p-2 rounded-md hover:bg-success/10 text-success disabled:opacity-50 hidden sm:inline-flex"
                                 title="Download Excel"
                             >
                                 {downloadingId === rab.id ? (
@@ -1789,7 +1790,7 @@ function RabListView({
                             {rab.imageUrl && (
                                 <button
                                     onClick={() => onRemoveImage(rab)}
-                                    className="p-2 rounded-md hover:bg-red-50 text-red-500 hidden md:inline-flex"
+                                    className="p-2 rounded-md hover:bg-destructive/10 text-destructive hidden md:inline-flex"
                                     title="Hapus foto"
                                 >
                                     <ImageOff className="h-4 w-4" />
@@ -1804,7 +1805,7 @@ function RabListView({
                             </button>
                             <button
                                 onClick={() => onDelete(rab)}
-                                className="p-2 rounded-md hover:bg-red-50 text-red-600"
+                                className="p-2 rounded-md hover:bg-destructive/10 text-destructive"
                                 title="Hapus"
                             >
                                 <Trash2 className="h-4 w-4" />
@@ -1904,10 +1905,10 @@ function RabDetailsView({
         sortKey === k ? <span className="ml-1 text-xs">{sortDir === "asc" ? "▲" : "▼"}</span> : null;
 
     return (
-        <div className="rounded-xl border-2 border-slate-200 bg-white overflow-hidden">
+        <div className="rounded-xl border-2 border-border bg-card overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+                    <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground">
                         <tr>
                             <Th onClick={() => toggleSort("code")}>
                                 Kode<SortIndicator k="code" />
@@ -1963,14 +1964,14 @@ function RabDetailsView({
                             return (
                                 <tr
                                     key={rab.id}
-                                    className="border-t border-slate-100 hover:bg-blue-50/30"
+                                    className="border-t border-border hover:bg-info/5"
                                 >
-                                    <td className="px-3 py-2.5 font-mono text-xs text-slate-500">{rab.code}</td>
+                                    <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">{rab.code}</td>
                                     <td className="px-3 py-2.5"><BrandBadge brand={rab.brand} size="xs" /></td>
                                     <td className="px-3 py-2.5 max-w-[280px]">
                                         <Link
                                             href={`/rab/${rab.id}`}
-                                            className="font-semibold text-slate-900 hover:text-blue-700 hover:underline truncate block"
+                                            className="font-semibold text-foreground hover:text-info hover:underline truncate block"
                                         >
                                             {rab.title}
                                         </Link>
@@ -1987,7 +1988,7 @@ function RabDetailsView({
                                         ) : (
                                             <div className="flex flex-wrap gap-0.5">
                                                 {rowTags.slice(0, 3).map((t) => (
-                                                    <span key={t} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                                    <span key={t} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-info/15 text-info border border-info/30">
                                                         {t}
                                                     </span>
                                                 ))}
@@ -2000,7 +2001,7 @@ function RabDetailsView({
                                     <td className="px-3 py-2.5 text-xs">
                                         {rab.customer ? (
                                             <>
-                                                <div className="font-medium text-slate-800 truncate">{rab.customer.name}</div>
+                                                <div className="font-medium text-foreground truncate">{rab.customer.name}</div>
                                                 {rab.customer.companyName && (
                                                     <div className="text-muted-foreground truncate">
                                                         {rab.customer.companyName}
@@ -2034,12 +2035,12 @@ function RabDetailsView({
                                             "—"
                                         )}
                                     </td>
-                                    <td className="px-3 py-2.5 text-right font-mono text-xs">{fmtRp(totalRab)}</td>
-                                    <td className="px-3 py-2.5 text-right font-mono text-xs text-muted-foreground">
+                                    <td className="px-3 py-2.5 text-right font-mono nums text-xs">{fmtRp(totalRab)}</td>
+                                    <td className="px-3 py-2.5 text-right font-mono nums text-xs text-muted-foreground">
                                         {fmtRp(totalCost)}
                                     </td>
                                     <td
-                                        className={`px-3 py-2.5 text-right font-mono text-xs font-bold ${isUntung ? "text-emerald-700" : "text-red-700"
+                                        className={`px-3 py-2.5 text-right font-mono nums text-xs font-bold ${isUntung ? "text-success" : "text-destructive"
                                             }`}
                                     >
                                         {isUntung ? "+" : "−"}
@@ -2050,16 +2051,16 @@ function RabDetailsView({
                                             <div className="text-xs text-muted-foreground italic">Belum bayar</div>
                                         ) : (
                                             <>
-                                                <div className={`font-mono text-xs font-bold ${rowSaldo >= 0 ? "text-emerald-700" : "text-amber-700"}`}>
+                                                <div className={`font-mono nums text-xs font-bold ${rowSaldo >= 0 ? "text-success" : "text-warning"}`}>
                                                     {rowSaldo >= 0 ? "+" : "−"}{fmtRp(Math.abs(rowSaldo))}
                                                 </div>
                                                 {payLabel && (
-                                                    <div className={`text-[9px] font-semibold mt-0.5 ${
-                                                        payLabel === "Lunas" ? "text-emerald-600"
-                                                            : payLabel === "Baru DP" ? "text-amber-600"
-                                                            : "text-blue-600"
+                                                    <div className={`inline-flex items-center gap-0.5 text-[9px] font-semibold mt-0.5 ${
+                                                        payLabel === "Lunas" ? "text-success"
+                                                            : payLabel === "Baru DP" ? "text-warning"
+                                                            : "text-info"
                                                     }`}>
-                                                        {payLabel === "Lunas" ? "✅" : payLabel === "Baru DP" ? "🟡" : "ℹ️"} {payLabel}
+                                                        {payLabel === "Lunas" ? <CheckCircle2 className="h-2.5 w-2.5" /> : payLabel === "Baru DP" ? <AlertTriangle className="h-2.5 w-2.5" /> : <Info className="h-2.5 w-2.5" />} {payLabel}
                                                     </div>
                                                 )}
                                             </>
@@ -2069,14 +2070,14 @@ function RabDetailsView({
                                         <div className="flex items-center justify-center gap-0.5">
                                             <button
                                                 onClick={() => onPreview(rab.id)}
-                                                className="p-1.5 rounded hover:bg-blue-50 text-blue-600"
+                                                className="p-1.5 rounded hover:bg-info/10 text-info"
                                                 title="Preview"
                                             >
                                                 <Eye className="h-3.5 w-3.5" />
                                             </button>
                                             <Link
                                                 href={`/rab/${rab.id}`}
-                                                className="p-1.5 rounded hover:bg-amber-50 text-amber-600"
+                                                className="p-1.5 rounded hover:bg-warning/10 text-warning"
                                                 title="Edit"
                                             >
                                                 <Pencil className="h-3.5 w-3.5" />
@@ -2084,7 +2085,7 @@ function RabDetailsView({
                                             <button
                                                 onClick={() => onDownload(rab)}
                                                 disabled={downloadingId === rab.id}
-                                                className="p-1.5 rounded hover:bg-emerald-50 text-emerald-600 disabled:opacity-50"
+                                                className="p-1.5 rounded hover:bg-success/10 text-success disabled:opacity-50"
                                                 title="Download Excel"
                                             >
                                                 {downloadingId === rab.id ? (
@@ -2096,7 +2097,7 @@ function RabDetailsView({
                                             {rab.imageUrl && (
                                                 <button
                                                     onClick={() => onRemoveImage(rab)}
-                                                    className="p-1.5 rounded hover:bg-red-50 text-red-500"
+                                                    className="p-1.5 rounded hover:bg-destructive/10 text-destructive"
                                                     title="Hapus foto"
                                                 >
                                                     <ImageOff className="h-3.5 w-3.5" />
@@ -2104,7 +2105,7 @@ function RabDetailsView({
                                             )}
                                             <button
                                                 onClick={() => onDelete(rab)}
-                                                className="p-1.5 rounded hover:bg-red-50 text-red-600"
+                                                className="p-1.5 rounded hover:bg-destructive/10 text-destructive"
                                                 title="Hapus RAB"
                                             >
                                                 <Trash2 className="h-3.5 w-3.5" />
@@ -2133,7 +2134,7 @@ function Th({
     return (
         <th
             onClick={onClick}
-            className={`px-3 py-2.5 ${align === "right" ? "text-right" : "text-left"} font-semibold ${onClick ? "cursor-pointer select-none hover:bg-slate-100" : ""
+            className={`px-3 py-2.5 ${align === "right" ? "text-right" : "text-left"} font-semibold ${onClick ? "cursor-pointer select-none hover:bg-muted" : ""
                 }`}
         >
             {children}

@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    Building, Save, Upload, Image as ImageIcon, ImageOff, Loader2,
-    AlertCircle, Check, Hash, MapPin, Phone, Mail, FileText,
+    Building, Save, Upload, ImageOff, Loader2,
+    AlertCircle, Hash, MapPin, Phone, Mail, FileText,
+    Lightbulb, PenLine,
 } from "lucide-react";
 import {
     listBrands, upsertBrand, uploadBrandLogo, removeBrandLogo,
@@ -37,7 +38,7 @@ export default function BrandsSettingsPage() {
         <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-5">
             <div>
                 <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <Building className="h-6 w-6 text-blue-600" />
+                    <Building className="h-6 w-6 text-primary" />
                     Brand / Multi-Perusahaan
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -58,10 +59,10 @@ export default function BrandsSettingsPage() {
                             onClick={() => setActiveBrand(b)}
                             className={`flex items-center gap-3 p-4 rounded-xl border-2 transition text-left ${isActive
                                 ? `${meta.bg} ${meta.border} shadow-sm`
-                                : "bg-white border-slate-200 hover:border-slate-300"
+                                : "bg-card border-border hover:border-primary/40"
                                 }`}
                         >
-                            <div className="w-14 h-14 rounded-lg bg-white border flex items-center justify-center overflow-hidden shrink-0">
+                            <div className="w-14 h-14 rounded-lg bg-card border border-border flex items-center justify-center overflow-hidden shrink-0">
                                 {data?.logoImageUrl ? (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img src={`${apiBase}${data.logoImageUrl}`} alt={meta.label} className="w-full h-full object-contain" />
@@ -70,14 +71,14 @@ export default function BrandsSettingsPage() {
                                 )}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className={`font-bold ${isActive ? meta.text : "text-slate-800"}`}>
+                                <div className={`font-bold ${isActive ? meta.text : "text-foreground"}`}>
                                     {data?.companyName ?? meta.label}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                     Kode: <span className="font-mono font-semibold">{data?.companyCode ?? "—"}</span>
                                 </div>
                                 {!data && (
-                                    <div className="text-[10px] text-amber-600 flex items-center gap-1 mt-0.5">
+                                    <div className="text-[10px] text-warning flex items-center gap-1 mt-0.5">
                                         <AlertCircle className="h-3 w-3" />
                                         Belum di-setup
                                     </div>
@@ -252,14 +253,14 @@ function BrandForm({
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1.5">
-                        <label className="text-xs font-medium text-slate-700" title="Warna PDF header & accent (Penawaran, Invoice). Aplikasi pakai default kalau kosong.">
-                            🎨 Warna PDF
+                        <label className="text-xs font-medium text-foreground" title="Warna PDF header & accent (Penawaran, Invoice). Aplikasi pakai default kalau kosong.">
+                            Warna PDF
                         </label>
                         <input
                             type="color"
                             value={themeColor}
                             onChange={(e) => setThemeColor(e.target.value)}
-                            className="h-7 w-10 rounded border border-slate-300 cursor-pointer"
+                            className="h-7 w-10 rounded border border-border cursor-pointer"
                         />
                         <input
                             type="text"
@@ -278,7 +279,7 @@ function BrandForm({
 
             {/* Logo upload */}
             <div className="flex gap-4 items-start">
-                <div className="w-28 h-28 rounded-lg bg-white border-2 border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                <div className="w-28 h-28 rounded-lg bg-card border-2 border-border flex items-center justify-center overflow-hidden shrink-0">
                     {initial?.logoImageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={`${apiBase}${initial.logoImageUrl}`} alt="logo" className="w-full h-full object-contain" />
@@ -293,7 +294,7 @@ function BrandForm({
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploadMut.isPending}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
                         >
                             {uploadMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                             {initial?.logoImageUrl ? "Ganti Logo" : "Upload Logo"}
@@ -301,7 +302,7 @@ function BrandForm({
                         {initial?.logoImageUrl && (
                             <button
                                 onClick={() => { if (confirm("Hapus logo?")) removeLogoMut.mutate(); }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-destructive border border-destructive/30 rounded-md hover:bg-destructive/10"
                             >
                                 <ImageOff className="h-3.5 w-3.5" /> Hapus
                             </button>
@@ -332,7 +333,7 @@ function BrandForm({
                         placeholder="CV. Exindo Pratama"
                     />
                 </Field>
-                <Field label="Kode Perusahaan *" hint={codeLocked ? "🔒 Tidak bisa diubah karena sudah ada quotation" : "Dipakai di nomor seri (mis. Ep / Xp)"} required>
+                <Field label="Kode Perusahaan *" hint={codeLocked ? "Terkunci — tidak bisa diubah karena sudah ada quotation" : "Dipakai di nomor seri (mis. Ep / Xp)"} required>
                     <div className="relative">
                         <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                         <input
@@ -340,7 +341,7 @@ function BrandForm({
                             value={companyCode}
                             onChange={(e) => setCompanyCode(e.target.value)}
                             disabled={codeLocked}
-                            className="form-input pl-10 font-mono uppercase disabled:bg-slate-100"
+                            className="form-input pl-10 font-mono uppercase disabled:bg-muted"
                             placeholder="Ep"
                             maxLength={20}
                         />
@@ -416,17 +417,17 @@ function BrandForm({
             </Field>
 
             {/* ── Kop Surat (background full-page untuk PDF surat penawaran) ── */}
-            <div className="rounded-lg border-2 border-dashed border-slate-300 bg-white p-4">
+            <div className="rounded-lg border-2 border-dashed border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-2">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                    <h3 className="font-bold text-slate-900">Kop Surat Brand</h3>
+                    <FileText className="h-5 w-5 text-primary" />
+                    <h3 className="font-bold text-foreground">Kop Surat Brand</h3>
                 </div>
                 <p className="text-xs text-muted-foreground mb-3">
                     Upload <b>file gambar kop surat full-page A4</b> (PNG/JPG, ukuran ideal 2480×3508px atau A4 portrait).
                     Akan dipakai sebagai background otomatis di setiap surat penawaran brand ini.
                 </p>
                 <div className="flex gap-3 items-start flex-wrap">
-                    <div className="w-32 aspect-[210/297] rounded border-2 border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
+                    <div className="w-32 aspect-[210/297] rounded border-2 border-border bg-muted overflow-hidden flex items-center justify-center shrink-0">
                         {initial?.letterheadImageUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={`${apiBase}${initial.letterheadImageUrl}`} alt="kop surat" className="w-full h-full object-contain" />
@@ -440,7 +441,7 @@ function BrandForm({
                                 type="button"
                                 onClick={() => letterheadInputRef.current?.click()}
                                 disabled={uploadLetterheadMut.isPending}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
                             >
                                 {uploadLetterheadMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                                 {initial?.letterheadImageUrl ? "Ganti Kop Surat" : "Upload Kop Surat"}
@@ -449,7 +450,7 @@ function BrandForm({
                                 <button
                                     type="button"
                                     onClick={() => { if (confirm("Hapus kop surat? Surat penawaran akan pakai header default.")) removeLetterheadMut.mutate(); }}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-destructive border border-destructive/30 rounded-md hover:bg-destructive/10"
                                 >
                                     <ImageOff className="h-3.5 w-3.5" /> Hapus
                                 </button>
@@ -466,25 +467,25 @@ function BrandForm({
                                 }}
                             />
                         </div>
-                        <div className="text-[11px] text-muted-foreground">
-                            💡 Tip: pastikan area tengah kop surat kosong (ruang untuk text body surat). Margin atas ~40mm, bawah ~35mm.
+                        <div className="text-[11px] text-muted-foreground flex items-start gap-1">
+                            <Lightbulb className="h-3 w-3 mt-0.5 shrink-0" /> Tip: pastikan area tengah kop surat kosong (ruang untuk text body surat). Margin atas ~40mm, bawah ~35mm.
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* ── Stempel Default Brand (fallback kalau marketing belum punya stempel pribadi) ── */}
-            <div className="rounded-lg border-2 border-dashed border-slate-300 bg-white p-4">
+            <div className="rounded-lg border-2 border-dashed border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-2">
-                    <FileText className="h-5 w-5 text-amber-600" />
-                    <h3 className="font-bold text-slate-900">Stempel Default Brand</h3>
+                    <FileText className="h-5 w-5 text-warning" />
+                    <h3 className="font-bold text-foreground">Stempel Default Brand</h3>
                 </div>
                 <p className="text-xs text-muted-foreground mb-3">
                     Stempel ini dipakai di surat penawaran <b>kalau marketing yang menandatangani belum punya stempel pribadi</b>.
                     PNG transparan ideal supaya menyatu dengan tanda tangan.
                 </p>
                 <div className="flex gap-3 items-start flex-wrap">
-                    <div className="w-28 h-28 rounded-lg border-2 border-slate-200 bg-white overflow-hidden flex items-center justify-center shrink-0">
+                    <div className="w-28 h-28 rounded-lg border-2 border-border bg-card overflow-hidden flex items-center justify-center shrink-0">
                         {initial?.stampImageUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={`${apiBase}${initial.stampImageUrl}`} alt="stempel" className="w-full h-full object-contain" />
@@ -498,7 +499,7 @@ function BrandForm({
                                 type="button"
                                 onClick={() => stampInputRef.current?.click()}
                                 disabled={uploadStampMut.isPending}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-warning text-warning-foreground rounded-md hover:bg-warning/90 disabled:opacity-50"
                             >
                                 {uploadStampMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                                 {initial?.stampImageUrl ? "Ganti Stempel" : "Upload Stempel"}
@@ -507,7 +508,7 @@ function BrandForm({
                                 <button
                                     type="button"
                                     onClick={() => { if (confirm("Hapus stempel default?")) removeStampMut.mutate(); }}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-destructive border border-destructive/30 rounded-md hover:bg-destructive/10"
                                 >
                                     <ImageOff className="h-3.5 w-3.5" /> Hapus
                                 </button>
@@ -529,17 +530,17 @@ function BrandForm({
             </div>
 
             {/* ── Text Custom untuk Surat Penawaran ── */}
-            <div className="rounded-lg border bg-white p-4 space-y-3">
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-violet-600" />
-                    <h3 className="font-bold text-slate-900">Text Surat Penawaran (Editable)</h3>
+                    <FileText className="h-5 w-5 text-primary" />
+                    <h3 className="font-bold text-foreground">Text Surat Penawaran (Editable)</h3>
                 </div>
                 <p className="text-xs text-muted-foreground">
                     Bagian text di bawah ini dipakai otomatis di surat penawaran brand <b>{meta.short}</b>. Boleh edit sesuai kebutuhan.
                 </p>
 
                 {/* Language tab — switch ID/EN */}
-                <div className="flex gap-1 border-b border-slate-200 -mb-3">
+                <div className="flex gap-1 border-b border-border -mb-3">
                     {([
                         { value: 'id' as const, label: '🇮🇩 Bahasa Indonesia' },
                         { value: 'en' as const, label: '🇬🇧 English' },
@@ -549,7 +550,7 @@ function BrandForm({
                             type="button"
                             onClick={() => setTextLang(opt.value)}
                             className={`px-3 py-2 text-xs font-medium border-b-2 -mb-px transition ${textLang === opt.value
-                                ? "border-blue-600 text-blue-700"
+                                ? "border-primary text-primary"
                                 : "border-transparent text-muted-foreground hover:text-foreground"}`}
                         >
                             {opt.label}
@@ -561,7 +562,7 @@ function BrandForm({
                 </div>
 
                 <Field
-                    label={textLang === 'en' ? "📋 Opening Letter Template (Optional)" : "📋 Template Pembuka Surat (Opsional)"}
+                    label={textLang === 'en' ? "Opening Letter Template (Optional)" : "Template Pembuka Surat (Opsional)"}
                     hint='Template paragraf yang bisa di-Salin ke per-quotation dengan satu klik. Kosongkan kalau tidak perlu template.'
                 >
                     {textLang === 'id' ? (
@@ -584,7 +585,7 @@ function BrandForm({
                 </Field>
 
                 <Field
-                    label={textLang === 'en' ? "📝 Price Notes / Disclaimer" : "📝 Catatan Harga / Disclaimer"}
+                    label={textLang === 'en' ? "Price Notes / Disclaimer" : "Catatan Harga / Disclaimer"}
                     hint="Daftar yang tidak termasuk dalam harga, dll. Pakai # di awal kalau mau bullet-style."
                 >
                     {textLang === 'id' ? (
@@ -607,7 +608,7 @@ function BrandForm({
                 </Field>
 
                 <Field
-                    label={textLang === 'en' ? "💳 Payment Terms" : "💳 Sistem Pembayaran"}
+                    label={textLang === 'en' ? "Payment Terms" : "Sistem Pembayaran"}
                     hint="Term of payment, pasang/bongkar, dll."
                 >
                     {textLang === 'id' ? (
@@ -630,7 +631,7 @@ function BrandForm({
                 </Field>
 
                 <Field
-                    label={textLang === 'en' ? "🤝 Closing" : "🤝 Penutup Surat"}
+                    label={textLang === 'en' ? "Closing" : "Penutup Surat"}
                     hint="Kalimat penutup yang muncul sebelum tanda tangan."
                 >
                     {textLang === 'id' ? (
@@ -662,7 +663,7 @@ function BrandForm({
                                 setQuotationClosing(DEFAULT_CLOSING);
                             }
                         }}
-                        className="text-xs text-violet-700 hover:underline"
+                        className="text-xs text-primary hover:underline"
                     >
                         Reset ke template default
                     </button>
@@ -670,10 +671,10 @@ function BrandForm({
             </div>
 
             {/* ── Text Khusus Invoice (Nb pembatalan dll) ── */}
-            <div className="rounded-lg border bg-white p-4 space-y-3">
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-pink-600" />
-                    <h3 className="font-bold text-slate-900">Text Khusus Invoice (Editable)</h3>
+                    <FileText className="h-5 w-5 text-primary" />
+                    <h3 className="font-bold text-foreground">Text Khusus Invoice (Editable)</h3>
                 </div>
                 <p className="text-xs text-muted-foreground">
                     Text di bawah ini hanya muncul di <b>surat Invoice</b> (tidak di Penawaran).
@@ -681,7 +682,7 @@ function BrandForm({
                 </p>
 
                 <Field
-                    label={textLang === 'en' ? "📑 Invoice Note" : "📑 Catatan Invoice (Nb)"}
+                    label={textLang === 'en' ? "Invoice Note" : "Catatan Invoice (Nb)"}
                     hint='Catatan/syarat khusus invoice. Akan tampil setelah list rekening transfer di PDF invoice.'
                 >
                     {textLang === 'id' ? (
@@ -711,21 +712,21 @@ function BrandForm({
                                 setInvoiceClosingText(DEFAULT_INVOICE_CLOSING);
                             }
                         }}
-                        className="text-xs text-pink-700 hover:underline"
+                        className="text-xs text-primary hover:underline"
                     >
                         Reset ke default
                     </button>
                 </div>
             </div>
 
-            <div className="border-2 border-amber-200 bg-amber-50/30 rounded p-3 space-y-2">
+            <div className="border-2 border-warning/30 bg-warning/10 rounded p-3 space-y-2">
                 <div className="flex items-start gap-2">
-                    <div className="text-amber-700 text-lg leading-none">✍️</div>
+                    <PenLine className="h-5 w-5 text-warning shrink-0" />
                     <div className="flex-1">
-                        <div className="text-xs font-bold text-amber-900 uppercase tracking-wide">
+                        <div className="text-xs font-bold text-warning uppercase tracking-wide">
                             Label Invoice (Custom)
                         </div>
-                        <div className="text-[10px] text-amber-700 mt-0.5">
+                        <div className="text-[10px] text-warning/80 mt-0.5">
                             Override istilah di paragraf opening invoice. Kosongkan = pakai default.
                         </div>
                     </div>
@@ -791,8 +792,8 @@ function BrandForm({
                 </div>
 
                 {/* Preview live */}
-                <div className="bg-white border border-amber-300 rounded p-2 text-[11px] mt-2">
-                    <div className="text-[9px] font-bold uppercase text-amber-700 mb-1">📄 Preview Opening Invoice DP:</div>
+                <div className="bg-card border border-warning/30 rounded p-2 text-[11px] mt-2">
+                    <div className="text-[9px] font-bold uppercase text-warning mb-1">Preview Opening Invoice DP:</div>
                     <div className="italic leading-relaxed">
                         <strong>{invoiceLabels.dp || "Down Payment"}</strong>{" "}
                         {invoiceLabels.verbSewa || "Pekerjaan pemasangan"}{" "}
@@ -815,7 +816,7 @@ function BrandForm({
                                 setInvoiceLabels({});
                             }
                         }}
-                        className="text-[10px] text-amber-700 hover:underline"
+                        className="text-[10px] text-warning hover:underline"
                     >
                         Reset semua ke default
                     </button>
@@ -836,7 +837,7 @@ function BrandForm({
                 <button
                     onClick={() => saveMut.mutate()}
                     disabled={saveMut.isPending || !companyName.trim() || !companyCode.trim()}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50"
                 >
                     {saveMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Simpan {meta.short}
@@ -855,13 +856,13 @@ function LabelField({ label, default_, value, onChange }: {
 }) {
     return (
         <div>
-            <label className="block text-[10px] font-semibold text-amber-900 mb-0.5">{label}</label>
+            <label className="block text-[10px] font-semibold text-warning mb-0.5">{label}</label>
             <input
                 type="text"
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={`Default: ${default_}`}
-                className="w-full px-2 py-1 text-xs border border-amber-300 rounded bg-white"
+                className="w-full px-2 py-1 text-xs border border-warning/40 rounded bg-card"
             />
         </div>
     );
@@ -880,7 +881,7 @@ function Field({
 }) {
     return (
         <label className="block">
-            <span className="text-sm font-semibold text-slate-700 flex items-center gap-1">
+            <span className="text-sm font-semibold text-foreground flex items-center gap-1">
                 {label}
             </span>
             {children}

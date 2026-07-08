@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     TrendingUp, ArrowDownRight, ArrowUpRight, Loader2, ExternalLink, Wallet, Plus, X, Pencil, Trash2, FileDown,
+    AlertTriangle, CheckCircle2, Lightbulb,
 } from "lucide-react";
 import { getEventProfit, getCashflows, createCashflow, updateCashflow, deleteCashflow, deleteCashflowsBulk } from "@/lib/api";
 import { downloadProjectReportPdf, downloadEventCashflowCsv } from "@/lib/api/events";
@@ -235,14 +236,14 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                             <button
                                 type="button"
                                 onClick={() => setForm((f) => ({ ...f, type: "INCOME", category: "" }))}
-                                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border ${form.type === "INCOME" ? "bg-green-500 text-white border-green-500" : "border-border hover:bg-muted"}`}
+                                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${form.type === "INCOME" ? "bg-success text-white border-success" : "border-border hover:bg-muted"}`}
                             >
                                 ↗ Pemasukan
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setForm((f) => ({ ...f, type: "EXPENSE", category: "" }))}
-                                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border ${form.type === "EXPENSE" ? "bg-red-500 text-white border-red-500" : "border-border hover:bg-muted"}`}
+                                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${form.type === "EXPENSE" ? "bg-destructive text-destructive-foreground border-destructive" : "border-border hover:bg-muted"}`}
                             >
                                 ↘ Pengeluaran
                             </button>
@@ -296,7 +297,7 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                             />
                         </div>
 
-                        <div className="bg-indigo-50 border border-indigo-200 rounded p-2 text-xs text-indigo-700">
+                        <div className="bg-info/10 border border-info/30 rounded p-2 text-xs text-info">
                             🎪 Auto-tag ke event ini. Buka <Link href="/cashflow" className="underline">/cashflow</Link> untuk form lengkap (bank account, payment method, dll).
                         </div>
 
@@ -313,15 +314,15 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
     }
 
     const marginColor = profit.marginPct >= 30
-        ? "text-green-600"
+        ? "text-success"
         : profit.marginPct >= 15
-            ? "text-amber-600"
-            : "text-red-600";
+            ? "text-warning"
+            : "text-destructive";
     const marginBg = profit.marginPct >= 30
-        ? "bg-green-50 border-green-200"
+        ? "bg-success/10 border-success/30"
         : profit.marginPct >= 15
-            ? "bg-amber-50 border-amber-200"
-            : "bg-red-50 border-red-200";
+            ? "bg-warning/10 border-warning/30"
+            : "bg-destructive/10 border-destructive/30";
 
     // Sort categories: income first (desc), expense desc
     const incomeCategories = profit.byCategory.filter((c) => c.income > 0).sort((a, b) => b.income - a.income);
@@ -381,36 +382,40 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
 
             {/* Stat cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="border rounded-lg bg-background p-3">
+                <div className="glass rounded-xl p-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                        Total Income <ArrowUpRight className="h-3.5 w-3.5 text-green-500" />
+                        Total Income <ArrowUpRight className="h-3.5 w-3.5 text-success" />
                     </div>
-                    <div className="text-xl font-bold text-green-600">{fmt(profit.totalIncome)}</div>
+                    <div className="text-xl font-bold text-success nums">{fmt(profit.totalIncome)}</div>
                 </div>
-                <div className="border rounded-lg bg-background p-3">
+                <div className="glass rounded-xl p-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                        Total Expense <ArrowDownRight className="h-3.5 w-3.5 text-red-500" />
+                        Total Expense <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
                     </div>
-                    <div className="text-xl font-bold text-red-600">{fmt(profit.totalExpense)}</div>
+                    <div className="text-xl font-bold text-destructive nums">{fmt(profit.totalExpense)}</div>
                 </div>
-                <div className={`border rounded-lg p-3 ${marginBg}`}>
+                <div className={`border rounded-xl p-3 ${marginBg}`}>
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                         Laba Kotor <TrendingUp className="h-3.5 w-3.5" />
                     </div>
-                    <div className={`text-xl font-bold ${marginColor}`}>{fmt(profit.grossProfit)}</div>
+                    <div className={`text-xl font-bold nums ${marginColor}`}>{fmt(profit.grossProfit)}</div>
                 </div>
-                <div className={`border rounded-lg p-3 ${marginBg}`}>
+                <div className={`border rounded-xl p-3 ${marginBg}`}>
                     <div className="text-xs text-muted-foreground mb-1">Margin %</div>
-                    <div className={`text-xl font-bold ${marginColor}`}>{profit.marginPct.toFixed(1)}%</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                        {profit.marginPct >= 30 ? "Sehat ✅" : profit.marginPct >= 15 ? "Minim ⚠️" : "Risky 🔴"}
+                    <div className={`text-xl font-bold nums ${marginColor}`}>{profit.marginPct.toFixed(1)}%</div>
+                    <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                        {profit.marginPct >= 30
+                            ? <><CheckCircle2 className="h-3 w-3 text-success" /> Sehat</>
+                            : profit.marginPct >= 15
+                                ? <><AlertTriangle className="h-3 w-3 text-warning" /> Minim</>
+                                : <><AlertTriangle className="h-3 w-3 text-destructive" /> Risky</>}
                     </div>
                 </div>
             </div>
 
             {/* Monthly trend chart */}
             {profit.monthlyTrend && profit.monthlyTrend.some((m) => m.income > 0 || m.expense > 0) && (
-                <div className="border rounded-lg bg-background p-3">
+                <div className="glass rounded-xl p-3">
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="font-semibold text-sm flex items-center gap-1.5">
                             <TrendingUp className="h-4 w-4" /> Tren 6 Bulan Terakhir
@@ -452,8 +457,8 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
             {/* Breakdown per category */}
             <div className="grid md:grid-cols-2 gap-3">
                 {/* Income categories */}
-                <div className="border rounded-lg bg-background overflow-hidden">
-                    <div className="px-3 py-2 border-b bg-green-50 text-green-700 text-sm font-semibold flex items-center gap-1">
+                <div className="glass rounded-xl overflow-hidden">
+                    <div className="px-3 py-2 border-b bg-success/10 text-success text-sm font-semibold flex items-center gap-1">
                         <ArrowUpRight className="h-4 w-4" /> Income per Kategori
                     </div>
                     {incomeCategories.length === 0 ? (
@@ -466,10 +471,10 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                                     <div key={c.category} className="px-3 py-2">
                                         <div className="flex items-center justify-between mb-1">
                                             <span className="text-sm text-foreground/80">{c.category}</span>
-                                            <span className="font-semibold text-sm">{fmtShort(c.income)}</span>
+                                            <span className="font-semibold text-sm nums">{fmtShort(c.income)}</span>
                                         </div>
                                         <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                                            <div className="h-full bg-green-500" style={{ width: `${pct}%` }} />
+                                            <div className="h-full bg-success" style={{ width: `${pct}%` }} />
                                         </div>
                                     </div>
                                 );
@@ -479,8 +484,8 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                 </div>
 
                 {/* Expense categories */}
-                <div className="border rounded-lg bg-background overflow-hidden">
-                    <div className="px-3 py-2 border-b bg-red-50 text-red-700 text-sm font-semibold flex items-center gap-1">
+                <div className="glass rounded-xl overflow-hidden">
+                    <div className="px-3 py-2 border-b bg-destructive/10 text-destructive text-sm font-semibold flex items-center gap-1">
                         <ArrowDownRight className="h-4 w-4" /> Expense per Kategori
                     </div>
                     {expenseCategories.length === 0 ? (
@@ -493,10 +498,10 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                                     <div key={c.category} className="px-3 py-2">
                                         <div className="flex items-center justify-between mb-1">
                                             <span className="text-sm text-foreground/80">{c.category}</span>
-                                            <span className="font-semibold text-sm">{fmtShort(c.expense)}</span>
+                                            <span className="font-semibold text-sm nums">{fmtShort(c.expense)}</span>
                                         </div>
                                         <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                                            <div className="h-full bg-red-500" style={{ width: `${pct}%` }} />
+                                            <div className="h-full bg-destructive" style={{ width: `${pct}%` }} />
                                         </div>
                                     </div>
                                 );
@@ -507,7 +512,7 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
             </div>
 
             {/* Recent entries */}
-            <div className="border rounded-lg bg-background overflow-hidden">
+            <div className="glass rounded-xl overflow-hidden">
                 <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between flex-wrap gap-2">
                     <span className="text-sm font-semibold">10 Entry Cashflow Terbaru</span>
                     {isManager && selectedIds.size > 0 ? (
@@ -530,7 +535,7 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                             <button
                                 onClick={() => setShowBulkConfirm(true)}
                                 disabled={bulkDeleteMut.isPending}
-                                className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 inline-flex items-center gap-1"
+                                className="text-xs px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer transition-colors"
                             >
                                 <Trash2 className="h-3 w-3" /> Hapus ({selectedIds.size})
                             </button>
@@ -563,7 +568,7 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                                 )}
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
-                                        <span className={`inline-flex items-center justify-center w-5 h-5 rounded ${isIncome ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
+                                        <span className={`inline-flex items-center justify-center w-5 h-5 rounded ${isIncome ? "bg-success/15 text-success" : "bg-destructive/12 text-destructive"}`}>
                                             {isIncome ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                                         </span>
                                         <span className="text-sm font-medium truncate">{e.category}</span>
@@ -573,7 +578,7 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                                         {new Date(e.date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
                                     </div>
                                 </div>
-                                <div className={`text-sm font-bold shrink-0 ${isIncome ? "text-green-600" : "text-red-600"}`}>
+                                <div className={`text-sm font-bold shrink-0 nums ${isIncome ? "text-success" : "text-destructive"}`}>
                                     {isIncome ? "+" : "−"} {fmt(parseFloat(e.amount))}
                                 </div>
                                 {isManager && (
@@ -587,7 +592,7 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                                         </button>
                                         <button
                                             onClick={() => setDeleteId(e.id)}
-                                            className="p-1 rounded hover:bg-red-50 text-red-600"
+                                            className="p-1 rounded hover:bg-destructive/10 text-destructive cursor-pointer transition-colors"
                                             title="Hapus entry"
                                         >
                                             <Trash2 className="h-3.5 w-3.5" />
@@ -600,8 +605,9 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                 </div>
             </div>
 
-            <div className="text-xs text-muted-foreground italic">
-                💡 Tombol &quot;Tambah Entry Cashflow&quot; auto-tag event ini. Untuk form lengkap (bank account, payment method, RAB tag), buka <Link href="/cashflow" className="text-primary hover:underline">Cashflow</Link>.
+            <div className="text-xs text-muted-foreground italic flex items-start gap-1.5">
+                <Lightbulb className="h-3.5 w-3.5 shrink-0 mt-0.5 text-warning" />
+                <span>Tombol &quot;Tambah Entry Cashflow&quot; auto-tag event ini. Untuk form lengkap (bank account, payment method, RAB tag), buka <Link href="/cashflow" className="text-primary hover:underline">Cashflow</Link>.</span>
             </div>
 
             {renderAddModal()}
@@ -611,8 +617,9 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                 <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditEntry(null)}>
                     <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-5 border border-border" onClick={(ev) => ev.stopPropagation()}>
                         <div className="flex items-center justify-between mb-3">
-                            <h2 className="text-lg font-semibold">
-                                {editEntry.type === "INCOME" ? "✏️ Edit Pemasukan" : "✏️ Edit Pengeluaran"}
+                            <h2 className="text-lg font-semibold flex items-center gap-1.5">
+                                <Pencil className="w-4 h-4" />
+                                {editEntry.type === "INCOME" ? "Edit Pemasukan" : "Edit Pengeluaran"}
                             </h2>
                             <button onClick={() => setEditEntry(null)} className="p-1 hover:bg-muted rounded">
                                 <X className="h-4 w-4" />
@@ -686,8 +693,8 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                 <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowBulkConfirm(false)}>
                     <div className="bg-background rounded-lg shadow-xl w-full max-w-sm p-5 border border-border" onClick={(ev) => ev.stopPropagation()}>
                         <div className="flex items-start gap-3">
-                            <div className="bg-red-100 p-2 rounded-full">
-                                <Trash2 className="h-5 w-5 text-red-600" />
+                            <div className="bg-destructive/12 p-2 rounded-full">
+                                <Trash2 className="h-5 w-5 text-destructive" />
                             </div>
                             <div className="flex-1">
                                 <h2 className="text-lg font-semibold">Hapus {selectedIds.size} Entry?</h2>
@@ -703,7 +710,7 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                             <button
                                 onClick={() => bulkDeleteMut.mutate(Array.from(selectedIds))}
                                 disabled={bulkDeleteMut.isPending}
-                                className="px-3 py-1.5 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 inline-flex items-center gap-1.5"
+                                className="px-3 py-1.5 text-sm rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                             >
                                 <Trash2 className="h-3.5 w-3.5" />
                                 {bulkDeleteMut.isPending ? "Menghapus..." : `Hapus ${selectedIds.size}`}
@@ -718,8 +725,8 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                 <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setDeleteId(null)}>
                     <div className="bg-background rounded-lg shadow-xl w-full max-w-sm p-5 border border-border" onClick={(ev) => ev.stopPropagation()}>
                         <div className="flex items-start gap-3">
-                            <div className="bg-red-100 p-2 rounded-full">
-                                <Trash2 className="h-5 w-5 text-red-600" />
+                            <div className="bg-destructive/12 p-2 rounded-full">
+                                <Trash2 className="h-5 w-5 text-destructive" />
                             </div>
                             <div className="flex-1">
                                 <h2 className="text-lg font-semibold">Hapus Entry?</h2>
@@ -735,7 +742,7 @@ export default function ProfitTab({ eventId }: { eventId: number }) {
                             <button
                                 onClick={() => deleteMut.mutate(deleteId)}
                                 disabled={deleteMut.isPending}
-                                className="px-3 py-1.5 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 inline-flex items-center gap-1.5"
+                                className="px-3 py-1.5 text-sm rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                             >
                                 <Trash2 className="h-3.5 w-3.5" />
                                 {deleteMut.isPending ? "Menghapus..." : "Hapus"}

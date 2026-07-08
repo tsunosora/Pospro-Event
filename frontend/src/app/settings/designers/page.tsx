@@ -70,7 +70,7 @@ export default function DesignersSettingsPage() {
 
     return (
         <div className="space-y-4 max-w-2xl">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-xl font-bold">Kelola Desainer</h1>
                     <p className="text-sm text-muted-foreground mt-0.5">
@@ -79,7 +79,7 @@ export default function DesignersSettingsPage() {
                 </div>
                 <button
                     onClick={() => { resetForm(); setShowForm(true); }}
-                    className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-3 py-2 rounded-md text-sm font-medium hover:opacity-90"
+                    className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-3 py-2 rounded-md text-sm font-medium hover:opacity-90 cursor-pointer transition-colors shrink-0"
                 >
                     <Plus className="h-4 w-4" /> Tambah Desainer
                 </button>
@@ -89,7 +89,7 @@ export default function DesignersSettingsPage() {
             {showForm && (
                 <div className="bg-card border border-border rounded-lg p-4 space-y-3">
                     <h2 className="text-sm font-semibold">{editId ? "Edit Desainer" : "Tambah Desainer Baru"}</h2>
-                    {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded px-3 py-2">{error}</div>}
+                    {error && <div className="bg-destructive/12 border border-destructive/30 text-destructive text-sm rounded px-3 py-2">{error}</div>}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs font-medium text-muted-foreground block mb-1">Nama *</label>
@@ -111,16 +111,16 @@ export default function DesignersSettingsPage() {
                                     maxLength={10}
                                 />
                                 <button onClick={() => setShowPin(p => !p)}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground cursor-pointer transition-colors hover:text-foreground">
                                     {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </button>
                             </div>
                         </div>
                     </div>
                     <div className="flex justify-end gap-2">
-                        <button onClick={resetForm} className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted">Batal</button>
+                        <button onClick={resetForm} className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted cursor-pointer transition-colors">Batal</button>
                         <button onClick={handleSave} disabled={isSaving}
-                            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm hover:opacity-90 disabled:opacity-50">
+                            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm hover:opacity-90 disabled:opacity-50 cursor-pointer transition-colors">
                             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                             Simpan
                         </button>
@@ -139,6 +139,7 @@ export default function DesignersSettingsPage() {
                         Belum ada desainer terdaftar. Klik &ldquo;Tambah Desainer&rdquo; untuk memulai.
                     </div>
                 ) : (
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                             <tr>
@@ -156,7 +157,7 @@ export default function DesignersSettingsPage() {
                                         {"•".repeat(d.pin.length)}
                                     </td>
                                     <td className="px-4 py-2 text-center">
-                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${d.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${d.isActive ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
                                             {d.isActive ? "Aktif" : "Nonaktif"}
                                         </span>
                                     </td>
@@ -164,29 +165,29 @@ export default function DesignersSettingsPage() {
                                         <div className="flex items-center justify-end gap-1">
                                             <button
                                                 onClick={() => toggleActiveMut.mutate({ id: d.id, isActive: !d.isActive })}
-                                                className={`p-1.5 rounded hover:bg-muted ${d.isActive ? "text-amber-600" : "text-emerald-600"}`}
+                                                className={`p-1.5 rounded hover:bg-muted cursor-pointer transition-colors ${d.isActive ? "text-warning" : "text-success"}`}
                                                 title={d.isActive ? "Nonaktifkan" : "Aktifkan"}
                                             >
                                                 {d.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                                             </button>
                                             <button onClick={() => startEdit(d)}
-                                                className="p-1.5 rounded hover:bg-muted text-slate-600" title="Edit">
+                                                className="p-1.5 rounded hover:bg-muted text-muted-foreground cursor-pointer transition-colors" title="Edit">
                                                 <Pencil className="h-4 w-4" />
                                             </button>
                                             {deleteConfirm === d.id ? (
                                                 <div className="flex gap-1">
                                                     <button onClick={() => deleteMut.mutate(d.id)}
-                                                        className="p-1.5 rounded bg-red-100 text-red-600 hover:bg-red-200">
+                                                        className="p-1.5 rounded bg-destructive/12 text-destructive hover:bg-destructive/20 cursor-pointer transition-colors">
                                                         <Check className="h-4 w-4" />
                                                     </button>
                                                     <button onClick={() => setDeleteConfirm(null)}
-                                                        className="p-1.5 rounded hover:bg-muted text-slate-500">
+                                                        className="p-1.5 rounded hover:bg-muted text-muted-foreground cursor-pointer transition-colors">
                                                         <X className="h-4 w-4" />
                                                     </button>
                                                 </div>
                                             ) : (
                                                 <button onClick={() => setDeleteConfirm(d.id)}
-                                                    className="p-1.5 rounded hover:bg-red-50 text-red-500" title="Hapus">
+                                                    className="p-1.5 rounded hover:bg-destructive/10 text-destructive cursor-pointer transition-colors" title="Hapus">
                                                     <Trash2 className="h-4 w-4" />
                                                 </button>
                                             )}
@@ -196,11 +197,12 @@ export default function DesignersSettingsPage() {
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 )}
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
-                <strong>Cara akses:</strong> Desainer buka <code className="bg-blue-100 px-1 rounded">/so-designer</code> di browser, pilih nama & masukkan PIN → langsung bisa buat Surat Order tanpa login akun. Sesi tersimpan hanya selama tab browser terbuka.
+            <div className="bg-info/15 border border-info/30 rounded-lg p-3 text-xs text-info">
+                <strong>Cara akses:</strong> Desainer buka <code className="bg-info/20 px-1 rounded">/so-designer</code> di browser, pilih nama & masukkan PIN → langsung bisa buat Surat Order tanpa login akun. Sesi tersimpan hanya selama tab browser terbuka.
             </div>
         </div>
     );

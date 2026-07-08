@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Check, Loader2, ShieldCheck, ShieldAlert } from "lucide-react";
 import { getWarehousePinStatus, setWarehousePin } from "@/lib/api/warehousePin";
+import { Button } from "@/components/ui/button";
 
 export default function WarehousePinSettingsPage() {
     const qc = useQueryClient();
@@ -43,7 +44,7 @@ export default function WarehousePinSettingsPage() {
     }
 
     return (
-        <div className="p-6 space-y-4 max-w-lg">
+        <div className="space-y-4 max-w-lg">
             <div>
                 <h1 className="text-xl font-bold flex items-center gap-2">
                     <KeyRound className="h-5 w-5 text-primary" /> PIN Gudang Kiosk
@@ -54,23 +55,23 @@ export default function WarehousePinSettingsPage() {
                 </p>
             </div>
 
-            <div className="border rounded-lg p-4 bg-muted/30">
+            <div className="glass rounded-xl p-4">
                 {isLoading ? (
                     <p className="text-sm flex items-center gap-2 text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" /> Memeriksa status…
                     </p>
                 ) : status?.isSet ? (
-                    <p className="text-sm flex items-center gap-2 text-green-700">
+                    <p className="text-sm flex items-center gap-2 text-success">
                         <ShieldCheck className="h-4 w-4" /> PIN sudah diatur. Isi di bawah untuk mengganti.
                     </p>
                 ) : (
-                    <p className="text-sm flex items-center gap-2 text-amber-700">
+                    <p className="text-sm flex items-center gap-2 text-warning">
                         <ShieldAlert className="h-4 w-4" /> PIN belum diatur. Halaman kiosk tidak bisa dibuka sampai PIN dibuat.
                     </p>
                 )}
             </div>
 
-            <div className="border rounded-lg p-4 space-y-3">
+            <div className="glass rounded-xl p-4 space-y-3">
                 <div>
                     <label className="text-xs font-medium block mb-1">PIN Baru (4–8 digit angka)</label>
                     <input
@@ -80,7 +81,7 @@ export default function WarehousePinSettingsPage() {
                         maxLength={8}
                         value={pin}
                         onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-                        className="w-full border rounded px-3 py-2 text-sm font-mono tracking-widest"
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm font-mono tracking-widest bg-background text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                         placeholder="••••"
                     />
                 </div>
@@ -93,21 +94,21 @@ export default function WarehousePinSettingsPage() {
                         maxLength={8}
                         value={confirm}
                         onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ""))}
-                        className="w-full border rounded px-3 py-2 text-sm font-mono tracking-widest"
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm font-mono tracking-widest bg-background text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                         placeholder="••••"
                     />
                 </div>
-                {err && <p className="text-xs text-red-600">{err}</p>}
-                {saved && <p className="text-xs text-green-700">PIN tersimpan.</p>}
+                {err && <p className="text-xs text-destructive">{err}</p>}
+                {saved && <p className="text-xs text-success">PIN tersimpan.</p>}
                 <div className="flex justify-end">
-                    <button
+                    <Button
+                        size="sm"
                         onClick={handleSave}
                         disabled={saveMut.isPending}
-                        className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm hover:opacity-90 disabled:opacity-50"
                     >
-                        {saveMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        {saveMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                         Simpan PIN
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

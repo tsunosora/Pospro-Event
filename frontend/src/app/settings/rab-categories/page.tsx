@@ -108,7 +108,7 @@ export default function RabCategoriesPage() {
 
     return (
         <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-xl font-bold flex items-center gap-2">
                         <Tags className="h-5 w-5 text-primary" /> Kategori RAB
@@ -118,7 +118,7 @@ export default function RabCategoriesPage() {
                         (data RAB lama tetap utuh).
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                         <input
                             type="checkbox"
@@ -129,7 +129,7 @@ export default function RabCategoriesPage() {
                     </label>
                     <button
                         onClick={() => { setShowForm(true); setEditId(null); setName(""); setError(null); }}
-                        className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm hover:opacity-90"
+                        className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm hover:opacity-90 cursor-pointer transition-colors"
                     >
                         <Plus className="h-4 w-4" /> Tambah Kategori
                     </button>
@@ -137,7 +137,7 @@ export default function RabCategoriesPage() {
             </div>
 
             {showForm && (
-                <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                <div className="glass rounded-xl p-4 space-y-3">
                     <div className="flex items-center gap-2">
                         <label className="text-sm font-medium w-24">Nama:</label>
                         <input
@@ -150,18 +150,18 @@ export default function RabCategoriesPage() {
                             onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
                         />
                     </div>
-                    {error && <p className="text-xs text-red-600">{error}</p>}
+                    {error && <p className="text-xs text-destructive">{error}</p>}
                     <div className="flex items-center gap-2 justify-end">
                         <button
                             onClick={resetForm}
-                            className="px-3 py-1.5 text-sm border rounded hover:bg-muted"
+                            className="px-3 py-1.5 text-sm border rounded hover:bg-muted cursor-pointer transition-colors"
                         >
                             Batal
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={createMut.isPending || updateMut.isPending}
-                            className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm hover:opacity-90 disabled:opacity-50"
+                            className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm hover:opacity-90 disabled:opacity-50 cursor-pointer transition-colors"
                         >
                             {(createMut.isPending || updateMut.isPending) ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -174,7 +174,7 @@ export default function RabCategoriesPage() {
                 </div>
             )}
 
-            <div className="border rounded-lg overflow-hidden">
+            <div className="border rounded-lg overflow-hidden overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-left">
                         <tr>
@@ -216,20 +216,20 @@ export default function RabCategoriesPage() {
                                     <div className="flex items-center gap-2">
                                         <span className={!c.isActive ? "line-through" : ""}>{c.name}</span>
                                         {c.key && (
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-mono">
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-info/15 text-info font-mono">
                                                 bawaan
                                             </span>
                                         )}
                                     </div>
                                 </td>
-                                <td className="p-2 text-center font-mono text-xs">
+                                <td className="p-2 text-center text-xs nums">
                                     {c._count?.items ?? 0}
                                 </td>
                                 <td className="p-2 text-center">
                                     {c.isActive ? (
-                                        <span className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700">Aktif</span>
+                                        <span className="text-xs px-2 py-0.5 rounded bg-success/15 text-success">Aktif</span>
                                     ) : (
-                                        <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">Nonaktif</span>
+                                        <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">Nonaktif</span>
                                     )}
                                 </td>
                                 <td className="p-2">
@@ -237,25 +237,25 @@ export default function RabCategoriesPage() {
                                         <button
                                             onClick={() => startEdit(c)}
                                             title="Edit"
-                                            className="p-1.5 hover:bg-muted rounded"
+                                            className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors"
                                         ><Pencil className="h-3.5 w-3.5" /></button>
                                         {c.isActive ? (
                                             <button
                                                 onClick={() => toggleActiveMut.mutate({ id: c.id, isActive: false })}
                                                 title="Nonaktifkan"
-                                                className="p-1.5 hover:bg-muted rounded"
+                                                className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors"
                                             ><EyeOff className="h-3.5 w-3.5" /></button>
                                         ) : (
                                             <button
                                                 onClick={() => restoreMut.mutate(c.id)}
                                                 title="Aktifkan kembali"
-                                                className="p-1.5 hover:bg-muted rounded"
+                                                className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors"
                                             ><Eye className="h-3.5 w-3.5" /></button>
                                         )}
                                         <button
                                             onClick={() => setDeleteConfirm(c)}
                                             title="Hapus"
-                                            className="p-1.5 hover:bg-red-50 text-red-600 rounded"
+                                            className="p-1.5 hover:bg-destructive/12 text-destructive rounded cursor-pointer transition-colors"
                                         ><Trash2 className="h-3.5 w-3.5" /></button>
                                     </div>
                                 </td>
@@ -268,7 +268,7 @@ export default function RabCategoriesPage() {
             {/* Delete confirm modal */}
             {deleteConfirm && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                    <div className="bg-background border rounded-lg shadow-lg max-w-md w-full p-5 space-y-3">
+                    <div className="glass-strong rounded-xl shadow-lg max-w-md w-full p-5 space-y-3">
                         <h3 className="font-semibold">Hapus kategori?</h3>
                         <p className="text-sm text-muted-foreground">
                             Kategori <b>{deleteConfirm.name}</b> akan dinonaktifkan
@@ -280,12 +280,12 @@ export default function RabCategoriesPage() {
                         <div className="flex items-center gap-2 justify-end">
                             <button
                                 onClick={() => setDeleteConfirm(null)}
-                                className="px-3 py-1.5 text-sm border rounded hover:bg-muted"
+                                className="px-3 py-1.5 text-sm border rounded hover:bg-muted cursor-pointer transition-colors"
                             ><X className="h-4 w-4 inline -mt-0.5" /> Batal</button>
                             <button
                                 onClick={() => deleteMut.mutate(deleteConfirm.id)}
                                 disabled={deleteMut.isPending}
-                                className="flex items-center gap-1 bg-red-600 text-white px-3 py-1.5 rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                                className="flex items-center gap-1 bg-destructive text-destructive-foreground px-3 py-1.5 rounded text-sm hover:bg-destructive/90 disabled:opacity-50 cursor-pointer transition-colors"
                             >
                                 {deleteMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                                 <Trash2 className="h-3.5 w-3.5" /> Hapus

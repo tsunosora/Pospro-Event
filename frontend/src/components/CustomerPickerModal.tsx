@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Search, UserPlus, X, ArrowLeft } from "lucide-react";
+import { Loader2, Search, UserPlus, X, ArrowLeft, Lightbulb } from "lucide-react";
 import { createCustomer, getCustomers, type Customer } from "@/lib/api/customers";
 import { PhoneDuplicateBanner } from "./PhoneDuplicateBanner";
 
@@ -75,7 +75,7 @@ export function CustomerPickerModal({
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
             <div
-                className="bg-background rounded-lg shadow-xl w-full max-w-xl max-h-[85vh] flex flex-col"
+                className="glass-strong rounded-xl w-full max-w-xl max-h-[85vh] flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -84,7 +84,7 @@ export function CustomerPickerModal({
                         {mode === "create" && (
                             <button
                                 onClick={() => { setMode("pick"); setError(null); }}
-                                className="p-1 hover:bg-muted rounded"
+                                className="p-1 hover:bg-muted rounded cursor-pointer transition-colors"
                                 title="Kembali ke daftar"
                             >
                                 <ArrowLeft className="h-4 w-4" />
@@ -94,7 +94,7 @@ export function CustomerPickerModal({
                             {mode === "pick" ? "Pilih Klien" : "Daftar Klien Baru"}
                         </h2>
                     </div>
-                    <button onClick={onClose} className="p-1 hover:bg-muted rounded">
+                    <button onClick={onClose} className="p-1 hover:bg-muted rounded cursor-pointer transition-colors">
                         <X className="h-4 w-4" />
                     </button>
                 </div>
@@ -110,13 +110,13 @@ export function CustomerPickerModal({
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     placeholder="Cari nama / perusahaan / telepon / email…"
-                                    className="w-full border rounded-md pl-8 pr-3 py-2 text-sm"
+                                    className="w-full border border-border rounded-md pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
                                     autoFocus
                                 />
                             </div>
                             <button
                                 onClick={() => { setMode("create"); setForm((f) => ({ ...f, name: query.trim() })); }}
-                                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border-2 border-dashed border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 transition"
+                                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border-2 border-dashed border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 transition-colors cursor-pointer"
                             >
                                 <UserPlus className="h-4 w-4" />
                                 Tambah Klien Baru {query.trim() && <span className="opacity-70">— "{query.trim()}"</span>}
@@ -141,7 +141,7 @@ export function CustomerPickerModal({
                                         <li key={c.id}>
                                             <button
                                                 onClick={() => onPick(c)}
-                                                className="w-full text-left p-3 hover:bg-muted/50 transition"
+                                                className="w-full text-left p-3 hover:bg-muted/50 transition-colors cursor-pointer"
                                             >
                                                 <div className="font-medium text-sm">{c.companyName || c.name}</div>
                                                 <div className="text-xs text-muted-foreground mt-0.5">
@@ -167,18 +167,18 @@ export function CustomerPickerModal({
                                     value={form.name}
                                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                                     placeholder="Pak Budi / Bu Sari"
-                                    className="w-full border rounded-md px-3 py-2 text-sm"
+                                    className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
                                     autoFocus
                                 />
                             </FormField>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <FormField label="Nama Perusahaan">
                                     <input
                                         type="text"
                                         value={form.companyName}
                                         onChange={(e) => setForm({ ...form, companyName: e.target.value })}
                                         placeholder="PT / CV"
-                                        className="w-full border rounded-md px-3 py-2 text-sm"
+                                        className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
                                     />
                                 </FormField>
                                 <FormField label="PIC Perusahaan">
@@ -187,18 +187,18 @@ export function CustomerPickerModal({
                                         value={form.companyPIC}
                                         onChange={(e) => setForm({ ...form, companyPIC: e.target.value })}
                                         placeholder="Contact person"
-                                        className="w-full border rounded-md px-3 py-2 text-sm"
+                                        className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
                                     />
                                 </FormField>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <FormField label="No. Telepon / WA">
                                     <input
                                         type="tel"
                                         value={form.phone}
                                         onChange={(e) => setForm({ ...form, phone: e.target.value })}
                                         placeholder="08xxxxxxxxxx"
-                                        className="w-full border rounded-md px-3 py-2 text-sm"
+                                        className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
                                     />
                                 </FormField>
                                 <FormField label="Email">
@@ -207,7 +207,7 @@ export function CustomerPickerModal({
                                         value={form.email}
                                         onChange={(e) => setForm({ ...form, email: e.target.value })}
                                         placeholder="email@domain.com"
-                                        className="w-full border rounded-md px-3 py-2 text-sm"
+                                        className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
                                     />
                                 </FormField>
                             </div>
@@ -225,21 +225,22 @@ export function CustomerPickerModal({
                                     value={form.address}
                                     onChange={(e) => setForm({ ...form, address: e.target.value })}
                                     placeholder="Alamat lengkap"
-                                    className="w-full border rounded-md px-3 py-2 text-sm"
+                                    className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
                                     rows={2}
                                 />
                             </FormField>
                             {error && (
-                                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">{error}</div>
+                                <div className="text-xs text-destructive bg-destructive/12 border border-destructive/30 rounded p-2">{error}</div>
                             )}
-                            <div className="text-[11px] text-muted-foreground italic">
-                                💡 Klien yang baru didaftarkan otomatis tersimpan di database & bisa dipakai untuk RAB/penawaran berikutnya.
+                            <div className="text-xs text-muted-foreground italic flex items-start gap-1.5">
+                                <Lightbulb className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                <span>Klien yang baru didaftarkan otomatis tersimpan di database & bisa dipakai untuk RAB/penawaran berikutnya.</span>
                             </div>
                         </div>
                         <div className="p-4 border-t flex items-center justify-end gap-2">
                             <button
                                 onClick={() => { setMode("pick"); setError(null); }}
-                                className="px-3 py-2 rounded-md text-sm border hover:bg-muted"
+                                className="px-3 py-2 rounded-md text-sm border border-border hover:bg-muted cursor-pointer transition-colors"
                                 disabled={createMut.isPending}
                             >
                                 Batal
@@ -272,7 +273,7 @@ function FormField({
     return (
         <div>
             <label className="text-xs font-medium text-muted-foreground block mb-1">
-                {label} {required && <span className="text-red-500">*</span>}
+                {label} {required && <span className="text-destructive">*</span>}
             </label>
             {children}
         </div>

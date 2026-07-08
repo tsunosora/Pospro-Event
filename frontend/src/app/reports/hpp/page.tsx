@@ -3,13 +3,13 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-    Plus, Edit2, Trash2, Image as ImageIcon, Target,
-    Download, Trash, ChevronDown, Check, Store, Package, Map,
-    BarChart2, Zap, Cog, ShoppingBag, Wrench, Megaphone, FileText,
-    Calculator, ArrowRight, Loader2, Save, X
+    Plus, Trash2, Image as ImageIcon, Target,
+    Trash, ChevronDown, Package, Map,
+    BarChart2, Zap, ShoppingBag, FileText,
+    Calculator, ArrowRight, Loader2, Save, X, Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getHppWorksheets, createHppWorksheet, updateHppWorksheet, deleteHppWorksheet, getHppWorksheetByProduct, getProducts, createProduct, updateProduct, getCategories, getUnits, uploadProductImage, uploadProductImages, addProductVariant, updateProductVariant, applyHppToVariant, applyHppToVariants, applyHppVariantsCustom, uploadVariantImage, replaceVariantPriceTiers } from "@/lib/api";
+import { getHppWorksheets, createHppWorksheet, updateHppWorksheet, deleteHppWorksheet, getHppWorksheetByProduct, getProducts, createProduct, updateProduct, getCategories, getUnits, uploadProductImages, addProductVariant, updateProductVariant, applyHppToVariant, applyHppToVariants, applyHppVariantsCustom, uploadVariantImage, replaceVariantPriceTiers } from "@/lib/api";
 import { VariableCost, FixedCost } from "./types";
 import { CustomNameInput, VariantCombobox } from "./HppInputs";
 
@@ -1008,7 +1008,7 @@ function HppCalculatorContent() {
                     <div className="flex flex-wrap items-center gap-3">
                         {/* Worksheet selector */}
                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-foreground whitespace-nowrap">📋 Worksheet:</span>
+                            <span className="text-xs font-bold text-foreground whitespace-nowrap flex items-center gap-1"><FileText className="w-4 h-4" /> Worksheet:</span>
                             <div className="relative min-w-[200px]">
                                 <select
                                     value={activeWorksheetId?.toString() || ""}
@@ -1026,7 +1026,7 @@ function HppCalculatorContent() {
                         <div className="w-px h-6 bg-border hidden sm:block" />
 
                         {editMode && (
-                            <span className="text-xs font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full">
+                            <span className="text-xs font-bold text-info bg-info/15 border border-info/30 px-2.5 py-1 rounded-full">
                                 Mode Edit: {productName || '...'}
                             </span>
                         )}
@@ -1037,14 +1037,14 @@ function HppCalculatorContent() {
                         )}
 
                         <div className="flex items-center gap-1.5 ml-auto">
-                            <button onClick={handleSaveWorksheet} disabled={isSavingWorksheet} title="Simpan Worksheet" className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white hover:bg-blue-600 rounded-[6px] border border-blue-500 transition-colors text-xs font-bold disabled:opacity-60">
+                            <button onClick={handleSaveWorksheet} disabled={isSavingWorksheet} title="Simpan Worksheet" className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-[6px] border border-primary transition-colors text-xs font-bold disabled:opacity-60">
                                 {isSavingWorksheet ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Simpan
                             </button>
-                            <button onClick={resetWorksheet} title="Buat Worksheet Baru" className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-[6px] border border-green-200 transition-colors text-xs font-semibold" aria-label="Baru">
+                            <button onClick={resetWorksheet} title="Buat Worksheet Baru" className="flex items-center gap-1.5 px-2.5 py-1.5 bg-success/15 text-success hover:bg-success/20 rounded-[6px] border border-success/30 transition-colors text-xs font-semibold" aria-label="Baru">
                                 <Plus className="w-3.5 h-3.5" /> Baru
                             </button>
                             {activeWorksheetId && (
-                                <button onClick={handleDeleteWorksheet} title="Hapus Worksheet ini" className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 rounded-[6px] border border-red-200 transition-colors text-xs font-semibold" aria-label="Hapus">
+                                <button onClick={handleDeleteWorksheet} title="Hapus Worksheet ini" className="flex items-center gap-1.5 px-2.5 py-1.5 bg-destructive/12 text-destructive hover:bg-destructive/20 rounded-[6px] border border-destructive/30 transition-colors text-xs font-semibold" aria-label="Hapus">
                                     <Trash2 className="w-3.5 h-3.5" /> Hapus
                                 </button>
                             )}
@@ -1062,7 +1062,7 @@ function HppCalculatorContent() {
                                 {/* Row 1: Nama Produk + Kategori */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-[13px] font-semibold text-foreground/80 mb-1.5">Nama Produk <span className="text-red-500">*</span></label>
+                                        <label className="block text-[13px] font-semibold text-foreground/80 mb-1.5">Nama Produk <span className="text-destructive">*</span></label>
                                         <input type="text" value={productName} onChange={(e) => setProductName(e.target.value)}
                                             placeholder="Cth: Kopi Susu Aren, Sablon Kaos A3..."
                                             className="w-full bg-muted border border-border rounded-[10px] px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-foreground" />
@@ -1213,7 +1213,7 @@ function HppCalculatorContent() {
                                                     setProductImageUrl('');
                                                     if (imageFileRef.current) imageFileRef.current.value = '';
                                                 }}
-                                                    className="text-xs text-red-500 hover:text-red-700 font-semibold">
+                                                    className="text-xs text-destructive hover:text-destructive/80 font-semibold">
                                                     × Hapus Gambar
                                                 </button>
                                             )}
@@ -1231,7 +1231,7 @@ function HppCalculatorContent() {
                                             <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block z-20 w-64 p-3 bg-card border border-border rounded-[10px] shadow-lg text-[12px] text-muted-foreground leading-relaxed">
                                                 <b className="text-foreground block mb-1">Apa bedanya?</b>
                                                 <p><b className="text-primary">Per Pcs:</b> Bahan baku dimasukkan sebagai kebutuhan per 1 buah produk jadi. HPP = total bahan per 1 pcs.</p>
-                                                <p className="mt-1"><b className="text-amber-600">Per Resep (Batch):</b> Bahan baku dimasukkan untuk sekali produksi penuh (misalnya 1 loyang, 1 pot, dll). HPP per pcs = total bahan ÷ jumlah hasil jadi.</p>
+                                                <p className="mt-1"><b className="text-warning">Per Resep (Batch):</b> Bahan baku dimasukkan untuk sekali produksi penuh (misalnya 1 loyang, 1 pot, dll). HPP per pcs = total bahan ÷ jumlah hasil jadi.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -1258,15 +1258,15 @@ function HppCalculatorContent() {
                                             type="button"
                                             onClick={() => setHppMode('per_batch')}
                                             className={`flex flex-col items-start gap-1 p-4 rounded-[12px] border-2 transition-all text-left ${hppMode === 'per_batch'
-                                                ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-200'
-                                                : 'border-border bg-muted/50 hover:border-amber-400'
+                                                ? 'border-warning bg-warning/15 ring-2 ring-warning/20'
+                                                : 'border-border bg-muted/50 hover:border-warning/60'
                                                 }`}>
                                             <div className="flex items-center gap-2 w-full">
-                                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${hppMode === 'per_batch' ? 'border-amber-500' : 'border-muted-foreground'
+                                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${hppMode === 'per_batch' ? 'border-warning' : 'border-muted-foreground'
                                                     }`}>
-                                                    {hppMode === 'per_batch' && <div className="w-2 h-2 bg-amber-500 rounded-full" />}
+                                                    {hppMode === 'per_batch' && <div className="w-2 h-2 bg-warning rounded-full" />}
                                                 </div>
-                                                <span className={`text-sm font-bold ${hppMode === 'per_batch' ? 'text-amber-700' : 'text-foreground'}`}>
+                                                <span className={`text-sm font-bold ${hppMode === 'per_batch' ? 'text-warning' : 'text-foreground'}`}>
                                                     Per Resep (Batch)
                                                 </span>
                                             </div>
@@ -1462,9 +1462,9 @@ function HppCalculatorContent() {
                                                         {/* Baris 6: Link Varian */}
                                                         <div className="px-3 pb-3">
                                                             {row.isNew ? (
-                                                                <div className="space-y-2 p-3 bg-green-50/60 dark:bg-green-950/20 border border-green-200/60 dark:border-green-800/40 rounded-[8px]">
+                                                                <div className="space-y-2 p-3 bg-success/10 border border-success/30 rounded-[8px]">
                                                                     <div className="flex items-center justify-between">
-                                                                        <span className="text-[11px] font-bold text-green-700 dark:text-green-400">Daftarkan sebagai Produk Baru</span>
+                                                                        <span className="text-[11px] font-bold text-success">Daftarkan sebagai Produk Baru</span>
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, isNew: false, newProductName: '', newVariantName: '' } : r))}
@@ -1478,7 +1478,7 @@ function HppCalculatorContent() {
                                                                         value={row.newProductName ?? ''}
                                                                         onChange={e => setVariantCalcRows(rows => rows.map(r => r.id === row.id ? { ...r, newProductName: e.target.value } : r))}
                                                                         placeholder="Nama Produk *"
-                                                                        className="w-full px-3 py-2.5 bg-background border border-green-400 rounded-[8px] text-[14px] outline-none focus:border-primary"
+                                                                        className="w-full px-3 py-2.5 bg-background border border-success/60 rounded-[8px] text-[14px] outline-none focus:border-primary"
                                                                     />
                                                                     <input
                                                                         type="text"
@@ -1666,7 +1666,7 @@ function HppCalculatorContent() {
                                                     />
                                                 )}
                                             </div>
-                                            <button onClick={() => removeVariableCost(v.id)} className="p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-[6px] border border-transparent hover:border-red-200 transition-all shrink-0">
+                                            <button onClick={() => removeVariableCost(v.id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-[6px] border border-transparent hover:border-destructive/30 transition-all shrink-0">
                                                 <Trash className="h-4 w-4" />
                                             </button>
                                         </div>
@@ -1677,27 +1677,27 @@ function HppCalculatorContent() {
                                                 <label className="text-[10px] font-bold text-muted-foreground uppercase">Takaran</label>
                                                 {!v.isAreaBased && (
                                                     <button onClick={() => toggleAreaMode(v.id, true)} title="Hitung luas Lebar × Tinggi (m²)"
-                                                        className="text-[10px] font-bold text-blue-500 hover:text-blue-700 underline transition-colors">
+                                                        className="text-[10px] font-bold text-info hover:text-info/80 underline transition-colors">
                                                         pakai m²
                                                     </button>
                                                 )}
                                                 {v.isAreaBased && (
-                                                    <button onClick={() => toggleAreaMode(v.id, false)} className="text-[10px] text-muted-foreground hover:text-red-500 transition-colors underline" title="Kembali ke mode satuan">
+                                                    <button onClick={() => toggleAreaMode(v.id, false)} className="text-[10px] text-muted-foreground hover:text-destructive transition-colors underline" title="Kembali ke mode satuan">
                                                         kembali ke satuan
                                                     </button>
                                                 )}
                                             </div>
                                             {v.isAreaBased ? (
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    <div className="flex items-center bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-[8px] px-3 py-2.5 gap-2">
-                                                        <span className="text-[11px] font-bold text-blue-500 shrink-0">L (m)</span>
+                                                    <div className="flex items-center bg-info/10 border border-info/30 rounded-[8px] px-3 py-2.5 gap-2">
+                                                        <span className="text-[11px] font-bold text-info shrink-0">L (m)</span>
                                                         <input type="text" inputMode="decimal" value={v.widthMStr ?? ''} onChange={e => updateAreaDimension(v.id, 'widthM', e.target.value)}
-                                                            className="flex-1 min-w-0 bg-transparent text-center text-[14px] font-semibold text-blue-700 dark:text-blue-300 outline-none placeholder:text-blue-300" placeholder="0" />
+                                                            className="flex-1 min-w-0 bg-transparent text-center text-[14px] font-semibold text-info outline-none placeholder:text-info/40" placeholder="0" />
                                                     </div>
-                                                    <div className="flex items-center bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-[8px] px-3 py-2.5 gap-2">
-                                                        <span className="text-[11px] font-bold text-blue-500 shrink-0">T (m)</span>
+                                                    <div className="flex items-center bg-info/10 border border-info/30 rounded-[8px] px-3 py-2.5 gap-2">
+                                                        <span className="text-[11px] font-bold text-info shrink-0">T (m)</span>
                                                         <input type="text" inputMode="decimal" value={v.heightMStr ?? ''} onChange={e => updateAreaDimension(v.id, 'heightM', e.target.value)}
-                                                            className="flex-1 min-w-0 bg-transparent text-center text-[14px] font-semibold text-blue-700 dark:text-blue-300 outline-none placeholder:text-blue-300" placeholder="0" />
+                                                            className="flex-1 min-w-0 bg-transparent text-center text-[14px] font-semibold text-info outline-none placeholder:text-info/40" placeholder="0" />
                                                     </div>
                                                 </div>
                                             ) : (
@@ -1735,7 +1735,7 @@ function HppCalculatorContent() {
 
                                         {/* Subtotal */}
                                         <div className="px-3 pb-3">
-                                            <div className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 font-bold text-[14px] px-3 py-2.5 rounded-[8px] border border-green-200 dark:border-green-800/50 text-right">
+                                            <div className="bg-success/15 text-success font-bold text-[14px] px-3 py-2.5 rounded-[8px] border border-success/30 text-right nums">
                                                 = Rp {Math.round(calculateVariableSubtotal(v)).toLocaleString('id-ID')}
                                             </div>
                                         </div>
@@ -1750,7 +1750,7 @@ function HppCalculatorContent() {
                                                     </label>
                                                 )}
                                                 {v.isAreaBased && (
-                                                    <span className="text-[11px] text-blue-600 font-mono font-bold">
+                                                    <span className="text-[11px] text-info font-mono font-bold nums">
                                                         = {((v.widthM || 0) * (v.heightM || 0)).toFixed(4)} m²
                                                     </span>
                                                 )}
@@ -1762,7 +1762,7 @@ function HppCalculatorContent() {
                                 {variableCosts.length > 0 && (
                                     <div className="bg-primary/5 border border-primary/20 rounded-[10px] px-4 py-3 flex justify-between items-center">
                                         <span className="font-semibold text-[13px] text-muted-foreground">Total Biaya B.Baku/Pcs:</span>
-                                        <span className="font-bold text-[15px] text-primary">Rp {Math.round(totalVariablePerPcs).toLocaleString('id-ID')}</span>
+                                        <span className="font-bold text-[15px] text-primary nums">Rp {Math.round(totalVariablePerPcs).toLocaleString('id-ID')}</span>
                                     </div>
                                 )}
                             </div>
@@ -1812,11 +1812,11 @@ function HppCalculatorContent() {
                                 <div className="flex items-center justify-between border-t border-border/50 pt-4">
                                     <div className="flex gap-2">
                                         <button onClick={addFixedCost} className="flex items-center gap-1.5 px-4 py-2 bg-card text-muted-foreground font-semibold rounded-[8px] hover:text-primary transition-all text-[13px] border border-border"><Plus className="h-4 w-4" />Tambah</button>
-                                        <button onClick={() => setShowPresetModal(true)} className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 text-amber-700 font-semibold rounded-[8px] hover:bg-amber-100 transition-all text-[13px] border border-amber-200">
+                                        <button onClick={() => setShowPresetModal(true)} className="flex items-center gap-1.5 px-3 py-2 bg-warning/15 text-warning font-semibold rounded-[8px] hover:bg-warning/20 transition-all text-[13px] border border-warning/30">
                                             <FileText className="h-4 w-4" /> Simpan &amp; Gunakan Preset
                                         </button>
                                     </div>
-                                    <div className="text-right"><p className="text-xs text-muted-foreground font-medium">Total Fixed Cost Bulanan</p><p className="text-lg font-bold text-foreground">Rp {totalFixedMonthly.toLocaleString('id-ID')}</p></div>
+                                    <div className="text-right"><p className="text-xs text-muted-foreground font-medium">Total Fixed Cost Bulanan</p><p className="text-lg font-bold text-foreground nums">Rp {totalFixedMonthly.toLocaleString('id-ID')}</p></div>
                                 </div>
                             </div>
                         </div>
@@ -1844,11 +1844,11 @@ function HppCalculatorContent() {
                                     {/* HPP Summary */}
                                     <div className="space-y-2">
                                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Struktur Modal / Pcs</p>
-                                        <div className="flex justify-between text-sm"><span className="text-muted-foreground">Bahan Baku:</span><b>Rp {Math.round(totalVariablePerPcs).toLocaleString('id-ID')}</b></div>
-                                        <div className="flex justify-between text-sm"><span className="text-muted-foreground">Biaya Tetap/Pcs:</span><b>Rp {Math.round(allocatedFixedPerPcs).toLocaleString('id-ID')}</b></div>
+                                        <div className="flex justify-between text-sm"><span className="text-muted-foreground">Bahan Baku:</span><b className="nums">Rp {Math.round(totalVariablePerPcs).toLocaleString('id-ID')}</b></div>
+                                        <div className="flex justify-between text-sm"><span className="text-muted-foreground">Biaya Tetap/Pcs:</span><b className="nums">Rp {Math.round(allocatedFixedPerPcs).toLocaleString('id-ID')}</b></div>
                                         <div className="flex justify-between items-center p-2.5 bg-primary/5 rounded-lg border border-primary/20">
                                             <span className="font-bold text-sm text-foreground/80">TOTAL MODAL POKOK</span>
-                                            <span className="text-base font-black text-primary">Rp {Math.round(hppPerPcs).toLocaleString('id-ID')}</span>
+                                            <span className="text-base font-black text-primary nums">Rp {Math.round(hppPerPcs).toLocaleString('id-ID')}</span>
                                         </div>
                                     </div>
 
@@ -1861,11 +1861,11 @@ function HppCalculatorContent() {
                                             const profit = price - hppPerPcs;
                                             const isSelected = selectedTier === tier;
                                             const colors = {
-                                                kompetitif: isSelected ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-200' : 'bg-card border-border hover:border-blue-300',
+                                                kompetitif: isSelected ? 'bg-info/10 border-info/40 ring-2 ring-info/20' : 'bg-card border-border hover:border-info/30',
                                                 standar: isSelected ? 'bg-primary/5 border-primary ring-2 ring-primary/20' : 'bg-card border-border hover:border-primary/50',
-                                                premium: isSelected ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-200' : 'bg-card border-border hover:border-amber-300',
+                                                premium: isSelected ? 'bg-warning/10 border-warning/40 ring-2 ring-warning/20' : 'bg-card border-border hover:border-warning/30',
                                             };
-                                            const textColors = { kompetitif: 'text-blue-700', standar: 'text-primary', premium: 'text-amber-700' };
+                                            const textColors = { kompetitif: 'text-info', standar: 'text-primary', premium: 'text-warning' };
                                             return (
                                                 <button key={tier} onClick={() => setSelectedTier(tier)}
                                                     className={`w-full flex items-center justify-between p-3 rounded-[10px] border transition-all cursor-pointer ${colors[tier]}`}>
@@ -1874,8 +1874,8 @@ function HppCalculatorContent() {
                                                         <p className="text-[11px] text-muted-foreground">{t.description}</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className={`text-[15px] font-black ${textColors[tier]}`}>Rp {Math.round(price).toLocaleString('id-ID')}</p>
-                                                        <p className="text-[11px] text-green-600 font-semibold">+Rp {Math.round(profit).toLocaleString('id-ID')}/pcs</p>
+                                                        <p className={`text-[15px] font-black nums ${textColors[tier]}`}>Rp {Math.round(price).toLocaleString('id-ID')}</p>
+                                                        <p className="text-[11px] text-success font-semibold nums">+Rp {Math.round(profit).toLocaleString('id-ID')}/pcs</p>
                                                     </div>
                                                 </button>
                                             );
@@ -1883,9 +1883,9 @@ function HppCalculatorContent() {
                                     </div>
 
                                     {/* Projection */}
-                                    <div className="bg-green-50 border border-green-200 rounded-[10px] p-3 text-center">
-                                        <p className="text-[11px] text-green-700 font-semibold">Estimasi Laba Bulanan ({targetVolume.toLocaleString('id-ID')} pcs)</p>
-                                        <p className="text-xl font-black text-green-700">Rp {Math.round(potentialMonthlyProfit).toLocaleString('id-ID')}</p>
+                                    <div className="bg-success/15 border border-success/30 rounded-[10px] p-3 text-center">
+                                        <p className="text-[11px] text-success font-semibold nums">Estimasi Laba Bulanan ({targetVolume.toLocaleString('id-ID')} pcs)</p>
+                                        <p className="text-xl font-black text-success nums">Rp {Math.round(potentialMonthlyProfit).toLocaleString('id-ID')}</p>
                                     </div>
 
                                     {/* Action Buttons */}
@@ -1893,7 +1893,7 @@ function HppCalculatorContent() {
                                         <div className="space-y-4 mb-4 bg-muted/30 p-4 border border-border rounded-lg">
                                             {/* Pricing Mode Selection */}
                                             <div>
-                                                <label className="block text-sm font-semibold text-foreground mb-2">Pilih Mode Penjualan 🌍</label>
+                                                <label className="flex items-center gap-1.5 text-sm font-semibold text-foreground mb-2"><Globe className="w-4 h-4" /> Pilih Mode Penjualan</label>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <label className={cn("border-2 rounded-[6px] p-2 flex items-center justify-center gap-2 cursor-pointer transition-all", sellingPricingMode === 'UNIT' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
                                                         <input type="radio" value="UNIT" checked={sellingPricingMode === 'UNIT'} onChange={() => setSellingPricingMode('UNIT')} className="hidden" />
@@ -1932,7 +1932,7 @@ function HppCalculatorContent() {
                                             <button
                                                 onClick={handleUpdateProduct}
                                                 disabled={isSavingProduct || !hasCalculated}
-                                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[13px] py-3 rounded-[10px] shadow-sm transition-all disabled:opacity-60">
+                                                className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[13px] py-3 rounded-[10px] shadow-sm transition-all disabled:opacity-60">
                                                 {isSavingProduct ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                                 {isSavingProduct ? 'Menyimpan...' : 'Simpan Perubahan Produk'}
                                             </button>
@@ -1940,19 +1940,19 @@ function HppCalculatorContent() {
                                             <button
                                                 onClick={handleSaveAsProduct}
                                                 disabled={isSavingProduct}
-                                                className="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold text-[13px] py-3 rounded-[10px] shadow-sm transition-all disabled:opacity-60">
+                                                className="w-full flex items-center justify-center gap-2 bg-success hover:bg-success/90 text-white font-bold text-[13px] py-3 rounded-[10px] shadow-sm transition-all disabled:opacity-60">
                                                 {isSavingProduct ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingBag className="w-4 h-4" />} {isSavingProduct ? 'Menyimpan...' : 'Simpan Perhitungan & Jadikan Produk'}
                                             </button>
                                         )}
                                         <div className="grid grid-cols-2 gap-2">
                                             <button
                                                 onClick={() => { setShowAddVariantModal(true); setAddVariantProductId(null); setAddVariantName(""); }}
-                                                className="flex items-center justify-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white font-semibold text-[12px] py-2.5 rounded-[10px] shadow-sm transition-all">
+                                                className="flex items-center justify-center gap-1.5 bg-info hover:bg-info/90 text-white font-semibold text-[12px] py-2.5 rounded-[10px] shadow-sm transition-all">
                                                 <Plus className="w-3.5 h-3.5" /> Tambah ke Produk Ada
                                             </button>
                                             <button
                                                 onClick={() => { setShowUpdateHppModal(true); setUpdateHppProductId(null); setUpdateHppVariantId(null); }}
-                                                className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-[12px] py-2.5 rounded-[10px] shadow-sm transition-all">
+                                                className="flex items-center justify-center gap-1.5 bg-warning hover:bg-warning/90 text-warning-foreground font-semibold text-[12px] py-2.5 rounded-[10px] shadow-sm transition-all">
                                                 <Save className="w-3.5 h-3.5" /> Perbarui HPP Varian
                                             </button>
                                         </div>
@@ -1999,16 +1999,16 @@ function HppCalculatorContent() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
                     <div className="bg-card w-full max-w-md rounded-[16px] border border-border shadow-2xl p-5">
                         <div className="flex justify-between items-center mb-5">
-                            <h3 className="font-bold text-lg flex items-center gap-2"><FileText className="w-5 h-5 text-amber-600" /> Preset Biaya Tetap</h3>
+                            <h3 className="font-bold text-lg flex items-center gap-2"><FileText className="w-5 h-5 text-warning" /> Preset Biaya Tetap</h3>
                             <button onClick={() => setShowPresetModal(false)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
                         </div>
                         {/* Save new preset */}
-                        <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-[12px] space-y-3">
-                            <p className="text-sm font-semibold text-amber-800">Simpan biaya tetap ini sebagai preset:</p>
+                        <div className="mb-5 p-4 bg-warning/15 border border-warning/30 rounded-[12px] space-y-3">
+                            <p className="text-sm font-semibold text-warning">Simpan biaya tetap ini sebagai preset:</p>
                             <div className="flex gap-2">
                                 <input type="text" value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="Cth: Operasional Bulan Maret..."
-                                    className="flex-1 bg-card border border-border rounded-[8px] px-3 py-2 text-sm outline-none focus:border-amber-400" />
-                                <button onClick={saveAsPreset} className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-[8px] transition-all flex items-center gap-1.5">
+                                    className="flex-1 bg-card border border-border rounded-[8px] px-3 py-2 text-sm outline-none focus:border-warning" />
+                                <button onClick={saveAsPreset} className="px-4 py-2 bg-warning hover:bg-warning/90 text-warning-foreground font-bold text-sm rounded-[8px] transition-all flex items-center gap-1.5">
                                     <Save className="w-4 h-4" /> Simpan
                                 </button>
                             </div>
@@ -2027,7 +2027,7 @@ function HppCalculatorContent() {
                                         </div>
                                         <div className="flex gap-2">
                                             <button onClick={() => applyPreset(preset)} className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 font-semibold text-xs rounded-[6px] transition-all">Gunakan</button>
-                                            <button onClick={() => deletePreset(preset.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-[6px] border border-transparent hover:border-red-200 transition-all"><Trash2 className="w-4 h-4" /></button>
+                                            <button onClick={() => deletePreset(preset.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded-[6px] border border-transparent hover:border-destructive/30 transition-all"><Trash2 className="w-4 h-4" /></button>
                                         </div>
                                     </div>
                                 ))
@@ -2042,11 +2042,11 @@ function HppCalculatorContent() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
                     <div className="bg-card w-full max-w-sm rounded-[16px] border border-border shadow-2xl p-5">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-base flex items-center gap-2"><Plus className="w-4 h-4 text-blue-500" /> Tambah Varian ke Produk yang Ada</h3>
+                            <h3 className="font-bold text-base flex items-center gap-2"><Plus className="w-4 h-4 text-info" /> Tambah Varian ke Produk yang Ada</h3>
                             <button onClick={() => setShowAddVariantModal(false)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
                         </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-[10px] p-3 mb-4 space-y-1">
-                            <p className="text-xs text-blue-800">HPP yang akan dipakai: <b>Rp {Math.round(hppPerPcs).toLocaleString('id-ID')}</b></p>
+                        <div className="bg-info/10 border border-info/30 rounded-[10px] p-3 mb-4 space-y-1">
+                            <p className="text-xs text-info">HPP yang akan dipakai: <b className="nums">Rp {Math.round(hppPerPcs).toLocaleString('id-ID')}</b></p>
                         </div>
                         <div className="space-y-3">
                             <div>
@@ -2054,7 +2054,7 @@ function HppCalculatorContent() {
                                 <select
                                     value={addVariantProductId ?? ""}
                                     onChange={(e) => setAddVariantProductId(e.target.value ? Number(e.target.value) : null)}
-                                    className="w-full bg-background border border-border rounded-[8px] px-3 py-2 text-sm outline-none focus:border-blue-400">
+                                    className="w-full bg-background border border-border rounded-[8px] px-3 py-2 text-sm outline-none focus:border-info">
                                     <option value="">-- Pilih produk --</option>
                                     {dbProducts.map((p: any) => (
                                         <option key={p.id} value={p.id}>{p.name} ({p.variants?.length ?? 0} varian)</option>
@@ -2068,7 +2068,7 @@ function HppCalculatorContent() {
                                     value={addVariantName}
                                     onChange={(e) => setAddVariantName(e.target.value)}
                                     placeholder={productName || "Nama varian baru..."}
-                                    className="w-full bg-background border border-border rounded-[8px] px-3 py-2 text-sm outline-none focus:border-blue-400"
+                                    className="w-full bg-background border border-border rounded-[8px] px-3 py-2 text-sm outline-none focus:border-info"
                                 />
                             </div>
                         </div>
@@ -2077,7 +2077,7 @@ function HppCalculatorContent() {
                             <button
                                 onClick={handleAddVariantToExistingProduct}
                                 disabled={isSavingAddVariant || !addVariantProductId}
-                                className="px-5 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold rounded-[8px] transition-all disabled:opacity-60 flex items-center gap-2">
+                                className="px-5 py-2 bg-info hover:bg-info/90 text-white text-sm font-bold rounded-[8px] transition-all disabled:opacity-60 flex items-center gap-2">
                                 {isSavingAddVariant ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                                 {isSavingAddVariant ? 'Menyimpan...' : 'Tambah Varian'}
                             </button>
@@ -2091,12 +2091,12 @@ function HppCalculatorContent() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
                     <div className="bg-card w-full max-w-sm rounded-[16px] border border-border shadow-2xl p-5">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-base flex items-center gap-2"><Save className="w-4 h-4 text-amber-500" /> Perbarui HPP Varian</h3>
+                            <h3 className="font-bold text-base flex items-center gap-2"><Save className="w-4 h-4 text-warning" /> Perbarui HPP Varian</h3>
                             <button onClick={() => setShowUpdateHppModal(false)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
                         </div>
-                        <div className="bg-amber-50 border border-amber-200 rounded-[10px] p-3 mb-4">
-                            <p className="text-xs text-amber-800">HPP baru yang akan diterapkan: <b>Rp {Math.round(hppPerPcs).toLocaleString('id-ID')}</b></p>
-                            <p className="text-xs text-amber-600 mt-0.5">Harga jual tidak akan berubah, hanya nilai HPP.</p>
+                        <div className="bg-warning/15 border border-warning/30 rounded-[10px] p-3 mb-4">
+                            <p className="text-xs text-warning">HPP baru yang akan diterapkan: <b className="nums">Rp {Math.round(hppPerPcs).toLocaleString('id-ID')}</b></p>
+                            <p className="text-xs text-warning/80 mt-0.5">Harga jual tidak akan berubah, hanya nilai HPP.</p>
                         </div>
                         <div className="space-y-3">
                             <div>
@@ -2104,7 +2104,7 @@ function HppCalculatorContent() {
                                 <select
                                     value={updateHppProductId ?? ""}
                                     onChange={(e) => { setUpdateHppProductId(e.target.value ? Number(e.target.value) : null); setUpdateHppVariantId(null); }}
-                                    className="w-full bg-background border border-border rounded-[8px] px-3 py-2 text-sm outline-none focus:border-amber-400">
+                                    className="w-full bg-background border border-border rounded-[8px] px-3 py-2 text-sm outline-none focus:border-warning">
                                     <option value="">-- Pilih produk --</option>
                                     {dbProducts.map((p: any) => (
                                         <option key={p.id} value={p.id}>{p.name}</option>
@@ -2117,7 +2117,7 @@ function HppCalculatorContent() {
                                     <select
                                         value={updateHppVariantId ?? ""}
                                         onChange={(e) => setUpdateHppVariantId(e.target.value ? Number(e.target.value) : null)}
-                                        className="w-full bg-background border border-border rounded-[8px] px-3 py-2 text-sm outline-none focus:border-amber-400">
+                                        className="w-full bg-background border border-border rounded-[8px] px-3 py-2 text-sm outline-none focus:border-warning">
                                         <option value="">-- Pilih varian --</option>
                                         {dbProducts.find((p: any) => p.id === updateHppProductId)?.variants?.map((v: any) => (
                                             <option key={v.id} value={v.id}>
@@ -2133,7 +2133,7 @@ function HppCalculatorContent() {
                             <button
                                 onClick={handleUpdateVariantHpp}
                                 disabled={isSavingUpdateHpp || !updateHppVariantId}
-                                className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-[8px] transition-all disabled:opacity-60 flex items-center gap-2">
+                                className="px-5 py-2 bg-warning hover:bg-warning/90 text-warning-foreground text-sm font-bold rounded-[8px] transition-all disabled:opacity-60 flex items-center gap-2">
                                 {isSavingUpdateHpp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                 {isSavingUpdateHpp ? 'Memperbarui...' : 'Perbarui HPP'}
                             </button>

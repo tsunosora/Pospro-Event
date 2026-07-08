@@ -1,5 +1,7 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
+
 import { BRAND_META, type Brand } from "@/lib/api/brands";
 
 interface Props {
@@ -37,10 +39,10 @@ export function BrandBadge({
         return (
             <span
                 onClick={onClick}
-                className={`inline-flex items-center gap-1 rounded-full border bg-amber-50 text-amber-700 border-amber-300 font-semibold ${sizeCls} ${onClick ? "cursor-pointer hover:bg-amber-100" : ""} ${className}`}
+                className={`inline-flex items-center gap-1 rounded-full border bg-warning/15 text-warning border-warning/30 font-semibold transition-colors ${sizeCls} ${onClick ? "cursor-pointer hover:bg-warning/20" : ""} ${className}`}
                 title={onClick ? "Klik untuk pilih brand" : "Brand belum di-set"}
             >
-                {showEmoji && <span>⚠</span>}
+                {showEmoji && <AlertTriangle className="w-3 h-3" />}
                 <span>Belum di-tag</span>
             </span>
         );
@@ -50,7 +52,7 @@ export function BrandBadge({
     return (
         <span
             onClick={onClick}
-            className={`inline-flex items-center gap-1 rounded-full border font-semibold ${meta.bg} ${meta.text} ${meta.border} ${sizeCls} ${onClick ? "cursor-pointer hover:opacity-80" : ""} ${className}`}
+            className={`inline-flex items-center gap-1 rounded-full border font-semibold transition-colors ${meta.bg} ${meta.text} ${meta.border} ${sizeCls} ${onClick ? "cursor-pointer hover:opacity-80" : ""} ${className}`}
             title={meta.label}
         >
             {showEmoji && <span>{meta.emoji}</span>}

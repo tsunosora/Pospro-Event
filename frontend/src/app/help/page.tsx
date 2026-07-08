@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Search, BookOpen, Phone, Mail, Workflow, ChevronRight } from "lucide-react";
+import { ArrowLeft, Search, BookOpen, Phone, Mail, Workflow, ChevronRight, Lightbulb, Rocket, Target, FileText, Calculator, Tent, Wallet, Package, HardHat, Database, Briefcase, BarChart3, Smartphone, MessageCircle, Upload, PenLine, Link2, Truck, Wrench, CheckCircle2, Banknote, Landmark, ClipboardList } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 /**
  * Halaman Bantuan / Help — informatif & navigable, mirip VitePress.
@@ -20,14 +21,14 @@ type FaqItem = {
 
 type Section = {
     id: string;             // anchor untuk scroll-to
-    icon: string;           // emoji untuk visual familiar
+    icon: LucideIcon;       // ikon lucide untuk visual familiar
     title: string;
     summary: string;        // 1 kalimat penjelasan singkat kategori
     faqs: FaqItem[];
 };
 
 type WorkflowStep = {
-    icon: string;              // emoji
+    icon: LucideIcon;          // ikon lucide
     role: string;              // siapa yang ngerjakan (Marketing/Owner/Crew/Finance)
     roleColor: "violet" | "blue" | "amber" | "emerald" | "rose";
     title: string;             // judul langkah
@@ -37,7 +38,7 @@ type WorkflowStep = {
 
 type Workflow = {
     id: string;                // anchor scroll-to
-    icon: string;
+    icon: LucideIcon;
     title: string;
     summary: string;           // 1 kalimat: apa & kapan alur ini terjadi
     steps: WorkflowStep[];
@@ -46,7 +47,7 @@ type Workflow = {
 const SECTIONS: Section[] = [
     {
         id: "mulai-cepat",
-        icon: "🚀",
+        icon: Rocket,
         title: "Mulai Cepat",
         summary: "Langkah pertama pakai Pospro Event setelah login.",
         faqs: [
@@ -73,7 +74,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "crm",
-        icon: "🎯",
+        icon: Target,
         title: "CRM — Lead & Pipeline",
         summary: "Kelola calon klien dari pertama kontak sampai closed deal.",
         faqs: [
@@ -120,7 +121,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "penawaran",
-        icon: "📄",
+        icon: FileText,
         title: "Penawaran & SPK",
         summary: "Bikin Surat Penawaran Harga (SPH), Invoice, dan Surat Perintah Kerja (SPK).",
         faqs: [
@@ -191,7 +192,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "rab",
-        icon: "🧮",
+        icon: Calculator,
         title: "RAB — Rencana Anggaran",
         summary: "Hitung anggaran proyek dengan dual qty/price (klien vs modal) untuk lihat margin real-time.",
         faqs: [
@@ -230,7 +231,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "event",
-        icon: "🎪",
+        icon: Tent,
         title: "Event, Crew & Timeline",
         summary: "Jadwal event, assign crew, track check-in/out lapangan dengan foto.",
         faqs: [
@@ -274,7 +275,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "cashflow",
-        icon: "💰",
+        icon: Wallet,
         title: "Cashflow & Laba Project",
         summary: "Catat pemasukan/pengeluaran, tag ke event/RAB → laba per proyek auto-hitung.",
         faqs: [
@@ -312,7 +313,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "stok",
-        icon: "📦",
+        icon: Package,
         title: "Stok & Gudang",
         summary: "Manage stok per gudang, peminjaman dengan foto, stock opname.",
         faqs: [
@@ -343,7 +344,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "payroll",
-        icon: "👷",
+        icon: HardHat,
         title: "Payroll & Absensi",
         summary: "Absensi harian crew, tarif kota+divisi, bonus/potongan, audit log.",
         faqs: [
@@ -388,7 +389,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "backup",
-        icon: "💾",
+        icon: Database,
         title: "Backup & Restore",
         summary: "Asuransi data — 1 klik download semua, 1 klik restore.",
         faqs: [
@@ -434,12 +435,12 @@ const SECTIONS: Section[] = [
 const WORKFLOWS: Workflow[] = [
     {
         id: "alur-sales",
-        icon: "💼",
+        icon: Briefcase,
         title: "Alur Sales — Lead jadi Deal",
         summary: "Dari pertama klien WA sampai tanda tangan SPK & DP masuk. Biasanya 3-14 hari.",
         steps: [
             {
-                icon: "📱",
+                icon: Smartphone,
                 role: "Marketing",
                 roleColor: "violet",
                 title: "Lead masuk",
@@ -447,7 +448,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "CRM → Board",
             },
             {
-                icon: "💬",
+                icon: MessageCircle,
                 role: "Marketing",
                 roleColor: "violet",
                 title: "Follow up & qualifikasi",
@@ -455,7 +456,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "CRM → Board",
             },
             {
-                icon: "🧮",
+                icon: Calculator,
                 role: "Owner",
                 roleColor: "amber",
                 title: "Bikin RAB (anggaran internal)",
@@ -463,7 +464,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "RAB → + Baru",
             },
             {
-                icon: "📄",
+                icon: FileText,
                 role: "Owner",
                 roleColor: "amber",
                 title: "Generate Penawaran dari RAB",
@@ -471,7 +472,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "RAB → detail",
             },
             {
-                icon: "📤",
+                icon: Upload,
                 role: "Marketing",
                 roleColor: "violet",
                 title: "Kirim PDF Penawaran ke klien",
@@ -479,7 +480,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Penawaran → preview",
             },
             {
-                icon: "✍️",
+                icon: PenLine,
                 role: "Klien",
                 roleColor: "rose",
                 title: "Klien setuju → tanda tangan SPK",
@@ -487,7 +488,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Penawaran → preview SPK",
             },
             {
-                icon: "💰",
+                icon: Wallet,
                 role: "Finance",
                 roleColor: "emerald",
                 title: "Generate Invoice DP & terima pembayaran",
@@ -498,12 +499,12 @@ const WORKFLOWS: Workflow[] = [
     },
     {
         id: "alur-event",
-        icon: "🎪",
+        icon: Tent,
         title: "Alur Event — Persiapan sampai Eksekusi",
         summary: "Dari DP masuk sampai event selesai dan crew pulang. Biasanya 1-30 hari sebelum hari H.",
         steps: [
             {
-                icon: "🎯",
+                icon: Target,
                 role: "Owner",
                 roleColor: "amber",
                 title: "Bikin Event baru",
@@ -511,7 +512,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Events → + Baru",
             },
             {
-                icon: "🔗",
+                icon: Link2,
                 role: "Owner",
                 roleColor: "amber",
                 title: "Link Event ke RAB",
@@ -519,7 +520,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Events → edit",
             },
             {
-                icon: "📦",
+                icon: Package,
                 role: "Owner",
                 roleColor: "amber",
                 title: "Bikin Packing List",
@@ -527,7 +528,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Event detail → Packing List",
             },
             {
-                icon: "👷",
+                icon: HardHat,
                 role: "Owner",
                 roleColor: "amber",
                 title: "Assign Crew & kirim link WA",
@@ -535,7 +536,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Event detail → Crew",
             },
             {
-                icon: "🚚",
+                icon: Truck,
                 role: "Crew",
                 roleColor: "blue",
                 title: "Hari H: Berangkat & check-in lokasi",
@@ -543,7 +544,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Link WA crew (publik)",
             },
             {
-                icon: "🔧",
+                icon: Wrench,
                 role: "Crew",
                 roleColor: "blue",
                 title: "Setup & eksekusi event",
@@ -551,7 +552,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Lapangan",
             },
             {
-                icon: "✅",
+                icon: CheckCircle2,
                 role: "Crew",
                 roleColor: "blue",
                 title: "Selesai → check-out + foto bukti",
@@ -562,12 +563,12 @@ const WORKFLOWS: Workflow[] = [
     },
     {
         id: "alur-finance",
-        icon: "📊",
+        icon: BarChart3,
         title: "Alur Finance — Pelunasan sampai Laba",
         summary: "Setelah event selesai: tagih pelunasan, catat semua biaya, lihat laba bersih per event.",
         steps: [
             {
-                icon: "💵",
+                icon: Banknote,
                 role: "Finance",
                 roleColor: "emerald",
                 title: "Generate Invoice Pelunasan",
@@ -575,7 +576,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Penawaran → Generate Invoice",
             },
             {
-                icon: "🏦",
+                icon: Landmark,
                 role: "Finance",
                 roleColor: "emerald",
                 title: "Terima pembayaran + bukti TF",
@@ -583,7 +584,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Invoice → Tandai Bayar",
             },
             {
-                icon: "📝",
+                icon: ClipboardList,
                 role: "Finance",
                 roleColor: "emerald",
                 title: "Catat semua pengeluaran event",
@@ -591,7 +592,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Cashflow → Pengeluaran",
             },
             {
-                icon: "👷",
+                icon: HardHat,
                 role: "Owner",
                 roleColor: "amber",
                 title: "Approve absensi crew (payroll)",
@@ -599,7 +600,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Payroll → Approval",
             },
             {
-                icon: "📊",
+                icon: BarChart3,
                 role: "Owner",
                 roleColor: "amber",
                 title: "Lihat laba per event",
@@ -607,7 +608,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Reports → Event Profit",
             },
             {
-                icon: "🎯",
+                icon: Target,
                 role: "Owner",
                 roleColor: "amber",
                 title: "Audit & evaluasi",
@@ -615,7 +616,7 @@ const WORKFLOWS: Workflow[] = [
                 where: "Reports → drill-down",
             },
             {
-                icon: "💾",
+                icon: Database,
                 role: "Owner",
                 roleColor: "amber",
                 title: "Backup mingguan",
@@ -627,11 +628,11 @@ const WORKFLOWS: Workflow[] = [
 ];
 
 const ROLE_BADGE_STYLES: Record<WorkflowStep["roleColor"], string> = {
-    violet: "bg-violet-100 text-violet-800 border-violet-200",
-    blue: "bg-blue-100 text-blue-800 border-blue-200",
-    amber: "bg-amber-100 text-amber-900 border-amber-200",
-    emerald: "bg-emerald-100 text-emerald-800 border-emerald-200",
-    rose: "bg-rose-100 text-rose-800 border-rose-200",
+    violet: "bg-primary/15 text-primary border-primary/30",
+    blue: "bg-info/15 text-info border-info/30",
+    amber: "bg-warning/15 text-warning border-warning/30",
+    emerald: "bg-success/15 text-success border-success/30",
+    rose: "bg-destructive/12 text-destructive border-destructive/20",
 };
 
 export default function HelpPage() {
@@ -677,41 +678,41 @@ export default function HelpPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        <div className="min-h-screen bg-background">
             {/* Top bar — judul + back + search */}
-            <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+            <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
                     <Link
                         href="/"
-                        className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 transition"
+                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
                         <ArrowLeft className="h-4 w-4" /> Kembali
                     </Link>
                     <div className="flex items-center gap-2 mr-auto">
-                        <BookOpen className="h-5 w-5 text-violet-600" />
-                        <h1 className="text-lg sm:text-xl font-bold text-slate-900">Bantuan & Panduan</h1>
+                        <BookOpen className="h-5 w-5 text-primary" />
+                        <h1 className="text-lg sm:text-xl font-bold text-foreground">Bantuan & Panduan</h1>
                     </div>
                     <div className="relative flex-1 max-w-md hidden sm:block">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <input
                             type="text"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Cari fitur, mis. 'pinjam barang', 'penawaran'..."
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100 transition"
+                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-muted text-sm focus:bg-card focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-colors"
                         />
                     </div>
                 </div>
                 {/* Search mobile — di bawah top bar */}
-                <div className="sm:hidden border-t border-slate-100 px-4 py-3">
+                <div className="sm:hidden border-t border-border px-4 py-3">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <input
                             type="text"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Cari panduan..."
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:border-violet-400 focus:outline-none"
+                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-muted text-sm focus:bg-card focus:border-primary/50 focus:outline-none transition-colors"
                         />
                     </div>
                 </div>
@@ -720,10 +721,10 @@ export default function HelpPage() {
             {/* Hero — singkat & ramah */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12 pb-6">
                 <div className="max-w-3xl">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
                         Cara pakai Pospro Event, dijelaskan sederhana.
                     </h2>
-                    <p className="mt-3 text-base sm:text-lg text-slate-600 leading-relaxed">
+                    <p className="mt-3 text-base sm:text-lg text-muted-foreground leading-relaxed">
                         Pilih topik di samping atau cari fitur di kolom pencarian. Tiap panduan ditulis step-by-step,
                         tidak pakai istilah teknis yang rumit.
                     </p>
@@ -736,7 +737,7 @@ export default function HelpPage() {
                 <aside className="hidden lg:block">
                     <nav className="sticky top-24 space-y-1 max-h-[calc(100vh-6rem)] overflow-y-auto pb-4">
                         {/* Grup 1: Alur Kerja End-to-End */}
-                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 px-3 flex items-center gap-1.5">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 px-3 flex items-center gap-1.5">
                             <Workflow className="h-3 w-3" />
                             Alur Kerja
                         </div>
@@ -744,45 +745,45 @@ export default function HelpPage() {
                             <button
                                 key={w.id}
                                 onClick={() => scrollToSection(w.id)}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left transition ${
+                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left transition-colors cursor-pointer ${
                                     activeSection === w.id
-                                        ? "bg-violet-50 text-violet-900 font-semibold"
-                                        : "text-slate-700 hover:bg-slate-100"
+                                        ? "bg-primary/10 text-primary font-semibold"
+                                        : "text-foreground hover:bg-muted"
                                 }`}
                             >
-                                <span className="text-base">{w.icon}</span>
+                                <w.icon className="h-4 w-4 shrink-0" />
                                 <span>{w.title}</span>
                             </button>
                         ))}
 
                         {/* Grup 2: Topik per Fitur */}
-                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 mt-6 px-3">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 mt-6 px-3">
                             Topik per Fitur
                         </div>
                         {SECTIONS.map((s) => (
                             <button
                                 key={s.id}
                                 onClick={() => scrollToSection(s.id)}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left transition ${
+                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left transition-colors cursor-pointer ${
                                     activeSection === s.id
-                                        ? "bg-violet-50 text-violet-900 font-semibold"
-                                        : "text-slate-700 hover:bg-slate-100"
+                                        ? "bg-primary/10 text-primary font-semibold"
+                                        : "text-foreground hover:bg-muted"
                                 }`}
                             >
-                                <span className="text-base">{s.icon}</span>
+                                <s.icon className="h-4 w-4 shrink-0" />
                                 <span>{s.title}</span>
                             </button>
                         ))}
 
-                        <div className="pt-6 mt-6 border-t border-slate-200">
-                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 px-3">
+                        <div className="pt-6 mt-6 border-t border-border">
+                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 px-3">
                                 Butuh Bantuan Lebih?
                             </div>
                             <a
                                 href="mailto:muhamadfaisal288@gmail.com"
-                                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-100 transition"
+                                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-muted transition-colors"
                             >
-                                <Mail className="h-4 w-4 text-slate-500" />
+                                <Mail className="h-4 w-4 text-muted-foreground" />
                                 <span>Email developer</span>
                             </a>
                         </div>
@@ -792,14 +793,14 @@ export default function HelpPage() {
                 {/* Konten utama */}
                 <main className="min-w-0 space-y-12">
                     {filteredSections.length === 0 && filteredWorkflows.length === 0 && (
-                        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
-                            <p className="text-slate-600">
+                        <div className="rounded-xl border border-border bg-card p-8 text-center">
+                            <p className="text-muted-foreground">
                                 Tidak ada panduan yang cocok dengan{" "}
-                                <strong className="text-slate-900">&ldquo;{query}&rdquo;</strong>.
+                                <strong className="text-foreground">&ldquo;{query}&rdquo;</strong>.
                             </p>
                             <button
                                 onClick={() => setQuery("")}
-                                className="mt-3 text-sm text-violet-600 hover:text-violet-700 font-medium"
+                                className="mt-3 text-sm text-primary hover:text-primary/80 font-medium cursor-pointer transition-colors"
                             >
                                 Hapus pencarian
                             </button>
@@ -810,12 +811,12 @@ export default function HelpPage() {
                     {filteredWorkflows.length > 0 && (
                         <div className="space-y-10">
                             <div className="flex items-start gap-3 pb-2">
-                                <div className="shrink-0 w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
-                                    <Workflow className="h-5 w-5 text-violet-700" />
+                                <div className="shrink-0 w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
+                                    <Workflow className="h-5 w-5 text-primary" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl sm:text-2xl font-bold text-slate-900">Alur Kerja End-to-End</h3>
-                                    <p className="mt-1 text-sm text-slate-600">
+                                    <h3 className="text-xl sm:text-2xl font-bold text-foreground">Alur Kerja End-to-End</h3>
+                                    <p className="mt-1 text-sm text-muted-foreground">
                                         3 alur utama dari klien WA pertama kali sampai laba project terhitung.
                                         Ikuti urut dari atas ke bawah.
                                     </p>
@@ -831,11 +832,11 @@ export default function HelpPage() {
                     {filteredSections.map((section) => (
                         <section key={section.id} id={section.id} className="scroll-mt-24">
                             {/* Section header */}
-                            <div className="flex items-start gap-3 mb-5 pb-4 border-b border-slate-200">
-                                <span className="text-3xl shrink-0">{section.icon}</span>
+                            <div className="flex items-start gap-3 mb-5 pb-4 border-b border-border">
+                                <section.icon className="h-7 w-7 shrink-0 text-primary" />
                                 <div className="min-w-0">
-                                    <h3 className="text-xl sm:text-2xl font-bold text-slate-900">{section.title}</h3>
-                                    <p className="mt-1 text-sm text-slate-600">{section.summary}</p>
+                                    <h3 className="text-xl sm:text-2xl font-bold text-foreground">{section.title}</h3>
+                                    <p className="mt-1 text-sm text-muted-foreground">{section.summary}</p>
                                 </div>
                             </div>
 
@@ -849,20 +850,20 @@ export default function HelpPage() {
                     ))}
 
                     {/* Kontak — di akhir konten, jelas & accessible */}
-                    <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-6 sm:p-8">
+                    <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 sm:p-8">
                         <div className="flex items-start gap-4">
-                            <div className="shrink-0 w-12 h-12 rounded-xl bg-violet-600 flex items-center justify-center">
-                                <Phone className="h-6 w-6 text-white" />
+                            <div className="shrink-0 w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
+                                <Phone className="h-6 w-6 text-primary-foreground" />
                             </div>
                             <div className="min-w-0 flex-1">
-                                <h4 className="text-lg font-bold text-slate-900">Masih bingung?</h4>
-                                <p className="mt-1 text-sm text-slate-600">
+                                <h4 className="text-lg font-bold text-foreground">Masih bingung?</h4>
+                                <p className="mt-1 text-sm text-muted-foreground">
                                     Hubungi developer untuk pertanyaan teknis, request fitur baru, atau lapor bug.
                                 </p>
                                 <div className="mt-4 flex flex-wrap gap-3">
                                     <a
                                         href="mailto:muhamadfaisal288@gmail.com"
-                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition"
+                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
                                     >
                                         <Mail className="h-4 w-4" />
                                         Email
@@ -871,7 +872,7 @@ export default function HelpPage() {
                                         href="https://wa.me/6289669180127"
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition"
+                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-foreground text-sm font-medium hover:bg-muted transition-colors"
                                     >
                                         <Phone className="h-4 w-4" />
                                         WhatsApp 0896-6918-0127
@@ -893,14 +894,14 @@ export default function HelpPage() {
  */
 function WorkflowSection({ workflow }: { workflow: Workflow }) {
     return (
-        <section id={workflow.id} className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <section id={workflow.id} className="scroll-mt-24 rounded-2xl border border-border bg-card overflow-hidden">
             {/* Header alur */}
-            <div className="border-b border-slate-200 bg-gradient-to-r from-violet-50/50 to-white px-5 sm:px-6 py-5">
+            <div className="border-b border-border bg-primary/5 px-5 sm:px-6 py-5">
                 <div className="flex items-start gap-3">
-                    <span className="text-3xl shrink-0">{workflow.icon}</span>
+                    <workflow.icon className="h-7 w-7 shrink-0 text-primary" />
                     <div className="min-w-0">
-                        <h4 className="text-lg sm:text-xl font-bold text-slate-900">{workflow.title}</h4>
-                        <p className="mt-1 text-sm text-slate-600">{workflow.summary}</p>
+                        <h4 className="text-lg sm:text-xl font-bold text-foreground">{workflow.title}</h4>
+                        <p className="mt-1 text-sm text-muted-foreground">{workflow.summary}</p>
                     </div>
                 </div>
             </div>
@@ -915,34 +916,34 @@ function WorkflowSection({ workflow }: { workflow: Workflow }) {
                             <li key={idx} className="relative pl-14 sm:pl-16">
                                 {/* Icon bulat di kiri */}
                                 <div className="absolute left-0 top-0 flex flex-col items-center">
-                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center text-lg sm:text-xl shadow-sm relative z-10">
-                                        {step.icon}
+                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-card border-2 border-border flex items-center justify-center shadow-sm relative z-10">
+                                        <step.icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                                     </div>
                                     {/* Garis penghubung ke step berikutnya (kecuali step terakhir) */}
                                     {!isLast && (
-                                        <div className="absolute top-10 sm:top-12 left-1/2 -translate-x-1/2 w-0.5 bg-slate-200 h-full" />
+                                        <div className="absolute top-10 sm:top-12 left-1/2 -translate-x-1/2 w-0.5 bg-border h-full" />
                                     )}
                                 </div>
 
                                 {/* Content step */}
                                 <div className="pt-1.5 sm:pt-2">
                                     <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                                        <span className="text-xs font-bold text-slate-400 tabular-nums">
+                                        <span className="text-xs font-bold text-muted-foreground tabular-nums">
                                             STEP {idx + 1}
                                         </span>
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${ROLE_BADGE_STYLES[step.roleColor]}`}>
                                             {step.role}
                                         </span>
                                     </div>
-                                    <h5 className="text-base sm:text-lg font-semibold text-slate-900 leading-snug">
+                                    <h5 className="text-base sm:text-lg font-semibold text-foreground leading-snug">
                                         {step.title}
                                     </h5>
-                                    <p className="mt-1.5 text-sm sm:text-[15px] text-slate-700 leading-relaxed">
+                                    <p className="mt-1.5 text-sm sm:text-[15px] text-foreground leading-relaxed">
                                         {step.detail}
                                     </p>
                                     {step.where && (
-                                        <div className="mt-2.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-600">
-                                            <ChevronRight className="h-3 w-3 text-slate-400" />
+                                        <div className="mt-2.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-muted border border-border text-xs text-muted-foreground">
+                                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
                                             <span className="font-medium">{step.where}</span>
                                         </div>
                                     )}
@@ -962,13 +963,13 @@ function WorkflowSection({ workflow }: { workflow: Workflow }) {
  */
 function FaqCard({ faq }: { faq: FaqItem }) {
     return (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 hover:border-slate-300 transition">
-            <h4 className="font-semibold text-slate-900 text-base sm:text-lg leading-snug">
+        <div className="rounded-xl border border-border bg-card p-5 sm:p-6 hover:border-border/80 transition-colors">
+            <h4 className="font-semibold text-foreground text-base sm:text-lg leading-snug">
                 {faq.q}
             </h4>
-            <div className="mt-3 text-slate-700 leading-relaxed text-sm sm:text-base">
+            <div className="mt-3 text-foreground leading-relaxed text-sm sm:text-base">
                 {Array.isArray(faq.a) ? (
-                    <ol className="space-y-2 list-decimal list-inside marker:text-violet-600 marker:font-semibold">
+                    <ol className="space-y-2 list-decimal list-inside marker:text-primary marker:font-semibold">
                         {faq.a.map((step, i) => (
                             <li key={i} className="pl-1">{step}</li>
                         ))}
@@ -978,8 +979,8 @@ function FaqCard({ faq }: { faq: FaqItem }) {
                 )}
             </div>
             {faq.tip && (
-                <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900 flex gap-2">
-                    <span className="shrink-0">💡</span>
+                <div className="mt-4 rounded-lg bg-warning/10 border border-warning/30 px-4 py-3 text-sm text-warning flex gap-2">
+                    <Lightbulb className="shrink-0 w-4 h-4 mt-0.5" />
                     <p className="leading-relaxed">{faq.tip}</p>
                 </div>
             )}

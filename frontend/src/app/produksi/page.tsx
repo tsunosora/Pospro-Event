@@ -8,10 +8,11 @@ import {
     startAssemblyJob, completeAssemblyJob,
 } from '@/lib/api';
 import {
-    Tab, PIN_KEY, PIN_TTL,
+    Tab,
     getStoredSession, saveSession, clearSession,
-    formatDeadline, getDimLabel, getAreaM2, suggestRolls, getLongerDim, getSambungInfo,
+    getDimLabel, getAreaM2, getSambungInfo,
 } from './produksi-utils';
+import { AlertTriangle, Zap } from 'lucide-react';
 import { JobCard } from './JobCard';
 import { Footer } from '@/components/layout/Footer';
 
@@ -308,7 +309,7 @@ export default function ProduksiPage() {
                             className="w-full text-center text-3xl tracking-[1rem] font-mono px-4 py-4 border-2 border-border bg-background rounded-2xl focus:border-primary outline-none transition-colors"
                         />
                         {pinError && (
-                            <div className="text-center text-sm text-red-500 font-medium">{pinError}</div>
+                            <div className="text-center text-sm text-destructive font-medium">{pinError}</div>
                         )}
                         <button type="submit" disabled={pinLoading || pinInput.length < 4}
                             className="w-full py-4 bg-primary text-primary-foreground font-bold text-lg rounded-2xl disabled:opacity-50 active:scale-[0.98] transition-transform">
@@ -363,11 +364,11 @@ export default function ProduksiPage() {
             {/* Tabs */}
             <div className="bg-card border-b border-border px-4 flex gap-1 overflow-x-auto">
                 {([
-                    { key: 'ANTRIAN', label: 'Antrian', count: stats.antrian, color: 'text-amber-600' },
-                    { key: 'PROSES', label: 'Proses', count: stats.proses, color: 'text-blue-600' },
-                    { key: 'MENUNGGU_PASANG', label: 'Menunggu Pasang', count: stats.menungguPasang, color: 'text-orange-600' },
-                    { key: 'PASANG', label: 'Dipasang', count: stats.pasang, color: 'text-amber-700' },
-                    { key: 'SELESAI', label: 'Selesai', count: stats.selesai, color: 'text-green-600' },
+                    { key: 'ANTRIAN', label: 'Antrian', count: stats.antrian, color: 'text-warning' },
+                    { key: 'PROSES', label: 'Proses', count: stats.proses, color: 'text-info' },
+                    { key: 'MENUNGGU_PASANG', label: 'Menunggu Pasang', count: stats.menungguPasang, color: 'text-warning' },
+                    { key: 'PASANG', label: 'Dipasang', count: stats.pasang, color: 'text-warning' },
+                    { key: 'SELESAI', label: 'Selesai', count: stats.selesai, color: 'text-success' },
                     { key: 'DIAMBIL', label: 'Diambil', count: null, color: 'text-muted-foreground' },
                 ] as const).map(t => (
                     <button key={t.key} onClick={() => { setTab(t.key); setGangMode(false); setSelectedIds(new Set()); }}
@@ -395,7 +396,7 @@ export default function ProduksiPage() {
                     />
                     {searchQuery && (
                         <button onClick={() => setSearchQuery('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -461,15 +462,15 @@ export default function ProduksiPage() {
                         return (
                             <>
                                 {Object.entries(batchMap).map(([batchId, batchJobs]) => (
-                                    <div key={batchId} className="border-2 border-blue-500/30 rounded-xl overflow-hidden bg-blue-500/5">
-                                        <div className="px-4 py-2 bg-blue-500/10 flex items-center justify-between">
+                                    <div key={batchId} className="border-2 border-info/30 rounded-xl overflow-hidden bg-info/5">
+                                        <div className="px-4 py-2 bg-info/10 flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-blue-600">GABUNG CETAK</span>
+                                                <span className="text-xs font-bold text-info">GABUNG CETAK</span>
                                                 <span className="text-xs text-muted-foreground">{batchJobs[0]?.batch?.batchNumber}</span>
                                                 <span className="text-xs text-muted-foreground">• {batchJobs.length} job</span>
                                             </div>
                                             <button onClick={() => handleCompleteBatch(Number(batchId))}
-                                                className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-lg">
+                                                className="px-3 py-1 bg-success text-white text-xs font-bold rounded-lg">
                                                 Selesai Semua
                                             </button>
                                         </div>
@@ -523,8 +524,8 @@ export default function ProduksiPage() {
                         <div className="overflow-y-auto flex-1 p-4 space-y-4">
                             {/* Order info */}
                             {processModal.job.transactionItem?.note && (
-                                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm">
-                                    <span className="font-semibold text-amber-700">Catatan: </span>
+                                <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg text-sm">
+                                    <span className="font-semibold text-warning">Catatan: </span>
                                     {processModal.job.transactionItem.note}
                                 </div>
                             )}
@@ -574,8 +575,8 @@ export default function ProduksiPage() {
                                                                 <p className="text-sm font-semibold truncate">{roll.product?.name}{roll.variantName ? ` — ${roll.variantName}` : ''}</p>
                                                                 <div className="flex flex-wrap gap-1 mt-1">
                                                                     {roll.product?.productType === 'RAW_MATERIAL'
-                                                                        ? <span className="text-[10px] font-bold px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-md">Bahan Baku</span>
-                                                                        : <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-md">Produk Jual</span>
+                                                                        ? <span className="text-[10px] font-bold px-1.5 py-0.5 bg-warning/15 text-warning rounded-md">Bahan Baku</span>
+                                                                        : <span className="text-[10px] font-bold px-1.5 py-0.5 bg-info/15 text-info rounded-md">Produk Jual</span>
                                                                     }
                                                                     {roll.product?.category?.name && (
                                                                         <span className="text-[10px] px-1.5 py-0.5 bg-muted text-muted-foreground rounded-md">{roll.product.category.name}</span>
@@ -587,8 +588,8 @@ export default function ProduksiPage() {
                                                             </div>
                                                             <div className="shrink-0 mt-0.5">
                                                                 {cukup
-                                                                    ? <span className="text-xs px-2 py-0.5 bg-green-500/15 text-green-700 rounded-full font-medium">Cukup</span>
-                                                                    : <span className="text-xs px-2 py-0.5 bg-red-500/15 text-red-600 rounded-full font-medium">Kurang</span>
+                                                                    ? <span className="text-xs px-2 py-0.5 bg-success/15 text-success rounded-full font-medium">Cukup</span>
+                                                                    : <span className="text-xs px-2 py-0.5 bg-destructive/12 text-destructive rounded-full font-medium">Kurang</span>
                                                                 }
                                                             </div>
                                                         </div>
@@ -596,7 +597,7 @@ export default function ProduksiPage() {
                                                 );
                                             })}
                                             {rolls.length === 0 && (
-                                                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-700">
+                                                <div className="p-4 bg-warning/10 border border-warning/20 rounded-xl text-sm text-warning">
                                                     <p className="font-semibold">Belum ada produk di inventory.</p>
                                                 </div>
                                             )}
@@ -612,22 +613,22 @@ export default function ProduksiPage() {
                                         const h = processModal.job.transactionItem?.heightCm ? Number(processModal.job.transactionItem.heightCm) : null;
                                         const sambung = eff > 0 ? getSambungInfo(w, h, eff) : { needsSambung: false, strips: 1, stripWidth: 0 };
                                         return (
-                                            <div className={`p-3 rounded-xl border text-sm space-y-1 ${sambung.needsSambung ? 'bg-orange-500/10 border-orange-500/20' : 'bg-muted/40 border-border'}`}>
+                                            <div className={`p-3 rounded-xl border text-sm space-y-1 ${sambung.needsSambung ? 'bg-warning/10 border-warning/20' : 'bg-muted/40 border-border'}`}>
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-muted-foreground">Luas cetak</span>
-                                                    <span className="font-bold text-lg">{areaM2.toFixed(2)} m² <span className="text-sm font-normal text-muted-foreground">({Math.round(areaM2 * 10000).toLocaleString('id-ID')} cm²)</span></span>
+                                                    <span className="font-bold text-lg nums">{areaM2.toFixed(2)} m² <span className="text-sm font-normal text-muted-foreground">({Math.round(areaM2 * 10000).toLocaleString('id-ID')} cm²)</span></span>
                                                 </div>
                                                 {selectedRollId && roll && (
                                                     <div className="flex items-center justify-between text-xs">
                                                         <span className="text-muted-foreground">Stok bahan setelah dipotong</span>
-                                                        <span className={`font-semibold ${Number(roll.stock) - Math.ceil(areaM2) < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                                        <span className={`font-semibold nums ${Number(roll.stock) - Math.ceil(areaM2) < 0 ? 'text-destructive' : 'text-success'}`}>
                                                             {Number(roll.stock) - Math.ceil(areaM2)} m²
                                                         </span>
                                                     </div>
                                                 )}
                                                 {sambung.needsSambung && (
-                                                    <p className="text-xs text-orange-600 pt-1 border-t border-orange-500/20">
-                                                        ⚠ Perlu cetak sambung {sambung.strips}× (lebar {sambung.stripWidth}m per pass)
+                                                    <p className="flex items-center gap-1 text-xs text-warning pt-1 border-t border-warning/20">
+                                                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Perlu cetak sambung {sambung.strips}× (lebar {sambung.stripWidth}m per pass)
                                                     </p>
                                                 )}
                                             </div>
@@ -682,7 +683,7 @@ export default function ProduksiPage() {
                                 {selectedJobs.map(j => (
                                     <div key={j.id} className="flex items-center justify-between">
                                         <span className="text-muted-foreground truncate pr-2">{j.transaction?.invoiceNumber} · {j.transactionItem?.productVariant?.product?.name}</span>
-                                        <span className="font-mono text-xs shrink-0">{getDimLabel(j)} = <span className="font-semibold">{getAreaM2(j).toFixed(2)} m²</span> <span className="text-muted-foreground">({Math.round(getAreaM2(j) * 10000).toLocaleString('id-ID')} cm²)</span></span>
+                                        <span className="font-mono text-xs shrink-0 nums">{getDimLabel(j)} = <span className="font-semibold">{getAreaM2(j).toFixed(2)} m²</span> <span className="text-muted-foreground">({Math.round(getAreaM2(j) * 10000).toLocaleString('id-ID')} cm²)</span></span>
                                     </div>
                                 ))}
                                 <div className="border-t border-border pt-2 mt-2 flex justify-between font-bold">
@@ -716,7 +717,7 @@ export default function ProduksiPage() {
                                         />
                                         <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
                                             {rolls.length === 0 && (
-                                                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-700">
+                                                <div className="p-4 bg-warning/10 border border-warning/20 rounded-xl text-sm text-warning">
                                                     <p className="font-semibold">Belum ada produk di stok.</p>
                                                     <p className="text-xs mt-1">Pastikan sudah ada produk di Inventory dan backend sudah di-restart setelah perubahan terakhir.</p>
                                                 </div>
@@ -733,8 +734,8 @@ export default function ProduksiPage() {
                                                                 <p className="text-sm font-semibold truncate">{r.product?.name}{r.variantName ? ` — ${r.variantName}` : ''}</p>
                                                                 <div className="flex flex-wrap gap-1 mt-1">
                                                                     {r.product?.productType === 'RAW_MATERIAL'
-                                                                        ? <span className="text-[10px] font-bold px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-md">Bahan Baku</span>
-                                                                        : <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-md">Produk Jual</span>
+                                                                        ? <span className="text-[10px] font-bold px-1.5 py-0.5 bg-warning/15 text-warning rounded-md">Bahan Baku</span>
+                                                                        : <span className="text-[10px] font-bold px-1.5 py-0.5 bg-info/15 text-info rounded-md">Produk Jual</span>
                                                                     }
                                                                     {r.product?.category?.name && (
                                                                         <span className="text-[10px] px-1.5 py-0.5 bg-muted text-muted-foreground rounded-md">{r.product.category.name}</span>
@@ -746,8 +747,8 @@ export default function ProduksiPage() {
                                                             </div>
                                                             <div className="shrink-0 mt-0.5">
                                                                 {cukup
-                                                                    ? <span className="text-xs px-2 py-0.5 bg-green-500/15 text-green-700 rounded-full font-medium">Cukup</span>
-                                                                    : <span className="text-xs px-2 py-0.5 bg-red-500/15 text-red-600 rounded-full font-medium">Kurang</span>
+                                                                    ? <span className="text-xs px-2 py-0.5 bg-success/15 text-success rounded-full font-medium">Cukup</span>
+                                                                    : <span className="text-xs px-2 py-0.5 bg-destructive/12 text-destructive rounded-full font-medium">Kurang</span>
                                                                 }
                                                             </div>
                                                         </div>
@@ -801,14 +802,14 @@ export default function ProduksiPage() {
                                 return ingredients.length > 0 ? (
                                     <div className="space-y-2">
                                         <p className="text-sm font-semibold">Komponen yang akan dipotong stok:</p>
-                                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 divide-y divide-amber-500/20">
+                                        <div className="rounded-xl border border-warning/30 bg-warning/5 divide-y divide-warning/20">
                                             {ingredients.map((ing: any, idx: number) => (
                                                 <div key={idx} className="flex items-center justify-between px-4 py-2.5 text-sm">
                                                     <span className="text-foreground font-medium">{ing.name}</span>
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-mono text-muted-foreground">{ing.quantity} {ing.unit}</span>
                                                         {ing.rawMaterialVariantId
-                                                            ? <span className="text-xs px-1.5 py-0.5 bg-green-500/15 text-green-700 rounded font-medium">Terhubung stok</span>
+                                                            ? <span className="text-xs px-1.5 py-0.5 bg-success/15 text-success rounded font-medium">Terhubung stok</span>
                                                             : <span className="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground rounded">Manual</span>
                                                         }
                                                     </div>
@@ -840,7 +841,7 @@ export default function ProduksiPage() {
                                 Batal
                             </button>
                             <button type="button" onClick={handleStartAssembly} disabled={modalLoading}
-                                className="flex-[2] py-3 bg-amber-500 text-white rounded-xl text-sm font-bold disabled:opacity-50 transition-colors">
+                                className="flex-[2] py-3 bg-warning text-warning-foreground rounded-xl text-sm font-bold disabled:opacity-50 transition-colors">
                                 {modalLoading ? 'Memproses...' : 'Konfirmasi Mulai Pasang'}
                             </button>
                         </div>
@@ -871,17 +872,19 @@ export default function ProduksiPage() {
                         <div className="p-4 space-y-3 max-h-[75vh] overflow-y-auto">
                             {/* Express / deadline banner */}
                             {(detailJob.priority === 'EXPRESS' || detailJob.transaction?.productionDeadline) && (
-                                <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-1">
+                                <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 space-y-1">
                                     {detailJob.priority === 'EXPRESS' && (
-                                        <p className="text-xs font-bold text-red-600">⚡ EXPRESS ORDER</p>
+                                        <p className="flex items-center gap-1 text-xs font-bold text-destructive">
+                                            <Zap className="w-3.5 h-3.5 shrink-0" /> EXPRESS ORDER
+                                        </p>
                                     )}
                                     {detailJob.transaction?.productionDeadline && (
-                                        <p className="text-xs text-red-600">
+                                        <p className="text-xs text-destructive">
                                             Deadline: {new Date(detailJob.transaction.productionDeadline).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                         </p>
                                     )}
                                     {detailJob.transaction?.productionNotes && (
-                                        <p className="text-xs text-red-600">{detailJob.transaction.productionNotes}</p>
+                                        <p className="text-xs text-destructive">{detailJob.transaction.productionNotes}</p>
                                     )}
                                 </div>
                             )}
@@ -938,7 +941,7 @@ export default function ProduksiPage() {
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm font-bold">Total Invoice</span>
-                                    <span className="text-sm font-bold text-primary">Rp {Number(detailJob.transaction?.total ?? 0).toLocaleString('id-ID')}</span>
+                                    <span className="text-sm font-bold text-primary nums">Rp {Number(detailJob.transaction?.total ?? 0).toLocaleString('id-ID')}</span>
                                 </div>
                             </div>
                         </div>

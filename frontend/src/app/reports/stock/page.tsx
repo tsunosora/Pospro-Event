@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getStockMovements } from '@/lib/api';
-import { Search, ArrowUpCircle, ArrowDownCircle, RefreshCw, Download, Filter, X } from 'lucide-react';
+import { Search, ArrowUpCircle, ArrowDownCircle, RefreshCw, Download, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // ── Preset rentang tanggal ─────────────────────────────────────────────────
 function getPresetRange(key: string): { start: string; end: string } {
@@ -35,9 +36,9 @@ function getPresetRange(key: string): { start: string; end: string } {
 }
 
 const TYPE_CONFIG = {
-    IN:     { label: 'Masuk',   icon: ArrowUpCircle,   className: 'text-emerald-600 bg-emerald-100 border-emerald-200' },
-    OUT:    { label: 'Keluar',  icon: ArrowDownCircle, className: 'text-red-600 bg-red-100 border-red-200' },
-    ADJUST: { label: 'Koreksi', icon: RefreshCw,       className: 'text-blue-600 bg-blue-100 border-blue-200' },
+    IN:     { label: 'Masuk',   icon: ArrowUpCircle,   className: 'text-success bg-success/15 border-success/30' },
+    OUT:    { label: 'Keluar',  icon: ArrowDownCircle, className: 'text-destructive bg-destructive/12 border-destructive/30' },
+    ADJUST: { label: 'Koreksi', icon: RefreshCw,       className: 'text-info bg-info/15 border-info/30' },
 } as const;
 
 /** Format quantity: tampilkan desimal hanya jika perlu, strip trailing zeros */
@@ -124,10 +125,9 @@ export default function StockReportPage() {
                     <h1 className="text-2xl font-bold text-foreground">Laporan Stok</h1>
                     <p className="text-sm text-muted-foreground mt-0.5">Riwayat seluruh pergerakan stok dengan filter tanggal</p>
                 </div>
-                <button onClick={handleExport} disabled={movements.length === 0}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-40">
+                <Button onClick={handleExport} disabled={movements.length === 0} size="sm" className="gap-2">
                     <Download className="w-4 h-4" /> Export CSV
-                </button>
+                </Button>
             </div>
 
             {/* Filter bar */}
@@ -136,7 +136,7 @@ export default function StockReportPage() {
                 <div className="flex gap-1.5 flex-wrap">
                     {PRESETS.map(p => (
                         <button key={p.key} onClick={() => handlePreset(p.key)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
                                 preset === p.key
                                     ? 'bg-primary text-primary-foreground border-primary'
                                     : 'bg-background text-muted-foreground border-border hover:border-primary/40'
@@ -165,7 +165,7 @@ export default function StockReportPage() {
                             { value: 'ADJUST', label: 'Koreksi' },
                         ].map(t => (
                             <button key={t.value} onClick={() => setTypeFilter(t.value)}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
                                     typeFilter === t.value
                                         ? 'bg-foreground text-background border-foreground'
                                         : 'bg-background text-muted-foreground border-border hover:border-foreground/30'
@@ -180,7 +180,7 @@ export default function StockReportPage() {
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                         <input type="text" placeholder="Cari produk / SKU…" value={search} onChange={e => setSearch(e.target.value)}
                             className="pl-8 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs outline-none focus:border-primary w-44" />
-                        {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="w-3 h-3" /></button>}
+                        {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer transition-colors"><X className="w-3 h-3" /></button>}
                     </div>
                 </div>
             </div>
@@ -190,21 +190,21 @@ export default function StockReportPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="glass rounded-xl border border-border p-4 text-center">
                         <p className="text-xs text-muted-foreground mb-1">Total Catatan</p>
-                        <p className="text-2xl font-black text-foreground">{summary.count.toLocaleString('id-ID')}</p>
+                        <p className="text-2xl font-black text-foreground nums">{summary.count.toLocaleString('id-ID')}</p>
                     </div>
-                    <div className="glass rounded-xl border border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 text-center">
-                        <p className="text-xs text-emerald-600 mb-1">Total Masuk</p>
-                        <p className="text-2xl font-black text-emerald-600">+{summary.totalIn.toLocaleString('id-ID')}</p>
+                    <div className="glass rounded-xl border border-success/30 bg-success/10 p-4 text-center">
+                        <p className="text-xs text-success mb-1">Total Masuk</p>
+                        <p className="text-2xl font-black text-success nums">+{summary.totalIn.toLocaleString('id-ID')}</p>
                         <p className="text-[10px] text-muted-foreground">unit / m²</p>
                     </div>
-                    <div className="glass rounded-xl border border-red-200 bg-red-50/40 dark:bg-red-950/20 p-4 text-center">
-                        <p className="text-xs text-red-600 mb-1">Total Keluar</p>
-                        <p className="text-2xl font-black text-red-600">-{summary.totalOut.toLocaleString('id-ID')}</p>
+                    <div className="glass rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-center">
+                        <p className="text-xs text-destructive mb-1">Total Keluar</p>
+                        <p className="text-2xl font-black text-destructive nums">-{summary.totalOut.toLocaleString('id-ID')}</p>
                         <p className="text-[10px] text-muted-foreground">unit / m²</p>
                     </div>
-                    <div className="glass rounded-xl border border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 p-4 text-center">
-                        <p className="text-xs text-blue-600 mb-1">Net Pergerakan</p>
-                        <p className={`text-2xl font-black ${summary.totalIn - summary.totalOut >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    <div className="glass rounded-xl border border-info/30 bg-info/10 p-4 text-center">
+                        <p className="text-xs text-info mb-1">Net Pergerakan</p>
+                        <p className={`text-2xl font-black nums ${summary.totalIn - summary.totalOut >= 0 ? 'text-success' : 'text-destructive'}`}>
                             {summary.totalIn - summary.totalOut >= 0 ? '+' : ''}{(summary.totalIn - summary.totalOut).toLocaleString('id-ID')}
                         </p>
                         <p className="text-[10px] text-muted-foreground">unit / m²</p>
@@ -251,7 +251,7 @@ export default function StockReportPage() {
                                             <div className="flex items-center gap-1.5">
                                                 <p className="font-medium text-foreground text-sm">{prodName}</p>
                                                 {areaBased && (
-                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
+                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-info/15 text-info border border-info/30">
                                                         m²
                                                     </span>
                                                 )}
@@ -264,13 +264,13 @@ export default function StockReportPage() {
                                                 <Icon className="w-3 h-3" />{cfg?.label}
                                             </span>
                                         </td>
-                                        <td className={`px-4 py-2.5 text-right font-bold text-sm ${m.type === 'IN' ? 'text-emerald-600' : m.type === 'OUT' ? 'text-red-600' : 'text-blue-600'}`}>
+                                        <td className={`px-4 py-2.5 text-right font-bold text-sm nums ${m.type === 'IN' ? 'text-success' : m.type === 'OUT' ? 'text-destructive' : 'text-info'}`}>
                                             {m.type === 'IN' ? '+' : m.type === 'OUT' ? '-' : '~'}{fmtQty(m.quantity)}
                                             <span className="text-[10px] font-normal text-muted-foreground ml-0.5">{unit}</span>
                                         </td>
                                         <td className="px-4 py-2.5 text-right text-xs font-mono">
                                             {m.balanceAfter != null ? (
-                                                <span className="text-foreground font-semibold">
+                                                <span className="text-foreground font-semibold nums">
                                                     {fmtQty(m.balanceAfter)}
                                                     <span className="text-[10px] font-normal text-muted-foreground ml-0.5">{unit}</span>
                                                 </span>
@@ -308,10 +308,10 @@ export default function StockReportPage() {
                                         <div className="flex items-center gap-1.5 min-w-0">
                                             <p className="font-semibold text-sm truncate">{prodName}</p>
                                             {areaBased && (
-                                                <span className="shrink-0 px-1 py-0.5 rounded text-[10px] font-semibold bg-violet-100 dark:bg-violet-900/30 text-violet-600 border border-violet-200 dark:border-violet-800">m²</span>
+                                                <span className="shrink-0 px-1 py-0.5 rounded text-[10px] font-semibold bg-info/15 text-info border border-info/30">m²</span>
                                             )}
                                         </div>
-                                        <p className={`font-bold text-sm shrink-0 ${m.type === 'IN' ? 'text-emerald-600' : m.type === 'OUT' ? 'text-red-600' : 'text-blue-600'}`}>
+                                        <p className={`font-bold text-sm shrink-0 nums ${m.type === 'IN' ? 'text-success' : m.type === 'OUT' ? 'text-destructive' : 'text-info'}`}>
                                             {m.type === 'IN' ? '+' : m.type === 'OUT' ? '-' : '~'}{fmtQty(m.quantity)} {unit}
                                         </p>
                                     </div>

@@ -58,6 +58,16 @@
   --shadow-offset-x: 0px;
   --shadow-offset-y: 8px;
   --letter-spacing: -0.01em;
+
+  /* ── Semantic status tokens (light) — dipakai untuk badge/status/keuangan.
+     Warna teks/ikon di-set kontras AA di atas surface terang; gunakan /12–/20
+     untuk background lembut, mis. bg-success/15 text-success border-success/30. */
+  --success: oklch(0.5800 0.1400 150.0000);
+  --success-foreground: oklch(1.0000 0 0);
+  --warning: oklch(0.6600 0.1500 70.0000);
+  --warning-foreground: oklch(0.2600 0.0500 70.0000);
+  --info: oklch(0.5600 0.1700 255.0000);
+  --info-foreground: oklch(1.0000 0 0);
 }
 
 .dark {
@@ -115,6 +125,15 @@
   --shadow-offset-y: 10px;
   --letter-spacing: -0.01em;
   --spacing: 0.25rem;
+
+  /* ── Semantic status tokens (dark) — versi lebih terang/desaturasi
+     supaya kontras tetap ≥4.5:1 di atas surface gelap. */
+  --success: oklch(0.7300 0.1500 152.0000);
+  --success-foreground: oklch(0.1700 0.0250 25.0000);
+  --warning: oklch(0.8000 0.1400 75.0000);
+  --warning-foreground: oklch(0.1700 0.0250 25.0000);
+  --info: oklch(0.7100 0.1500 255.0000);
+  --info-foreground: oklch(0.1700 0.0250 25.0000);
 }
 
 @theme inline {
@@ -134,6 +153,12 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -201,11 +226,58 @@
 }
 
 @layer utilities {
+  /* Glassmorphism — surface utama kartu. Semi-transparan + blur di atas
+     background, border tipis, shadow lembut sesuai skala token. */
   .glass {
     @apply bg-card/70 backdrop-blur-md border border-border/50 shadow-sm;
   }
+  /* Varian lebih pekat untuk panel/modal/sidebar yang butuh keterbacaan tinggi. */
+  .glass-strong {
+    @apply bg-card/85 backdrop-blur-lg border border-border/60 shadow-md;
+  }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Angka rata kolom untuk data/keuangan — cegah layout shift. */
+  .nums { font-variant-numeric: tabular-nums; }
+
+  /* ── Animasi masuk halus (150–300ms), dipakai untuk kartu/list/modal.
+     Semua transform+opacity saja → GPU-friendly, tidak memicu reflow. */
+  .animate-in {
+    animation: fade-in-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-fade {
+    animation: fade-in 0.2s ease-out both;
+  }
+  .animate-pop {
+    animation: pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Hormati preferensi reduce-motion: matikan animasi & transisi non-esensial
+   untuk aksesibilitas (WCAG 2.3.3 / prefers-reduced-motion). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ─── Print: struk thermal 80mm ─── */

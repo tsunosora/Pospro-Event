@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCategories, getUnits, createProduct, uploadProductImages, uploadVariantImage, getSettings, getProducts } from '@/lib/api';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2, RefreshCw, ChevronDown, ChevronUp, Layers, Zap } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2, RefreshCw, ChevronDown, ChevronUp, Layers, Zap, Lightbulb } from 'lucide-react';
 import Link from 'next/link';
 
 // Auto-generate SKU helper
@@ -441,9 +441,9 @@ export default function AddProductPage() {
                             <label className="text-sm font-medium">Tipe Produk</label>
                             <div className="grid grid-cols-3 gap-3">
                                 {([
-                                    { value: 'SELLABLE',     label: 'Siap Jual',  desc: 'Produk retail / dagangan langsung.',   cls: 'border-emerald-400 bg-emerald-50',   dot: 'bg-emerald-500' },
-                                    { value: 'RAW_MATERIAL', label: 'Bahan Baku', desc: 'Material untuk produksi / resep.',      cls: 'border-amber-400 bg-amber-50',       dot: 'bg-amber-500' },
-                                    { value: 'SERVICE',      label: 'Jasa',       desc: 'Layanan, tidak ada stok fisik.',        cls: 'border-violet-400 bg-violet-50',     dot: 'bg-violet-500' },
+                                    { value: 'SELLABLE',     label: 'Siap Jual',  desc: 'Produk retail / dagangan langsung.',   cls: 'border-success/40 bg-success/10',   dot: 'bg-success' },
+                                    { value: 'RAW_MATERIAL', label: 'Bahan Baku', desc: 'Material untuk produksi / resep.',      cls: 'border-warning/40 bg-warning/10',   dot: 'bg-warning' },
+                                    { value: 'SERVICE',      label: 'Jasa',       desc: 'Layanan, tidak ada stok fisik.',        cls: 'border-primary/40 bg-primary/10',    dot: 'bg-primary' },
                                 ] as const).map(opt => (
                                     <div
                                         key={opt.value}
@@ -496,8 +496,9 @@ export default function AddProductPage() {
                             </div>
                         </div>
                         {pricingMode === 'AREA_BASED' && (
-                            <p className="mt-3 text-xs text-primary/80 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
-                                💡 Isi <strong>Harga/m²</strong> di bagian <strong>Varian Produk</strong> di bawah. Stok diisi dalam satuan <strong>m²</strong> (total bahan tersedia).
+                            <p className="mt-3 text-xs text-primary/80 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 flex items-start gap-1.5">
+                                <Lightbulb className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                <span>Isi <strong>Harga/m²</strong> di bagian <strong>Varian Produk</strong> di bawah. Stok diisi dalam satuan <strong>m²</strong> (total bahan tersedia).</span>
                             </p>
                         )}
 
@@ -515,9 +516,9 @@ export default function AddProductPage() {
                             </div>
                         </label>
                         {requiresProduction && (
-                            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-border hover:border-amber-400/50 transition-colors bg-amber-500/5 mt-2">
+                            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-border hover:border-warning/50 transition-colors bg-warning/5 mt-2">
                                 <input type="checkbox" checked={hasAssemblyStage} onChange={e => setHasAssemblyStage(e.target.checked)}
-                                    className="w-4 h-4 rounded accent-amber-500" />
+                                    className="w-4 h-4 rounded accent-warning" />
                                 <div>
                                     <p className="text-sm font-medium">Produk Rakitan — Ada Tahap Pemasangan</p>
                                     <p className="text-xs text-muted-foreground">Aktifkan jika setelah proses awal masih ada tahap assembly (pasang rangka, pasang frame, finishing, dll).</p>
@@ -547,7 +548,7 @@ export default function AddProductPage() {
                         </button>
                     </label>
                     {!trackStock && (
-                        <p className="mt-2 text-xs text-blue-600 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2">
+                        <p className="mt-2 text-xs text-info bg-info/15 border border-info/30 rounded-lg px-3 py-2">
                             Produk ini akan tampil dengan ikon ∞ di POS & inventori. Stok tidak akan dipotong saat checkout.
                         </p>
                     )}
@@ -696,10 +697,10 @@ export default function AddProductPage() {
                                         className="flex items-center justify-between w-full text-sm font-medium text-left"
                                     >
                                         <span className="flex items-center gap-2">
-                                            <Layers className="w-4 h-4 text-orange-500" />
+                                            <Layers className="w-4 h-4 text-warning" />
                                             Harga Bertingkat
                                             {v.priceTiers.length > 0 && (
-                                                <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-1.5 py-0.5 rounded font-medium">{v.priceTiers.length} tier</span>
+                                                <span className="text-xs bg-warning/15 text-warning px-1.5 py-0.5 rounded font-medium">{v.priceTiers.length} tier</span>
                                             )}
                                         </span>
                                         {v.showPriceTiers ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -708,7 +709,7 @@ export default function AddProductPage() {
                                         <div className="space-y-2 pt-1">
                                             <p className="text-xs text-muted-foreground">Sistem otomatis memilih harga berdasarkan jumlah qty saat checkout. Isi harga jual di atas sebagai harga default jika qty tidak cocok dengan tier manapun.</p>
                                             {v.priceTiers.map((tier, ti) => (
-                                                <div key={ti} className="flex gap-2 items-center bg-orange-50/50 dark:bg-orange-950/20 border border-orange-200/50 dark:border-orange-800/30 rounded-lg p-2">
+                                                <div key={ti} className="flex gap-2 items-center bg-warning/10 border border-warning/20 rounded-lg p-2">
                                                     <input type="text" value={tier.tierName} onChange={e => updatePriceTier(index, ti, 'tierName', e.target.value)} placeholder="Label (opsional)" className="w-28 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary" />
                                                     <input type="number" min="1" value={tier.minQty} onChange={e => updatePriceTier(index, ti, 'minQty', e.target.value)} placeholder="Min Qty" className="w-20 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary" />
                                                     <span className="text-xs text-muted-foreground shrink-0">—</span>
@@ -719,7 +720,7 @@ export default function AddProductPage() {
                                                     </button>
                                                 </div>
                                             ))}
-                                            <button type="button" onClick={() => addPriceTier(index)} className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium transition-colors">
+                                            <button type="button" onClick={() => addPriceTier(index)} className="flex items-center gap-1 text-xs text-warning hover:text-warning/80 font-medium transition-colors">
                                                 <Plus className="w-3.5 h-3.5" /> Tambah Tier Harga
                                             </button>
                                         </div>
@@ -735,10 +736,10 @@ export default function AddProductPage() {
                                         className="flex items-center justify-between w-full text-sm font-medium text-left"
                                     >
                                         <span className="flex items-center gap-2">
-                                            <Zap className="w-4 h-4 text-purple-500" />
+                                            <Zap className="w-4 h-4 text-primary" />
                                             Ingredient Varian
                                             {v.variantIngredients.length > 0 && (
-                                                <span className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded font-medium">{v.variantIngredients.length} item</span>
+                                                <span className="text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded font-medium">{v.variantIngredients.length} item</span>
                                             )}
                                         </span>
                                         {v.showVariantIngredients ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -747,7 +748,7 @@ export default function AddProductPage() {
                                         <div className="space-y-2 pt-1">
                                             <p className="text-xs text-muted-foreground">Bahan atau biaya yang spesifik untuk varian ini (berbeda tiap varian). Contoh: biaya klik 1 sisi vs 2 sisi, tinta warna vs hitam-putih.</p>
                                             {v.variantIngredients.map((ing, ii) => (
-                                                <div key={ii} className="space-y-2 bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/50 dark:border-purple-800/30 rounded-lg p-2">
+                                                <div key={ii} className="space-y-2 bg-primary/5 border border-primary/20 rounded-lg p-2">
                                                     <div className="flex items-center gap-2">
                                                         <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                                                         <select
@@ -761,7 +762,7 @@ export default function AddProductPage() {
                                                             ))}
                                                         </select>
                                                         <label className="flex items-center gap-1 text-xs shrink-0 cursor-pointer">
-                                                            <input type="checkbox" checked={ing.isServiceCost} onChange={e => updateVariantIngredient(index, ii, 'isServiceCost', e.target.checked)} className="w-3.5 h-3.5 accent-purple-600" />
+                                                            <input type="checkbox" checked={ing.isServiceCost} onChange={e => updateVariantIngredient(index, ii, 'isServiceCost', e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
                                                             <span className="text-muted-foreground">Biaya Jasa</span>
                                                         </label>
                                                         <button type="button" onClick={() => removeVariantIngredient(index, ii)} className="p-1 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded transition-colors">
@@ -775,11 +776,11 @@ export default function AddProductPage() {
                                                         <input type="number" min="0" value={ing.price} onChange={e => updateVariantIngredient(index, ii, 'price', e.target.value)} placeholder="Harga/unit" className="w-28 px-2 py-1.5 bg-background border border-border rounded text-xs outline-none focus:border-primary" />
                                                     </div>
                                                     {ing.isServiceCost && (
-                                                        <p className="text-xs text-purple-600 dark:text-purple-400">Biaya Jasa — tidak memotong stok inventori, hanya masuk ke perhitungan HPP.</p>
+                                                        <p className="text-xs text-primary">Biaya Jasa — tidak memotong stok inventori, hanya masuk ke perhitungan HPP.</p>
                                                     )}
                                                 </div>
                                             ))}
-                                            <button type="button" onClick={() => addVariantIngredient(index)} className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 font-medium transition-colors">
+                                            <button type="button" onClick={() => addVariantIngredient(index)} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors">
                                                 <Plus className="w-3.5 h-3.5" /> Tambah Ingredient Varian
                                             </button>
                                         </div>
@@ -839,7 +840,7 @@ export default function AddProductPage() {
                                             ))}
                                         </select>
                                         {ing.rawMaterialVariantId && (
-                                            <span className="text-xs text-green-600 font-medium shrink-0">Terhubung</span>
+                                            <span className="text-xs text-success font-medium shrink-0">Terhubung</span>
                                         )}
                                     </div>
                                     {/* Detail row */}

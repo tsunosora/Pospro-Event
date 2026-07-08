@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, User, Building2, MapPin } from "lucide-react";
+import { AlertCircle, CheckCircle2, User, Building2, MapPin, Lightbulb, Phone, Target } from "lucide-react";
 import {
     getCustomers,
     lookupCustomerByPhone,
@@ -118,7 +118,7 @@ export function PhoneDuplicateBanner({
         const nameLen = name.trim().length;
         if (phoneLen < 3 && nameLen < 2) return null;
         return (
-            <div className={`flex items-center gap-1.5 text-emerald-600 ${textSize}`}>
+            <div className={`flex items-center gap-1.5 text-success ${textSize}`}>
                 <CheckCircle2 className="h-3 w-3" />
                 Belum ada di database — akan tersimpan sebagai customer baru.
             </div>
@@ -128,18 +128,19 @@ export function PhoneDuplicateBanner({
     const padding = compact ? "p-2" : "p-2.5";
 
     return (
-        <div className={`bg-amber-50 border-l-4 border-amber-500 rounded ${padding} space-y-1.5`}>
+        <div className={`bg-warning/10 border-l-4 border-warning rounded ${padding} space-y-1.5`}>
             <div className="flex items-start gap-1.5">
-                <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                    <div className={`font-bold text-amber-900 ${textSize}`}>
-                        💡 {hasCustomers && hasLead
+                    <div className={`font-bold text-warning flex items-center gap-1 ${textSize}`}>
+                        <Lightbulb className="h-3.5 w-3.5 flex-shrink-0" />
+                        {hasCustomers && hasLead
                             ? "Match ditemukan di Customer & Lead"
                             : hasCustomers
                                 ? `${matchingCustomers.length} customer cocok`
                                 : "Match ditemukan di Lead CRM"}
                     </div>
-                    <div className={`text-amber-700 ${compact ? "text-[10px]" : "text-[11px]"}`}>
+                    <div className={`text-warning ${compact ? "text-[10px]" : "text-[11px]"}`}>
                         Klik untuk pakai data existing & hindari duplikat:
                     </div>
                 </div>
@@ -152,24 +153,24 @@ export function PhoneDuplicateBanner({
                     type="button"
                     onClick={() => onUseCustomer?.(c)}
                     disabled={!onUseCustomer}
-                    className={`w-full text-left ${padding} bg-white border-2 border-emerald-300 rounded hover:bg-emerald-50 hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60 transition`}
+                    className={`w-full text-left ${padding} bg-card border-2 border-success/30 rounded hover:bg-success/10 hover:border-success disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer transition-colors`}
                 >
                     <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`px-1.5 py-0.5 rounded ${compact ? "text-[9px]" : "text-[10px]"} font-bold bg-emerald-100 text-emerald-800 border border-emerald-300`}>
-                            👤 CUSTOMER
+                        <span className={`px-1.5 py-0.5 rounded ${compact ? "text-[9px]" : "text-[10px]"} font-bold bg-success/15 text-success border border-success/30 inline-flex items-center gap-0.5`}>
+                            <User className="h-2.5 w-2.5" />CUSTOMER
                         </span>
-                        <span className={`font-bold text-slate-900 truncate ${textSize}`}>
+                        <span className={`font-bold text-foreground truncate ${textSize}`}>
                             {c.companyName || c.name}
                         </span>
                         {c.companyName && c.name && (
-                            <span className={`${compact ? "text-[9px]" : "text-[10px]"} text-slate-500`}>
+                            <span className={`${compact ? "text-[9px]" : "text-[10px]"} text-muted-foreground`}>
                                 ({c.name})
                             </span>
                         )}
                     </div>
-                    <div className={`${compact ? "text-[10px]" : "text-[11px]"} text-slate-600 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5`}>
+                    <div className={`${compact ? "text-[10px]" : "text-[11px]"} text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5`}>
                         {c.phone && (
-                            <span className="font-mono">📞 {c.phone}</span>
+                            <span className="font-mono inline-flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{c.phone}</span>
                         )}
                         {c.companyPIC && (
                             <span><User className="h-2.5 w-2.5 inline mr-0.5" />{c.companyPIC}</span>
@@ -187,28 +188,28 @@ export function PhoneDuplicateBanner({
                     type="button"
                     onClick={() => onUseLead?.(lead)}
                     disabled={!onUseLead}
-                    className={`w-full text-left ${padding} bg-white border-2 border-blue-300 rounded hover:bg-blue-50 hover:border-blue-500 disabled:cursor-not-allowed disabled:opacity-60 transition`}
+                    className={`w-full text-left ${padding} bg-card border-2 border-info/30 rounded hover:bg-info/10 hover:border-info disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer transition-colors`}
                 >
                     <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`px-1.5 py-0.5 rounded ${compact ? "text-[9px]" : "text-[10px]"} font-bold bg-blue-100 text-blue-800 border border-blue-300`}>
-                            🎯 LEAD CRM
+                        <span className={`px-1.5 py-0.5 rounded ${compact ? "text-[9px]" : "text-[10px]"} font-bold bg-info/15 text-info border border-info/30 inline-flex items-center gap-0.5`}>
+                            <Target className="h-2.5 w-2.5" />LEAD CRM
                         </span>
-                        <span className={`font-bold text-slate-900 truncate ${textSize}`}>
+                        <span className={`font-bold text-foreground truncate ${textSize}`}>
                             {lead.name || "(belum dinamai)"}
                         </span>
                         {lead.stageName && (
-                            <span className={`px-1.5 py-0.5 rounded ${compact ? "text-[9px]" : "text-[10px]"} font-medium bg-slate-100 text-slate-700 border border-slate-300`}>
+                            <span className={`px-1.5 py-0.5 rounded ${compact ? "text-[9px]" : "text-[10px]"} font-medium bg-muted text-muted-foreground border border-border`}>
                                 {lead.stageName}
                             </span>
                         )}
                         {lead.convertedCustomerId && (
-                            <span className={`px-1.5 py-0.5 rounded ${compact ? "text-[9px]" : "text-[10px]"} font-medium bg-emerald-100 text-emerald-700 border border-emerald-300`}>
-                                ✓ Customer
+                            <span className={`px-1.5 py-0.5 rounded ${compact ? "text-[9px]" : "text-[10px]"} font-medium bg-success/15 text-success border border-success/30 inline-flex items-center gap-0.5`}>
+                                <CheckCircle2 className="h-2.5 w-2.5" />Customer
                             </span>
                         )}
                     </div>
-                    <div className={`${compact ? "text-[10px]" : "text-[11px]"} text-slate-600 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5`}>
-                        <span className="font-mono">📞 {lead.phone}</span>
+                    <div className={`${compact ? "text-[10px]" : "text-[11px]"} text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5`}>
+                        <span className="font-mono inline-flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{lead.phone}</span>
                         {lead.organization && (
                             <span><Building2 className="h-2.5 w-2.5 inline mr-0.5" />{lead.organization}</span>
                         )}

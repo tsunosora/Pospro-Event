@@ -8,6 +8,7 @@ import {
     Plus, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Loader2,
     Pencil, Trash2, TrendingUp, BarChart3, Download, Filter, X, Store,
     Clock, CheckCircle2, XCircle, AlertTriangle, RefreshCw,
+    Banknote, Smartphone, Building2, Calculator, CalendarDays,
 } from "lucide-react";
 import {
     getCashflows, createCashflow, updateCashflow, deleteCashflow,
@@ -202,8 +203,8 @@ function EditModal({ entry, bankAccounts, onClose, onSave, isPending }: {
                             {(['CASH', 'QRIS', 'BANK_TRANSFER'] as const).map(m => (
                                 <button type="button" key={m}
                                     onClick={() => { setPaymentMethod(m); if (m !== 'BANK_TRANSFER') setBankAccountId(''); }}
-                                    className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${paymentMethod === m ? 'bg-primary/10 text-primary border-primary/30' : 'border-input text-muted-foreground hover:bg-muted/50'}`}>
-                                    {m === 'CASH' ? '💵 Tunai' : m === 'QRIS' ? '📱 QRIS' : '🏦 Transfer'}
+                                    className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors flex items-center justify-center gap-1 ${paymentMethod === m ? 'bg-primary/10 text-primary border-primary/30' : 'border-input text-muted-foreground hover:bg-muted/50'}`}>
+                                    {m === 'CASH' ? <><Banknote className="h-3.5 w-3.5" /> Tunai</> : m === 'QRIS' ? <><Smartphone className="h-3.5 w-3.5" /> QRIS</> : <><Building2 className="h-3.5 w-3.5" /> Transfer</>}
                                 </button>
                             ))}
                         </div>
@@ -282,8 +283,8 @@ function SubmitRequestModal({ entry, type, bankAccounts, onClose, onSubmit, isPe
                     </h3>
                     <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
                 </div>
-                <div className="px-6 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
-                    <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                <div className="px-6 py-3 bg-warning/10 border-b border-warning/20">
+                    <p className="text-xs text-warning flex items-center gap-1.5">
                         <Clock className="h-3.5 w-3.5 shrink-0" />
                         Permintaan ini akan dikirim ke manajer untuk disetujui
                     </p>
@@ -321,8 +322,8 @@ function SubmitRequestModal({ entry, type, bankAccounts, onClose, onSubmit, isPe
                                     {(['CASH', 'QRIS', 'BANK_TRANSFER'] as const).map(m => (
                                         <button type="button" key={m}
                                             onClick={() => { setPaymentMethod(m); if (m !== 'BANK_TRANSFER') setBankAccountId(''); }}
-                                            className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${paymentMethod === m ? 'bg-primary/10 text-primary border-primary/30' : 'border-input text-muted-foreground hover:bg-muted/50'}`}>
-                                            {m === 'CASH' ? '💵 Tunai' : m === 'QRIS' ? '📱 QRIS' : '🏦 Transfer'}
+                                            className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors flex items-center justify-center gap-1 ${paymentMethod === m ? 'bg-primary/10 text-primary border-primary/30' : 'border-input text-muted-foreground hover:bg-muted/50'}`}>
+                                            {m === 'CASH' ? <><Banknote className="h-3.5 w-3.5" /> Tunai</> : m === 'QRIS' ? <><Smartphone className="h-3.5 w-3.5" /> QRIS</> : <><Building2 className="h-3.5 w-3.5" /> Transfer</>}
                                         </button>
                                     ))}
                                 </div>
@@ -504,8 +505,6 @@ function RabFilterCombobox({
         return () => document.removeEventListener("mousedown", handler);
     }, [open]);
 
-    const triggerLabel = selected ? `🧮 ${labelOf(selected)}` : "🧮 Semua RAB";
-
     return (
         <div ref={wrapperRef} className="relative">
             <button
@@ -514,7 +513,8 @@ function RabFilterCombobox({
                 className="px-2 py-1.5 rounded-lg text-xs font-medium border border-input bg-background text-foreground hover:bg-muted/40 transition-colors flex items-center gap-1 max-w-[220px]"
                 title={selected ? `${selected.code} · ${selected.title}` : "Filter berdasarkan RAB"}
             >
-                <span className="truncate">{triggerLabel}</span>
+                <Calculator className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate">{selected ? labelOf(selected) : "Semua RAB"}</span>
                 <span className="text-muted-foreground">▾</span>
             </button>
 
@@ -537,9 +537,10 @@ function RabFilterCombobox({
                         <button
                             type="button"
                             onClick={() => { onChange(""); setOpen(false); setSearch(""); }}
-                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/60 ${value === "" ? "bg-purple-50 text-purple-700 font-semibold" : "text-foreground"}`}
+                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/60 flex items-center gap-1.5 ${value === "" ? "bg-primary/10 text-primary font-semibold" : "text-foreground"}`}
                         >
-                            🧮 Semua RAB
+                            <Calculator className="h-3.5 w-3.5 shrink-0" />
+                            Semua RAB
                         </button>
                         {filtered.length === 0 && (
                             <div className="px-3 py-3 text-xs text-muted-foreground text-center">
@@ -551,7 +552,7 @@ function RabFilterCombobox({
                                 type="button"
                                 key={r.id}
                                 onClick={() => { onChange(r.id); setOpen(false); setSearch(""); }}
-                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/60 ${value === r.id ? "bg-purple-50 text-purple-700 font-semibold" : "text-foreground"}`}
+                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/60 ${value === r.id ? "bg-primary/10 text-primary font-semibold" : "text-foreground"}`}
                                 title={`${r.code} · ${r.title}`}
                             >
                                 <div className="truncate">{labelOf(r)}</div>
@@ -858,7 +859,7 @@ function CashflowPageInner() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="sm:flex sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Cashflow Bisnis</h1>
                     <p className="mt-1 text-sm text-muted-foreground">Pantau arus kas masuk dan keluar bisnis Anda.</p>
@@ -868,12 +869,12 @@ function CashflowPageInner() {
                         onClick={handleSyncAllRab}
                         disabled={syncAllRabMutation.isPending}
                         title="Sync ulang cashflow dari SEMUA RAB existing — pakai sekali untuk migrasi RAB lama"
-                        className="flex items-center gap-2 border-2 border-purple-300 bg-purple-50 text-purple-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-100 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 border border-primary/30 bg-primary/15 text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/20 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         {syncAllRabMutation.isPending ? (
                             <><Loader2 className="h-4 w-4 animate-spin" /> Sync...</>
                         ) : (
-                            <><RefreshCw className="h-4 w-4" /> 🧮 Sync RAB Lama</>
+                            <><RefreshCw className="h-4 w-4" /> Sync RAB Lama</>
                         )}
                     </button>
                     <button onClick={handleExport} className="flex items-center gap-2 border border-input bg-card text-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted/50 transition-colors shadow-sm">
@@ -927,11 +928,11 @@ function CashflowPageInner() {
             {/* Summary cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="glass p-5 rounded-xl border border-border">
-                    <div className="flex items-center gap-3 text-emerald-500 mb-2">
-                        <div className="p-2 bg-emerald-500/10 rounded-lg"><ArrowUpRight className="h-5 w-5" /></div>
+                    <div className="flex items-center gap-3 text-success mb-2">
+                        <div className="p-2 bg-success/15 rounded-lg"><ArrowUpRight className="h-5 w-5" /></div>
                         <span className="font-medium text-sm">Total Pemasukan</span>
                     </div>
-                    <h2 className="text-2xl font-bold text-foreground">{fmt(summary.totalIncome)}</h2>
+                    <h2 className="text-2xl font-bold text-foreground nums">{fmt(summary.totalIncome)}</h2>
                     <p className="text-xs text-muted-foreground mt-1">{PERIODS.find(p2 => p2.key === period)?.label}</p>
                 </div>
                 <div className="glass p-5 rounded-xl border border-border">
@@ -939,15 +940,15 @@ function CashflowPageInner() {
                         <div className="p-2 bg-destructive/10 rounded-lg"><ArrowDownRight className="h-5 w-5" /></div>
                         <span className="font-medium text-sm">Total Pengeluaran</span>
                     </div>
-                    <h2 className="text-2xl font-bold text-foreground">{fmt(summary.totalExpense)}</h2>
+                    <h2 className="text-2xl font-bold text-foreground nums">{fmt(summary.totalExpense)}</h2>
                     <p className="text-xs text-muted-foreground mt-1">{PERIODS.find(p2 => p2.key === period)?.label}</p>
                 </div>
-                <div className={`glass p-5 rounded-xl border ${summary.balance >= 0 ? 'border-emerald-500/30' : 'border-destructive/30'}`}>
-                    <div className={`flex items-center gap-3 mb-2 ${summary.balance >= 0 ? 'text-chart-2' : 'text-destructive'}`}>
-                        <div className={`p-2 rounded-lg ${summary.balance >= 0 ? 'bg-chart-2/10' : 'bg-destructive/10'}`}><ArrowRightLeft className="h-5 w-5" /></div>
+                <div className={`glass p-5 rounded-xl border ${summary.balance >= 0 ? 'border-success/30' : 'border-destructive/30'}`}>
+                    <div className={`flex items-center gap-3 mb-2 ${summary.balance >= 0 ? 'text-success' : 'text-destructive'}`}>
+                        <div className={`p-2 rounded-lg ${summary.balance >= 0 ? 'bg-success/15' : 'bg-destructive/10'}`}><ArrowRightLeft className="h-5 w-5" /></div>
                         <span className="font-medium text-sm">Saldo Bersih</span>
                     </div>
-                    <h2 className={`text-2xl font-bold ${summary.balance >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
+                    <h2 className={`text-2xl font-bold nums ${summary.balance >= 0 ? 'text-success' : 'text-destructive'}`}>
                         {summary.balance < 0 ? '-' : ''}{fmt(Math.abs(summary.balance))}
                     </h2>
                     <p className="text-xs text-muted-foreground mt-1">{summary.balance >= 0 ? 'Positif — arus kas sehat' : 'Negatif — pengeluaran melebihi pemasukan'}</p>
@@ -957,7 +958,7 @@ function CashflowPageInner() {
             {/* Charts row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Monthly trend */}
-                <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                <div className="glass rounded-xl border border-border p-6">
                     <div className="flex items-center gap-2 mb-4">
                         <TrendingUp className="h-4 w-4 text-primary" />
                         <h3 className="font-semibold text-foreground">Tren 6 Bulan</h3>
@@ -990,7 +991,7 @@ function CashflowPageInner() {
                 </div>
 
                 {/* Category breakdown */}
-                <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                <div className="glass rounded-xl border border-border p-6">
                     <div className="flex items-center gap-2 mb-4">
                         <BarChart3 className="h-4 w-4 text-primary" />
                         <h3 className="font-semibold text-foreground">Pengeluaran per Kategori</h3>
@@ -1015,9 +1016,9 @@ function CashflowPageInner() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Income category breakdown */}
                 {incomeCategories.length > 0 && (
-                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                    <div className="glass rounded-xl border border-border p-6">
                         <div className="flex items-center gap-2 mb-4">
-                            <BarChart3 className="h-4 w-4 text-emerald-500" />
+                            <BarChart3 className="h-4 w-4 text-success" />
                             <h3 className="font-semibold text-foreground">Pemasukan per Kategori</h3>
                         </div>
                         <ResponsiveContainer width="100%" height={200}>
@@ -1034,7 +1035,7 @@ function CashflowPageInner() {
 
                 {/* Platform breakdown */}
                 {platformData && platformData.length > 0 && (
-                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                    <div className="glass rounded-xl border border-border p-6">
                         <div className="flex items-center gap-2 mb-4">
                             <Store className="h-4 w-4 text-primary" />
                             <h3 className="font-semibold text-foreground">Pemasukan per Platform</h3>
@@ -1054,14 +1055,14 @@ function CashflowPageInner() {
 
             {/* Manager: pending requests panel */}
             {isManager && pendingRequests.length > 0 && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-300 dark:border-amber-700 p-5 space-y-3">
+                <div className="bg-warning/10 rounded-xl border border-warning/30 p-5 space-y-3">
                     <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5 text-amber-600" />
-                        <h3 className="font-semibold text-amber-800 dark:text-amber-300">Permintaan Persetujuan ({pendingRequests.length})</h3>
+                        <AlertTriangle className="h-5 w-5 text-warning" />
+                        <h3 className="font-semibold text-warning">Permintaan Persetujuan ({pendingRequests.length})</h3>
                     </div>
                     <div className="space-y-2">
                         {pendingRequests.map(req => (
-                            <div key={req.id} className="flex items-center justify-between bg-white dark:bg-card rounded-lg border border-amber-200 dark:border-amber-800 px-4 py-3 gap-3">
+                            <div key={req.id} className="flex items-center justify-between bg-card rounded-lg border border-warning/20 px-4 py-3 gap-3">
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${req.type === 'DELETE' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
@@ -1074,7 +1075,7 @@ function CashflowPageInner() {
                                 </div>
                                 <button
                                     onClick={() => { setReviewingRequest(req); setReviewNote(''); }}
-                                    className="shrink-0 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700 transition-colors">
+                                    className="shrink-0 px-3 py-1.5 bg-warning text-warning-foreground rounded-lg text-xs font-medium hover:bg-warning/90 transition-colors">
                                     Tinjau
                                 </button>
                             </div>
@@ -1085,7 +1086,7 @@ function CashflowPageInner() {
 
             {/* Cashier: my requests status */}
             {!isManager && myRequests.length > 0 && (
-                <div className="bg-card rounded-xl border border-border shadow-sm p-5 space-y-3">
+                <div className="glass rounded-xl border border-border p-5 space-y-3">
                     <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <h3 className="font-semibold text-foreground">Status Permintaan Saya</h3>
@@ -1099,8 +1100,8 @@ function CashflowPageInner() {
                                     {req.reviewerNote && <p className="text-xs text-muted-foreground italic mt-0.5">Catatan: {req.reviewerNote}</p>}
                                 </div>
                                 <span className={`shrink-0 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                                    req.status === 'PENDING' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                                    req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                    req.status === 'PENDING' ? 'bg-warning/15 text-warning' :
+                                    req.status === 'APPROVED' ? 'bg-success/15 text-success' :
                                     'bg-destructive/10 text-destructive'
                                 }`}>
                                     {req.status === 'PENDING' && <Clock className="h-3 w-3" />}
@@ -1115,7 +1116,7 @@ function CashflowPageInner() {
             )}
 
             {/* History list */}
-            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+            <div className="glass rounded-xl border border-border overflow-hidden">
                 <div className="px-6 py-4 border-b border-border flex justify-between items-center flex-wrap gap-3">
                     <h3 className="font-semibold text-foreground">Histori Cashflow</h3>
                     <div className="flex gap-2 items-center flex-wrap">
@@ -1124,7 +1125,7 @@ function CashflowPageInner() {
                             onChange={(e) => setFilterEventId(e.target.value === "" ? "" : Number(e.target.value))}
                             className="px-2 py-1.5 rounded-lg text-xs font-medium border border-input bg-background text-foreground"
                         >
-                            <option value="">🎪 Semua Event</option>
+                            <option value="">Semua Event</option>
                             {events.map((ev) => (
                                 <option key={ev.id} value={ev.id}>{ev.code}</option>
                             ))}
@@ -1149,7 +1150,7 @@ function CashflowPageInner() {
                         <div className="inline-flex items-center gap-1 ml-1 pl-2 border-l border-border">
                             <button
                                 onClick={() => setFilterSource('ALL_SOURCE')}
-                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterSource === 'ALL_SOURCE' ? 'bg-slate-700 text-white' : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'}`}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterSource === 'ALL_SOURCE' ? 'bg-foreground text-background' : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'}`}
                                 title="Semua sumber"
                             >
                                 Semua Sumber
@@ -1157,19 +1158,19 @@ function CashflowPageInner() {
                             </button>
                             <button
                                 onClick={() => setFilterSource('FROM_RAB')}
-                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterSource === 'FROM_RAB' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 hover:bg-purple-100'}`}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterSource === 'FROM_RAB' ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}
                                 title="Auto-synced dari RAB project"
                             >
-                                🧮 Dari RAB
-                                <span className={`text-[10px] font-mono px-1 rounded-full ${filterSource === 'FROM_RAB' ? 'bg-white/30' : 'bg-purple-100 text-purple-700'}`}>{sourceCounts.fromRab}</span>
+                                <Calculator className="h-3.5 w-3.5" /> Dari RAB
+                                <span className={`text-[10px] font-mono px-1 rounded-full ${filterSource === 'FROM_RAB' ? 'bg-white/30' : 'bg-primary/20 text-primary'}`}>{sourceCounts.fromRab}</span>
                             </button>
                             <button
                                 onClick={() => setFilterSource('MANUAL')}
-                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterSource === 'MANUAL' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 hover:bg-emerald-100'}`}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1 ${filterSource === 'MANUAL' ? 'bg-success text-white' : 'bg-success/10 text-success hover:bg-success/20'}`}
                                 title="Manual entry oleh user"
                             >
-                                ✍️ Manual
-                                <span className={`text-[10px] font-mono px-1 rounded-full ${filterSource === 'MANUAL' ? 'bg-white/30' : 'bg-emerald-100 text-emerald-700'}`}>{sourceCounts.manual}</span>
+                                <Pencil className="h-3.5 w-3.5" /> Manual
+                                <span className={`text-[10px] font-mono px-1 rounded-full ${filterSource === 'MANUAL' ? 'bg-white/30' : 'bg-success/20 text-success'}`}>{sourceCounts.manual}</span>
                             </button>
                         </div>
                     </div>
@@ -1183,7 +1184,7 @@ function CashflowPageInner() {
                         filteredEntries.map((entry) => (
                             <div key={entry.id} className="p-4 sm:p-6 flex items-center justify-between hover:bg-muted/30 transition-colors gap-4">
                                 <div className="flex items-center gap-4 min-w-0">
-                                    <div className={`p-3 rounded-full shrink-0 ${entry.type === 'INCOME' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-destructive/10 text-destructive'}`}>
+                                    <div className={`p-3 rounded-full shrink-0 ${entry.type === 'INCOME' ? 'bg-success/15 text-success' : 'bg-destructive/10 text-destructive'}`}>
                                         {entry.type === 'INCOME' ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownRight className="h-5 w-5" />}
                                     </div>
                                     <div className="min-w-0">
@@ -1196,24 +1197,24 @@ function CashflowPageInner() {
                                                 <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{entry.platformSource}</span>
                                             )}
                                             {entry.paymentMethod && (
-                                                <span className="text-xs bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 px-1.5 py-0.5 rounded-full">
-                                                    {entry.paymentMethod === 'CASH' ? '💵 Tunai'
-                                                        : entry.paymentMethod === 'QRIS' ? '📱 QRIS'
-                                                        : `🏦 ${entry.bankAccount?.bankName || 'Transfer'}`}
+                                                <span className="inline-flex items-center gap-1 text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
+                                                    {entry.paymentMethod === 'CASH' ? <><Banknote className="h-3 w-3" /> Tunai</>
+                                                        : entry.paymentMethod === 'QRIS' ? <><Smartphone className="h-3 w-3" /> QRIS</>
+                                                        : <><Building2 className="h-3 w-3" /> {entry.bankAccount?.bankName || 'Transfer'}</>}
                                                 </span>
                                             )}
                                             {entry.event && (
-                                                <span className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 px-1.5 py-0.5 rounded-full" title={`Event: ${entry.event.name}`}>
-                                                    🎪 {entry.event.code}
+                                                <span className="inline-flex items-center gap-1 text-xs bg-info/15 text-info px-1.5 py-0.5 rounded-full" title={`Event: ${entry.event.name}`}>
+                                                    <CalendarDays className="h-3 w-3" /> {entry.event.code}
                                                 </span>
                                             )}
                                             {entry.rabPlan && (
                                                 <Link
                                                     href={`/rab/${entry.rabPlan.id ?? entry.rabPlanId}`}
-                                                    className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-1.5 py-0.5 rounded-full hover:bg-purple-200 dark:hover:bg-purple-900/50 hover:underline transition inline-flex items-center gap-0.5"
+                                                    className="text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded-full hover:bg-primary/20 hover:underline transition inline-flex items-center gap-0.5"
                                                     title={`Buka RAB: ${entry.rabPlan.title}`}
                                                 >
-                                                    🧮 {entry.rabPlan.code}
+                                                    <Calculator className="h-3 w-3" /> {entry.rabPlan.code}
                                                 </Link>
                                             )}
                                         </div>
@@ -1223,7 +1224,7 @@ function CashflowPageInner() {
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
                                     <div className="text-right">
-                                        <p className={`font-bold ${entry.type === 'INCOME' ? 'text-emerald-500' : 'text-destructive'}`}>
+                                        <p className={`font-bold nums ${entry.type === 'INCOME' ? 'text-success' : 'text-destructive'}`}>
                                             {entry.type === 'INCOME' ? '+' : '-'} {fmt(parseFloat(entry.amount))}
                                         </p>
                                     </div>
@@ -1234,7 +1235,7 @@ function CashflowPageInner() {
                                         );
                                         if (hasPending) {
                                             return (
-                                                <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-full border border-amber-200 dark:border-amber-800">
+                                                <span className="flex items-center gap-1 text-xs text-warning bg-warning/10 px-2 py-1 rounded-full border border-warning/30">
                                                     <Clock className="h-3 w-3" /> Menunggu
                                                 </span>
                                             );
@@ -1315,7 +1316,7 @@ function CashflowPageInner() {
                                 <label className="text-sm font-medium text-foreground">Tipe</label>
                                 <div className="flex gap-2">
                                     <button type="button" onClick={() => { setType('INCOME'); setCategory(''); }}
-                                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${type === 'INCOME' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' : 'border-input text-muted-foreground hover:bg-muted/50'}`}>
+                                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${type === 'INCOME' ? 'bg-success/10 text-success border-success/30' : 'border-input text-muted-foreground hover:bg-muted/50'}`}>
                                         Pemasukan
                                     </button>
                                     <button type="button" onClick={() => { setType('EXPENSE'); setCategory(''); }}
@@ -1340,8 +1341,8 @@ function CashflowPageInner() {
                                     {(['CASH', 'QRIS', 'BANK_TRANSFER'] as const).map(m => (
                                         <button type="button" key={m}
                                             onClick={() => { setPaymentMethod(m); if (m !== 'BANK_TRANSFER') setBankAccountId(''); }}
-                                            className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${paymentMethod === m ? 'bg-primary/10 text-primary border-primary/30' : 'border-input text-muted-foreground hover:bg-muted/50'}`}>
-                                            {m === 'CASH' ? '💵 Tunai' : m === 'QRIS' ? '📱 QRIS' : '🏦 Transfer'}
+                                            className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors flex items-center justify-center gap-1 ${paymentMethod === m ? 'bg-primary/10 text-primary border-primary/30' : 'border-input text-muted-foreground hover:bg-muted/50'}`}>
+                                            {m === 'CASH' ? <><Banknote className="h-3.5 w-3.5" /> Tunai</> : m === 'QRIS' ? <><Smartphone className="h-3.5 w-3.5" /> QRIS</> : <><Building2 className="h-3.5 w-3.5" /> Transfer</>}
                                         </button>
                                     ))}
                                 </div>
@@ -1381,8 +1382,8 @@ function CashflowPageInner() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-foreground">
-                                        🎪 Tag Event <span className="text-xs text-muted-foreground font-normal">(opsional)</span>
+                                    <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                                        <CalendarDays className="h-4 w-4 text-muted-foreground" /> Tag Event <span className="text-xs text-muted-foreground font-normal">(opsional)</span>
                                     </label>
                                     <select
                                         value={eventId === "" ? "" : String(eventId)}
@@ -1398,8 +1399,8 @@ function CashflowPageInner() {
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-foreground">
-                                        🧮 Tag RAB <span className="text-xs text-muted-foreground font-normal">(opsional)</span>
+                                    <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                                        <Calculator className="h-4 w-4 text-muted-foreground" /> Tag RAB <span className="text-xs text-muted-foreground font-normal">(opsional)</span>
                                     </label>
                                     <select
                                         value={rabPlanId === "" ? "" : String(rabPlanId)}
@@ -1423,13 +1424,13 @@ function CashflowPageInner() {
                             <button
                                 type="button"
                                 onClick={() => setExcludeFromShift(p => !p)}
-                                className={`w-full flex items-start gap-3 px-3 py-3 rounded-xl border text-left transition-all ${excludeFromShift ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/20' : 'border-border bg-muted/30 hover:border-primary/30'}`}
+                                className={`w-full flex items-start gap-3 px-3 py-3 rounded-xl border text-left transition-all ${excludeFromShift ? 'border-warning/50 bg-warning/10' : 'border-border bg-muted/30 hover:border-primary/30'}`}
                             >
-                                <div className={`w-4 h-4 rounded mt-0.5 shrink-0 flex items-center justify-center border-2 transition-colors ${excludeFromShift ? 'border-amber-500 bg-amber-500' : 'border-muted-foreground'}`}>
+                                <div className={`w-4 h-4 rounded mt-0.5 shrink-0 flex items-center justify-center border-2 transition-colors ${excludeFromShift ? 'border-warning bg-warning' : 'border-muted-foreground'}`}>
                                     {excludeFromShift && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                                 </div>
                                 <div>
-                                    <p className={`text-sm font-medium ${excludeFromShift ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'}`}>Tidak masuk laporan shift</p>
+                                    <p className={`text-sm font-medium ${excludeFromShift ? 'text-warning' : 'text-foreground'}`}>Tidak masuk laporan shift</p>
                                     <p className="text-xs text-muted-foreground mt-0.5">Centang jika ini pengeluaran/pemasukan dari shift yang sudah lewat atau tidak relevan dengan shift aktif saat ini. Data tetap tercatat di cashflow.</p>
                                 </div>
                             </button>

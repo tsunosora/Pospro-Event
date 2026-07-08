@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Trash2, Users, Loader2, X, Phone, Crown } from "lucide-react";
+import { Plus, Edit, Trash2, Users, Loader2, X, Crown, ClipboardList } from "lucide-react";
 import {
     listCrewTeams, createCrewTeam, updateCrewTeam, deleteCrewTeam,
     type CrewTeam, type CrewTeamInput,
 } from "@/lib/api/crew-teams";
 import { getWorkers } from "@/lib/api/workers";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 const PRESET_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
 
@@ -46,7 +48,7 @@ export default function CrewTeamsPage() {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <Users className="h-6 w-6" /> Team Crew
@@ -56,12 +58,9 @@ export default function CrewTeamsPage() {
                     </p>
                 </div>
                 {!showForm && !editing && (
-                    <button
-                        onClick={() => setShowForm(true)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90"
-                    >
+                    <Button size="sm" onClick={() => setShowForm(true)}>
                         <Plus className="h-3.5 w-3.5" /> Team Baru
-                    </button>
+                    </Button>
                 )}
             </div>
 
@@ -81,13 +80,13 @@ export default function CrewTeamsPage() {
             {isLoading ? (
                 <div className="p-8 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Memuat...</div>
             ) : teams.length === 0 ? (
-                <div className="p-12 text-center border rounded-lg text-sm text-muted-foreground">
+                <div className="glass rounded-xl p-12 text-center text-sm text-muted-foreground">
                     Belum ada team. Klik &quot;Team Baru&quot; untuk mulai.
                 </div>
             ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {teams.map((t) => (
-                        <div key={t.id} className={`border rounded-lg p-4 bg-background ${t.isActive ? "" : "opacity-60"}`}>
+                        <div key={t.id} className={`glass rounded-xl p-4 ${t.isActive ? "" : "opacity-60"}`}>
                             <div className="flex items-start justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <span
@@ -95,10 +94,10 @@ export default function CrewTeamsPage() {
                                         style={{ backgroundColor: t.color }}
                                     />
                                     <h3 className="font-bold text-base truncate">{t.name}</h3>
-                                    {!t.isActive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">Inactive</span>}
+                                    {!t.isActive && <Badge variant="neutral" className="text-[10px]">Inactive</Badge>}
                                 </div>
                                 <div className="flex gap-1 shrink-0">
-                                    <button onClick={() => setEditing(t)} className="p-1.5 hover:bg-muted rounded" title="Edit">
+                                    <button onClick={() => setEditing(t)} className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors" title="Edit">
                                         <Edit className="h-3.5 w-3.5 text-muted-foreground" />
                                     </button>
                                     <button
@@ -109,7 +108,7 @@ export default function CrewTeamsPage() {
                                             }
                                             if (confirm(`Hapus team ${t.name}?`)) deleteMut.mutate(t.id);
                                         }}
-                                        className="p-1.5 hover:bg-red-50 rounded text-red-600"
+                                        className="p-1.5 hover:bg-destructive/10 rounded text-destructive cursor-pointer transition-colors"
                                         title="Hapus"
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />
@@ -120,7 +119,7 @@ export default function CrewTeamsPage() {
                             <div className="mt-2 space-y-1 text-sm">
                                 {t.leader ? (
                                     <div className="flex items-center gap-1.5 text-foreground/80">
-                                        <Crown className="h-3.5 w-3.5 text-amber-500" />
+                                        <Crown className="h-3.5 w-3.5 text-warning" />
                                         <span className="font-medium">{t.leader.name}</span>
                                         {t.leader.phone && <span className="text-xs text-muted-foreground">· {t.leader.phone}</span>}
                                     </div>
@@ -130,8 +129,9 @@ export default function CrewTeamsPage() {
                                 {t.notes && (
                                     <div className="text-xs text-muted-foreground border-t pt-2 mt-2">{t.notes}</div>
                                 )}
-                                <div className="text-xs text-muted-foreground border-t pt-2 mt-2">
-                                    📋 {t._count?.assignments ?? 0} assignment total
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground border-t pt-2 mt-2">
+                                    <ClipboardList className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="nums">{t._count?.assignments ?? 0} assignment total</span>
                                 </div>
                             </div>
                         </div>
@@ -172,10 +172,10 @@ function TeamForm({
     }
 
     return (
-        <form onSubmit={handleSubmit} className="border rounded-lg bg-background p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="glass rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
                 <h2 className="font-semibold">{initial ? "Edit Team" : "Team Baru"}</h2>
-                <button type="button" onClick={onCancel} className="p-1 rounded hover:bg-muted">
+                <button type="button" onClick={onCancel} className="p-1 rounded hover:bg-muted cursor-pointer transition-colors">
                     <X className="h-4 w-4" />
                 </button>
             </div>
@@ -242,11 +242,11 @@ function TeamForm({
                 </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t">
-                <button type="button" onClick={onCancel} className="px-3 py-1.5 text-sm rounded-md border border-border hover:bg-muted">Cancel</button>
-                <button type="submit" disabled={isPending} className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                    {isPending ? "Menyimpan..." : "Save"}
-                </button>
+            <div className="flex flex-wrap justify-end gap-2 pt-2 border-t">
+                <Button type="button" variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
+                <Button type="submit" size="sm" disabled={isPending}>
+                    {isPending ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Menyimpan...</> : "Save"}
+                </Button>
             </div>
         </form>
     );

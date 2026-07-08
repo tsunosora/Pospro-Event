@@ -6,6 +6,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     ArrowLeft, Plus, Trash2, Save, Hash, GitBranch, FileDown, FileText, Loader2, ScrollText,
     Eye, X, Download, Calculator, Copy, GripVertical, Pencil,
+    CalendarDays, AlertTriangle, CheckCircle2, Wallet, Minimize2, SlidersHorizontal,
+    Percent, TrendingDown, FileCheck, Globe, User, Paperclip, Zap, List, BarChart2,
+    Bot, ArrowUp, ArrowDown, Clock, CalendarRange, History, Pin, Package,
 } from "lucide-react";
 import {
     DndContext, PointerSensor, useSensor, useSensors,
@@ -31,7 +34,7 @@ import { getWorkers, MARKETER_POSITIONS } from "@/lib/api/workers";
 import { getBankAccounts } from "@/lib/api/transactions";
 import { CustomerPickerModal } from "@/components/CustomerPickerModal";
 import type { Customer } from "@/lib/api/customers";
-import { Users, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 dayjs.locale("id");
 
@@ -40,13 +43,13 @@ function rp(v: string | number) {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-    DRAFT: "bg-gray-100 text-gray-700",
-    SENT: "bg-blue-100 text-blue-700",
-    ACCEPTED: "bg-green-100 text-green-700",
-    PAID: "bg-emerald-100 text-emerald-700",
-    REJECTED: "bg-red-100 text-red-700",
-    CANCELLED: "bg-red-100 text-red-700",
-    EXPIRED: "bg-yellow-100 text-yellow-700",
+    DRAFT: "bg-muted text-muted-foreground",
+    SENT: "bg-info/15 text-info",
+    ACCEPTED: "bg-success/15 text-success",
+    PAID: "bg-success/15 text-success",
+    REJECTED: "bg-destructive/12 text-destructive",
+    CANCELLED: "bg-destructive/12 text-destructive",
+    EXPIRED: "bg-warning/15 text-warning",
 };
 
 type ItemRow = QuotationItem & { _key: string };
@@ -876,12 +879,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             {/* Header — title kiri, action toolbar kanan (rapih, grouped) */}
             <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
                 <div className="min-w-0">
-                    <Link href="/penawaran" className="text-sm text-blue-600 flex items-center gap-1 mb-2 hover:underline">
+                    <Link href="/penawaran" className="text-sm text-primary flex items-center gap-1 mb-2 hover:underline">
                         <ArrowLeft className="w-4 h-4" /> Kembali
                     </Link>
                     <h1 className="text-2xl font-bold flex items-center gap-2 flex-wrap group">
                         <span>{data.type === "INVOICE" ? "Invoice" : "Penawaran"}</span>
-                        <span className="font-mono text-xl text-slate-700">{data.invoiceNumber}</span>
+                        <span className="font-mono text-xl text-foreground nums">{data.invoiceNumber}</span>
                         {/* Tombol edit nomor — muncul untuk dokumen yang sudah di-assign (bukan DRAFT) */}
                         {!data.invoiceNumber.startsWith("DRAFT-") && (
                             <button
@@ -889,16 +892,16 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 onClick={handleEditCurrentNumber}
                                 disabled={editNumberMut.isPending}
                                 title={`Edit nomor ${data.type === 'INVOICE' ? 'invoice' : 'penawaran'}`}
-                                className="p-1.5 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition disabled:opacity-50"
+                                className="p-1.5 rounded text-muted-foreground hover:text-info hover:bg-info/10 transition disabled:opacity-50"
                             >
                                 <Pencil className="w-4 h-4" />
                             </button>
                         )}
                         {data.revisionNumber > 0 && (
-                            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">Rev. {data.revisionNumber}</span>
+                            <span className="text-xs bg-destructive/12 text-destructive px-2 py-0.5 rounded font-bold">Rev. {data.revisionNumber}</span>
                         )}
                     </h1>
-                    <p className="text-sm text-gray-600 mt-0.5">
+                    <p className="text-sm text-muted-foreground mt-0.5">
                         {(() => {
                             const cfg = variantCode ? variantConfigs.find((v) => v.code === variantCode) : null;
                             return cfg?.label
@@ -907,28 +910,28 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     </p>
 
                     {/* Mode Toggle — kompak inline */}
-                    <div className="mt-2 inline-flex items-center gap-1 p-0.5 bg-slate-100 rounded-md border border-slate-200 text-xs">
+                    <div className="mt-2 inline-flex items-center gap-1 p-0.5 bg-muted rounded-md border border-border text-xs">
                         <button
                             type="button"
                             onClick={() => setFormMode('simple')}
-                            className={`px-2 py-1 rounded transition ${formMode === 'simple'
-                                ? 'bg-white text-emerald-700 shadow-sm font-semibold'
-                                : 'text-slate-600 hover:text-slate-900'
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded transition ${formMode === 'simple'
+                                ? 'bg-card text-success shadow-sm font-semibold'
+                                : 'text-muted-foreground hover:text-foreground'
                                 }`}
                             title="Mode mudah: cuma field penting"
                         >
-                            😊 Sederhana
+                            <Minimize2 className="w-3 h-3" /> Sederhana
                         </button>
                         <button
                             type="button"
                             onClick={() => setFormMode('advanced')}
-                            className={`px-2 py-1 rounded transition ${formMode === 'advanced'
-                                ? 'bg-white text-violet-700 shadow-sm font-semibold'
-                                : 'text-slate-600 hover:text-slate-900'
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded transition ${formMode === 'advanced'
+                                ? 'bg-card text-primary shadow-sm font-semibold'
+                                : 'text-muted-foreground hover:text-foreground'
                                 }`}
                             title="Mode lengkap: semua fitur advanced"
                         >
-                            🎛️ Lengkap
+                            <SlidersHorizontal className="w-3 h-3" /> Lengkap
                         </button>
                     </div>
                 </div>
@@ -941,7 +944,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             onClick={() => setShowAssignModal(true)}
                             disabled={assignMut.isPending}
                             title="Assign nomor resmi penawaran"
-                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium shadow-sm"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-success hover:bg-success/90 text-white rounded-md text-sm font-medium shadow-sm"
                         >
                             <Hash className="w-4 h-4" /> Assign Nomor
                         </button>
@@ -951,7 +954,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             onClick={() => reviseMut.mutate()}
                             disabled={reviseMut.isPending}
                             title="Buat revisi baru"
-                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-sm font-medium shadow-sm"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-warning hover:bg-warning/90 text-warning-foreground rounded-md text-sm font-medium shadow-sm"
                         >
                             <GitBranch className="w-4 h-4" /> Revisi
                         </button>
@@ -960,20 +963,20 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         <button
                             onClick={() => setShowInvoiceModal(true)}
                             title="Generate Invoice DP / Pelunasan"
-                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-md text-sm font-medium shadow-sm"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-white rounded-md text-sm font-medium shadow-sm"
                         >
                             <Receipt className="w-4 h-4" /> Invoice
                         </button>
                     )}
 
                     {/* Vertical divider */}
-                    <div className="w-px bg-slate-200 mx-1" />
+                    <div className="w-px bg-muted mx-1" />
 
                     {/* === Group 2: Preview & Export — kompak, ikon-first === */}
-                    <div className="inline-flex rounded-md border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="inline-flex rounded-md border border-border overflow-hidden shadow-sm">
                         <button
                             onClick={() => handlePreview("pdf")}
-                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium border-r border-violet-700"
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium border-r border-primary"
                             title={data?.type === 'INVOICE' ? "Preview Invoice" : "Preview Penawaran"}
                         >
                             <Eye className="w-4 h-4" />
@@ -981,7 +984,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </button>
                         <button
                             onClick={() => handleExport("pdf")}
-                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium border-r border-red-700"
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-destructive hover:bg-destructive/90 text-white text-sm font-medium border-r border-destructive"
                             title="Download PDF"
                         >
                             <FileDown className="w-4 h-4" />
@@ -989,7 +992,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </button>
                         <button
                             onClick={() => handleExport("docx")}
-                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-info hover:bg-info/90 text-white text-sm font-medium"
                             title="Download DOCX"
                         >
                             <FileText className="w-4 h-4" />
@@ -998,10 +1001,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     </div>
 
                     {/* SPK group — terpisah, warna emerald biar jelas */}
-                    <div className="inline-flex rounded-md border border-emerald-300 overflow-hidden shadow-sm">
+                    <div className="inline-flex rounded-md border border-success/30 overflow-hidden shadow-sm">
                         <button
                             onClick={() => handlePreview("spk-pdf")}
-                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-sm font-medium border-r border-emerald-300"
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-success/10 hover:bg-success/20 text-success text-sm font-medium border-r border-success/30"
                             title="Preview SPK"
                         >
                             <Eye className="w-4 h-4" />
@@ -1009,7 +1012,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </button>
                         <button
                             onClick={() => handleExport("spk-pdf")}
-                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium"
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-success hover:bg-success/90 text-white text-sm font-medium"
                             title="Download SPK"
                         >
                             <ScrollText className="w-4 h-4" />
@@ -1020,9 +1023,9 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             </div>
 
             {data.parent && (
-                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm">
+                <div className="mb-4 p-3 bg-warning/10 border border-warning/30 rounded-md text-sm">
                     Dokumen ini revisi dari{" "}
-                    <Link href={`/penawaran/${data.parent.id}`} className="text-blue-600 hover:underline font-medium">
+                    <Link href={`/penawaran/${data.parent.id}`} className="text-info hover:underline font-medium">
                         {data.parent.invoiceNumber}
                     </Link>
                 </div>
@@ -1030,23 +1033,23 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
             {/* Banner kalau dokumen ini adalah INVOICE (di-generate dari quotation) */}
             {data.type === "INVOICE" && (
-                <div className="mb-4 p-3 bg-pink-50 border-2 border-pink-200 rounded-md text-sm flex items-center justify-between">
+                <div className="mb-4 p-3 bg-primary/10 border-2 border-primary/30 rounded-md text-sm flex items-center justify-between">
                     <div>
-                        <span className="font-bold text-pink-900">📑 Ini Invoice {data.invoicePart}</span>
+                        <span className="font-bold text-primary inline-flex items-center gap-1.5"><Receipt className="w-4 h-4" /> Ini Invoice {data.invoicePart}</span>
                         {data.parentQuotationId && (
-                            <> · dari penawaran <Link href={`/penawaran/${data.parentQuotationId}`} className="text-pink-700 hover:underline font-medium">#{data.parentQuotationId}</Link></>
+                            <> · dari penawaran <Link href={`/penawaran/${data.parentQuotationId}`} className="text-primary hover:underline font-medium">#{data.parentQuotationId}</Link></>
                         )}
                     </div>
                     {data.amountToPay && (
                         <div className="text-right">
-                            <div className="text-[10px] uppercase text-pink-700 font-bold">Jumlah Tagihan</div>
+                            <div className="text-[10px] uppercase text-primary font-bold">Jumlah Tagihan</div>
                             {/* Live: kalau ada DP Sudah Dibayar, tagihan = Total − DP (= Grand Total).
                                 Tanpa DP, pakai amountToPay (porsi DP/Pelunasan/Full) apa adanya. */}
-                            <div className="font-bold text-lg text-pink-900 font-mono">
+                            <div className="font-bold text-lg text-primary font-mono nums">
                                 {rp(effectiveDpPaid > 0 ? Math.max(0, total - effectiveDpPaid) : Number(data.amountToPay))}
                             </div>
                             {effectiveDpPaid > 0 && (
-                                <div className="text-[10px] text-amber-700 font-normal">
+                                <div className="text-[10px] text-warning font-normal">
                                     DP dibayar: -{rp(effectiveDpPaid)}
                                 </div>
                             )}
@@ -1057,34 +1060,34 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
             {/* List child invoices (kalau quotation ini sudah pernah di-generate invoice) */}
             {data.type !== "INVOICE" && childInvoices.length > 0 && (
-                <div className="mb-4 rounded-md border-2 border-pink-200 bg-pink-50/50 p-3">
-                    <div className="text-xs font-bold text-pink-900 uppercase tracking-wide mb-2">
-                        📑 Invoice yang Sudah Dibuat ({childInvoices.length})
+                <div className="mb-4 rounded-md border-2 border-primary/30 bg-primary/10 p-3">
+                    <div className="text-xs font-bold text-primary uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                        <FileCheck className="w-4 h-4" /> Invoice yang Sudah Dibuat ({childInvoices.length})
                     </div>
                     <div className="space-y-1.5">
                         {childInvoices.map((inv) => (
                             <Link
                                 key={inv.id}
                                 href={`/penawaran/${inv.id}`}
-                                className="flex items-center justify-between gap-3 p-2 bg-white rounded border hover:border-pink-400 hover:bg-pink-50 text-sm"
+                                className="flex items-center justify-between gap-3 p-2 bg-card rounded border border-border hover:border-primary/50 hover:bg-primary/10 text-sm transition-colors"
                             >
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <Receipt className="h-4 w-4 text-pink-600 shrink-0" />
+                                    <Receipt className="h-4 w-4 text-primary shrink-0" />
                                     <div className="min-w-0">
-                                        <div className="font-mono text-xs text-pink-700">{inv.invoiceNumber}</div>
+                                        <div className="font-mono text-xs text-primary nums">{inv.invoiceNumber}</div>
                                         <div className="text-[11px] text-muted-foreground">
-                                            {inv.invoicePart === "DP" && "💰 Down Payment"}
-                                            {inv.invoicePart === "PELUNASAN" && "✅ Pelunasan"}
-                                            {inv.invoicePart === "FULL" && "💯 Full Payment"}
+                                            {inv.invoicePart === "DP" && <span className="inline-flex items-center gap-1"><Wallet className="w-3 h-3" /> Down Payment</span>}
+                                            {inv.invoicePart === "PELUNASAN" && <span className="inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Pelunasan</span>}
+                                            {inv.invoicePart === "FULL" && "Full Payment"}
                                             · {dayjs(inv.date).format("DD MMM YYYY")}
                                         </div>
                                     </div>
                                 </div>
                                 <div className="text-right shrink-0">
-                                    <div className="font-mono font-bold text-pink-900">
+                                    <div className="font-mono font-bold text-primary nums">
                                         {inv.amountToPay ? rp(inv.amountToPay) : rp(inv.total)}
                                     </div>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${STATUS_COLOR[inv.status] || "bg-gray-100"}`}>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${STATUS_COLOR[inv.status] || "bg-muted text-muted-foreground"}`}>
                                         {inv.status}
                                     </span>
                                 </div>
@@ -1095,8 +1098,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             )}
 
             {/* Brand picker — pilih brand untuk header surat & nomor seri */}
-            <div className="mb-4 bg-white border-2 rounded-lg p-3 flex items-center gap-3 flex-wrap">
-                <span className="text-sm font-semibold text-slate-700">Brand:</span>
+            <div className="mb-4 bg-card border-2 border-border rounded-xl p-3 flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-semibold text-foreground">Brand:</span>
                 {ACTIVE_BRANDS.map((b) => {
                     const meta = BRAND_META[b];
                     const active = brand === b;
@@ -1107,7 +1110,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             onClick={() => setBrand(b)}
                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 text-sm font-semibold transition ${active
                                 ? `${meta.bg} ${meta.text} ${meta.border}`
-                                : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                                : "bg-card text-foreground border-border hover:border-border"
                                 }`}
                         >
                             <span>{meta.emoji}</span>
@@ -1116,8 +1119,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     );
                 })}
                 {brand === null && (
-                    <span className="text-xs text-amber-700 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
-                        ⚠ Belum di-tag — pilih agar surat penawaran pakai header & nomor seri brand benar
+                    <span className="text-xs text-warning bg-warning/15 border border-warning/30 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Belum di-tag — pilih agar surat penawaran pakai header &amp; nomor seri brand benar
                     </span>
                 )}
                 <span className="text-[11px] text-muted-foreground ml-auto">
@@ -1126,12 +1129,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             </div>
 
             {/* Varian Penawaran picker — dropdown dari config CRUD */}
-            <div className="mb-4 bg-white border-2 rounded-lg p-3 flex items-center gap-3 flex-wrap">
-                <span className="text-sm font-semibold text-slate-700">Varian:</span>
+            <div className="mb-4 bg-card border-2 border-border rounded-xl p-3 flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-semibold text-foreground">Varian:</span>
                 <select
                     value={variantCode ?? ""}
                     onChange={(e) => setVariantCode(e.target.value || null)}
-                    className="border-2 rounded-md px-3 py-1.5 text-sm bg-white focus:border-violet-500 outline-none min-w-[260px]"
+                    className="border-2 rounded-md px-3 py-1.5 text-sm bg-card focus:border-primary outline-none min-w-[260px]"
                 >
                     <option value="">— Pilih Varian —</option>
                     {variantConfigs.map((v) => (
@@ -1156,22 +1159,22 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </span>
                     );
                 })()}
-                <Link href="/settings/quotation-variants" className="text-[11px] text-violet-600 hover:underline ml-auto">
+                <Link href="/settings/quotation-variants" className="text-[11px] text-primary hover:underline ml-auto">
                     Atur varian →
                 </Link>
             </div>
 
             {/* Penandatangan Surat — context-aware: marketing untuk penawaran, admin untuk invoice */}
-            <div className="mb-4 bg-white border-2 rounded-lg p-3">
+            <div className="mb-4 bg-card border-2 border-border rounded-xl p-3">
                 <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-sm font-semibold text-slate-700">
+                    <span className="text-sm font-semibold text-foreground">
                         Penandatangan:
-                        {isInvoiceMode && <span className="ml-1 text-[11px] text-pink-600 font-normal">(Admin biasanya TTD invoice)</span>}
+                        {isInvoiceMode && <span className="ml-1 text-[11px] text-primary font-normal">(Admin biasanya TTD invoice)</span>}
                     </span>
                     <select
                         value={signedByWorkerId ?? ""}
                         onChange={(e) => setSignedByWorkerId(e.target.value ? Number(e.target.value) : null)}
-                        className="border-2 rounded-md px-3 py-1.5 text-sm bg-white focus:border-blue-500 outline-none min-w-[260px]"
+                        className="border-2 rounded-md px-3 py-1.5 text-sm bg-card focus:border-info outline-none min-w-[260px]"
                     >
                         <option value="">— Pilih {isInvoiceMode ? "Admin/Marketing" : "Marketing/Sales"} —</option>
                         {marketers.map((w) => (
@@ -1181,7 +1184,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             </option>
                         ))}
                     </select>
-                    <Link href="/settings/workers" className="text-[11px] text-blue-600 hover:underline ml-auto">
+                    <Link href="/settings/workers" className="text-[11px] text-info hover:underline ml-auto">
                         Kelola TTD & stempel →
                     </Link>
                 </div>
@@ -1193,9 +1196,9 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     return (
                         <div className="mt-2 pt-2 border-t flex items-center gap-3 flex-wrap">
                             <span className="text-[11px] text-muted-foreground">Preview di surat:</span>
-                            <div className="inline-flex items-center gap-3 p-2 bg-slate-50 rounded">
+                            <div className="inline-flex items-center gap-3 p-2 bg-muted rounded">
                                 {w.signatureImageUrl ? (
-                                    <div className="relative h-16 w-32 bg-white rounded border flex items-center justify-center">
+                                    <div className="relative h-16 w-32 bg-card rounded border flex items-center justify-center">
                                         {w.stampImageUrl && (
                                             <img
                                                 src={`${apiBase}${w.stampImageUrl}`}
@@ -1211,8 +1214,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                         />
                                     </div>
                                 ) : (
-                                    <div className="h-16 w-32 bg-amber-50 border border-amber-300 rounded flex items-center justify-center text-[10px] text-amber-700 px-2 text-center">
-                                        ⚠ {w.name} belum upload TTD
+                                    <div className="h-16 w-32 bg-warning/10 border border-warning/30 rounded flex items-center justify-center text-[10px] text-warning px-2 text-center">
+                                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {w.name} belum upload TTD
                                     </div>
                                 )}
                                 <div>
@@ -1231,14 +1234,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             </div>
 
             {/* Bank picker — pilih rekening yang muncul di surat */}
-            <div className="mb-4 bg-white border-2 rounded-lg p-3">
+            <div className="mb-4 bg-card border-2 border-border rounded-xl p-3">
                 <div className="flex items-start gap-3 flex-wrap">
-                    <span className="text-sm font-semibold text-slate-700 mt-1">Rekening Bank:</span>
+                    <span className="text-sm font-semibold text-foreground mt-1">Rekening Bank:</span>
                     <div className="flex-1 min-w-[280px]">
                         {allBanks.length === 0 ? (
-                            <div className="text-xs bg-amber-50 border border-amber-300 rounded-md p-2 text-amber-800">
-                                ⚠ Belum ada bank account terdaftar.
-                                <Link href="/settings/bank-accounts" className="ml-1 text-amber-900 font-semibold hover:underline">
+                            <div className="text-xs bg-warning/10 border border-warning/30 rounded-md p-2 text-warning inline-flex items-start gap-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> Belum ada bank account terdaftar.
+                                <Link href="/settings/bank-accounts" className="ml-1 text-warning font-semibold hover:underline">
                                     Tambah dulu di /settings/bank-accounts →
                                 </Link>
                             </div>
@@ -1248,7 +1251,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     const ids = bankAccountIds.split(",").map((s) => s.trim()).filter(Boolean);
                                     const checked = ids.includes(String(b.id));
                                     return (
-                                        <label key={b.id} className="flex items-center gap-2 text-sm cursor-pointer p-1.5 rounded hover:bg-slate-50">
+                                        <label key={b.id} className="flex items-center gap-2 text-sm cursor-pointer p-1.5 rounded hover:bg-muted transition-colors">
                                             <input
                                                 type="checkbox"
                                                 checked={checked}
@@ -1271,32 +1274,32 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             💡 Pilih rekening yang ditampilkan di surat. Default: dari Brand Settings. Setting ini menimpa default per dokumen.
                         </p>
                     </div>
-                    <Link href="/settings/bank-accounts" className="text-[11px] text-blue-600 hover:underline">
+                    <Link href="/settings/bank-accounts" className="text-[11px] text-info hover:underline">
                         Kelola Bank →
                     </Link>
                 </div>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-                <section className="bg-white rounded-lg border p-4 space-y-3">
+                <section className="bg-card rounded-xl border border-border p-4 space-y-3">
                     <h3 className="font-semibold mb-2">Data Klien</h3>
 
                     {/* Tautkan ke Customer Database — supaya muncul di tab Penawaran customer */}
                     {linkedCustomer ? (
-                        <div className="rounded-lg border-2 border-emerald-300 bg-emerald-50/40 p-3">
+                        <div className="rounded-lg border-2 border-success/30 bg-success/10 p-3">
                             <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
-                                    <div className="text-[11px] font-semibold text-emerald-700 inline-flex items-center gap-1.5 mb-0.5">
-                                        <Users className="h-3.5 w-3.5" />
-                                        ✅ Ter-link ke Data Pelanggan
+                                    <div className="text-[11px] font-semibold text-success inline-flex items-center gap-1.5 mb-0.5">
+                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                        Ter-link ke Data Pelanggan
                                     </div>
                                     <Link
                                         href={`/customers/${linkedCustomer.id}`}
-                                        className="text-sm font-semibold text-emerald-900 hover:underline truncate block"
+                                        className="text-sm font-semibold text-success hover:underline truncate block"
                                     >
                                         {linkedCustomer.companyName || linkedCustomer.name}
                                     </Link>
-                                    <div className="text-[11px] text-emerald-700/80 truncate">
+                                    <div className="text-[11px] text-success/80 truncate">
                                         {linkedCustomer.companyName && linkedCustomer.name && <span>{linkedCustomer.name}</span>}
                                         {linkedCustomer.companyPIC && <span> · PIC {linkedCustomer.companyPIC}</span>}
                                         {linkedCustomer.phone && <span> · {linkedCustomer.phone}</span>}
@@ -1306,14 +1309,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     <button
                                         type="button"
                                         onClick={() => setShowCustomerPicker(true)}
-                                        className="text-[11px] px-2 py-1 rounded border bg-white hover:bg-muted"
+                                        className="text-[11px] px-2 py-1 rounded border bg-card hover:bg-muted"
                                     >
                                         Ganti
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => { setCustomerIdState(null); setLinkedCustomer(null); }}
-                                        className="text-[11px] px-2 py-1 rounded text-red-600 hover:bg-red-50"
+                                        className="text-[11px] px-2 py-1 rounded text-destructive hover:bg-destructive/12"
                                         title="Lepas link customer (penawaran ini gak akan muncul di histori customer)"
                                     >
                                         Lepas
@@ -1322,13 +1325,13 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             </div>
                         </div>
                     ) : (
-                        <div className="rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/40 p-3">
+                        <div className="rounded-lg border-2 border-dashed border-warning/40 bg-warning/10 p-3">
                             <div className="flex items-start gap-2">
                                 <div className="flex-1 min-w-0">
-                                    <div className="text-xs font-semibold text-amber-800 inline-flex items-center gap-1.5 mb-1">
-                                        ⚠️ Belum Ter-link ke Data Pelanggan
+                                    <div className="text-xs font-semibold text-warning inline-flex items-center gap-1.5 mb-1">
+                                        <AlertTriangle className="h-3.5 w-3.5" /> Belum Ter-link ke Data Pelanggan
                                     </div>
-                                    <p className="text-[11px] text-amber-700 mb-2">
+                                    <p className="text-[11px] text-warning mb-2">
                                         Penawaran ini <b>tidak akan muncul</b> di histori detail pelanggan.
                                         Klik tombol untuk pilih customer terdaftar atau tambah klien baru.
                                     </p>
@@ -1352,7 +1355,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     <Field label="Email" value={clientEmail} onChange={setClientEmail} />
                 </section>
 
-                <section className="bg-white rounded-lg border p-4 space-y-3">
+                <section className="bg-card rounded-xl border border-border p-4 space-y-3">
                     <h3 className="font-semibold mb-2">Event / Proyek</h3>
                     <Field label="Nama Proyek" value={projectName} onChange={setProjectName} />
                     <Field label="Lokasi" value={eventLocation} onChange={setEventLocation} />
@@ -1380,10 +1383,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     )}
 
                     {/* Multi-event: event tambahan dengan tanggal beda */}
-                    <div className="border-t border-dashed border-slate-300 pt-3 mt-2">
+                    <div className="border-t border-dashed border-border pt-3 mt-2">
                         <div className="flex items-center justify-between mb-2">
                             <div>
-                                <h4 className="text-sm font-bold text-slate-800">📅 Event Tambahan</h4>
+                                <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5"><CalendarDays className="w-4 h-4" /> Event Tambahan</h4>
                                 <p className="text-[10px] text-muted-foreground">
                                     Kalau penawaran cover beberapa event dengan tanggal berbeda.
                                 </p>
@@ -1396,23 +1399,23 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                         { name: "", location: "", dateStart: "", dateEnd: "" },
                                     ])
                                 }
-                                className="flex items-center gap-1 px-2.5 py-1 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded font-medium"
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs bg-success/10 hover:bg-success/20 text-success border border-success/30 rounded font-medium"
                             >
                                 <Plus className="w-3.5 h-3.5" /> Tambah Event
                             </button>
                         </div>
 
                         {additionalEvents.length === 0 ? (
-                            <p className="text-[11px] text-slate-400 italic">Belum ada event tambahan.</p>
+                            <p className="text-[11px] text-muted-foreground italic">Belum ada event tambahan.</p>
                         ) : (
                             <div className="space-y-2">
                                 {additionalEvents.map((ev, idx) => (
                                     <div
                                         key={idx}
-                                        className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/60 relative"
+                                        className="border border-border rounded-lg p-2.5 bg-muted/60 relative"
                                     >
                                         <div className="flex items-center justify-between mb-1.5">
-                                            <span className="text-[10px] font-bold text-slate-600">
+                                            <span className="text-[10px] font-bold text-muted-foreground">
                                                 Event #{idx + 2}
                                             </span>
                                             <button
@@ -1422,7 +1425,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                                         additionalEvents.filter((_, i) => i !== idx),
                                                     )
                                                 }
-                                                className="text-red-600 hover:bg-red-50 p-0.5 rounded"
+                                                className="text-destructive hover:bg-destructive/12 p-0.5 rounded"
                                                 title="Hapus event"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1487,11 +1490,11 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             </div>
 
             {/* Header Surat — tanggal saja (kota opsional, ditambahkan via field di bawah kalau perlu) */}
-            <section className="bg-white rounded-lg border p-4 mt-6">
+            <section className="bg-card rounded-xl border border-border p-4 mt-6">
                 <div className="mb-3">
                     <h3 className="font-semibold">Header Surat (Tanggal Dibuat)</h3>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                        💡 Format di surat: <code className="bg-slate-100 px-1 rounded">Tanggal : {signCity ? `${signCity}, ` : ""}{docDate ? new Date(docDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "—"}</code>
+                        💡 Format di surat: <code className="bg-muted px-1 rounded">Tanggal : {signCity ? `${signCity}, ` : ""}{docDate ? new Date(docDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "—"}</code>
                     </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1513,7 +1516,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 </p>
             </section>
 
-            <section className="bg-white rounded-lg border p-4 mt-6">
+            <section className="bg-card rounded-xl border border-border p-4 mt-6">
                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <div>
                         <h3 className="font-semibold">Rincian Item</h3>
@@ -1523,35 +1526,35 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     </div>
                     <button
                         onClick={addItem}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm"
+                        className="flex items-center gap-1 px-3 py-1.5 bg-info hover:bg-info/90 text-white rounded-md text-sm"
                     >
                         <Plus className="w-4 h-4" /> Tambah Item
                     </button>
                 </div>
 
                 {/* Toggle Tampilan Item di PDF/DOCX */}
-                <div className="mb-3 rounded-md border-2 border-slate-200 bg-slate-50 p-2.5 flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Tampilan Item di PDF:</span>
-                    <div className="inline-flex gap-0.5 bg-white p-0.5 rounded border">
+                <div className="mb-3 rounded-md border-2 border-border bg-muted p-2.5 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-foreground uppercase tracking-wide">Tampilan Item di PDF:</span>
+                    <div className="inline-flex gap-0.5 bg-card p-0.5 rounded border border-border">
                         <button
                             type="button"
                             onClick={() => setItemDisplayMode('detailed')}
-                            className={`px-3 py-1 rounded text-xs font-semibold transition ${itemDisplayMode === 'detailed'
-                                ? 'bg-blue-600 text-white'
-                                : 'text-slate-600 hover:text-slate-900'
+                            className={`inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-semibold transition ${itemDisplayMode === 'detailed'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
-                            📋 Detail (per item)
+                            <List className="w-3 h-3" /> Detail (per item)
                         </button>
                         <button
                             type="button"
                             onClick={() => setItemDisplayMode('category-summary')}
-                            className={`px-3 py-1 rounded text-xs font-semibold transition ${itemDisplayMode === 'category-summary'
-                                ? 'bg-blue-600 text-white'
-                                : 'text-slate-600 hover:text-slate-900'
+                            className={`inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-semibold transition ${itemDisplayMode === 'category-summary'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
-                            📊 Ringkas (total/kategori)
+                            <BarChart2 className="w-3 h-3" /> Ringkas (total/kategori)
                         </button>
                     </div>
                     <span className="text-[11px] text-muted-foreground">
@@ -1587,8 +1590,9 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     const showPackageCol = formMode === 'advanced';
                     const colCount = 8 + (eventOptions.length > 0 ? 1 : 0) + (showPackageCol ? 1 : 0);
                     return (
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-left text-gray-700">
+                    <thead className="bg-muted text-left text-foreground">
                         <tr>
                             <th className="w-6 px-1"></th>
                             <th className="px-2 py-1.5 w-40">Kategori</th>
@@ -1628,7 +1632,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 })}
                                 {items.length === 0 && (
                                     <tr>
-                                        <td colSpan={colCount} className="text-center py-6 text-gray-400">
+                                        <td colSpan={colCount} className="text-center py-6 text-muted-foreground">
                                             Belum ada item. Klik &quot;Tambah Item&quot;.
                                         </td>
                                     </tr>
@@ -1637,34 +1641,35 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </SortableContext>
                     </DndContext>
                 </table>
+                </div>
                     );
                 })()}
             </section>
 
             <div className="grid md:grid-cols-2 gap-6 mt-6 auto-rows-min items-start">
-                <section className="bg-white rounded-lg border p-3 space-y-2">
-                    <h3 className="font-semibold text-sm">💵 Pajak &amp; Pembayaran</h3>
+                <section className="bg-card rounded-xl border border-border p-3 space-y-2">
+                    <h3 className="font-semibold text-sm flex items-center gap-1.5"><Wallet className="w-4 h-4" /> Pajak &amp; Pembayaran</h3>
                     <div className="grid grid-cols-2 gap-2">
                         <Field label="Diskon (Rp)" value={String(discount)} onChange={(v) => setDiscount(parseFloat(v) || 0)} type="number" />
                         <Field label="DP (%)" value={String(dpPercent)} onChange={(v) => setDpPercent(parseFloat(v) || 0)} type="number" />
                     </div>
 
                     {/* DP Sudah Dibayar — auto dari child invoice DP yang sudah PAID, bisa di-override custom */}
-                    <div className="border-2 border-amber-200 bg-amber-50/60 rounded p-2 space-y-1.5">
+                    <div className="border-2 border-warning/30 bg-warning/10 rounded p-2 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
-                            <label className="text-xs font-bold text-amber-900">💰 DP Sudah Dibayar</label>
-                            <div className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-white p-0.5 text-[10px] font-semibold">
+                            <label className="text-xs font-bold text-warning inline-flex items-center gap-1"><Wallet className="w-3.5 h-3.5" /> DP Sudah Dibayar</label>
+                            <div className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-card p-0.5 text-[10px] font-semibold">
                                 <button
                                     type="button"
                                     onClick={() => setDpPaidMode('auto')}
-                                    className={`px-2 py-0.5 rounded-full transition ${dpPaidMode === 'auto' ? 'bg-amber-500 text-white' : 'text-amber-700 hover:bg-amber-100'}`}
+                                    className={`px-2 py-0.5 rounded-full transition ${dpPaidMode === 'auto' ? 'bg-warning text-warning-foreground' : 'text-warning hover:bg-warning/20'}`}
                                 >
                                     Auto
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setDpPaidMode('custom')}
-                                    className={`px-2 py-0.5 rounded-full transition ${dpPaidMode === 'custom' ? 'bg-amber-500 text-white' : 'text-amber-700 hover:bg-amber-100'}`}
+                                    className={`px-2 py-0.5 rounded-full transition ${dpPaidMode === 'custom' ? 'bg-warning text-warning-foreground' : 'text-warning hover:bg-warning/20'}`}
                                 >
                                     Custom
                                 </button>
@@ -1672,8 +1677,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </div>
                         {dpPaidMode === 'auto' ? (
                             <div>
-                                <div className="font-mono text-base font-bold text-amber-900">{rp(autoDpPaid)}</div>
-                                <p className="text-[10px] text-amber-700">
+                                <div className="font-mono text-base font-bold text-warning nums">{rp(autoDpPaid)}</div>
+                                <p className="text-[10px] text-warning">
                                     {dpPaidInvoiceCount === 0
                                         ? "Belum ada invoice DP yang sudah dibayar."
                                         : `Auto dari ${dpPaidInvoiceCount} invoice DP yang sudah ter-bayar.`}
@@ -1682,7 +1687,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         ) : (
                             <div>
                                 <div className="relative">
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-amber-700 font-semibold text-xs">Rp</span>
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-warning font-semibold text-xs">Rp</span>
                                     <input
                                         type="number"
                                         min="0"
@@ -1691,37 +1696,37 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                         onChange={(e) => setDpPaidCustom(e.target.value)}
                                         placeholder={`mis. ${(Number(data?.total ?? 0) * dpPercent / 100).toFixed(0)}`}
                                         inputMode="numeric"
-                                        className="w-full border-2 border-amber-300 rounded pl-8 pr-2 py-1.5 text-sm font-mono text-right focus:border-amber-500 outline-none bg-white"
+                                        className="w-full border-2 border-warning/30 rounded pl-8 pr-2 py-1.5 text-sm font-mono text-right focus:border-warning outline-none bg-card"
                                     />
                                 </div>
-                                <p className="text-[10px] text-amber-700 mt-0.5">
+                                <p className="text-[10px] text-warning mt-0.5">
                                     Override manual untuk DP yang dibayar di luar sistem atau penyesuaian.
                                 </p>
                             </div>
                         )}
                         {effectiveDpPaid > 0 && Number(data?.total ?? 0) > 0 && (
-                            <div className="text-[11px] text-amber-800 border-t border-amber-200 pt-1">
+                            <div className="text-[11px] text-warning border-t border-warning/30 pt-1">
                                 Sisa Pelunasan: <b className="font-mono">{rp(Number(data?.total ?? 0) - effectiveDpPaid)}</b>
                             </div>
                         )}
                     </div>
 
                     {/* PPN section dengan toggle mode % / Rp */}
-                    <div className="border-2 border-blue-200 bg-blue-50/40 rounded p-2 space-y-1.5">
+                    <div className="border-2 border-info/30 bg-info/10 rounded p-2 space-y-1.5">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <label className="text-xs font-bold text-blue-900">📊 PPN (Pajak Pertambahan Nilai)</label>
-                            <div className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-white p-0.5 text-[10px] font-semibold">
+                            <label className="text-xs font-bold text-info inline-flex items-center gap-1"><Percent className="w-3.5 h-3.5" /> PPN (Pajak Pertambahan Nilai)</label>
+                            <div className="inline-flex items-center gap-1 rounded-full border border-info/30 bg-card p-0.5 text-[10px] font-semibold">
                                 <button
                                     type="button"
                                     onClick={() => { setTaxMode("percent"); setTaxAmount(0); }}
-                                    className={`px-2 py-0.5 rounded-full transition ${taxMode === "percent" ? "bg-blue-600 text-white" : "text-blue-700 hover:bg-blue-100"}`}
+                                    className={`px-2 py-0.5 rounded-full transition ${taxMode === "percent" ? "bg-info text-white" : "text-info hover:bg-info/15"}`}
                                 >
                                     % Persen
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => { setTaxMode("amount"); setTaxRate(0); }}
-                                    className={`px-2 py-0.5 rounded-full transition ${taxMode === "amount" ? "bg-blue-600 text-white" : "text-blue-700 hover:bg-blue-100"}`}
+                                    className={`px-2 py-0.5 rounded-full transition ${taxMode === "amount" ? "bg-info text-white" : "text-info hover:bg-info/15"}`}
                                 >
                                     Rp Nominal
                                 </button>
@@ -1729,31 +1734,31 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </div>
 
                         {/* Pricing mode toggle — harga belum / sudah termasuk PPN */}
-                        <div className="bg-white border border-blue-200 rounded p-1.5 space-y-1">
-                            <div className="text-[10px] font-bold uppercase tracking-wide text-blue-800">Mode Pricing</div>
+                        <div className="bg-card border border-info/30 rounded p-1.5 space-y-1">
+                            <div className="text-[10px] font-bold uppercase tracking-wide text-info">Mode Pricing</div>
                             <div className="grid grid-cols-2 gap-1">
                                 <button
                                     type="button"
                                     onClick={() => setPriceIncludesTax(false)}
                                     className={`text-[10px] px-2 py-1.5 rounded border-2 font-semibold transition ${!priceIncludesTax
-                                        ? "bg-blue-600 text-white border-blue-600"
-                                        : "bg-white text-blue-700 border-blue-200 hover:border-blue-400"
+                                        ? "bg-info text-white border-info"
+                                        : "bg-card text-info border-info/30 hover:border-info/50"
                                         }`}
                                 >
-                                    ➕ Harga belum termasuk PPN
+                                    <Plus className="w-3 h-3 inline" /> Harga belum termasuk PPN
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setPriceIncludesTax(true)}
                                     className={`text-[10px] px-2 py-1.5 rounded border-2 font-semibold transition ${priceIncludesTax
-                                        ? "bg-blue-600 text-white border-blue-600"
-                                        : "bg-white text-blue-700 border-blue-200 hover:border-blue-400"
+                                        ? "bg-info text-white border-info"
+                                        : "bg-card text-info border-info/30 hover:border-info/50"
                                         }`}
                                 >
-                                    📦 Harga sudah termasuk PPN
+                                    <Package className="w-3 h-3 inline" /> Harga sudah termasuk PPN
                                 </button>
                             </div>
-                            <p className="text-[10px] text-slate-600">
+                            <p className="text-[10px] text-muted-foreground">
                                 {priceIncludesTax
                                     ? "📦 Harga item adalah GROSS (sudah include PPN). DPP & PPN di-back-calc dari gross."
                                     : "➕ Harga item adalah NET (belum include PPN). PPN ditambah di atas subtotal."}
@@ -1767,11 +1772,11 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                         value={taxRate}
                                         onChange={(e) => setTaxRate(parseFloat(e.target.value) || 0)}
                                         placeholder="0"
-                                        className="w-20 border-2 border-blue-200 rounded px-2 py-1.5 text-sm bg-white"
+                                        className="w-20 border-2 border-info/30 rounded px-2 py-1.5 text-sm bg-card"
                                     />
-                                    <span className="text-sm font-bold text-blue-700">%</span>
-                                    <span className="text-[11px] text-slate-600">
-                                        ≈ <b className="font-mono text-blue-700">Rp {Math.round(computedTaxAmount).toLocaleString("id-ID")}</b>
+                                    <span className="text-sm font-bold text-info">%</span>
+                                    <span className="text-[11px] text-muted-foreground">
+                                        ≈ <b className="font-mono text-info">Rp {Math.round(computedTaxAmount).toLocaleString("id-ID")}</b>
                                     </span>
                                 </div>
                                 <div className="flex gap-1 mt-1 flex-wrap">
@@ -1780,7 +1785,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                             key={rate}
                                             type="button"
                                             onClick={() => setTaxRate(rate)}
-                                            className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${taxRate === rate ? "bg-blue-600 text-white border-blue-600" : "bg-white text-blue-700 border-blue-300 hover:bg-blue-100"}`}
+                                            className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${taxRate === rate ? "bg-info text-white border-info" : "bg-card text-info border-info/30 hover:bg-info/15"}`}
                                         >
                                             {rate}%{rate === 0 ? " (off)" : rate === 11 ? " (default)" : ""}
                                         </button>
@@ -1790,21 +1795,21 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         ) : (
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-sm font-bold text-blue-700">Rp</span>
+                                    <span className="text-sm font-bold text-info">Rp</span>
                                     <input
                                         type="number"
                                         value={taxAmount}
                                         onChange={(e) => setTaxAmount(parseFloat(e.target.value) || 0)}
                                         placeholder="0"
-                                        className="flex-1 border-2 border-blue-200 rounded px-2 py-1.5 text-sm bg-white font-mono text-right"
+                                        className="flex-1 border-2 border-info/30 rounded px-2 py-1.5 text-sm bg-card font-mono text-right"
                                     />
                                     {dpp > 0 && taxAmount > 0 && (
-                                        <span className="text-[11px] text-slate-600 whitespace-nowrap">
-                                            ≈ <b className="text-blue-700">{effectiveTaxRate.toFixed(2)}%</b>
+                                        <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                            ≈ <b className="text-info">{effectiveTaxRate.toFixed(2)}%</b>
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-[10px] text-slate-500 mt-0.5">
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
                                     Input nominal Rp langsung — % auto-hitung dari DPP.
                                 </p>
                             </div>
@@ -1812,21 +1817,21 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     </div>
 
                     {/* PPh section dengan toggle mode % / Rp */}
-                    <div className="border-2 border-rose-200 bg-rose-50/40 rounded p-2 space-y-1.5">
+                    <div className="border-2 border-destructive/30 bg-destructive/12 rounded p-2 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
-                            <label className="text-xs font-bold text-rose-900">💸 PPh (Withholding Tax)</label>
-                            <div className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-white p-0.5 text-[10px] font-semibold">
+                            <label className="text-xs font-bold text-destructive inline-flex items-center gap-1"><TrendingDown className="w-3.5 h-3.5" /> PPh (Withholding Tax)</label>
+                            <div className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-card p-0.5 text-[10px] font-semibold">
                                 <button
                                     type="button"
                                     onClick={() => { setPphMode("percent"); setPphAmount(0); }}
-                                    className={`px-2 py-0.5 rounded-full transition ${pphMode === "percent" ? "bg-rose-600 text-white" : "text-rose-700 hover:bg-rose-100"}`}
+                                    className={`px-2 py-0.5 rounded-full transition ${pphMode === "percent" ? "bg-destructive text-white" : "text-destructive hover:bg-destructive/15"}`}
                                 >
                                     % Persen
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => { setPphMode("amount"); setPphRate(0); }}
-                                    className={`px-2 py-0.5 rounded-full transition ${pphMode === "amount" ? "bg-rose-600 text-white" : "text-rose-700 hover:bg-rose-100"}`}
+                                    className={`px-2 py-0.5 rounded-full transition ${pphMode === "amount" ? "bg-destructive text-white" : "text-destructive hover:bg-destructive/15"}`}
                                 >
                                     Rp Nominal
                                 </button>
@@ -1840,11 +1845,11 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                         value={pphRate}
                                         onChange={(e) => setPphRate(parseFloat(e.target.value) || 0)}
                                         placeholder="0"
-                                        className="w-20 border-2 border-rose-200 rounded px-2 py-1.5 text-sm bg-white"
+                                        className="w-20 border-2 border-destructive/30 rounded px-2 py-1.5 text-sm bg-card"
                                     />
-                                    <span className="text-sm font-bold text-rose-700">%</span>
-                                    <span className="text-[11px] text-slate-600">
-                                        ≈ <b className="font-mono text-rose-700">Rp {Math.round(computedPphAmount).toLocaleString("id-ID")}</b>
+                                    <span className="text-sm font-bold text-destructive">%</span>
+                                    <span className="text-[11px] text-muted-foreground">
+                                        ≈ <b className="font-mono text-destructive">Rp {Math.round(computedPphAmount).toLocaleString("id-ID")}</b>
                                     </span>
                                 </div>
                                 <div className="flex gap-1 mt-1 flex-wrap">
@@ -1853,7 +1858,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                             key={rate}
                                             type="button"
                                             onClick={() => setPphRate(rate)}
-                                            className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${pphRate === rate ? "bg-rose-600 text-white border-rose-600" : "bg-white text-rose-700 border-rose-300 hover:bg-rose-100"}`}
+                                            className={`text-[10px] px-2 py-0.5 rounded border font-semibold ${pphRate === rate ? "bg-destructive text-white border-destructive" : "bg-card text-destructive border-destructive/30 hover:bg-destructive/15"}`}
                                             title={rate === 0 ? "Tidak ada PPh" : rate === 0.5 ? "UMKM Final" : rate === 1.5 ? "Sewa / Jasa konstruksi" : "Jasa lain"}
                                         >
                                             {rate}%{rate === 0 ? " (off)" : rate === 0.5 ? " (UMKM)" : rate === 1.5 ? " (PPh 4(2))" : " (PPh 23)"}
@@ -1864,27 +1869,27 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         ) : (
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-sm font-bold text-rose-700">Rp</span>
+                                    <span className="text-sm font-bold text-destructive">Rp</span>
                                     <input
                                         type="number"
                                         value={pphAmount}
                                         onChange={(e) => setPphAmount(parseFloat(e.target.value) || 0)}
                                         placeholder="0"
-                                        className="flex-1 border-2 border-rose-200 rounded px-2 py-1.5 text-sm bg-white font-mono text-right"
+                                        className="flex-1 border-2 border-destructive/30 rounded px-2 py-1.5 text-sm bg-card font-mono text-right"
                                     />
                                     {dpp > 0 && pphAmount > 0 && (
-                                        <span className="text-[11px] text-slate-600 whitespace-nowrap">
-                                            ≈ <b className="text-rose-700">{effectivePphRate.toFixed(2)}%</b>
+                                        <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                            ≈ <b className="text-destructive">{effectivePphRate.toFixed(2)}%</b>
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-[10px] text-slate-500 mt-0.5">
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
                                     Input nominal Rp langsung — % auto-hitung dari DPP.
                                 </p>
                             </div>
                         )}
                         {(pphRate > 0 || pphAmount > 0) && (
-                            <div className="text-[10px] text-rose-700 bg-white border border-rose-200 rounded p-1.5">
+                            <div className="text-[10px] text-destructive bg-card border border-destructive/30 rounded p-1.5">
                                 💡 PPh ini akan <b>dipotong klien</b> dari pembayaran.
                                 Net diterima = Total − Rp {Math.round(computedPphAmount).toLocaleString("id-ID")}
                                 <br />
@@ -1894,7 +1899,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
                         {/* AUTO GROSS-UP toggle — fitur paling sering dipakai marketing */}
                         {pphMode === "percent" && pphRate > 0 && (
-                            <div className={`border-2 rounded p-2 space-y-1 transition ${grossUpPph ? "border-emerald-400 bg-emerald-50" : "border-slate-200 bg-slate-50"}`}>
+                            <div className={`border-2 rounded p-2 space-y-1 transition ${grossUpPph ? "border-success/50 bg-success/10" : "border-border bg-muted"}`}>
                                 <label className="flex items-start gap-2 cursor-pointer">
                                     <input
                                         type="checkbox"
@@ -1903,11 +1908,11 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                         className="mt-0.5 w-4 h-4"
                                     />
                                     <div className="flex-1">
-                                        <div className="text-xs font-bold text-slate-900">
-                                            🤖 Auto Gross-Up PPh
-                                            {grossUpPph && <span className="ml-1 text-emerald-700">✓ AKTIF</span>}
+                                        <div className="text-xs font-bold text-foreground flex items-center gap-1">
+                                            <Bot className="w-3.5 h-3.5" /> Auto Gross-Up PPh
+                                            {grossUpPph && <span className="ml-1 text-success">✓ AKTIF</span>}
                                         </div>
-                                        <p className="text-[10px] text-slate-600 mt-0.5">
+                                        <p className="text-[10px] text-muted-foreground mt-0.5">
                                             Harga items dianggap <b>target net</b> yang ingin diterima vendor.
                                             Sistem auto gross-up DPP supaya setelah PPh dipotong klien,
                                             vendor terima persis sesuai target.
@@ -1915,15 +1920,15 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     </div>
                                 </label>
                                 {grossUpPph && (
-                                    <div className="bg-white border border-emerald-300 rounded p-2 mt-1 text-[10px] space-y-0.5">
+                                    <div className="bg-card border border-success/30 rounded p-2 mt-1 text-[10px] space-y-0.5">
                                         <div className="font-mono">
-                                            Sum items: <b className="text-slate-700">Rp {Math.round(subtotal).toLocaleString("id-ID")}</b>
-                                            <span className="text-slate-400 mx-1">→</span>
-                                            DPP gross-up: <b className="text-emerald-700">Rp {Math.round(dpp).toLocaleString("id-ID")}</b>
-                                            <span className="text-slate-400"> (× {grossUpFactor.toFixed(4)})</span>
+                                            Sum items: <b className="text-foreground">Rp {Math.round(subtotal).toLocaleString("id-ID")}</b>
+                                            <span className="text-muted-foreground mx-1">→</span>
+                                            DPP gross-up: <b className="text-success">Rp {Math.round(dpp).toLocaleString("id-ID")}</b>
+                                            <span className="text-muted-foreground"> (× {grossUpFactor.toFixed(4)})</span>
                                         </div>
-                                        <div className="text-emerald-700 font-semibold">
-                                            ✅ Setelah PPh {pphRate}% dipotong, vendor terima net = <b>Rp {Math.round(subtotal - (discount || 0)).toLocaleString("id-ID")}</b>
+                                        <div className="text-success font-semibold flex items-center gap-1">
+                                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Setelah PPh {pphRate}% dipotong, vendor terima net = <b>Rp {Math.round(subtotal - (discount || 0)).toLocaleString("id-ID")}</b>
                                         </div>
                                     </div>
                                 )}
@@ -1939,23 +1944,23 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
                 {/* === Section: Format Lanjutan (Subject + Harga Paket + Show Grand Total) === */}
                 {formMode === 'advanced' && (
-                <section className="bg-white rounded-lg border border-violet-200 overflow-hidden">
+                <section className="bg-card rounded-xl border border-primary/30 overflow-hidden">
                     <button
                         type="button"
                         onClick={() => toggleSection('format')}
-                        className="w-full flex items-center justify-between px-3 py-2 bg-violet-50 hover:bg-violet-100 transition text-left"
+                        className="w-full flex items-center justify-between px-3 py-2 bg-primary/10 hover:bg-primary/15 transition text-left"
                     >
                         <div className="flex items-center gap-2">
-                            <span>🎨</span>
+                            <SlidersHorizontal className="w-4 h-4 text-primary" />
                             <div>
-                                <h3 className="font-semibold text-sm text-violet-900">Format Lanjutan</h3>
-                                <p className="text-[10px] text-violet-700">Subject • Harga paket • Show total</p>
+                                <h3 className="font-semibold text-sm text-primary">Format Lanjutan</h3>
+                                <p className="text-[10px] text-primary">Subject • Harga paket • Show total</p>
                             </div>
                         </div>
-                        <span className="text-violet-700 text-xs">{openSections.format ? '▲' : '▼'}</span>
+                        <span className="text-primary text-xs">{openSections.format ? '▲' : '▼'}</span>
                     </button>
                     {openSections.format && (
-                    <div className="p-3 space-y-2 border-t border-violet-200">
+                    <div className="p-3 space-y-2 border-t border-primary/30">
                         <Field
                             label='Hal: (Custom Subject)'
                             value={customSubject}
@@ -1976,7 +1981,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 onChange={(e) => setShowGrandTotal(e.target.checked)}
                                 className="w-4 h-4"
                             />
-                            <span>Tampilkan Grand Total di footer <span className="text-slate-500">(uncheck untuk mode Package)</span></span>
+                            <span>Tampilkan Grand Total di footer <span className="text-muted-foreground">(uncheck untuk mode Package)</span></span>
                         </label>
                     </div>
                     )}
@@ -1985,39 +1990,39 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
                 {/* === Section: Spesifikasi (PDF Nukahiji style) === */}
                 {formMode === 'advanced' && (
-                <section className="bg-white rounded-lg border border-emerald-200 overflow-hidden">
+                <section className="bg-card rounded-xl border border-success/30 overflow-hidden">
                     <button
                         type="button"
                         onClick={() => toggleSection('spec')}
-                        className="w-full flex items-center justify-between px-3 py-2 bg-emerald-50 hover:bg-emerald-100 transition text-left"
+                        className="w-full flex items-center justify-between px-3 py-2 bg-success/10 hover:bg-success/20 transition text-left"
                     >
                         <div className="flex items-center gap-2">
-                            <span>📋</span>
+                            <List className="w-4 h-4 text-success" />
                             <div>
-                                <h3 className="font-semibold text-sm text-emerald-900 flex items-center gap-1.5">
+                                <h3 className="font-semibold text-sm text-success flex items-center gap-1.5">
                                     Spesifikasi Detail
-                                    {specifications.length > 0 && <span className="px-1.5 py-0.5 bg-emerald-200 rounded text-[10px] font-bold">{specifications.length}</span>}
+                                    {specifications.length > 0 && <span className="px-1.5 py-0.5 bg-success/20 rounded text-[10px] font-bold">{specifications.length}</span>}
                                 </h3>
-                                <p className="text-[10px] text-emerald-700">List spec per item (Booth/Stage/Totem)</p>
+                                <p className="text-[10px] text-success">List spec per item (Booth/Stage/Totem)</p>
                             </div>
                         </div>
-                        <span className="text-emerald-700 text-xs">{openSections.spec ? '▲' : '▼'}</span>
+                        <span className="text-success text-xs">{openSections.spec ? '▲' : '▼'}</span>
                     </button>
                     {openSections.spec && (
-                    <div className="p-3 space-y-2 border-t border-emerald-200">
+                    <div className="p-3 space-y-2 border-t border-success/30">
                         <button
                             type="button"
                             onClick={() => setSpecifications([...specifications, { title: "", items: [""] }])}
-                            className="w-full px-2 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium"
+                            className="w-full px-2 py-1.5 text-xs bg-success hover:bg-success/90 text-white rounded font-medium"
                             title="Tambah group spec (mis. Booth, Stage, Totem)"
                         >
-                            ➕ Tambah Group Spesifikasi
+                            <Plus className="w-3.5 h-3.5 inline" /> Tambah Group Spesifikasi
                         </button>
                     {specifications.length === 0 ? (
-                        <p className="text-xs text-slate-400 italic">Belum ada. Klik "+ Tambah Group" untuk mulai.</p>
+                        <p className="text-xs text-muted-foreground italic">Belum ada. Klik "+ Tambah Group" untuk mulai.</p>
                     ) : (
                         specifications.map((grp, gi) => (
-                            <div key={gi} className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/40 space-y-1.5">
+                            <div key={gi} className="border border-border rounded-lg p-2.5 bg-muted/40 space-y-1.5">
                                 <div className="flex items-center gap-2">
                                     <input
                                         type="text"
@@ -2037,7 +2042,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                         onClick={() =>
                                             setSpecifications(specifications.filter((_, i) => i !== gi))
                                         }
-                                        className="text-red-600 hover:bg-red-50 p-1 rounded"
+                                        className="text-destructive hover:bg-destructive/12 p-1 rounded"
                                         title="Hapus group"
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -2051,7 +2056,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     if (pkgList.length === 0) return null; // tidak mode package, sembunyikan dropdown
                                     return (
                                         <div className="flex items-center gap-2 text-xs">
-                                            <label className="text-slate-600 whitespace-nowrap">📦 Untuk paket:</label>
+                                            <label className="text-muted-foreground whitespace-nowrap inline-flex items-center gap-1"><Package className="w-3 h-3" /> Untuk paket:</label>
                                             <select
                                                 value={grp.packageGroup ?? ""}
                                                 onChange={(e) =>
@@ -2073,7 +2078,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 })()}
                                 {grp.items.map((it, ii) => (
                                     <div key={ii} className="flex items-center gap-2">
-                                        <span className="text-emerald-600 text-xs">✓</span>
+                                        <span className="text-success text-xs">✓</span>
                                         <input
                                             type="text"
                                             value={it}
@@ -2105,7 +2110,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                                     ),
                                                 )
                                             }
-                                            className="text-red-600 hover:bg-red-50 p-0.5 rounded"
+                                            className="text-destructive hover:bg-destructive/12 p-0.5 rounded"
                                         >
                                             <Trash2 className="w-3 h-3" />
                                         </button>
@@ -2120,7 +2125,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                             ),
                                         )
                                     }
-                                    className="text-[10px] text-blue-600 hover:underline ml-5"
+                                    className="text-[10px] text-info hover:underline ml-5"
                                 >
                                     + Tambah Item
                                 </button>
@@ -2134,26 +2139,26 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
                 {/* === Section: Payment Schedule (Multi-step) === */}
                 {formMode === 'advanced' && (
-                <section className="bg-white rounded-lg border border-blue-200 overflow-hidden">
+                <section className="bg-card rounded-xl border border-info/30 overflow-hidden">
                     <button
                         type="button"
                         onClick={() => toggleSection('payment')}
-                        className="w-full flex items-center justify-between px-3 py-2 bg-blue-50 hover:bg-blue-100 transition text-left"
+                        className="w-full flex items-center justify-between px-3 py-2 bg-info/10 hover:bg-info/15 transition text-left"
                     >
                         <div className="flex items-center gap-2">
-                            <span>💰</span>
+                            <Wallet className="w-4 h-4 text-info" />
                             <div>
-                                <h3 className="font-semibold text-sm text-blue-900 flex items-center gap-1.5">
+                                <h3 className="font-semibold text-sm text-info flex items-center gap-1.5">
                                     Skema Pembayaran Bertahap
-                                    {paymentSchedule.length > 0 && <span className="px-1.5 py-0.5 bg-blue-200 rounded text-[10px] font-bold">{paymentSchedule.length}</span>}
+                                    {paymentSchedule.length > 0 && <span className="px-1.5 py-0.5 bg-info/20 rounded text-[10px] font-bold">{paymentSchedule.length}</span>}
                                 </h3>
-                                <p className="text-[10px] text-blue-700">Multi-step DP — override DP {dpPercent}%</p>
+                                <p className="text-[10px] text-info">Multi-step DP — override DP {dpPercent}%</p>
                             </div>
                         </div>
-                        <span className="text-blue-700 text-xs">{openSections.payment ? '▲' : '▼'}</span>
+                        <span className="text-info text-xs">{openSections.payment ? '▲' : '▼'}</span>
                     </button>
                     {openSections.payment && (
-                    <div className="p-3 space-y-2 border-t border-blue-200">
+                    <div className="p-3 space-y-2 border-t border-info/30">
                         <div className="flex gap-1.5">
                             <button
                                 type="button"
@@ -2163,10 +2168,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                         { label: "Pelunasan", percent: 50 },
                                     ])
                                 }
-                                className="flex-1 text-[11px] px-2 py-1 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 border border-blue-300 font-semibold"
+                                className="flex-1 text-[11px] px-2 py-1 rounded bg-info/15 hover:bg-info/20 text-info border border-info/30 font-semibold"
                                 title="Preset 50% DP + 50% Pelunasan"
                             >
-                                ⚡ 50/50
+                                <Zap className="w-3 h-3 inline" /> 50/50
                             </button>
                             <button
                                 type="button"
@@ -2177,10 +2182,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                         { label: "Pelunasan", percent: 20 },
                                     ])
                                 }
-                                className="flex-1 text-[11px] px-2 py-1 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 border border-blue-300 font-semibold"
+                                className="flex-1 text-[11px] px-2 py-1 rounded bg-info/15 hover:bg-info/20 text-info border border-info/30 font-semibold"
                                 title="Preset DP1 50% + DP2 30% + Pelunasan 20%"
                             >
-                                ⚡ 50/30/20
+                                <Zap className="w-3 h-3 inline" /> 50/30/20
                             </button>
                         </div>
                     {paymentSchedule.length > 0 && (
@@ -2215,13 +2220,13 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                         }
                                         className="w-16 border rounded px-2 py-1 text-xs text-right"
                                     />
-                                    <span className="text-xs text-slate-500">%</span>
+                                    <span className="text-xs text-muted-foreground">%</span>
                                     <button
                                         type="button"
                                         onClick={() =>
                                             setPaymentSchedule(paymentSchedule.filter((_, i) => i !== si))
                                         }
-                                        className="text-red-600 hover:bg-red-50 p-0.5 rounded"
+                                        className="text-destructive hover:bg-destructive/12 p-0.5 rounded"
                                     >
                                         <Trash2 className="w-3 h-3" />
                                     </button>
@@ -2231,7 +2236,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 const totalPct = paymentSchedule.reduce((sum, s) => sum + Number(s.percent || 0), 0);
                                 const ok = Math.abs(totalPct - 100) < 0.01;
                                 return (
-                                    <p className={`text-[11px] font-bold ${ok ? "text-emerald-700" : "text-red-700"}`}>
+                                    <p className={`text-[11px] font-bold ${ok ? "text-success" : "text-destructive"}`}>
                                         Total: {totalPct.toFixed(2)}% {ok ? "✓" : "(harus 100%)"}
                                     </p>
                                 );
@@ -2241,9 +2246,9 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     <button
                         type="button"
                         onClick={() => setPaymentSchedule([...paymentSchedule, { label: "", percent: 0 }])}
-                        className="w-full text-sm px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded font-medium border border-dashed border-slate-300"
+                        className="w-full text-sm px-3 py-2 bg-muted hover:bg-muted rounded font-medium border border-dashed border-border"
                     >
-                        ➕ Tambah Step Pembayaran
+                        <Plus className="w-3.5 h-3.5 inline" /> Tambah Step Pembayaran
                     </button>
                     </div>
                     )}
@@ -2251,12 +2256,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 )}
 
                 {/* Bahasa & Mata Uang — compact section */}
-                <section className="bg-white rounded-lg border border-blue-200 overflow-hidden">
-                    <div className="px-3 py-2 bg-gradient-to-r from-blue-50 to-violet-50 border-b border-blue-200 flex items-center gap-2">
-                        <span>🌐</span>
+                <section className="bg-card rounded-xl border border-info/30 overflow-hidden">
+                    <div className="px-3 py-2 bg-gradient-to-r from-info/10 to-primary/10 border-b border-info/30 flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-info" />
                         <div>
-                            <h3 className="font-semibold text-sm text-blue-900">Bahasa & Mata Uang</h3>
-                            <p className="text-[10px] text-blue-700">Bahasa surat + toggle USD</p>
+                            <h3 className="font-semibold text-sm text-info">Bahasa &amp; Mata Uang</h3>
+                            <p className="text-[10px] text-info">Bahasa surat + toggle USD</p>
                         </div>
                     </div>
                     <div className="p-3 space-y-2">
@@ -2264,7 +2269,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     {/* Language + USD toggle — kompak dalam 1 baris pill-style */}
                     <div className="flex gap-1.5">
                         {/* Language pills */}
-                        <div className="flex gap-0.5 p-0.5 bg-slate-100 rounded-md flex-1">
+                        <div className="flex gap-0.5 p-0.5 bg-muted rounded-md flex-1">
                             {([
                                 { value: 'id' as const, label: '🇮🇩 ID' },
                                 { value: 'en' as const, label: '🇬🇧 EN' },
@@ -2275,8 +2280,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     onClick={() => setLanguage(opt.value)}
                                     title={opt.value === 'id' ? 'Bahasa Indonesia' : 'English (international)'}
                                     className={`flex-1 px-2 py-1 rounded text-xs font-semibold transition ${language === opt.value
-                                        ? "bg-white text-blue-700 shadow-sm"
-                                        : "text-slate-600 hover:text-slate-900"
+                                        ? "bg-card text-info shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
                                         }`}
                                 >
                                     {opt.label}
@@ -2291,8 +2296,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 ? "USD aktif — label di PDF pakai USD. Klik untuk balik ke Rp."
                                 : "Klik untuk aktifkan USD (label Rp → USD, tanpa konversi kurs)"}
                             className={`px-3 py-1 rounded-md text-xs font-semibold transition border ${useUsdCurrency
-                                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                                : "bg-white text-slate-600 border-slate-300 hover:border-slate-400"
+                                ? "bg-success/10 text-success border-success/30"
+                                : "bg-card text-muted-foreground border-border hover:border-border"
                                 }`}
                         >
                             {useUsdCurrency ? "💵 USD ✓" : "💴 Rp (default)"}
@@ -2309,25 +2314,25 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
                 {/* Custom Text Surat — Mode Lengkap saja */}
                 {formMode === 'advanced' && (
-                <section className="bg-white rounded-lg border border-amber-200 overflow-hidden">
+                <section className="bg-card rounded-xl border border-warning/30 overflow-hidden">
                     <button
                         type="button"
                         onClick={() => toggleSection('customText')}
-                        className="w-full flex items-center justify-between px-3 py-2 bg-amber-50 hover:bg-amber-100 transition text-left"
+                        className="w-full flex items-center justify-between px-3 py-2 bg-warning/10 hover:bg-warning/20 transition text-left"
                     >
                         <div className="flex items-center gap-2">
-                            <span>✍️</span>
+                            <Pencil className="w-4 h-4 text-warning" />
                             <div>
-                                <h3 className="font-semibold text-sm text-amber-900">Custom Text Surat</h3>
-                                <p className="text-[10px] text-amber-700">Override Lampiran, Pembuka, Disclaimer, dst</p>
+                                <h3 className="font-semibold text-sm text-warning">Custom Text Surat</h3>
+                                <p className="text-[10px] text-warning">Override Lampiran, Pembuka, Disclaimer, dst</p>
                             </div>
                         </div>
-                        <span className="text-amber-700 text-xs">{openSections.customText ? '▲' : '▼'}</span>
+                        <span className="text-warning text-xs">{openSections.customText ? '▲' : '▼'}</span>
                     </button>
                     {openSections.customText && (
-                    <div className="p-3 space-y-2 border-t border-amber-200">
+                    <div className="p-3 space-y-2 border-t border-warning/30">
                     <div>
-                        <label className="text-xs font-medium block mb-1">📎 Lampiran</label>
+                        <label className="text-xs font-medium block mb-1 flex items-center gap-1"><Paperclip className="w-3.5 h-3.5" /> Lampiran</label>
                         <textarea
                             value={customAttachmentText}
                             onChange={(e) => setCustomAttachmentText(e.target.value)}
@@ -2347,7 +2352,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     key={opt.label}
                                     type="button"
                                     onClick={() => setCustomAttachmentText(opt.val)}
-                                    className="px-1.5 py-0.5 rounded border text-[10px] bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300"
+                                    className="px-1.5 py-0.5 rounded border text-[10px] bg-muted hover:bg-muted text-foreground border-border"
                                 >
                                     {opt.label}
                                 </button>
@@ -2356,7 +2361,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 <button
                                     type="button"
                                     onClick={() => setCustomAttachmentText("")}
-                                    className="px-1.5 py-0.5 rounded border text-[10px] bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-300"
+                                    className="px-1.5 py-0.5 rounded border text-[10px] bg-warning/10 hover:bg-warning/20 text-warning border-warning/30"
                                 >
                                     ✕ Reset
                                 </button>
@@ -2364,30 +2369,30 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </div>
                     </div>
                     {/* Tab switcher — Penawaran / SPK / Invoice (per-doctype custom text) */}
-                    <div className="border-b border-slate-200 -mx-4 px-4 pt-1">
+                    <div className="border-b border-border -mx-4 px-4 pt-1">
                         <div className="flex items-center gap-0.5">
                             {([
-                                { v: 'penawaran' as const, label: '📄 Penawaran', color: 'violet' },
-                                { v: 'spk' as const, label: '📜 SPK', color: 'emerald' },
-                                { v: 'invoice' as const, label: '🧾 Invoice', color: 'red' },
-                            ]).map((t) => (
+                                { v: 'penawaran' as const, icon: <FileText className="w-3 h-3" />, label: 'Penawaran', color: 'violet' },
+                                { v: 'spk' as const, icon: <ScrollText className="w-3 h-3" />, label: 'SPK', color: 'emerald' },
+                                { v: 'invoice' as const, icon: <Receipt className="w-3 h-3" />, label: 'Invoice', color: 'red' },
+                            ] as const).map((t) => (
                                 <button
                                     key={t.v}
                                     type="button"
                                     onClick={() => setCustomTextTab(t.v)}
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-t-md border-b-2 transition ${customTextTab === t.v
+                                    className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-t-md border-b-2 transition ${customTextTab === t.v
                                         ? `border-${t.color}-600 text-${t.color}-700 bg-${t.color}-50`
-                                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                                        : 'border-transparent text-muted-foreground hover:text-foreground'
                                         }`}
                                 >
-                                    {t.label}
+                                    {t.icon}{t.label}
                                 </button>
                             ))}
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1 mb-2">
-                            {customTextTab === 'penawaran' && '📄 Custom text khusus untuk surat Penawaran. Diisi di sini tidak pengaruh ke SPK & Invoice.'}
-                            {customTextTab === 'spk' && '📜 Custom text khusus untuk SPK. Kalau kosong, fallback ke Penawaran. Diisi di sini tidak pengaruh ke Penawaran & Invoice.'}
-                            {customTextTab === 'invoice' && '🧾 Custom text khusus untuk Invoice. Kalau kosong, fallback ke Penawaran. Diisi di sini tidak pengaruh ke Penawaran & SPK.'}
+                            {customTextTab === 'penawaran' && 'Custom text khusus untuk surat Penawaran. Diisi di sini tidak pengaruh ke SPK & Invoice.'}
+                            {customTextTab === 'spk' && 'Custom text khusus untuk SPK. Kalau kosong, fallback ke Penawaran. Diisi di sini tidak pengaruh ke Penawaran & Invoice.'}
+                            {customTextTab === 'invoice' && 'Custom text khusus untuk Invoice. Kalau kosong, fallback ke Penawaran. Diisi di sini tidak pengaruh ke Penawaran & SPK.'}
                         </p>
                     </div>
 
@@ -2410,10 +2415,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     <button
                                         type="button"
                                         onClick={() => setCustomOpeningText(tmpl)}
-                                        className="text-[10px] px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100"
+                                        className="text-[10px] px-2 py-0.5 rounded bg-info/10 border border-info/30 text-info hover:bg-info/15"
                                         title="Salin template dari pengaturan brand"
                                     >
-                                        📋 Salin Template Brand ({language === 'en' ? 'EN' : 'ID'})
+                                        <Copy className="w-3 h-3 inline" /> Salin Template Brand ({language === 'en' ? 'EN' : 'ID'})
                                     </button>
                                 );
                             })()}
@@ -2480,18 +2485,18 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     {customTextTab === 'spk' && (
                     <>
                     {/* Penanggung Jawab SPK — override clientName kalau berbeda dengan penawaran */}
-                    <div className="border border-emerald-200 rounded-lg p-3 bg-emerald-50/40 space-y-2">
+                    <div className="border border-success/30 rounded-lg p-3 bg-success/10 space-y-2">
                         <div>
-                            <h4 className="text-sm font-bold text-emerald-900 flex items-center gap-1.5">
-                                👤 Penanggung Jawab SPK
+                            <h4 className="text-sm font-bold text-success flex items-center gap-1.5">
+                                <User className="w-4 h-4" /> Penanggung Jawab SPK
                             </h4>
-                            <p className="text-[10px] text-emerald-700 mt-0.5">
+                            <p className="text-[10px] text-success mt-0.5">
                                 Kalau yang tandatangan SPK <strong>berbeda</strong> dengan PIC di Penawaran, isi di sini.
                                 Kosongkan untuk pakai nama PIC dari Penawaran (<span className="font-mono">{clientName || '—'}</span>).
                             </p>
                         </div>
                         <div>
-                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
+                            <label className="text-[11px] font-semibold text-foreground block mb-0.5">
                                 Nama Penanggung Jawab
                             </label>
                             <input
@@ -2499,31 +2504,31 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 value={spkPicName}
                                 onChange={(e) => setSpkPicName(e.target.value)}
                                 placeholder={`Default: ${clientName || '(belum diisi di penawaran)'}`}
-                                className={`w-full border rounded px-2 py-1.5 text-sm ${spkPicName.trim() ? 'border-emerald-400 bg-white' : ''}`}
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${spkPicName.trim() ? 'border-success/50 bg-card' : ''}`}
                             />
                         </div>
                         <div>
-                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
-                                Jabatan <span className="font-normal text-slate-500">(opsional)</span>
+                            <label className="text-[11px] font-semibold text-foreground block mb-0.5">
+                                Jabatan <span className="font-normal text-muted-foreground">(opsional)</span>
                             </label>
                             <input
                                 type="text"
                                 value={spkPicPosition}
                                 onChange={(e) => setSpkPicPosition(e.target.value)}
                                 placeholder="Mis. CEO, Direktur, Manager Operasional"
-                                className={`w-full border rounded px-2 py-1.5 text-sm ${spkPicPosition.trim() ? 'border-emerald-400 bg-white' : ''}`}
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${spkPicPosition.trim() ? 'border-success/50 bg-card' : ''}`}
                             />
                         </div>
                         <div>
-                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
-                                No. HP / Telp <span className="font-normal text-slate-500">(opsional)</span>
+                            <label className="text-[11px] font-semibold text-foreground block mb-0.5">
+                                No. HP / Telp <span className="font-normal text-muted-foreground">(opsional)</span>
                             </label>
                             <input
                                 type="text"
                                 value={spkPicPhone}
                                 onChange={(e) => setSpkPicPhone(e.target.value)}
                                 placeholder={`Default: ${clientPhone || '(belum diisi di penawaran)'}`}
-                                className={`w-full border rounded px-2 py-1.5 text-sm ${spkPicPhone.trim() ? 'border-emerald-400 bg-white' : ''}`}
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${spkPicPhone.trim() ? 'border-success/50 bg-card' : ''}`}
                             />
                             <p className="text-[10px] text-muted-foreground mt-1">
                                 💡 Akan tampil di baris &quot;No. Telp kantor&quot; di header SPK. Kosongkan untuk pakai No. Telp dari Penawaran.
@@ -2532,12 +2537,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     </div>
 
                     {/* Batas Pelunasan SPK — tanggal "selambat-lambatnya pelunasan dibayarkan" */}
-                    <div className="border border-emerald-200 rounded-lg p-3 bg-emerald-50/40 space-y-2">
+                    <div className="border border-success/30 rounded-lg p-3 bg-success/10 space-y-2">
                         <div>
-                            <h4 className="text-sm font-bold text-emerald-900 flex items-center gap-1.5">
-                                📅 Batas Pelunasan SPK
+                            <h4 className="text-sm font-bold text-success flex items-center gap-1.5">
+                                <CalendarDays className="w-4 h-4" /> Batas Pelunasan SPK
                             </h4>
-                            <p className="text-[10px] text-emerald-700 mt-0.5">
+                            <p className="text-[10px] text-success mt-0.5">
                                 Tanggal &quot;selambat-lambatnya&quot; pelunasan harus dibayarkan oleh klien.
                                 Tampil di kalimat bullet pembayaran SPK. Kosongkan untuk pakai &quot;Berlaku Sampai&quot; di Event/Proyek.
                             </p>
@@ -2546,7 +2551,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             type="date"
                             value={spkPaymentDeadline}
                             onChange={(e) => setSpkPaymentDeadline(e.target.value)}
-                            className={`w-full border rounded px-2 py-1.5 text-sm ${spkPaymentDeadline.trim() ? 'border-emerald-400 bg-white' : ''}`}
+                            className={`w-full border rounded px-2 py-1.5 text-sm ${spkPaymentDeadline.trim() ? 'border-success/50 bg-card' : ''}`}
                         />
                         <p className="text-[10px] text-muted-foreground">
                             💡 Contoh hasil di SPK: <em>&quot;Pelunasan... dibayarkan pada saat booth berdiri atau selambat-lambatnya pada tanggal <strong>{spkPaymentDeadline ? new Date(spkPaymentDeadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : validUntil ? new Date(validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + ' (fallback dari Berlaku Sampai)' : '—'}</strong>.&quot;</em>
@@ -2593,18 +2598,18 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     {customTextTab === 'invoice' && (
                     <>
                     {/* Penanggung Jawab Invoice — override clientName kalau invoice ditujukan ke PIC berbeda (mis. Finance team) */}
-                    <div className="border border-red-200 rounded-lg p-3 bg-red-50/40 space-y-2">
+                    <div className="border border-destructive/30 rounded-lg p-3 bg-destructive/12 space-y-2">
                         <div>
-                            <h4 className="text-sm font-bold text-red-900 flex items-center gap-1.5">
-                                👤 Penanggung Jawab Invoice
+                            <h4 className="text-sm font-bold text-destructive flex items-center gap-1.5">
+                                <User className="w-4 h-4" /> Penanggung Jawab Invoice
                             </h4>
-                            <p className="text-[10px] text-red-700 mt-0.5">
+                            <p className="text-[10px] text-destructive mt-0.5">
                                 Kalau invoice ditujukan ke PIC <strong>berbeda</strong> dengan PIC Penawaran (mis. ke Finance/Accounting team),
                                 isi di sini. Kosongkan untuk pakai PIC dari Penawaran (<span className="font-mono">{clientName || '—'}</span>).
                             </p>
                         </div>
                         <div>
-                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
+                            <label className="text-[11px] font-semibold text-foreground block mb-0.5">
                                 Nama Penanggung Jawab
                             </label>
                             <input
@@ -2612,31 +2617,31 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 value={invoicePicName}
                                 onChange={(e) => setInvoicePicName(e.target.value)}
                                 placeholder={`Default: ${clientName || '(belum diisi di penawaran)'}`}
-                                className={`w-full border rounded px-2 py-1.5 text-sm ${invoicePicName.trim() ? 'border-red-400 bg-white' : ''}`}
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${invoicePicName.trim() ? 'border-destructive/50 bg-card' : ''}`}
                             />
                         </div>
                         <div>
-                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
-                                Jabatan <span className="font-normal text-slate-500">(opsional)</span>
+                            <label className="text-[11px] font-semibold text-foreground block mb-0.5">
+                                Jabatan <span className="font-normal text-muted-foreground">(opsional)</span>
                             </label>
                             <input
                                 type="text"
                                 value={invoicePicPosition}
                                 onChange={(e) => setInvoicePicPosition(e.target.value)}
                                 placeholder="Mis. Finance Manager, Accounting Head"
-                                className={`w-full border rounded px-2 py-1.5 text-sm ${invoicePicPosition.trim() ? 'border-red-400 bg-white' : ''}`}
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${invoicePicPosition.trim() ? 'border-destructive/50 bg-card' : ''}`}
                             />
                         </div>
                         <div>
-                            <label className="text-[11px] font-semibold text-slate-700 block mb-0.5">
-                                No. HP / Telp <span className="font-normal text-slate-500">(opsional)</span>
+                            <label className="text-[11px] font-semibold text-foreground block mb-0.5">
+                                No. HP / Telp <span className="font-normal text-muted-foreground">(opsional)</span>
                             </label>
                             <input
                                 type="text"
                                 value={invoicePicPhone}
                                 onChange={(e) => setInvoicePicPhone(e.target.value)}
                                 placeholder={`Default: ${clientPhone || '(belum diisi di penawaran)'}`}
-                                className={`w-full border rounded px-2 py-1.5 text-sm ${invoicePicPhone.trim() ? 'border-red-400 bg-white' : ''}`}
+                                className={`w-full border rounded px-2 py-1.5 text-sm ${invoicePicPhone.trim() ? 'border-destructive/50 bg-card' : ''}`}
                             />
                             <p className="text-[10px] text-muted-foreground mt-1">
                                 💡 Kalau diisi, akan muncul di Invoice PDF di section &quot;Kepada Yth&quot;. Kosongkan untuk pakai data dari Penawaran.
@@ -2683,10 +2688,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 </section>
                 )}
 
-                <section className="bg-white rounded-lg border p-4">
+                <section className="bg-card rounded-xl border border-border p-4">
                     <h3 className="font-semibold mb-2">Ringkasan</h3>
                     {isInvoiceMode && (
-                        <div className="flex flex-wrap gap-3 mb-3 p-2 bg-slate-50 rounded text-xs">
+                        <div className="flex flex-wrap gap-3 mb-3 p-2 bg-muted rounded text-xs">
                             <label className="flex items-center gap-1.5 cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -2714,9 +2719,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 />
                                 <span>Tampilkan Harga Paket</span>
                             </label>
-                            <span className="text-slate-500 ml-auto">Toggle untuk PDF invoice</span>
+                            <span className="text-muted-foreground ml-auto">Toggle untuk PDF invoice</span>
                         </div>
                     )}
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <tbody>
                             <Row
@@ -2725,7 +2731,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             />
                             {discount > 0 && <Row label="Diskon" value={`- ${rp(discount)}`} />}
                             {grossUpPph && (
-                                <tr className="text-emerald-700">
+                                <tr className="text-success">
                                     <td className="py-1 text-xs">DPP gross-up (× {grossUpFactor.toFixed(4)})</td>
                                     <td className="py-1 text-right font-mono">{rp(dpp)}</td>
                                 </tr>
@@ -2740,7 +2746,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 />
                             )}
                             {computedPphAmount > 0 && (
-                                <tr className="text-rose-700">
+                                <tr className="text-destructive">
                                     <td className="py-1">
                                         PPh{effectivePphRate > 0 ? ` ${effectivePphRate.toFixed(2)}%` : ""} (potong)
                                     </td>
@@ -2748,14 +2754,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 </tr>
                             )}
                             {effectiveDpPaid > 0 && (
-                                <tr className="text-amber-700">
+                                <tr className="text-warning">
                                     <td className="py-1">DP Sudah Dibayar</td>
                                     <td className="py-1 text-right font-mono">- {rp(effectiveDpPaid)}</td>
                                 </tr>
                             )}
                             <tr className="border-t font-bold text-lg">
-                                <td className="py-2">Grand Total {computedTaxAmount > 0 && <span className="text-[10px] font-normal text-slate-500">(termasuk PPN)</span>}{effectiveDpPaid > 0 && <span className="text-[10px] font-normal text-amber-600"> (setelah DP)</span>}</td>
-                                <td className="py-2 text-right">{rp(total - effectiveDpPaid)}</td>
+                                <td className="py-2">Grand Total {computedTaxAmount > 0 && <span className="text-[10px] font-normal text-muted-foreground">(termasuk PPN)</span>}{effectiveDpPaid > 0 && <span className="text-[10px] font-normal text-warning"> (setelah DP)</span>}</td>
+                                <td className="py-2 text-right nums">{rp(total - effectiveDpPaid)}</td>
                             </tr>
                             {effectiveDpPaid <= 0 && (
                                 <>
@@ -2764,13 +2770,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 </>
                             )}
                             {computedPphAmount > 0 && (
-                                <tr className="text-emerald-700 border-t">
+                                <tr className="text-success border-t">
                                     <td className="py-1 text-xs">Jumlah diterima <span className="text-[10px] font-normal">(setelah klien potong PPh)</span></td>
                                     <td className="py-1 text-right font-mono text-xs">{rp(netReceived - effectiveDpPaid)}</td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
+                    </div>
                 </section>
             </div>
 
@@ -2781,7 +2788,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             <button
                 onClick={handleSave}
                 disabled={saveMut.isPending}
-                className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-semibold shadow-2xl shadow-blue-600/40 ring-4 ring-white/60 disabled:opacity-60 transition-transform hover:scale-105 active:scale-95"
+                className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-semibold shadow-2xl shadow-primary/40 ring-4 ring-white/60 disabled:opacity-60 transition-transform hover:scale-105 active:scale-95"
                 title="Simpan Perubahan"
             >
                 {saveMut.isPending ? (
@@ -2840,15 +2847,15 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     }}
                 >
                     {/* Header */}
-                    <div className="bg-white border-b px-4 py-2.5 flex items-center justify-between gap-3 shadow-sm">
+                    <div className="bg-card border-b px-4 py-2.5 flex items-center justify-between gap-3 shadow-sm">
                         <div className="flex items-center gap-2">
                             {previewType === "spk-pdf" ? (
-                                <ScrollText className="h-5 w-5 text-emerald-600" />
+                                <ScrollText className="h-5 w-5 text-success" />
                             ) : (
-                                <Eye className="h-5 w-5 text-violet-600" />
+                                <Eye className="h-5 w-5 text-primary" />
                             )}
                             <div>
-                                <h2 className="font-bold text-slate-900">
+                                <h2 className="font-bold text-foreground">
                                     {previewType === "spk-pdf"
                                         ? "Preview SPK"
                                         : data.type === 'INVOICE'
@@ -2863,60 +2870,60 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
                             {/* Type switcher: Penawaran/Invoice ↔ SPK */}
-                            <div className="inline-flex gap-0.5 bg-slate-100 p-0.5 rounded-md border" title="Pilih dokumen yang di-preview">
+                            <div className="inline-flex gap-0.5 bg-muted p-0.5 rounded-md border border-border" title="Pilih dokumen yang di-preview">
                                 <button
                                     type="button"
                                     onClick={() => switchPreviewType("pdf")}
                                     disabled={previewLoading}
-                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${previewType === 'pdf'
-                                        ? 'bg-white text-violet-700 shadow-sm'
-                                        : 'text-slate-600 hover:text-slate-900'
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${previewType === 'pdf'
+                                        ? 'bg-card text-primary shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
                                         }`}
                                 >
-                                    {data.type === 'INVOICE' ? '🧾 Invoice' : '📄 Penawaran'}
+                                    {data.type === 'INVOICE' ? <><Receipt className="w-3.5 h-3.5" /> Invoice</> : <><FileText className="w-3.5 h-3.5" /> Penawaran</>}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => switchPreviewType("spk-pdf")}
                                     disabled={previewLoading}
-                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${previewType === 'spk-pdf'
-                                        ? 'bg-white text-emerald-700 shadow-sm'
-                                        : 'text-slate-600 hover:text-slate-900'
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${previewType === 'spk-pdf'
+                                        ? 'bg-card text-success shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
                                         }`}
                                 >
-                                    📜 SPK
+                                    <ScrollText className="w-3.5 h-3.5" />SPK
                                 </button>
                             </div>
 
                             {/* Live toggle Tampilan Item — berlaku untuk Penawaran/Invoice & SPK.
                                 Di SPK, mode Ringkas = 1 baris per kategori (nama + jumlah item). */}
-                            <div className="inline-flex gap-0.5 bg-slate-100 p-0.5 rounded-md border" title="Pilih tampilan item: detail per row atau ringkas per kategori">
+                            <div className="inline-flex gap-0.5 bg-muted p-0.5 rounded-md border" title="Pilih tampilan item: detail per row atau ringkas per kategori">
                                 <button
                                     type="button"
                                     onClick={() => itemDisplayMode !== 'detailed' && togglePreviewMode('detailed')}
                                     disabled={previewLoading}
-                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'detailed'
-                                        ? 'bg-white text-blue-700 shadow-sm'
-                                        : 'text-slate-600 hover:text-slate-900'
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'detailed'
+                                        ? 'bg-card text-info shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
                                         }`}
                                 >
-                                    📋 Detail
+                                    <List className="w-3 h-3" /> Detail
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => itemDisplayMode !== 'category-summary' && togglePreviewMode('category-summary')}
                                     disabled={previewLoading}
-                                    className={`px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'category-summary'
-                                        ? 'bg-white text-blue-700 shadow-sm'
-                                        : 'text-slate-600 hover:text-slate-900'
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${itemDisplayMode === 'category-summary'
+                                        ? 'bg-card text-info shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
                                         }`}
                                 >
-                                    📊 Ringkas
+                                    <BarChart2 className="w-3 h-3" /> Ringkas
                                 </button>
                             </div>
                             <button
                                 onClick={() => handleExport(previewType)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${previewType === 'spk-pdf' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'} text-white rounded-md text-sm font-semibold`}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${previewType === 'spk-pdf' ? 'bg-success hover:bg-success/90' : 'bg-destructive hover:bg-destructive/90'} text-white rounded-md text-sm font-semibold`}
                                 title={`Download ${previewType === 'spk-pdf' ? 'SPK' : 'PDF'}`}
                             >
                                 <Download className="h-4 w-4" /> Download {previewType === 'spk-pdf' ? 'SPK' : 'PDF'}
@@ -2924,14 +2931,14 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             {previewType === "pdf" && (
                                 <button
                                     onClick={() => handleExport("docx")}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-info hover:bg-info/90 text-white rounded-md text-sm font-semibold"
                                 >
                                     <FileText className="h-4 w-4" /> DOCX
                                 </button>
                             )}
                             <button
                                 onClick={closePreview}
-                                className="p-2 rounded-md hover:bg-slate-100 text-slate-700"
+                                className="p-2 rounded-md hover:bg-muted text-foreground"
                                 aria-label="Tutup"
                             >
                                 <X className="h-5 w-5" />
@@ -2940,20 +2947,20 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     </div>
 
                     {/* PDF Body */}
-                    <div className="flex-1 bg-slate-200 overflow-hidden flex items-center justify-center">
+                    <div className="flex-1 bg-muted overflow-hidden flex items-center justify-center">
                         {previewLoading ? (
-                            <div className="flex flex-col items-center gap-2 text-slate-600">
+                            <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                 <Loader2 className="h-8 w-8 animate-spin" />
                                 <span className="text-sm">Membuat preview PDF...</span>
                             </div>
                         ) : previewUrl ? (
                             <iframe
                                 src={previewUrl}
-                                className="w-full h-full bg-white"
+                                className="w-full h-full bg-card"
                                 title="Preview PDF Penawaran"
                             />
                         ) : (
-                            <div className="text-slate-500 text-sm">Tidak ada preview</div>
+                            <div className="text-muted-foreground text-sm">Tidak ada preview</div>
                         )}
                     </div>
                 </div>
@@ -2987,7 +2994,7 @@ function Field({
 }) {
     return (
         <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
             {multiline ? (
                 <textarea
                     value={value}
@@ -3074,13 +3081,13 @@ function GenerateInvoiceModal({
             className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
-            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="bg-card rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto">
                 <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold flex items-center gap-2">
-                        <Receipt className="h-5 w-5 text-pink-600" />
+                        <Receipt className="h-5 w-5 text-primary" />
                         Buat Invoice
                     </h2>
-                    <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded">
+                    <button onClick={onClose} className="p-1.5 hover:bg-muted rounded">
                         <X className="h-4 w-4" />
                     </button>
                 </div>
@@ -3093,31 +3100,31 @@ function GenerateInvoiceModal({
                 <div>
                     <label className="block text-sm font-semibold mb-1.5">Tipe Invoice</label>
                     <div className="grid grid-cols-3 gap-2">
-                        <PartBtn active={part === "DP"} onClick={() => setPart("DP")} label="💰 DP" sub="Down Payment" />
-                        <PartBtn active={part === "PELUNASAN"} onClick={() => setPart("PELUNASAN")} label="✅ Pelunasan" sub="Final Payment" />
-                        <PartBtn active={part === "FULL"} onClick={() => setPart("FULL")} label="💯 Full" sub="Sekali Bayar" />
+                        <PartBtn active={part === "DP"} onClick={() => setPart("DP")} label="DP" sub="Down Payment" />
+                        <PartBtn active={part === "PELUNASAN"} onClick={() => setPart("PELUNASAN")} label="Pelunasan" sub="Final Payment" />
+                        <PartBtn active={part === "FULL"} onClick={() => setPart("FULL")} label="Full" sub="Sekali Bayar" />
                     </div>
                 </div>
 
                 {/* DP yang sudah dibayar — cuma tampil saat part = PELUNASAN */}
                 {part === 'PELUNASAN' && (
-                    <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 space-y-2">
+                    <div className="rounded-lg border-2 border-warning/30 bg-warning/10 p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
-                            <label className="text-xs font-bold uppercase tracking-wider text-amber-800">
-                                💰 DP Sudah Dibayar
+                            <label className="text-xs font-bold uppercase tracking-wider text-warning inline-flex items-center gap-1">
+                                <Wallet className="w-3.5 h-3.5" /> DP Sudah Dibayar
                             </label>
-                            <div className="inline-flex gap-0.5 bg-white p-0.5 rounded border border-amber-200">
+                            <div className="inline-flex gap-0.5 bg-card p-0.5 rounded border border-warning/30">
                                 <button
                                     type="button"
                                     onClick={() => setDpPaidMode('auto')}
-                                    className={`px-2 py-0.5 text-xs rounded font-semibold ${dpPaidMode === 'auto' ? 'bg-amber-500 text-white' : 'text-amber-700 hover:bg-amber-50'}`}
+                                    className={`px-2 py-0.5 text-xs rounded font-semibold ${dpPaidMode === 'auto' ? 'bg-warning text-warning-foreground' : 'text-warning hover:bg-warning/10'}`}
                                 >
                                     Otomatis
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setDpPaidMode('custom')}
-                                    className={`px-2 py-0.5 text-xs rounded font-semibold ${dpPaidMode === 'custom' ? 'bg-amber-500 text-white' : 'text-amber-700 hover:bg-amber-50'}`}
+                                    className={`px-2 py-0.5 text-xs rounded font-semibold ${dpPaidMode === 'custom' ? 'bg-warning text-warning-foreground' : 'text-warning hover:bg-warning/10'}`}
                                 >
                                     Custom
                                 </button>
@@ -3125,10 +3132,10 @@ function GenerateInvoiceModal({
                         </div>
                         {dpPaidMode === 'auto' ? (
                             <div>
-                                <div className="text-2xl font-bold font-mono text-amber-900">
+                                <div className="text-2xl font-bold font-mono text-warning">
                                     {rp(autoDpPaid)}
                                 </div>
-                                <p className="text-[11px] text-amber-700 mt-0.5">
+                                <p className="text-[11px] text-warning mt-0.5">
                                     {dpPaidCount === 0
                                         ? "Belum ada invoice DP yang sudah dibayar. Kalau DP dibayar di luar sistem, pilih Custom & input manual."
                                         : `Auto dari ${dpPaidCount} invoice DP yang sudah ter-bayar (PAID/PARTIALLY_PAID).`}
@@ -3137,7 +3144,7 @@ function GenerateInvoiceModal({
                         ) : (
                             <div>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-700 font-semibold text-sm">Rp</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-warning font-semibold text-sm">Rp</span>
                                     <input
                                         type="number"
                                         min="0"
@@ -3146,15 +3153,15 @@ function GenerateInvoiceModal({
                                         onChange={(e) => setCustomDpPaid(e.target.value)}
                                         placeholder={`contoh: ${(total * dpPercent / 100).toFixed(0)}`}
                                         inputMode="numeric"
-                                        className="w-full border-2 border-amber-300 rounded-md pl-10 pr-3 py-2 text-base font-mono text-right focus:border-amber-500 outline-none bg-white"
+                                        className="w-full border-2 border-warning/30 rounded-md pl-10 pr-3 py-2 text-base font-mono text-right focus:border-warning outline-none bg-card"
                                     />
                                 </div>
-                                <p className="text-[11px] text-amber-700 mt-1">
+                                <p className="text-[11px] text-warning mt-1">
                                     Override manual — pakai kalau DP dibayar di luar sistem atau ada penyesuaian.
                                 </p>
                             </div>
                         )}
-                        <div className="text-xs text-amber-800 border-t border-amber-200 pt-2">
+                        <div className="text-xs text-warning border-t border-warning/30 pt-2">
                             Pelunasan = Total ({rp(total)}) − DP ({rp(effectiveDpPaid)}) = <b className="font-mono">{rp(total - effectiveDpPaid)}</b>
                         </div>
                     </div>
@@ -3163,7 +3170,7 @@ function GenerateInvoiceModal({
                 {/* Cara Tentukan Jumlah */}
                 <div>
                     <label className="block text-sm font-semibold mb-1.5">Cara Tentukan Jumlah</label>
-                    <div className="inline-flex gap-1 bg-slate-100 p-1 rounded-md w-full">
+                    <div className="inline-flex gap-1 bg-muted p-1 rounded-md w-full">
                         <ModeBtn active={mode === 'preset'} onClick={() => setMode('preset')} label="⚡ Default" />
                         <ModeBtn active={mode === 'percent'} onClick={() => setMode('percent')} label="% Persen" />
                         <ModeBtn active={mode === 'amount'} onClick={() => setMode('amount')} label="Rp Custom" />
@@ -3172,7 +3179,7 @@ function GenerateInvoiceModal({
 
                 {/* Mode: Preset (default) */}
                 {mode === 'preset' && (
-                    <div className="rounded-lg bg-slate-50 border p-3 text-xs text-slate-700">
+                    <div className="rounded-lg bg-muted border p-3 text-xs text-foreground">
                         ⚡ Pakai default sesuai tipe:
                         {part === "DP" && <> DP <b>{dpPercent}%</b> dari total</>}
                         {part === "PELUNASAN" && (
@@ -3194,8 +3201,8 @@ function GenerateInvoiceModal({
                                     type="button"
                                     onClick={() => setPercentInput(p)}
                                     className={`px-2 py-1.5 rounded-md text-xs font-bold border-2 transition ${percentInput === p
-                                        ? "bg-pink-500 text-white border-pink-500"
-                                        : "bg-white text-slate-700 border-slate-200 hover:border-pink-300"
+                                        ? "bg-primary text-white border-primary"
+                                        : "bg-card text-foreground border-border hover:border-primary/40"
                                         }`}
                                 >
                                     {p}%
@@ -3220,9 +3227,9 @@ function GenerateInvoiceModal({
                                     step="0.5"
                                     value={percentInput}
                                     onChange={(e) => setPercentInput(parseFloat(e.target.value) || 0)}
-                                    className="w-full border-2 rounded px-2 py-1 text-sm font-mono text-right focus:border-pink-500 outline-none pr-7"
+                                    className="w-full border-2 rounded px-2 py-1 text-sm font-mono text-right focus:border-primary outline-none pr-7"
                                 />
-                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">%</span>
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
                             </div>
                         </div>
                     </div>
@@ -3241,15 +3248,15 @@ function GenerateInvoiceModal({
                                     key={preset.label}
                                     type="button"
                                     onClick={() => setAmountInput(String(preset.value))}
-                                    className="px-2 py-1.5 rounded-md text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-left"
+                                    className="px-2 py-1.5 rounded-md text-[11px] font-semibold bg-muted hover:bg-muted text-left"
                                 >
                                     <div>{preset.label}</div>
-                                    <div className="font-mono text-pink-700">{rp(preset.value)}</div>
+                                    <div className="font-mono text-primary">{rp(preset.value)}</div>
                                 </button>
                             ))}
                         </div>
                         <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-semibold">Rp</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">Rp</span>
                             <input
                                 type="number"
                                 min="0"
@@ -3258,7 +3265,7 @@ function GenerateInvoiceModal({
                                 onChange={(e) => setAmountInput(e.target.value)}
                                 placeholder="contoh: 5000000"
                                 inputMode="numeric"
-                                className="w-full border-2 rounded-md pl-11 pr-3 py-2.5 text-base font-mono text-right focus:border-pink-500 outline-none"
+                                className="w-full border-2 rounded-md pl-11 pr-3 py-2.5 text-base font-mono text-right focus:border-primary outline-none"
                                 autoFocus
                             />
                         </div>
@@ -3269,18 +3276,18 @@ function GenerateInvoiceModal({
                 )}
 
                 {/* Hasil — selalu tampil prominent */}
-                <div className="rounded-lg border-2 border-pink-300 bg-gradient-to-br from-pink-50 to-rose-50 p-4">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-pink-700 mb-1">
+                <div className="rounded-lg border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-destructive/12 p-4">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-primary mb-1">
                         Jumlah yang Akan Ditagihkan
                     </div>
-                    <div className="text-3xl font-bold font-mono text-pink-900 leading-tight">
+                    <div className="text-3xl font-bold font-mono text-primary leading-tight">
                         {rp(computedAmount)}
                     </div>
                     <div className="flex items-center justify-between mt-1.5">
-                        <div className="text-xs text-pink-700">
+                        <div className="text-xs text-primary">
                             ≈ <b>{computedPercent.toFixed(1)}%</b> dari total
                         </div>
-                        <div className="text-xs text-pink-700">
+                        <div className="text-xs text-primary">
                             Sisa: <b className="font-mono">{rp(total - computedAmount)}</b>
                         </div>
                     </div>
@@ -3294,7 +3301,7 @@ function GenerateInvoiceModal({
                         type="date"
                         value={invoiceDate}
                         onChange={(e) => setInvoiceDate(e.target.value)}
-                        className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-pink-500 outline-none"
+                        className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-primary outline-none"
                     />
                     <p className="text-[11px] text-muted-foreground mt-1">
                         Default hari ini. Ubah kalau invoice diterbitkan setelah event selesai.
@@ -3309,14 +3316,14 @@ function GenerateInvoiceModal({
                         type="date"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
-                        className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-pink-500 outline-none"
+                        className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-primary outline-none"
                     />
                 </div>
 
                 <div className="flex gap-2 pt-3 border-t">
                     <button
                         onClick={onClose}
-                        className="flex-1 px-4 py-2 border-2 rounded-md text-sm font-semibold hover:bg-slate-50"
+                        className="flex-1 px-4 py-2 border-2 rounded-md text-sm font-semibold hover:bg-muted"
                     >
                         Batal
                     </button>
@@ -3329,7 +3336,7 @@ function GenerateInvoiceModal({
                             invoiceDate: invoiceDate || undefined,
                         })}
                         disabled={pending || computedAmount <= 0}
-                        className="flex-[2] inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-md text-sm font-bold disabled:opacity-50"
+                        className="flex-[2] inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md text-sm font-bold disabled:opacity-50"
                     >
                         {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Receipt className="h-4 w-4" />}
                         Buat Invoice {rp(computedAmount)}
@@ -3345,7 +3352,7 @@ function PartBtn({ active, onClick, label, sub }: { active: boolean; onClick: ()
         <button
             type="button"
             onClick={onClick}
-            className={`p-3 rounded-lg border-2 transition ${active ? "border-pink-500 bg-pink-50 shadow-sm" : "border-slate-200 hover:border-slate-300"}`}
+            className={`p-3 rounded-lg border-2 transition ${active ? "border-primary bg-primary/10 shadow-sm" : "border-border hover:border-border"}`}
         >
             <div className="font-bold text-sm">{label}</div>
             <div className="text-[11px] text-muted-foreground">{sub}</div>
@@ -3358,7 +3365,7 @@ function ModeBtn({ active, onClick, label }: { active: boolean; onClick: () => v
         <button
             type="button"
             onClick={onClick}
-            className={`flex-1 px-3 py-1.5 rounded text-xs font-bold transition ${active ? "bg-white text-pink-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+            className={`flex-1 px-3 py-1.5 rounded text-xs font-bold transition ${active ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
         >
             {label}
@@ -3382,13 +3389,13 @@ function AssignNumberModal({
             className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="bg-card rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold flex items-center gap-2">
-                        <Hash className="h-5 w-5 text-green-600" />
+                        <Hash className="h-5 w-5 text-success" />
                         Assign Nomor Resmi
                     </h2>
-                    <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded">
+                    <button onClick={onClose} className="p-1.5 hover:bg-muted rounded">
                         <X className="h-4 w-4" />
                     </button>
                 </div>
@@ -3401,11 +3408,11 @@ function AssignNumberModal({
                         type="button"
                         onClick={() => setMode("auto")}
                         className={`p-3 rounded-lg border-2 text-left transition ${mode === "auto"
-                            ? "border-green-500 bg-green-50"
-                            : "border-slate-200 bg-white hover:border-slate-300"
+                            ? "border-success/50 bg-success/10"
+                            : "border-border bg-card hover:border-border"
                             }`}
                     >
-                        <div className="font-bold text-sm">⚡ Auto</div>
+                        <div className="font-bold text-sm flex items-center gap-1"><Zap className="w-3.5 h-3.5" /> Auto</div>
                         <div className="text-[11px] text-muted-foreground mt-0.5">
                             Generate dari counter (ikut urutan brand & tahun)
                         </div>
@@ -3414,11 +3421,11 @@ function AssignNumberModal({
                         type="button"
                         onClick={() => setMode("manual")}
                         className={`p-3 rounded-lg border-2 text-left transition ${mode === "manual"
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-slate-200 bg-white hover:border-slate-300"
+                            ? "border-info bg-info/10"
+                            : "border-border bg-card hover:border-border"
                             }`}
                     >
-                        <div className="font-bold text-sm">✍️ Manual</div>
+                        <div className="font-bold text-sm flex items-center gap-1"><Pencil className="w-3.5 h-3.5" /> Manual</div>
                         <div className="text-[11px] text-muted-foreground mt-0.5">
                             Ketik nomor sendiri (tidak increment counter)
                         </div>
@@ -3428,14 +3435,14 @@ function AssignNumberModal({
                 {mode === "manual" && (
                     <div className="space-y-2">
                         <label className="block text-sm font-semibold">
-                            Nomor Manual <span className="text-red-500">*</span>
+                            Nomor Manual <span className="text-destructive">*</span>
                         </label>
                         <input
                             type="text"
                             value={customNumber}
                             onChange={(e) => setCustomNumber(e.target.value)}
                             placeholder="contoh: 100/Ep/Pnwr/V/26"
-                            className="w-full border-2 rounded-md px-3 py-2 text-sm font-mono focus:border-blue-500 outline-none"
+                            className="w-full border-2 rounded-md px-3 py-2 text-sm font-mono focus:border-info outline-none"
                             autoFocus
                         />
                         <p className="text-[11px] text-muted-foreground">
@@ -3445,15 +3452,15 @@ function AssignNumberModal({
                 )}
 
                 {mode === "auto" && (
-                    <div className="bg-green-50 border border-green-200 rounded-md p-3 text-xs text-green-900">
-                        ⚡ Sistem akan ambil nomor berikutnya dari counter (mis. <code className="bg-white px-1 rounded">42/Ep/Pnwr/IV/26</code> kalau sudah ada 41 quotation Exindo bulan ini).
+                    <div className="bg-success/10 border border-success/30 rounded-md p-3 text-xs text-success">
+                        ⚡ Sistem akan ambil nomor berikutnya dari counter (mis. <code className="bg-card px-1 rounded">42/Ep/Pnwr/IV/26</code> kalau sudah ada 41 quotation Exindo bulan ini).
                     </div>
                 )}
 
                 <div className="flex gap-2 pt-3 border-t">
                     <button
                         onClick={onClose}
-                        className="flex-1 px-4 py-2 border-2 rounded-md text-sm font-semibold hover:bg-slate-50"
+                        className="flex-1 px-4 py-2 border-2 rounded-md text-sm font-semibold hover:bg-muted"
                     >
                         Batal
                     </button>
@@ -3461,8 +3468,8 @@ function AssignNumberModal({
                         onClick={() => mode === "auto" ? onAuto() : onManual(customNumber)}
                         disabled={pending || (mode === "manual" && !customNumber.trim())}
                         className={`flex-[2] inline-flex items-center justify-center gap-1.5 px-4 py-2 text-white rounded-md text-sm font-bold disabled:opacity-50 ${mode === "auto"
-                            ? "bg-green-600 hover:bg-green-700"
-                            : "bg-blue-600 hover:bg-blue-700"
+                            ? "bg-success hover:bg-success/90"
+                            : "bg-info hover:bg-info/90"
                             }`}
                     >
                         {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hash className="h-4 w-4" />}
@@ -3477,8 +3484,8 @@ function AssignNumberModal({
 function Row({ label, value }: { label: string; value: string }) {
     return (
         <tr>
-            <td className="py-1 text-gray-600">{label}</td>
-            <td className="py-1 text-right">{value}</td>
+            <td className="py-1 text-muted-foreground">{label}</td>
+            <td className="py-1 text-right nums">{value}</td>
         </tr>
     );
 }
@@ -3514,7 +3521,7 @@ function SortableItemRow({
                     type="button"
                     {...attributes}
                     {...listeners}
-                    className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-700 p-1"
+                    className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1"
                     title="Drag untuk mengurutkan"
                     aria-label="Drag handle"
                 >
@@ -3604,21 +3611,21 @@ function SortableItemRow({
                 <div className="flex items-center justify-center gap-0.5">
                     <button
                         onClick={() => setCalcOpenKey(it._key)}
-                        className="text-blue-600 hover:bg-blue-50 p-1 rounded"
+                        className="text-info hover:bg-info/10 p-1 rounded"
                         title="Kalkulator: Unit × Hari × Jam × m²"
                     >
                         <Calculator className="w-4 h-4" />
                     </button>
                     <button
                         onClick={() => duplicateItem(it._key)}
-                        className="text-emerald-600 hover:bg-emerald-50 p-1 rounded"
+                        className="text-success hover:bg-success/10 p-1 rounded"
                         title="Duplikat item"
                     >
                         <Copy className="w-4 h-4" />
                     </button>
                     <button
                         onClick={() => removeItem(it._key)}
-                        className="text-red-600 hover:bg-red-50 p-1 rounded"
+                        className="text-destructive hover:bg-destructive/12 p-1 rounded"
                         title="Hapus item"
                     >
                         <Trash2 className="w-4 h-4" />
@@ -3649,35 +3656,35 @@ function SimpleCustomField({
     const hasFallback = Boolean(fallbackValue && fallbackValue.trim());
     const isActive = Boolean(value && value.trim());
     return (
-        <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/40 space-y-2">
+        <div className="border border-border rounded-lg p-3 bg-muted/40 space-y-2">
             <div className="flex items-center justify-between gap-2">
-                <label className="text-xs font-bold text-slate-700">{title}</label>
+                <label className="text-xs font-bold text-foreground">{title}</label>
                 <div className="flex items-center gap-1.5">
                     {fallbackLabel && hasFallback && !isActive && (
                         <button
                             type="button"
                             onClick={() => onChange(fallbackValue!)}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100"
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-info/10 border border-info/30 text-info hover:bg-info/15"
                             title={`Salin nilai dari ${fallbackLabel}`}
                         >
-                            📋 Salin dari {fallbackLabel}
+                            <Copy className="w-3 h-3 inline" /> Salin dari {fallbackLabel}
                         </button>
                     )}
                     {brandDefault && !isActive && (
                         <button
                             type="button"
                             onClick={() => onChange(brandDefault)}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100"
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 border border-warning/30 text-warning hover:bg-warning/20"
                             title="Salin dari pengaturan brand"
                         >
-                            📋 Salin Brand
+                            <Copy className="w-3 h-3 inline" /> Salin Brand
                         </button>
                     )}
                     {isActive && (
                         <button
                             type="button"
                             onClick={() => onChange("")}
-                            className="text-[10px] text-amber-700 hover:underline"
+                            className="text-[10px] text-warning hover:underline"
                         >
                             ✕ Reset
                         </button>
@@ -3689,7 +3696,7 @@ function SimpleCustomField({
                 onChange={(e) => onChange(e.target.value)}
                 rows={rows ?? 4}
                 placeholder={placeholder ?? `Kosongkan untuk fallback ke ${fallbackLabel ?? 'default brand'}.`}
-                className={`w-full border rounded px-2 py-1.5 text-xs font-sans ${isActive ? "border-emerald-300 bg-white ring-1 ring-emerald-200" : ""
+                className={`w-full border rounded px-2 py-1.5 text-xs font-sans ${isActive ? "border-success/30 bg-card ring-1 ring-success/30" : ""
                     }`}
             />
             {helpText && (
@@ -3728,15 +3735,15 @@ function PrependAppendField({
     const [showAddons, setShowAddons] = useState(() => Boolean(prepend || append));
     const hasCustomOverride = Boolean(custom && custom.trim());
     return (
-        <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/40 space-y-2">
+        <div className="border border-border rounded-lg p-3 bg-muted/40 space-y-2">
             <div className="flex items-center justify-between gap-2">
-                <label className="text-xs font-bold text-slate-700">{title}</label>
+                <label className="text-xs font-bold text-foreground">{title}</label>
                 <div className="flex items-center gap-2">
                     {brandDefault && (
                         <button
                             type="button"
                             onClick={() => setShowDefault((v) => !v)}
-                            className="text-[10px] text-blue-600 hover:underline"
+                            className="text-[10px] text-info hover:underline"
                         >
                             {showDefault ? "▲ Sembunyikan" : "▼ Lihat default brand"}
                         </button>
@@ -3746,9 +3753,9 @@ function PrependAppendField({
 
             {/* Default brand preview (collapsible) */}
             {showDefault && (
-                <div className="bg-amber-50 border border-amber-200 rounded p-2">
-                    <div className="text-[10px] font-bold text-amber-800 mb-0.5">📌 Default dari pengaturan brand:</div>
-                    <pre className="text-[10px] text-amber-900 whitespace-pre-wrap font-sans">{brandDefault || "(belum di-set di pengaturan brand)"}</pre>
+                <div className="bg-warning/10 border border-warning/30 rounded p-2">
+                    <div className="text-[10px] font-bold text-warning mb-0.5 flex items-center gap-1"><Pin className="w-3 h-3" /> Default dari pengaturan brand:</div>
+                    <pre className="text-[10px] text-warning whitespace-pre-wrap font-sans">{brandDefault || "(belum di-set di pengaturan brand)"}</pre>
                 </div>
             )}
 
@@ -3756,24 +3763,24 @@ function PrependAppendField({
             {onCustom !== undefined && (
                 <div>
                     <div className="flex items-center justify-between mb-0.5">
-                        <label className="text-[10px] font-medium text-purple-700 block">
-                            ✏️ Custom (override penuh — abaikan default brand)
+                        <label className="text-[10px] font-medium text-primary inline-flex items-center gap-1">
+                            <Pencil className="w-3 h-3" /> Custom (override penuh — abaikan default brand)
                         </label>
                         {brandDefault && !hasCustomOverride && (
                             <button
                                 type="button"
                                 onClick={() => onCustom(brandDefault)}
-                                className="text-[10px] text-blue-600 hover:underline"
+                                className="text-[10px] text-info hover:underline"
                                 title="Salin default brand sebagai starting point"
                             >
-                                📋 Salin dari brand
+                                <Copy className="w-3 h-3 inline" /> Salin dari brand
                             </button>
                         )}
                         {hasCustomOverride && (
                             <button
                                 type="button"
                                 onClick={() => onCustom("")}
-                                className="text-[10px] text-amber-700 hover:underline"
+                                className="text-[10px] text-warning hover:underline"
                                 title="Kosongkan untuk pakai default brand lagi"
                             >
                                 ✕ Reset
@@ -3786,13 +3793,13 @@ function PrependAppendField({
                         rows={hasCustomOverride ? 5 : 2}
                         placeholder="Kosongkan untuk pakai default brand. Kalau diisi, REPLACE total — prepend/append di bawah juga di-skip."
                         className={`w-full border rounded px-2 py-1.5 text-xs font-sans ${hasCustomOverride
-                            ? "border-purple-300 bg-purple-50/40 ring-1 ring-purple-200"
+                            ? "border-primary/30 bg-primary/10 ring-1 ring-primary/30"
                             : ""
                             }`}
                     />
                     {hasCustomOverride && (
-                        <p className="text-[10px] text-purple-700 mt-1 font-medium">
-                            ⚠️ Custom aktif — default brand &amp; tambahan teks di-skip total.
+                        <p className="text-[10px] text-primary mt-1 font-medium flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 shrink-0" /> Custom aktif — default brand &amp; tambahan teks di-skip total.
                         </p>
                     )}
                 </div>
@@ -3800,21 +3807,21 @@ function PrependAppendField({
 
             {/* Toggle untuk menampilkan field "Tambah teks di atas/bawah" — disembunyikan default. Disable kalau custom aktif. */}
             {hasCustomOverride ? (
-                <p className="text-[10px] text-slate-400 italic text-center py-1">
+                <p className="text-[10px] text-muted-foreground italic text-center py-1">
                     Tambahan teks dinonaktifkan saat custom override aktif.
                 </p>
             ) : !showAddons ? (
                 <button
                     type="button"
                     onClick={() => setShowAddons(true)}
-                    className="w-full text-[11px] text-slate-600 hover:text-blue-700 hover:bg-blue-50 border border-dashed border-slate-300 hover:border-blue-300 rounded py-1.5 transition"
+                    className="w-full text-[11px] text-muted-foreground hover:text-info hover:bg-info/10 border border-dashed border-border hover:border-info/40 rounded py-1.5 transition"
                 >
-                    ➕ Tambah teks di atas/bawah default brand (opsional)
+                    <Plus className="w-3 h-3 inline" /> Tambah teks di atas/bawah default brand (opsional)
                 </button>
             ) : (
                 <>
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wide">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
                             Tambahan teks
                         </span>
                         <button
@@ -3824,7 +3831,7 @@ function PrependAppendField({
                                 onPrepend("");
                                 onAppend("");
                             }}
-                            className="text-[10px] text-slate-500 hover:text-red-600 hover:underline"
+                            className="text-[10px] text-muted-foreground hover:text-destructive hover:underline"
                             title="Sembunyikan & kosongkan kedua field"
                         >
                             ✕ Sembunyikan
@@ -3833,8 +3840,8 @@ function PrependAppendField({
 
                     {/* Prepend — di ATAS default brand */}
                     <div>
-                        <label className="text-[10px] font-medium text-emerald-700 block mb-0.5">
-                            ⬆️ Tambah di ATAS default brand
+                        <label className="text-[10px] font-medium text-success inline-flex items-center gap-1 mb-0.5">
+                            <ArrowUp className="w-3 h-3" /> Tambah di ATAS default brand
                         </label>
                         <textarea
                             value={prepend}
@@ -3847,8 +3854,8 @@ function PrependAppendField({
 
                     {/* Append — di BAWAH default brand */}
                     <div>
-                        <label className="text-[10px] font-medium text-blue-700 block mb-0.5">
-                            ⬇️ Tambah di BAWAH default brand
+                        <label className="text-[10px] font-medium text-info inline-flex items-center gap-1 mb-0.5">
+                            <ArrowDown className="w-3 h-3" /> Tambah di BAWAH default brand
                         </label>
                         <textarea
                             value={append}
@@ -3893,23 +3900,23 @@ function GrossUpHelper({ effectivePphRate }: { effectivePphRate: number }) {
     const pphDeducted = grossUp - targetNum;
 
     return (
-        <div className="bg-white border border-rose-200 rounded">
+        <div className="bg-card border border-destructive/30 rounded">
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className="w-full px-2 py-1.5 text-left text-[11px] font-semibold text-rose-800 hover:bg-rose-50 flex items-center justify-between rounded"
+                className="w-full px-2 py-1.5 text-left text-[11px] font-semibold text-destructive hover:bg-destructive/12 flex items-center justify-between rounded"
             >
-                <span>🧮 Helper Gross-Up dari Target Net</span>
-                <span className="text-rose-600">{open ? "▲" : "▼"}</span>
+                <span className="inline-flex items-center gap-1"><Calculator className="w-3.5 h-3.5" /> Helper Gross-Up dari Target Net</span>
+                <span className="text-destructive">{open ? "▲" : "▼"}</span>
             </button>
             {open && (
-                <div className="px-2 py-2 border-t border-rose-200 space-y-2 text-[11px]">
-                    <p className="text-slate-700">
+                <div className="px-2 py-2 border-t border-destructive/30 space-y-2 text-[11px]">
+                    <p className="text-foreground">
                         Marketing punya <b>target harga net</b> (yang ingin diterima setelah PPh)?
                         Tool ini ngitung DPP yang harus dipasang supaya net tetap sesuai target.
                     </p>
                     <div>
-                        <label className="text-[10px] font-semibold text-rose-900 block mb-0.5">
+                        <label className="text-[10px] font-semibold text-destructive block mb-0.5">
                             Target net (Rp)
                         </label>
                         <input
@@ -3917,41 +3924,41 @@ function GrossUpHelper({ effectivePphRate }: { effectivePphRate: number }) {
                             value={target}
                             onChange={(e) => setTarget(e.target.value)}
                             placeholder="mis. 47000000"
-                            className="w-full px-2 py-1.5 text-xs border border-rose-300 rounded font-mono"
+                            className="w-full px-2 py-1.5 text-xs border border-destructive/30 rounded font-mono"
                         />
                     </div>
                     {targetNum > 0 && rate > 0 && (
-                        <div className="bg-rose-50 border border-rose-200 rounded p-2 space-y-1">
-                            <div className="font-mono text-[10px] text-slate-600">
+                        <div className="bg-destructive/12 border border-destructive/30 rounded p-2 space-y-1">
+                            <div className="font-mono text-[10px] text-muted-foreground">
                                 Rumus: {targetNum.toLocaleString("id-ID")} × 100 / {(100 - rate).toFixed(2)} = …
                             </div>
                             <div className="flex items-center justify-between text-[12px]">
-                                <span className="text-slate-700">DPP yang harus dipasang:</span>
-                                <span className="font-mono font-bold text-rose-800">
+                                <span className="text-foreground">DPP yang harus dipasang:</span>
+                                <span className="font-mono font-bold text-destructive">
                                     Rp {Math.round(grossUp).toLocaleString("id-ID")}
                                 </span>
                             </div>
                             <div className="flex items-center justify-between text-[11px]">
-                                <span className="text-slate-600">PPh {rate.toFixed(1)}% yang dipotong:</span>
-                                <span className="font-mono text-rose-700">
+                                <span className="text-muted-foreground">PPh {rate.toFixed(1)}% yang dipotong:</span>
+                                <span className="font-mono text-destructive">
                                     Rp {Math.round(pphDeducted).toLocaleString("id-ID")}
                                 </span>
                             </div>
-                            <div className="flex items-center justify-between text-[11px] pt-1 border-t border-rose-300">
-                                <span className="text-emerald-700 font-semibold">✅ Net yang diterima:</span>
-                                <span className="font-mono font-bold text-emerald-700">
+                            <div className="flex items-center justify-between text-[11px] pt-1 border-t border-destructive/30">
+                                <span className="text-success font-semibold inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Net yang diterima:</span>
+                                <span className="font-mono font-bold text-success">
                                     Rp {Math.round(targetNum).toLocaleString("id-ID")}
                                 </span>
                             </div>
-                            <p className="text-[9px] text-slate-500 italic mt-1">
+                            <p className="text-[9px] text-muted-foreground italic mt-1">
                                 💡 Pasang harga item total = <b>Rp {Math.round(grossUp).toLocaleString("id-ID")}</b> di tabel items
                                 (boleh dipecah per-item, asal sum = nilai ini). Otomatis setelah PPh dipotong klien, vendor terima <b>Rp {Math.round(targetNum).toLocaleString("id-ID")}</b>.
                             </p>
                         </div>
                     )}
                     {targetNum > 0 && rate === 0 && (
-                        <div className="text-[10px] text-amber-700 italic">
-                            ⚠️ PPh rate = 0%. Set PPh rate dulu di atas untuk hitung gross-up.
+                        <div className="text-[10px] text-warning italic flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 shrink-0" /> PPh rate = 0%. Set PPh rate dulu di atas untuk hitung gross-up.
                         </div>
                     )}
                 </div>
@@ -3992,25 +3999,25 @@ function DueDateEditor({
         : "—";
 
     return (
-        <div className="border-2 border-amber-200 bg-amber-50/40 rounded p-3 space-y-2">
+        <div className="border-2 border-warning/30 bg-warning/10 rounded p-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
-                <label className="text-sm font-semibold text-amber-900 flex items-center gap-1">
-                    ⏰ Jatuh Tempo Invoice
+                <label className="text-sm font-semibold text-warning flex items-center gap-1">
+                    <Clock className="w-4 h-4" /> Jatuh Tempo Invoice
                 </label>
-                <div className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-white p-0.5 text-[10px] font-semibold">
+                <div className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-card p-0.5 text-[10px] font-semibold">
                     <button
                         type="button"
                         onClick={() => { setDueDateMode("single"); setDueDateEnd(""); }}
-                        className={`px-2.5 py-0.5 rounded-full transition ${dueDateMode === "single" ? "bg-amber-600 text-white" : "text-amber-700 hover:bg-amber-100"}`}
+                        className={`px-2.5 py-0.5 rounded-full transition ${dueDateMode === "single" ? "bg-warning text-warning-foreground" : "text-warning hover:bg-warning/20"}`}
                     >
-                        📅 1 Tanggal
+                        <CalendarDays className="w-3 h-3 inline" /> 1 Tanggal
                     </button>
                     <button
                         type="button"
                         onClick={() => setDueDateMode("range")}
-                        className={`px-2.5 py-0.5 rounded-full transition ${dueDateMode === "range" ? "bg-amber-600 text-white" : "text-amber-700 hover:bg-amber-100"}`}
+                        className={`px-2.5 py-0.5 rounded-full transition ${dueDateMode === "range" ? "bg-warning text-warning-foreground" : "text-warning hover:bg-warning/20"}`}
                     >
-                        📆 Range
+                        <CalendarRange className="w-3 h-3 inline" /> Range
                     </button>
                 </div>
             </div>
@@ -4019,27 +4026,27 @@ function DueDateEditor({
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full border-2 border-amber-200 rounded px-3 py-2 text-sm bg-white focus:border-amber-500 outline-none"
+                    className="w-full border-2 border-warning/30 rounded px-3 py-2 text-sm bg-card focus:border-warning outline-none"
                 />
             ) : (
                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="text-[10px] text-amber-800 font-semibold uppercase">Dari</label>
+                        <label className="text-[10px] text-warning font-semibold uppercase">Dari</label>
                         <input
                             type="date"
                             value={dueDate}
                             onChange={(e) => setDueDate(e.target.value)}
-                            className="w-full border-2 border-amber-200 rounded px-3 py-2 text-sm bg-white focus:border-amber-500 outline-none"
+                            className="w-full border-2 border-warning/30 rounded px-3 py-2 text-sm bg-card focus:border-warning outline-none"
                         />
                     </div>
                     <div>
-                        <label className="text-[10px] text-amber-800 font-semibold uppercase">Sampai</label>
+                        <label className="text-[10px] text-warning font-semibold uppercase">Sampai</label>
                         <input
                             type="date"
                             value={dueDateEnd}
                             onChange={(e) => setDueDateEnd(e.target.value)}
                             min={dueDate || undefined}
-                            className="w-full border-2 border-amber-200 rounded px-3 py-2 text-sm bg-white focus:border-amber-500 outline-none"
+                            className="w-full border-2 border-warning/30 rounded px-3 py-2 text-sm bg-card focus:border-warning outline-none"
                         />
                     </div>
                 </div>
@@ -4047,25 +4054,25 @@ function DueDateEditor({
 
             {/* Reason field — muncul kalau dueDate berubah dari original */}
             {isChanged && (
-                <div className="bg-rose-50 border-2 border-rose-300 rounded p-2 space-y-1">
-                    <label className="text-[11px] font-bold text-rose-900 flex items-center gap-1">
-                        ⚠️ Alasan perubahan jatuh tempo <span className="text-rose-700">(wajib untuk audit log)</span>
+                <div className="bg-destructive/12 border-2 border-destructive/30 rounded p-2 space-y-1">
+                    <label className="text-[11px] font-bold text-destructive flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 shrink-0" /> Alasan perubahan jatuh tempo <span className="text-destructive">(wajib untuk audit log)</span>
                     </label>
                     <textarea
                         value={changeReason}
                         onChange={(e) => setChangeReason(e.target.value)}
                         placeholder="Mis. 'Klien belum ada uang, minta tunda 1 minggu' atau 'Cashflow klien telat, extend ke akhir bulan'"
                         rows={2}
-                        className="w-full px-2 py-1.5 text-xs border border-rose-300 rounded bg-white resize-y"
+                        className="w-full px-2 py-1.5 text-xs border border-destructive/30 rounded bg-card resize-y"
                     />
-                    <p className="text-[10px] text-rose-700">
+                    <p className="text-[10px] text-destructive">
                         💡 Owner akan lihat alasan ini di history audit — untuk tracking kenapa pembayaran tertunda.
                     </p>
                 </div>
             )}
 
             {dueDate && (
-                <div className="text-[11px] bg-white border border-amber-300 rounded px-2 py-1 font-mono">
+                <div className="text-[11px] bg-card border border-warning/30 rounded px-2 py-1 font-mono">
                     Display: <b>{dueDateMode === "range" && dueDateEnd
                         ? `${new Date(dueDate).toLocaleDateString("id-ID", { day: "numeric", month: "short" })} – ${new Date(dueDateEnd).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`
                         : new Date(dueDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</b>
@@ -4076,35 +4083,35 @@ function DueDateEditor({
             <button
                 type="button"
                 onClick={() => setShowHistory((s) => !s)}
-                className="w-full text-left text-[11px] font-semibold text-amber-800 hover:text-amber-900 flex items-center justify-between bg-white border border-amber-300 rounded px-2 py-1.5"
+                className="w-full text-left text-[11px] font-semibold text-warning hover:text-warning flex items-center justify-between bg-card border border-warning/30 rounded px-2 py-1.5"
             >
-                <span>📜 History Perubahan Jatuh Tempo ({history.length})</span>
-                <span className="text-amber-600">{showHistory ? "▲" : "▼"}</span>
+                <span className="inline-flex items-center gap-1"><History className="w-3.5 h-3.5" /> History Perubahan Jatuh Tempo ({history.length})</span>
+                <span className="text-warning">{showHistory ? "▲" : "▼"}</span>
             </button>
 
             {showHistory && (
-                <div className="bg-white border border-amber-200 rounded p-2 space-y-1.5 max-h-64 overflow-y-auto">
+                <div className="bg-card border border-warning/30 rounded p-2 space-y-1.5 max-h-64 overflow-y-auto">
                     {isLoading ? (
-                        <div className="text-[11px] text-slate-500 italic">Memuat history...</div>
+                        <div className="text-[11px] text-muted-foreground italic">Memuat history...</div>
                     ) : history.length === 0 ? (
-                        <div className="text-[11px] text-slate-500 italic text-center py-2">
+                        <div className="text-[11px] text-muted-foreground italic text-center py-2">
                             Belum ada perubahan tanggal. History akan muncul setelah dueDate di-edit.
                         </div>
                     ) : history.map((h) => (
-                        <div key={h.id} className="border-l-2 border-amber-400 bg-amber-50/30 pl-2 py-1 text-[11px]">
+                        <div key={h.id} className="border-l-2 border-warning/50 bg-warning/10 pl-2 py-1 text-[11px]">
                             <div className="flex items-center justify-between gap-2">
-                                <span className="font-semibold text-amber-900">
+                                <span className="font-semibold text-warning">
                                     {new Date(h.changedAt).toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                                 </span>
                             </div>
-                            <div className="text-slate-700 mt-0.5">
-                                <span className="text-slate-500">Dari: </span>
+                            <div className="text-foreground mt-0.5">
+                                <span className="text-muted-foreground">Dari: </span>
                                 <span className="font-mono">{formatDate(h.oldDueDate)}{h.oldDueDateEnd ? ` – ${formatDate(h.oldDueDateEnd)}` : ""}</span>
-                                <span className="text-slate-400 mx-1">→</span>
-                                <span className="font-mono font-semibold text-amber-800">{formatDate(h.newDueDate)}{h.newDueDateEnd ? ` – ${formatDate(h.newDueDateEnd)}` : ""}</span>
+                                <span className="text-muted-foreground mx-1">→</span>
+                                <span className="font-mono font-semibold text-warning">{formatDate(h.newDueDate)}{h.newDueDateEnd ? ` – ${formatDate(h.newDueDateEnd)}` : ""}</span>
                             </div>
                             {h.reason && (
-                                <div className="mt-1 bg-white border border-amber-200 rounded px-1.5 py-1 italic text-slate-700 text-[10px]">
+                                <div className="mt-1 bg-card border border-warning/30 rounded px-1.5 py-1 italic text-foreground text-[10px]">
                                     💬 &ldquo;{h.reason}&rdquo;
                                 </div>
                             )}

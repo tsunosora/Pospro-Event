@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Upload, Loader2, Save, Search, X } from "lucide-react";
+import { ArrowLeft, Trash2, Upload, Loader2, Save, Search, X } from "lucide-react";
 import { getCustomers } from "@/lib/api/customers";
 import { getProducts } from "@/lib/api/products";
 import { createSalesOrder, uploadProofs, type CreateSalesOrderPayload } from "@/lib/api/sales-orders";
@@ -177,14 +177,14 @@ export default function NewSalesOrderPage() {
     return (
         <div className="max-w-4xl mx-auto space-y-4">
             <div className="flex items-center gap-2">
-                <Link href="/sales-orders" className="p-2 hover:bg-muted rounded-md">
+                <Link href="/sales-orders" className="p-2 hover:bg-muted rounded-md transition-colors">
                     <ArrowLeft className="h-5 w-5" />
                 </Link>
                 <h1 className="text-xl font-bold">Buat Sales Order Baru</h1>
             </div>
 
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm">
+                <div className="bg-destructive/12 border border-destructive/30 text-destructive px-3 py-2 rounded-md text-sm">
                     {error}
                 </div>
             )}
@@ -211,7 +211,7 @@ export default function NewSalesOrderPage() {
                                         type="button"
                                         onMouseDown={e => e.preventDefault()}
                                         onClick={() => pickCustomer(c)}
-                                        className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border last:border-0"
+                                        className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border last:border-0 transition-colors"
                                     >
                                         <div className="font-medium">{c.name}</div>
                                         {c.phone && <div className="text-xs text-muted-foreground">{c.phone}</div>}
@@ -297,14 +297,14 @@ export default function NewSalesOrderPage() {
                                     type="button"
                                     onMouseDown={e => e.preventDefault()}
                                     onClick={() => addVariantAsItem(v)}
-                                    className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border last:border-0"
+                                    className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border last:border-0 transition-colors"
                                 >
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <div className="font-medium">{v.label}</div>
                                             <div className="text-xs text-muted-foreground">SKU: {v.sku} • {v.pricingMode === 'AREA_BASED' ? 'per m²' : 'per unit'}</div>
                                         </div>
-                                        <div className="text-xs font-semibold">Rp {v.price.toLocaleString('id-ID')}</div>
+                                        <div className="text-xs font-semibold nums">Rp {v.price.toLocaleString('id-ID')}</div>
                                     </div>
                                 </button>
                             ))}
@@ -327,7 +327,7 @@ export default function NewSalesOrderPage() {
                                     </div>
                                     <button
                                         onClick={() => removeItem(it.key)}
-                                        className="p-1 hover:bg-red-100 rounded text-red-600"
+                                        className="p-1 hover:bg-destructive/12 rounded text-destructive transition-colors"
                                     >
                                         <Trash2 className="h-4 w-4" />
                                     </button>
@@ -400,7 +400,7 @@ export default function NewSalesOrderPage() {
                 <p className="text-xs text-muted-foreground mb-2">
                     Upload screenshot bukti ACC dari customer (WA pribadi). Gambar ini nanti dikirim ke group WA internal sebagai handoff ke kasir/operator.
                 </p>
-                <label className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-md cursor-pointer hover:bg-muted text-sm">
+                <label className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-md cursor-pointer hover:bg-muted text-sm transition-colors">
                     <Upload className="h-4 w-4" />
                     Pilih Gambar
                     <input
@@ -423,7 +423,7 @@ export default function NewSalesOrderPage() {
                                 />
                                 <button
                                     onClick={() => removeProof(i)}
-                                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition"
+                                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition"
                                 >
                                     <X className="h-3 w-3" />
                                 </button>
@@ -434,8 +434,8 @@ export default function NewSalesOrderPage() {
             </Section>
 
             {/* Actions */}
-            <div className="flex justify-end gap-2 sticky bottom-0 bg-background/80 backdrop-blur py-3 border-t border-border">
-                <Link href="/sales-orders" className="px-4 py-2 text-sm border border-border rounded-md hover:bg-muted">
+            <div className="flex flex-wrap justify-end gap-2 sticky bottom-0 bg-background/80 backdrop-blur py-3 border-t border-border">
+                <Link href="/sales-orders" className="px-4 py-2 text-sm border border-border rounded-md hover:bg-muted transition-colors">
                     Batal
                 </Link>
                 <button
@@ -453,7 +453,7 @@ export default function NewSalesOrderPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <div className="bg-card border border-border rounded-lg p-4">
+        <div className="glass rounded-xl p-4 sm:p-5">
             <h2 className="text-sm font-semibold mb-3">{title}</h2>
             {children}
         </div>

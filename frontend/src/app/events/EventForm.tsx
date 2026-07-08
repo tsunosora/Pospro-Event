@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Loader2, Save, Trash2 } from "lucide-react";
+import { Loader2, Save, Trash2, Wallet, Users, User } from "lucide-react";
 import {
     createEvent, updateEvent, deleteEvent,
     type EventBrand, type EventFormInput, type EventRecord, type EventStatus,
@@ -141,7 +141,7 @@ export default function EventForm({ mode, initial }: Props) {
                         required
                         value={form.name}
                         onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
+                        className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
                         placeholder="mis. UniMA / system 6x2,5"
                     />
                 </div>
@@ -150,7 +150,7 @@ export default function EventForm({ mode, initial }: Props) {
                     <select
                         value={form.brand}
                         onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value as EventBrand }))}
-                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
+                        className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
                     >
                         <option value="EXINDO">CV. Exindo</option>
                         <option value="XPOSER">CV. Xposer</option>
@@ -162,7 +162,7 @@ export default function EventForm({ mode, initial }: Props) {
                     <input
                         value={form.venue ?? ""}
                         onChange={(e) => setForm((f) => ({ ...f, venue: e.target.value }))}
-                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
+                        className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
                         placeholder="mis. Universitas Muhammadiyah Magelang"
                     />
                 </div>
@@ -171,7 +171,7 @@ export default function EventForm({ mode, initial }: Props) {
                     <select
                         value={form.status}
                         onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as EventStatus }))}
-                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
+                        className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
                     >
                         <option value="DRAFT">Draft</option>
                         <option value="SCHEDULED">Terjadwal</option>
@@ -199,7 +199,7 @@ export default function EventForm({ mode, initial }: Props) {
                                 return next;
                             });
                         }}
-                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
+                        className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
                     >
                         <option value="">— Pilih —</option>
                         {(customers as Array<{ id: number; name: string; companyName: string | null }>).map((c) => (
@@ -214,7 +214,7 @@ export default function EventForm({ mode, initial }: Props) {
                     <input
                         value={form.customerName ?? ""}
                         onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))}
-                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
+                        className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
                         placeholder="PT JAPURA / CV ..."
                     />
                     <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -226,7 +226,7 @@ export default function EventForm({ mode, initial }: Props) {
                     <select
                         value={form.picWorkerId ?? ""}
                         onChange={(e) => setForm((f) => ({ ...f, picWorkerId: e.target.value ? Number(e.target.value) : null }))}
-                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
+                        className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
                     >
                         <option value="">— Pilih —</option>
                         {workers.map((w) => (
@@ -241,7 +241,7 @@ export default function EventForm({ mode, initial }: Props) {
                     <input
                         value={form.picName ?? ""}
                         onChange={(e) => setForm((f) => ({ ...f, picName: e.target.value }))}
-                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
+                        className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
                         placeholder="mis. Mbak Sari / Pak Andi"
                     />
                 </div>
@@ -284,22 +284,22 @@ export default function EventForm({ mode, initial }: Props) {
                     rows={3}
                     value={form.notes ?? ""}
                     onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                    className="w-full border rounded px-2 py-1.5 text-sm mt-0.5"
+                    className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
                     placeholder="Detail teknis, PIC lapangan, dll."
                 />
             </div>
 
             {/* Wage override per event/project */}
             <div className="pt-3 border-t border-dashed border-border">
-                <div className="text-xs font-bold text-emerald-700 mb-2 flex items-center gap-1">
-                    💰 Override Gaji untuk Event Ini (Opsional)
+                <div className="text-xs font-bold text-success mb-2 flex items-center gap-1">
+                    <Wallet className="w-4 h-4" /> Override Gaji untuk Event Ini (Opsional)
                 </div>
                 <p className="text-[11px] text-muted-foreground mb-2">
                     Override matrix kota+divisi & default worker. Kosongkan kalau pakai default.
                 </p>
                 {/* Member rate */}
-                <div className="bg-emerald-50/40 border border-emerald-200 rounded-lg p-2 mb-2">
-                    <div className="text-[11px] font-bold text-emerald-800 mb-1.5">👥 Member / Crew (worker biasa)</div>
+                <div className="bg-success/10 border border-success/30 rounded-lg p-2 mb-2">
+                    <div className="text-[11px] font-bold text-success mb-1.5 flex items-center gap-1"><Users className="w-4 h-4" /> Member / Crew (worker biasa)</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs font-medium">Gaji Harian (Rp)</label>
@@ -309,7 +309,7 @@ export default function EventForm({ mode, initial }: Props) {
                                 value={form.dailyWageRate ?? ""}
                                 onChange={(e) => setForm((f) => ({ ...f, dailyWageRate: e.target.value.replace(/[^\d.]/g, "") }))}
                                 placeholder="200000"
-                                className="w-full border rounded px-2 py-1.5 text-sm mt-0.5 font-mono"
+                                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5 nums"
                             />
                         </div>
                         <div>
@@ -320,15 +320,15 @@ export default function EventForm({ mode, initial }: Props) {
                                 value={form.overtimeRatePerHour ?? ""}
                                 onChange={(e) => setForm((f) => ({ ...f, overtimeRatePerHour: e.target.value.replace(/[^\d.]/g, "") }))}
                                 placeholder="25000"
-                                className="w-full border rounded px-2 py-1.5 text-sm mt-0.5 font-mono"
+                                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5 nums"
                             />
                         </div>
                     </div>
                 </div>
                 {/* PIC rate */}
-                <div className="bg-blue-50/40 border border-blue-200 rounded-lg p-2">
-                    <div className="text-[11px] font-bold text-blue-800 mb-1.5">
-                        👤 PIC Khusus (worker yang dipilih sebagai PIC event di atas)
+                <div className="bg-info/10 border border-info/30 rounded-lg p-2">
+                    <div className="text-[11px] font-bold text-info mb-1.5 flex items-center gap-1">
+                        <User className="w-4 h-4" /> PIC Khusus (worker yang dipilih sebagai PIC event di atas)
                     </div>
                     <p className="text-[10px] text-muted-foreground mb-1.5">
                         Kosongkan kalau PIC ikut rate Member. Isi kalau PIC dapat fee lebih tinggi (mandor/koordinator).
@@ -342,7 +342,7 @@ export default function EventForm({ mode, initial }: Props) {
                                 value={form.dailyWageRatePic ?? ""}
                                 onChange={(e) => setForm((f) => ({ ...f, dailyWageRatePic: e.target.value.replace(/[^\d.]/g, "") }))}
                                 placeholder="350000"
-                                className="w-full border rounded px-2 py-1.5 text-sm mt-0.5 font-mono"
+                                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5 nums"
                             />
                         </div>
                         <div>
@@ -353,20 +353,20 @@ export default function EventForm({ mode, initial }: Props) {
                                 value={form.overtimeRatePerHourPic ?? ""}
                                 onChange={(e) => setForm((f) => ({ ...f, overtimeRatePerHourPic: e.target.value.replace(/[^\d.]/g, "") }))}
                                 placeholder="40000"
-                                className="w-full border rounded px-2 py-1.5 text-sm mt-0.5 font-mono"
+                                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5 nums"
                             />
                         </div>
                     </div>
                 </div>
             </div>
 
-            {error && <div className="text-xs text-red-600">{error}</div>}
+            {error && <div className="text-xs text-destructive">{error}</div>}
 
             <div className="flex items-center gap-2">
                 <button
                     type="submit"
                     disabled={saveMut.isPending}
-                    className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm hover:opacity-90 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm hover:opacity-90 disabled:opacity-50 cursor-pointer transition-colors"
                 >
                     {saveMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Simpan
@@ -374,7 +374,7 @@ export default function EventForm({ mode, initial }: Props) {
                 <button
                     type="button"
                     onClick={() => router.back()}
-                    className="px-3 py-1.5 border rounded text-sm hover:bg-muted"
+                    className="px-3 py-1.5 border border-border rounded text-sm hover:bg-muted cursor-pointer transition-colors"
                 >
                     Batal
                 </button>
@@ -387,7 +387,7 @@ export default function EventForm({ mode, initial }: Props) {
                             }
                         }}
                         disabled={deleteMut.isPending}
-                        className="ml-auto inline-flex items-center gap-1.5 border border-red-300 text-red-600 px-3 py-1.5 rounded text-sm hover:bg-red-50 disabled:opacity-50"
+                        className="ml-auto inline-flex items-center gap-1.5 border border-destructive/30 text-destructive px-3 py-1.5 rounded text-sm hover:bg-destructive/10 disabled:opacity-50 cursor-pointer transition-colors"
                     >
                         <Trash2 className="h-4 w-4" /> Hapus
                     </button>
@@ -414,7 +414,7 @@ function PhaseRow({ label, colorClass, start, end, onChange }: {
                         type="date"
                         value={start}
                         onChange={(e) => onChange(e.target.value, end)}
-                        className="w-full border rounded px-1 py-1 text-xs mt-0.5 bg-white"
+                        className="w-full border border-border bg-card rounded px-1 py-1 text-xs mt-0.5"
                     />
                 </label>
                 <label className="text-[11px]">
@@ -423,7 +423,7 @@ function PhaseRow({ label, colorClass, start, end, onChange }: {
                         type="date"
                         value={end}
                         onChange={(e) => onChange(start, e.target.value)}
-                        className="w-full border rounded px-1 py-1 text-xs mt-0.5 bg-white"
+                        className="w-full border border-border bg-card rounded px-1 py-1 text-xs mt-0.5"
                     />
                 </label>
             </div>

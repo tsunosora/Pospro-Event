@@ -4,16 +4,17 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTransactionEditRequests, reviewTransactionEditRequest, TransactionEditRequest } from '@/lib/api/transactions';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { Check, X, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, X, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, ClipboardEdit } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 import dayjs from 'dayjs';
 import 'dayjs/locale/id';
 
 dayjs.locale('id');
 
 const STATUS_CONFIG = {
-    PENDING: { label: 'Menunggu', color: 'text-amber-600', bg: 'bg-amber-500/10 border-amber-500/20', icon: Clock },
-    APPROVED: { label: 'Disetujui', color: 'text-emerald-600', bg: 'bg-emerald-500/10 border-emerald-500/20', icon: CheckCircle },
-    REJECTED: { label: 'Ditolak', color: 'text-red-600', bg: 'bg-red-500/10 border-red-500/20', icon: XCircle },
+    PENDING: { label: 'Menunggu', color: 'text-warning', bg: 'bg-warning/15 border-warning/30', icon: Clock },
+    APPROVED: { label: 'Disetujui', color: 'text-success', bg: 'bg-success/15 border-success/30', icon: CheckCircle },
+    REJECTED: { label: 'Ditolak', color: 'text-destructive', bg: 'bg-destructive/12 border-destructive/30', icon: XCircle },
 };
 
 function EditDiff({ request }: { request: TransactionEditRequest }) {
@@ -39,13 +40,13 @@ function EditDiff({ request }: { request: TransactionEditRequest }) {
                             <>
                                 <span className="line-through">{Number(current.widthCm).toFixed(2)} × {Number(current.heightCm).toFixed(2)}</span>
                                 <span className="text-foreground font-medium">→</span>
-                                <span className="text-emerald-600 font-medium">{editItem.widthCm} × {editItem.heightCm} {editItem.unitType || 'm'}</span>
+                                <span className="text-success font-medium">{editItem.widthCm} × {editItem.heightCm} {editItem.unitType || 'm'}</span>
                             </>
                         ) : (
                             <>
                                 <span className="line-through">Qty {current.quantity}</span>
                                 <span className="text-foreground font-medium">→</span>
-                                <span className="text-emerald-600 font-medium">Qty {editItem.quantity}</span>
+                                <span className="text-success font-medium">Qty {editItem.quantity}</span>
                             </>
                         )}
                     </div>
@@ -54,9 +55,9 @@ function EditDiff({ request }: { request: TransactionEditRequest }) {
             {editData.discount !== undefined && editData.discount !== null && (
                 <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                     <span className="font-medium text-foreground">Diskon:</span>
-                    <span className="line-through">Rp {Number(request.transaction.grandTotal).toLocaleString('id-ID')}</span>
+                    <span className="line-through nums">Rp {Number(request.transaction.grandTotal).toLocaleString('id-ID')}</span>
                     <span className="text-foreground font-medium">→</span>
-                    <span className="text-emerald-600 font-medium">Rp {Number(editData.discount).toLocaleString('id-ID')}</span>
+                    <span className="text-success font-medium nums">Rp {Number(editData.discount).toLocaleString('id-ID')}</span>
                 </div>
             )}
         </div>
@@ -146,13 +147,13 @@ function RequestCard({ request, onRefresh }: { request: TransactionEditRequest; 
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setReviewing('approve')}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-lg text-xs font-medium hover:bg-emerald-500/20 transition-colors"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-success/15 border border-success/30 text-success rounded-lg text-xs font-medium hover:bg-success/20 transition-colors cursor-pointer"
                             >
                                 <Check className="w-3.5 h-3.5" /> Setujui
                             </button>
                             <button
                                 onClick={() => setReviewing('reject')}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg text-xs font-medium hover:bg-red-500/20 transition-colors"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/12 border border-destructive/30 text-destructive rounded-lg text-xs font-medium hover:bg-destructive/20 transition-colors cursor-pointer"
                             >
                                 <X className="w-3.5 h-3.5" /> Tolak
                             </button>
@@ -170,9 +171,9 @@ function RequestCard({ request, onRefresh }: { request: TransactionEditRequest; 
                                 <button
                                     onClick={() => handleReview(reviewing === 'approve')}
                                     disabled={reviewMutation.isPending}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${reviewing === 'approve'
-                                        ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/20'
-                                        : 'bg-red-500/10 border border-red-500/20 text-red-600 hover:bg-red-500/20'
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer ${reviewing === 'approve'
+                                        ? 'bg-success/15 border border-success/30 text-success hover:bg-success/20'
+                                        : 'bg-destructive/12 border border-destructive/30 text-destructive hover:bg-destructive/20'
                                         }`}
                                 >
                                     {reviewMutation.isPending ? 'Memproses...' : reviewing === 'approve' ? 'Konfirmasi Setujui' : 'Konfirmasi Tolak'}
@@ -222,7 +223,7 @@ export default function EditRequestsPage() {
     if (!isManager) {
         return (
             <div className="flex flex-col items-center justify-center h-64 gap-3">
-                <XCircle className="w-10 h-10 text-red-500/50" />
+                <XCircle className="w-10 h-10 text-destructive/50" />
                 <p className="text-foreground font-medium">Akses Ditolak</p>
                 <p className="text-muted-foreground text-sm text-center">Halaman ini hanya dapat diakses oleh Admin atau Owner.</p>
             </div>
@@ -236,12 +237,11 @@ export default function EditRequestsPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-xl font-bold text-foreground">Permintaan Edit Transaksi</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Review dan setujui permintaan perubahan transaksi dari kasir
-                </p>
-            </div>
+            <PageHeader
+                icon={ClipboardEdit}
+                title="Permintaan Edit Transaksi"
+                description="Review dan setujui permintaan perubahan transaksi dari kasir"
+            />
 
             {/* Tabs */}
             <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
@@ -254,7 +254,7 @@ export default function EditRequestsPage() {
                 >
                     Menunggu
                     {pendingCount > 0 && (
-                        <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                        <span className="bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 nums">
                             {pendingCount > 9 ? '9+' : pendingCount}
                         </span>
                     )}

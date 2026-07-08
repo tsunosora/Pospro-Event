@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2, Calendar, MapPin } from "lucide-react";
+import { Plus, Trash2, Calendar, MapPin, Tent } from "lucide-react";
 
 export interface AdditionalEvent {
     name: string;
@@ -35,20 +35,20 @@ export function AdditionalEventsEditor({ value, onChange, compact = false }: Pro
     return (
         <div className="space-y-1.5">
             {value.length === 0 ? (
-                <div className={`${txt} text-slate-500 italic bg-slate-50 border border-dashed border-slate-300 rounded px-3 py-2.5 text-center`}>
+                <div className={`${txt} text-muted-foreground italic bg-muted border border-dashed border-border rounded px-3 py-2.5 text-center`}>
                     Belum ada event tambahan. Klik tombol di bawah kalau ada event di kota/tanggal lain.
                 </div>
             ) : (
                 value.map((ev, idx) => (
-                    <div key={idx} className={`bg-slate-50 border border-slate-200 rounded ${pad} space-y-1.5`}>
+                    <div key={idx} className={`bg-muted border border-border rounded ${pad} space-y-1.5`}>
                         <div className="flex items-center justify-between">
-                            <span className={`${txt} font-semibold text-slate-700`}>
-                                🎪 Event #{idx + 2} <span className="text-slate-400 font-normal">(tambahan)</span>
+                            <span className={`${txt} font-semibold text-foreground inline-flex items-center gap-1`}>
+                                <Tent className="h-3.5 w-3.5 shrink-0" /> Event #{idx + 2} <span className="text-muted-foreground font-normal">(tambahan)</span>
                             </span>
                             <button
                                 type="button"
                                 onClick={() => remove(idx)}
-                                className="p-0.5 text-red-600 hover:bg-red-100 rounded"
+                                className="p-0.5 text-destructive hover:bg-destructive/12 rounded cursor-pointer transition-colors"
                                 title="Hapus event ini"
                             >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -62,7 +62,7 @@ export function AdditionalEventsEditor({ value, onChange, compact = false }: Pro
                             className={`w-full px-2 py-1.5 ${txt} border border-input rounded bg-background`}
                         />
                         <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                            <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                             <input
                                 type="text"
                                 value={ev.location}
@@ -73,7 +73,7 @@ export function AdditionalEventsEditor({ value, onChange, compact = false }: Pro
                         </div>
                         <div className="grid grid-cols-2 gap-1.5">
                             <div className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                                <Calendar className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                                 <input
                                     type="date"
                                     value={ev.dateStart}
@@ -97,7 +97,7 @@ export function AdditionalEventsEditor({ value, onChange, compact = false }: Pro
             <button
                 type="button"
                 onClick={add}
-                className={`w-full ${txt} px-3 py-2 border-2 border-dashed border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50 rounded text-emerald-700 font-semibold flex items-center justify-center gap-1 transition`}
+                className={`w-full ${txt} px-3 py-2 border-2 border-dashed border-success/40 hover:border-success hover:bg-success/10 rounded text-success font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors`}
             >
                 <Plus className="h-3.5 w-3.5" />
                 Tambah Event Lain {value.length > 0 && `(${value.length + 1} event total)`}

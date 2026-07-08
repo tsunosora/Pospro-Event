@@ -7,17 +7,17 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import {
     Search, Plus, Minus, Trash2, ShoppingCart, X, Package, Loader2,
     Wrench, FileText, Calculator, Banknote, ArrowRight,
-    Users, FileSignature, ChevronDown, AlertCircle, MapPin,
+    Users, FileSignature, MapPin,
+    Folder, Tag, Key, ClipboardList, CalendarDays, AlertTriangle, Wallet, Pencil,
+    Tent, type LucideIcon,
 } from "lucide-react";
 import { getProducts } from "@/lib/api/products";
 import { createQuotation, getQuotations, updateQuotation, type Quotation } from "@/lib/api/quotations";
 import { getRabList, getRab, updateRab, type RabPlan } from "@/lib/api/rab";
 import { createCashflow } from "@/lib/api/cashflow";
-import { createInvoice } from "@/lib/api/invoices";
 import { CustomerPickerModal } from "@/components/CustomerPickerModal";
 import type { Customer } from "@/lib/api/customers";
 import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
-import { BrandBadge } from "@/components/BrandBadge";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -41,34 +41,34 @@ interface CartItem {
     notes?: string;
 }
 
-const MODE_META: Record<OrderMode, { label: string; emoji: string; color: string; description: string }> = {
+const MODE_META: Record<OrderMode, { label: string; icon: LucideIcon; color: string; description: string }> = {
     SEWA: {
         label: "Sewa Booth/Event",
-        emoji: "🎪",
+        icon: Tent,
         color: "blue",
         description: "Klien sewa peralatan booth/event → terbit Invoice & stok keluar",
     },
     OPERASIONAL: {
         label: "Operasional",
-        emoji: "🔧",
+        icon: Wrench,
         color: "amber",
         description: "Item dipakai internal → stok keluar + tercatat sebagai expense",
     },
     PINJAM: {
         label: "Pinjam",
-        emoji: "📦",
+        icon: Package,
         color: "violet",
         description: "Pinjam barang dengan return tracking → redirect ke Gudang Ambil",
     },
     TAMBAH_RAB: {
         label: "Tambah ke RAB",
-        emoji: "💰",
+        icon: Calculator,
         color: "indigo",
         description: "Tambahkan item ke RAB Plan yang sudah ada (Draft)",
     },
     TAMBAH_PENAWARAN: {
         label: "Tambah ke Penawaran",
-        emoji: "📄",
+        icon: FileText,
         color: "emerald",
         description: "Tambahkan item ke Penawaran existing (Draft)",
     },
@@ -256,7 +256,7 @@ function PosInner() {
                     {cart.length > 0 && (
                         <button
                             onClick={clearCart}
-                            className="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded inline-flex items-center gap-1"
+                            className="text-xs text-destructive hover:bg-destructive/10 px-2 py-1 rounded inline-flex items-center gap-1 cursor-pointer transition-colors"
                         >
                             <Trash2 className="h-3 w-3" /> Bersihkan ({cart.length})
                         </button>
@@ -267,18 +267,18 @@ function PosInner() {
                         const meta = MODE_META[m];
                         const active = mode === m;
                         const colorActive: Record<string, string> = {
-                            blue: "bg-blue-600 border-blue-600 text-white",
-                            amber: "bg-amber-600 border-amber-600 text-white",
-                            violet: "bg-violet-600 border-violet-600 text-white",
-                            indigo: "bg-indigo-600 border-indigo-600 text-white",
-                            emerald: "bg-emerald-600 border-emerald-600 text-white",
+                            blue: "bg-info border-info text-info-foreground",
+                            amber: "bg-warning border-warning text-warning-foreground",
+                            violet: "bg-primary border-primary text-primary-foreground",
+                            indigo: "bg-info border-info text-info-foreground",
+                            emerald: "bg-success border-success text-success-foreground",
                         };
                         const colorIdle: Record<string, string> = {
-                            blue: "bg-white text-blue-700 border-blue-200 hover:bg-blue-50",
-                            amber: "bg-white text-amber-700 border-amber-200 hover:bg-amber-50",
-                            violet: "bg-white text-violet-700 border-violet-200 hover:bg-violet-50",
-                            indigo: "bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50",
-                            emerald: "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50",
+                            blue: "bg-card text-info border-info/30 hover:bg-info/10",
+                            amber: "bg-card text-warning border-warning/30 hover:bg-warning/10",
+                            violet: "bg-card text-primary border-primary/30 hover:bg-primary/10",
+                            indigo: "bg-card text-info border-info/30 hover:bg-info/10",
+                            emerald: "bg-card text-success border-success/30 hover:bg-success/10",
                         };
                         return (
                             <button
@@ -287,14 +287,14 @@ function PosInner() {
                                 className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 text-xs sm:text-sm font-semibold transition ${active ? colorActive[meta.color] : colorIdle[meta.color]
                                     }`}
                             >
-                                <span>{meta.emoji}</span>
+                                <meta.icon className="h-4 w-4" />
                                 <span>{meta.label}</span>
                             </button>
                         );
                     })}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1.5">
-                    {MODE_META[mode].emoji} {MODE_META[mode].description}
+                    {MODE_META[mode].description}
                 </p>
             </div>
 
@@ -322,11 +322,11 @@ function PosInner() {
                                     onClick={() => setCategoryId("all")}
                                     className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border-2 transition ${categoryId === "all"
                                         ? "bg-primary text-primary-foreground border-primary"
-                                        : "bg-white text-foreground border-border hover:bg-muted"
+                                        : "bg-card text-foreground border-border hover:bg-muted"
                                         }`}
                                 >
-                                    📂 Semua
-                                    <span className={`text-[10px] font-mono px-1 rounded-full ${categoryId === "all" ? "bg-white/30" : "bg-muted"}`}>
+                                    <Folder className="h-3 w-3" /> Semua
+                                    <span className={`text-[10px] font-mono px-1 rounded-full ${categoryId === "all" ? "bg-primary-foreground/20" : "bg-muted"}`}>
                                         {flatVariants.length}
                                     </span>
                                 </button>
@@ -337,19 +337,19 @@ function PosInner() {
                                             key={c.id}
                                             onClick={() => setCategoryId(c.id)}
                                             className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border-2 transition ${active
-                                                ? "bg-blue-600 text-white border-blue-700"
-                                                : "bg-white text-blue-700 border-blue-200 hover:bg-blue-50"
+                                                ? "bg-primary text-primary-foreground border-primary"
+                                                : "bg-card text-foreground border-border hover:bg-muted"
                                                 }`}
                                         >
                                             {c.name}
-                                            <span className={`text-[10px] font-mono px-1 rounded-full ${active ? "bg-white/30" : "bg-blue-50 text-blue-700"}`}>
+                                            <span className={`text-[10px] font-mono px-1 rounded-full ${active ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground"}`}>
                                                 {c.count}
                                             </span>
                                         </button>
                                     );
                                 })}
                                 {uncategorizedCount > 0 && (
-                                    <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                    <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
                                         Tanpa kategori: {uncategorizedCount}
                                     </span>
                                 )}
@@ -406,20 +406,20 @@ function PosInner() {
                                             </div>
                                             <div className="text-[10px] text-muted-foreground truncate mt-0.5">{v.sku}</div>
                                             {v.categoryName && categoryId === "all" && (
-                                                <div className="text-[9px] text-blue-700 truncate mt-0.5 font-medium">
-                                                    📂 {v.categoryName}
+                                                <div className="text-[9px] text-info truncate mt-0.5 font-medium inline-flex items-center gap-0.5">
+                                                    <Folder className="h-2.5 w-2.5 shrink-0" /> {v.categoryName}
                                                 </div>
                                             )}
                                             <div className="flex items-center justify-between mt-1">
-                                                <span className="text-[11px] font-bold text-primary">
+                                                <span className="text-[11px] font-bold text-primary nums">
                                                     Rp {v.price.toLocaleString("id-ID")}
                                                 </span>
-                                                <span className={`text-[10px] font-semibold ${v.stock > 0 ? "text-emerald-700" : "text-red-600"}`}>
+                                                <span className={`text-[10px] font-semibold ${v.stock > 0 ? "text-success" : "text-destructive"}`}>
                                                     Stok: {v.stock}
                                                 </span>
                                             </div>
                                             {v.warehouseName && (
-                                                <div className="mt-0.5 text-[9px] text-blue-700 inline-flex items-center gap-0.5">
+                                                <div className="mt-0.5 text-[9px] text-info inline-flex items-center gap-0.5">
                                                     <MapPin className="h-2.5 w-2.5" /> {v.warehouseName}
                                                 </div>
                                             )}
@@ -467,13 +467,13 @@ function PosInner() {
                                                 {item.variantName && item.variantName !== "Default" && (
                                                     <div className="text-[10px] text-muted-foreground truncate">{item.variantName}</div>
                                                 )}
-                                                <div className="text-[10px] text-muted-foreground">
+                                                <div className="text-[10px] text-muted-foreground nums">
                                                     Rp {item.price.toLocaleString("id-ID")} {item.unit ? `/ ${item.unit}` : ""}
                                                 </div>
                                             </div>
                                             <button
                                                 onClick={() => removeFromCart(item.variantId)}
-                                                className="p-1 hover:bg-red-50 text-red-600 rounded shrink-0"
+                                                className="p-1 hover:bg-destructive/10 text-destructive rounded shrink-0 cursor-pointer transition-colors"
                                             >
                                                 <X className="h-3 w-3" />
                                             </button>
@@ -501,7 +501,7 @@ function PosInner() {
                                             >
                                                 <Plus className="h-3.5 w-3.5" />
                                             </button>
-                                            <span className="text-xs font-mono font-bold w-20 text-right">
+                                            <span className="text-xs font-mono font-bold w-20 text-right nums">
                                                 Rp {(item.qty * item.price).toLocaleString("id-ID")}
                                             </span>
                                         </div>
@@ -516,11 +516,11 @@ function PosInner() {
                         <div className="px-3 py-2 border-t bg-background shrink-0">
                             <div className="flex items-center justify-between text-xs mb-1">
                                 <span className="text-muted-foreground">{totalQty} item</span>
-                                <span className="text-muted-foreground">Modal: Rp {totalHpp.toLocaleString("id-ID")}</span>
+                                <span className="text-muted-foreground nums">Modal: Rp {totalHpp.toLocaleString("id-ID")}</span>
                             </div>
                             <div className="flex items-center justify-between text-sm font-bold">
                                 <span>Total Harga</span>
-                                <span className="font-mono text-primary">Rp {totalPrice.toLocaleString("id-ID")}</span>
+                                <span className="font-mono text-primary nums">Rp {totalPrice.toLocaleString("id-ID")}</span>
                             </div>
                         </div>
                     )}
@@ -599,7 +599,7 @@ function SewaPanel({
                             key={b}
                             type="button"
                             onClick={() => setBrand(b)}
-                            className={`p-1.5 rounded border-2 text-xs flex items-center gap-1 ${active ? `${meta.bg} ${meta.border} ${meta.text} font-bold` : "bg-white border-slate-200"
+                            className={`p-1.5 rounded border-2 text-xs flex items-center gap-1 ${active ? `${meta.bg} ${meta.border} ${meta.text} font-bold` : "bg-card border-border"
                                 }`}
                         >
                             <span>{meta.emoji}</span>
@@ -611,7 +611,7 @@ function SewaPanel({
 
             {/* Customer */}
             {customer ? (
-                <div className="rounded border-2 border-blue-300 bg-blue-50 p-2 flex items-center justify-between gap-2">
+                <div className="rounded border-2 border-info/30 bg-info/15 p-2 flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
                         <div className="text-xs font-bold truncate">{customer.companyName || customer.name}</div>
                         <div className="text-[10px] text-muted-foreground truncate">
@@ -620,7 +620,7 @@ function SewaPanel({
                     </div>
                     <button
                         onClick={() => setCustomer(null)}
-                        className="p-1 hover:bg-red-100 rounded text-red-600"
+                        className="p-1 hover:bg-destructive/10 rounded text-destructive cursor-pointer transition-colors"
                     >
                         <X className="h-3 w-3" />
                     </button>
@@ -628,7 +628,7 @@ function SewaPanel({
             ) : (
                 <button
                     onClick={() => setShowPicker(true)}
-                    className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded border-2 border-dashed border-blue-300 bg-blue-50/50 text-blue-700 text-xs font-semibold"
+                    className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded border-2 border-dashed border-info/30 bg-info/15 text-info text-xs font-semibold cursor-pointer transition-colors"
                 >
                     <Users className="h-3.5 w-3.5" /> Pilih Klien
                 </button>
@@ -649,7 +649,7 @@ function SewaPanel({
             />
 
             {mut.isError && (
-                <div className="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded p-1.5">
+                <div className="text-[10px] text-destructive bg-destructive/12 border border-destructive/30 rounded p-1.5">
                     {(mut.error as any)?.response?.data?.message || (mut.error as Error).message}
                 </div>
             )}
@@ -657,7 +657,7 @@ function SewaPanel({
             <button
                 disabled={!canSubmit}
                 onClick={() => mut.mutate()}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-3 rounded-lg disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                className="w-full bg-info hover:bg-info/90 text-info-foreground font-bold text-sm py-3 rounded-lg disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
             >
                 {mut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 <FileText className="h-4 w-4" />
@@ -740,14 +740,14 @@ function OperasionalPanel({
                 maxLength={300}
             />
 
-            <div className="rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 space-y-0.5">
-                <div>📦 <b>Stok</b> akan otomatis berkurang sesuai cart</div>
-                <div>💸 <b>Cashflow EXPENSE</b> dibuat: <b className="font-mono">Rp {totalHpp.toLocaleString("id-ID")}</b></div>
-                <div>🏷️ Kategori: <b>Operasional</b></div>
+            <div className="rounded border border-warning/30 bg-warning/15 p-2 text-[11px] text-warning space-y-0.5">
+                <div className="flex items-center gap-1.5"><Package className="h-3 w-3 shrink-0" /><span><b>Stok</b> akan otomatis berkurang sesuai cart</span></div>
+                <div className="flex items-center gap-1.5"><Banknote className="h-3 w-3 shrink-0" /><span><b>Cashflow EXPENSE</b> dibuat: <b className="font-mono nums">Rp {totalHpp.toLocaleString("id-ID")}</b></span></div>
+                <div className="flex items-center gap-1.5"><Tag className="h-3 w-3 shrink-0" /><span>Kategori: <b>Operasional</b></span></div>
             </div>
 
             {mut.isError && (
-                <div className="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded p-1.5">
+                <div className="text-[10px] text-destructive bg-destructive/12 border border-destructive/30 rounded p-1.5">
                     {(mut.error as Error).message}
                 </div>
             )}
@@ -755,7 +755,7 @@ function OperasionalPanel({
             <button
                 disabled={cart.length === 0 || mut.isPending}
                 onClick={() => mut.mutate()}
-                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm py-3 rounded-lg disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                className="w-full bg-warning hover:bg-warning/90 text-warning-foreground font-bold text-sm py-3 rounded-lg disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
             >
                 {mut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 <Wrench className="h-4 w-4" />
@@ -780,17 +780,17 @@ function PinjamPanel({ cart, router }: { cart: CartItem[]; router: ReturnType<ty
 
     return (
         <div className="space-y-2">
-            <div className="rounded border border-violet-200 bg-violet-50 p-2 text-[11px] text-violet-800 space-y-0.5">
-                <div>👷 Klik tombol untuk lanjut ke <b>Gudang Ambil</b></div>
-                <div>🔑 Pakai PIN gudang untuk akses</div>
-                <div>📋 Pilih event + nama karyawan yang pinjam</div>
-                <div>📅 Set tanggal kembali</div>
+            <div className="rounded border border-primary/30 bg-primary/10 p-2 text-[11px] text-primary space-y-0.5">
+                <div className="flex items-center gap-1.5"><Users className="h-3 w-3 shrink-0" /><span>Klik tombol untuk lanjut ke <b>Gudang Ambil</b></span></div>
+                <div className="flex items-center gap-1.5"><Key className="h-3 w-3 shrink-0" /><span>Pakai PIN gudang untuk akses</span></div>
+                <div className="flex items-center gap-1.5"><ClipboardList className="h-3 w-3 shrink-0" /><span>Pilih event + nama karyawan yang pinjam</span></div>
+                <div className="flex items-center gap-1.5"><CalendarDays className="h-3 w-3 shrink-0" /><span>Set tanggal kembali</span></div>
             </div>
 
             <button
                 disabled={cart.length === 0}
                 onClick={goToGudang}
-                className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm py-3 rounded-lg disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm py-3 rounded-lg disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
             >
                 Lanjut ke Gudang Ambil
                 <ArrowRight className="h-4 w-4" />
@@ -877,14 +877,14 @@ function TambahRabPanel({
                 ))}
             </select>
 
-            <div className="rounded border border-indigo-200 bg-indigo-50 p-2 text-[11px] text-indigo-800 space-y-0.5">
-                <div>📋 Item dari cart akan di-append ke RAB</div>
-                <div>⚠️ Kategori default = kategori item pertama RAB target</div>
-                <div>💰 Harga jual = harga produk, COST = HPP produk</div>
+            <div className="rounded border border-info/30 bg-info/10 p-2 text-[11px] text-info space-y-0.5">
+                <div className="flex items-center gap-1.5"><ClipboardList className="h-3 w-3 shrink-0" /><span>Item dari cart akan di-append ke RAB</span></div>
+                <div className="flex items-center gap-1.5"><AlertTriangle className="h-3 w-3 shrink-0" /><span>Kategori default = kategori item pertama RAB target</span></div>
+                <div className="flex items-center gap-1.5"><Wallet className="h-3 w-3 shrink-0" /><span>Harga jual = harga produk, COST = HPP produk</span></div>
             </div>
 
             {mut.isError && (
-                <div className="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded p-1.5">
+                <div className="text-[10px] text-destructive bg-destructive/12 border border-destructive/30 rounded p-1.5">
                     {(mut.error as any)?.response?.data?.message || (mut.error as Error).message}
                 </div>
             )}
@@ -892,7 +892,7 @@ function TambahRabPanel({
             <button
                 disabled={!selectedRabId || cart.length === 0 || mut.isPending}
                 onClick={() => mut.mutate()}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm py-3 rounded-lg disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                className="w-full bg-info hover:bg-info/90 text-info-foreground font-bold text-sm py-3 rounded-lg disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
             >
                 {mut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 <Calculator className="h-4 w-4" />
@@ -979,19 +979,19 @@ function TambahPenawaranPanel({
             </select>
 
             {draftQuotations.length === 0 && !isLoading && (
-                <div className="rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800">
-                    ⚠️ Belum ada Penawaran draft. Buat penawaran baru di <Link href="/penawaran" className="underline font-semibold">/penawaran</Link>
+                <div className="rounded border border-warning/30 bg-warning/15 p-2 text-[11px] text-warning flex items-start gap-1.5">
+                    <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" /><span>Belum ada Penawaran draft. Buat penawaran baru di <Link href="/penawaran" className="underline font-semibold">/penawaran</Link></span>
                 </div>
             )}
 
-            <div className="rounded border border-emerald-200 bg-emerald-50 p-2 text-[11px] text-emerald-800 space-y-0.5">
-                <div>📄 Hanya penawaran <b>status DRAFT</b> yang bisa di-edit</div>
-                <div>💰 Harga = harga produk saat ini</div>
-                <div>✏️ Lanjut edit di halaman detail penawaran</div>
+            <div className="rounded border border-success/30 bg-success/15 p-2 text-[11px] text-success space-y-0.5">
+                <div className="flex items-center gap-1.5"><FileText className="h-3 w-3 shrink-0" /><span>Hanya penawaran <b>status DRAFT</b> yang bisa di-edit</span></div>
+                <div className="flex items-center gap-1.5"><Wallet className="h-3 w-3 shrink-0" /><span>Harga = harga produk saat ini</span></div>
+                <div className="flex items-center gap-1.5"><Pencil className="h-3 w-3 shrink-0" /><span>Lanjut edit di halaman detail penawaran</span></div>
             </div>
 
             {mut.isError && (
-                <div className="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded p-1.5">
+                <div className="text-[10px] text-destructive bg-destructive/12 border border-destructive/30 rounded p-1.5">
                     {(mut.error as any)?.response?.data?.message || (mut.error as Error).message}
                 </div>
             )}
@@ -999,7 +999,7 @@ function TambahPenawaranPanel({
             <button
                 disabled={!selectedQId || cart.length === 0 || mut.isPending}
                 onClick={() => mut.mutate()}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm py-3 rounded-lg disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                className="w-full bg-success hover:bg-success/90 text-success-foreground font-bold text-sm py-3 rounded-lg disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
             >
                 {mut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 <FileSignature className="h-4 w-4" />

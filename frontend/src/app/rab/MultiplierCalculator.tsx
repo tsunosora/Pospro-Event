@@ -163,20 +163,20 @@ export default function MultiplierCalculator({
             aria-labelledby="calc-title"
         >
             <div
-                className="bg-white w-full sm:max-w-lg sm:w-full rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] overflow-y-auto"
+                className="bg-card w-full sm:max-w-lg sm:w-full rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] overflow-y-auto"
                 onMouseDown={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="sticky top-0 bg-white border-b px-5 py-4 flex items-center justify-between rounded-t-2xl z-10">
+                <div className="sticky top-0 bg-card border-b border-border px-5 py-4 flex items-center justify-between rounded-t-2xl z-10">
                     <div className="flex items-center gap-2.5">
-                        <div className="p-2 rounded-lg bg-blue-100 text-blue-700">
+                        <div className="p-2 rounded-lg bg-primary/15 text-primary">
                             <Calculator className="h-5 w-5" />
                         </div>
                         <div>
-                            <h2 id="calc-title" className="text-lg font-bold text-slate-900 leading-tight">
+                            <h2 id="calc-title" className="text-lg font-bold text-foreground leading-tight">
                                 Kalkulator Rincian
                             </h2>
-                            <p className="text-xs text-slate-500 leading-tight">
+                            <p className="text-xs text-muted-foreground leading-tight">
                                 Hitung otomatis: org × hari × jam × kali
                             </p>
                         </div>
@@ -184,7 +184,7 @@ export default function MultiplierCalculator({
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="p-2 rounded-lg hover:bg-slate-100 active:bg-slate-200"
+                        className="p-2 rounded-lg hover:bg-muted active:bg-muted/80 cursor-pointer transition-colors"
                         aria-label="Tutup"
                     >
                         <X className="h-5 w-5" />
@@ -195,8 +195,8 @@ export default function MultiplierCalculator({
                 <div className="p-5 space-y-5">
                     {/* Label item */}
                     <div>
-                        <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-1.5">
-                            <Tag className="h-4 w-4 text-slate-500" />
+                        <label className="flex items-center gap-1.5 text-sm font-semibold text-foreground mb-1.5">
+                            <Tag className="h-4 w-4 text-muted-foreground" />
                             Nama / Label item
                         </label>
                         <input
@@ -204,16 +204,16 @@ export default function MultiplierCalculator({
                             value={label}
                             onChange={(e) => setLabel(e.target.value)}
                             placeholder="contoh: Makan, Gaji bongkar, Lembur"
-                            className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-lg px-3 py-3 text-base"
+                            className="w-full border-2 border-border focus:border-primary outline-none rounded-lg px-3 py-3 text-base"
                             autoFocus
                         />
                     </div>
 
                     {/* Multiplier grid */}
                     <div>
-                        <div className="text-sm font-semibold text-slate-700 mb-2">
+                        <div className="text-sm font-semibold text-foreground mb-2">
                             Faktor pengali{" "}
-                            <span className="text-xs font-normal text-slate-500">
+                            <span className="text-xs font-normal text-muted-foreground">
                                 (kosongkan kalau tidak dipakai)
                             </span>
                         </div>
@@ -259,12 +259,12 @@ export default function MultiplierCalculator({
 
                     {/* Harga satuan */}
                     <div>
-                        <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-1.5">
-                            <Wallet className="h-4 w-4 text-slate-500" />
+                        <label className="flex items-center gap-1.5 text-sm font-semibold text-foreground mb-1.5">
+                            <Wallet className="h-4 w-4 text-muted-foreground" />
                             Harga Satuan
                         </label>
                         <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-semibold pointer-events-none">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold pointer-events-none">
                                 Rp
                             </span>
                             <input
@@ -274,14 +274,14 @@ export default function MultiplierCalculator({
                                 placeholder="25000"
                                 min="0"
                                 inputMode="numeric"
-                                className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-lg pl-11 pr-3 py-3 text-base font-mono text-right"
+                                className="w-full border-2 border-border focus:border-primary outline-none rounded-lg pl-11 pr-3 py-3 text-base nums text-right"
                             />
                         </div>
                     </div>
 
                     {/* Target */}
                     <div>
-                        <div className="text-sm font-semibold text-slate-700 mb-2">
+                        <div className="text-sm font-semibold text-foreground mb-2">
                             Isi ke kolom harga yang mana?
                         </div>
                         <div className="grid grid-cols-3 gap-2">
@@ -310,31 +310,31 @@ export default function MultiplierCalculator({
                     </div>
 
                     {/* Preview */}
-                    <div className="rounded-xl border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-slate-50 p-4">
-                        <div className="text-[11px] font-bold uppercase tracking-wider text-blue-700 mb-2">
+                    <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4">
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-primary mb-2">
                             Hasil Hitungan
                         </div>
                         <div className="grid grid-cols-2 gap-3 mb-3">
                             <div>
-                                <div className="text-xs text-slate-500">Jumlah (Qty)</div>
-                                <div className="text-2xl font-bold font-mono text-slate-900">
+                                <div className="text-xs text-muted-foreground">Jumlah (Qty)</div>
+                                <div className="text-2xl font-bold nums text-foreground">
                                     {result.qty || 0}
                                 </div>
                             </div>
                             <div>
-                                <div className="text-xs text-slate-500">Total</div>
-                                <div className="text-2xl font-bold font-mono text-blue-700 leading-tight">
+                                <div className="text-xs text-muted-foreground">Total</div>
+                                <div className="text-2xl font-bold nums text-primary leading-tight">
                                     {fmtRp(result.total)}
                                 </div>
                             </div>
                         </div>
-                        <div className="pt-3 border-t border-dashed border-blue-200">
-                            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        <div className="pt-3 border-t border-dashed border-primary/20">
+                            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
                                 Uraian otomatis
                             </div>
-                            <div className="italic text-slate-800 text-sm break-words">
+                            <div className="italic text-foreground text-sm break-words">
                                 {result.descriptionText || (
-                                    <span className="text-slate-400 not-italic">
+                                    <span className="text-muted-foreground not-italic">
                                         (isi label & faktor di atas)
                                     </span>
                                 )}
@@ -344,11 +344,11 @@ export default function MultiplierCalculator({
                 </div>
 
                 {/* Footer actions — sticky bawah biar selalu kelihatan */}
-                <div className="sticky bottom-0 bg-white border-t px-5 py-4 flex gap-3 rounded-b-2xl">
+                <div className="sticky bottom-0 bg-card border-t border-border px-5 py-4 flex gap-3 rounded-b-2xl">
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="flex-1 px-4 py-3 border-2 border-slate-200 rounded-lg text-base font-semibold text-slate-700 hover:bg-slate-50 active:bg-slate-100"
+                        className="flex-1 px-4 py-3 border-2 border-border rounded-lg text-base font-semibold text-foreground hover:bg-muted active:bg-muted/80 cursor-pointer transition-colors"
                     >
                         Batal
                     </button>
@@ -356,7 +356,7 @@ export default function MultiplierCalculator({
                         type="button"
                         disabled={!canApply}
                         onClick={() => onApply(result)}
-                        className="flex-[2] inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-base font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-slate-300 disabled:cursor-not-allowed shadow-sm"
+                        className="flex-[2] inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-base font-bold text-white bg-primary hover:bg-primary/90 active:bg-primary/80 disabled:bg-muted disabled:cursor-not-allowed cursor-pointer transition-colors shadow-sm"
                     >
                         <Check className="h-5 w-5" />
                         Terapkan
@@ -372,28 +372,28 @@ const colorMap: Record<
     { ring: string; iconBg: string; iconText: string; focusBorder: string }
 > = {
     emerald: {
-        ring: "border-emerald-200",
-        iconBg: "bg-emerald-100",
-        iconText: "text-emerald-700",
-        focusBorder: "focus-within:border-emerald-500",
+        ring: "border-success/30",
+        iconBg: "bg-success/15",
+        iconText: "text-success",
+        focusBorder: "focus-within:border-success",
     },
     blue: {
-        ring: "border-blue-200",
-        iconBg: "bg-blue-100",
-        iconText: "text-blue-700",
-        focusBorder: "focus-within:border-blue-500",
+        ring: "border-info/30",
+        iconBg: "bg-info/15",
+        iconText: "text-info",
+        focusBorder: "focus-within:border-info",
     },
     violet: {
-        ring: "border-violet-200",
-        iconBg: "bg-violet-100",
-        iconText: "text-violet-700",
-        focusBorder: "focus-within:border-violet-500",
+        ring: "border-primary/30",
+        iconBg: "bg-primary/15",
+        iconText: "text-primary",
+        focusBorder: "focus-within:border-primary",
     },
     amber: {
-        ring: "border-amber-200",
-        iconBg: "bg-amber-100",
-        iconText: "text-amber-700",
-        focusBorder: "focus-within:border-amber-500",
+        ring: "border-warning/30",
+        iconBg: "bg-warning/15",
+        iconText: "text-warning",
+        focusBorder: "focus-within:border-warning",
     },
 };
 
@@ -417,13 +417,13 @@ function BigNumField({
     const c = colorMap[color];
     return (
         <div
-            className={`rounded-lg border-2 ${c.ring} ${c.focusBorder} bg-white p-2.5 transition`}
+            className={`rounded-lg border-2 ${c.ring} ${c.focusBorder} bg-card p-2.5 transition-colors`}
         >
             <div className="flex items-center gap-2 mb-1.5">
                 <span className={`p-1.5 rounded-md ${c.iconBg} ${c.iconText}`}>{icon}</span>
                 <div className="leading-tight">
-                    <div className="text-sm font-semibold text-slate-800">{label}</div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wide">
+                    <div className="text-sm font-semibold text-foreground">{label}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
                         ({hint})
                     </div>
                 </div>
@@ -435,7 +435,7 @@ function BigNumField({
                 placeholder={placeholder}
                 min="0"
                 inputMode="numeric"
-                className="w-full bg-transparent outline-none text-2xl font-bold font-mono text-right text-slate-900 placeholder:text-slate-300"
+                className="w-full bg-transparent outline-none text-2xl font-bold nums text-right text-foreground placeholder:text-muted-foreground/40"
             />
         </div>
     );
@@ -456,20 +456,20 @@ function TargetBtn({
 }) {
     const map: Record<string, string> = {
         amber: active
-            ? "bg-amber-500 text-white border-amber-500 shadow-md"
-            : "bg-white text-amber-700 border-amber-300 hover:bg-amber-50",
+            ? "bg-warning text-warning-foreground border-warning shadow-md"
+            : "bg-card text-warning border-warning/40 hover:bg-warning/10",
         blue: active
-            ? "bg-blue-600 text-white border-blue-600 shadow-md"
-            : "bg-white text-blue-700 border-blue-300 hover:bg-blue-50",
+            ? "bg-info text-white border-info shadow-md"
+            : "bg-card text-info border-info/40 hover:bg-info/10",
         violet: active
-            ? "bg-violet-600 text-white border-violet-600 shadow-md"
-            : "bg-white text-violet-700 border-violet-300 hover:bg-violet-50",
+            ? "bg-primary text-white border-primary shadow-md"
+            : "bg-card text-primary border-primary/40 hover:bg-primary/10",
     };
     return (
         <button
             type="button"
             onClick={onClick}
-            className={`flex flex-col items-center justify-center px-2 py-2.5 border-2 rounded-lg transition ${map[color]}`}
+            className={`flex flex-col items-center justify-center px-2 py-2.5 border-2 rounded-lg transition-colors cursor-pointer ${map[color]}`}
         >
             <span className="text-sm font-bold leading-tight">{label}</span>
             <span className="text-[10px] opacity-80 leading-tight">{sub}</span>

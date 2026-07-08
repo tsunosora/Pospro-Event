@@ -18,8 +18,8 @@ export default function ProfitReportPage() {
         return <div className="flex h-[80vh] items-center justify-center text-muted-foreground">Memuat Laporan Laba/Rugi...</div>;
     }
 
-    const marginColor = (profitData?.profitMargin || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500';
-    const profitColor = (profitData?.grossProfit || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600';
+    const marginColor = (profitData?.profitMargin || 0) >= 0 ? 'text-success' : 'text-destructive';
+    const profitColor = (profitData?.grossProfit || 0) >= 0 ? 'text-success' : 'text-destructive';
 
     const handleExportExcel = () => {
         if (!profitData?.items?.length) return alert('Tidak ada data untuk di-export');
@@ -67,7 +67,7 @@ export default function ProfitReportPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="sm:flex sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Laporan Laba Kotor</h1>
                     <p className="mt-1 text-sm text-muted-foreground">Analisis Pendapatan dikurangi Harga Pokok Penjualan (HPP).</p>
@@ -89,11 +89,11 @@ export default function ProfitReportPage() {
                             className="bg-transparent text-sm outline-none text-foreground"
                         />
                     </div>
-                    <button onClick={handleExportExcel} className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 text-green-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-500/20 transition-colors shadow-sm">
+                    <button onClick={handleExportExcel} className="flex items-center gap-2 bg-success/15 border border-success/30 text-success px-4 py-2 rounded-lg text-sm font-medium hover:bg-success/20 transition-colors shadow-sm cursor-pointer">
                         <FileSpreadsheet className="h-4 w-4" />
                         Export Excel
                     </button>
-                    <button onClick={handleExportPDF} className="flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/20 transition-colors shadow-sm">
+                    <button onClick={handleExportPDF} className="flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/20 transition-colors shadow-sm cursor-pointer">
                         <Download className="h-4 w-4" />
                         Export PDF
                     </button>
@@ -101,32 +101,32 @@ export default function ProfitReportPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col justify-center">
+                <div className="glass rounded-xl p-5 flex flex-col justify-center">
                     <div className="flex items-center justify-between mb-2">
                         <p className="text-sm font-medium text-muted-foreground">Total Pendapatan Bersih</p>
-                        <div className="p-2 bg-blue-500/10 rounded-lg"><DollarSign className="w-4 h-4 text-blue-500" /></div>
+                        <div className="p-2 bg-info/15 rounded-lg"><DollarSign className="w-4 h-4 text-info" /></div>
                     </div>
-                    <h2 className="text-2xl font-bold text-foreground">Rp {Number(profitData?.totalRevenue || 0).toLocaleString('id-ID')}</h2>
+                    <h2 className="text-2xl font-bold text-foreground nums">Rp {Number(profitData?.totalRevenue || 0).toLocaleString('id-ID')}</h2>
                     <p className="text-xs text-muted-foreground mt-2">Setelah diskon, sebelum pajak</p>
                 </div>
 
-                <div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col justify-center">
+                <div className="glass rounded-xl p-5 flex flex-col justify-center">
                     <div className="flex items-center justify-between mb-2">
                         <p className="text-sm font-medium text-muted-foreground">Total HPP</p>
-                        <div className="p-2 bg-orange-500/10 rounded-lg"><Package className="w-4 h-4 text-orange-500" /></div>
+                        <div className="p-2 bg-warning/15 rounded-lg"><Package className="w-4 h-4 text-warning" /></div>
                     </div>
-                    <h2 className="text-2xl font-bold text-foreground">Rp {Number(profitData?.totalHpp || 0).toLocaleString('id-ID')}</h2>
+                    <h2 className="text-2xl font-bold text-foreground nums">Rp {Number(profitData?.totalHpp || 0).toLocaleString('id-ID')}</h2>
                     <p className="text-xs text-muted-foreground mt-2">Modal barang yang terjual</p>
                 </div>
 
-                <div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col justify-center lg:col-span-2 bg-gradient-to-br from-card to-muted/30">
+                <div className="glass rounded-xl p-5 flex flex-col justify-center lg:col-span-2 bg-gradient-to-br from-card to-muted/30">
                     <div className="flex items-center justify-between mb-2">
                         <p className="text-sm font-medium text-muted-foreground">Laba Kotor (Gross Profit)</p>
-                        <div className="p-2 bg-emerald-500/10 rounded-lg"><TrendingUp className="w-4 h-4 text-emerald-500" /></div>
+                        <div className="p-2 bg-success/15 rounded-lg"><TrendingUp className="w-4 h-4 text-success" /></div>
                     </div>
                     <div className="flex items-end justify-between">
-                        <h2 className={`text-3xl font-bold ${profitColor}`}>Rp {Number(profitData?.grossProfit || 0).toLocaleString('id-ID')}</h2>
-                        <div className={`flex items-center gap-1 font-bold text-lg ${marginColor} bg-background/50 px-3 py-1 rounded-lg border border-border/50`}>
+                        <h2 className={`text-3xl font-bold nums ${profitColor}`}>Rp {Number(profitData?.grossProfit || 0).toLocaleString('id-ID')}</h2>
+                        <div className={`flex items-center gap-1 font-bold text-lg nums ${marginColor} bg-background/50 px-3 py-1 rounded-lg border border-border/50`}>
                             {profitData?.profitMargin >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
                             {Number(profitData?.profitMargin || 0).toFixed(1)}%
                         </div>
@@ -134,7 +134,7 @@ export default function ProfitReportPage() {
                 </div>
             </div>
 
-            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+            <div className="glass rounded-xl overflow-hidden">
                 <div className="p-5 border-b border-border bg-muted/20 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <BarChart className="h-5 w-5 text-primary" />
@@ -164,10 +164,10 @@ export default function ProfitReportPage() {
                                                 <div className="font-medium text-foreground text-sm">{item.name}</div>
                                                 <div className="text-xs text-muted-foreground mt-0.5">{item.sku}</div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium nums">
                                                 {item.isAreaBased ? (
                                                     <div>
-                                                        <span className="font-bold text-foreground">
+                                                        <span className="font-bold text-foreground nums">
                                                             {Number(item.totalAreaM2).toLocaleString('id-ID', { maximumFractionDigits: 2 })} m²
                                                         </span>
                                                         <div className="text-xs text-muted-foreground mt-0.5">
@@ -178,20 +178,20 @@ export default function ProfitReportPage() {
                                                     <span>{item.qty} {item.unit}</span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-foreground">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-foreground nums">
                                                 Rp {Number(item.revenue).toLocaleString('id-ID')}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-muted-foreground">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-muted-foreground nums">
                                                 Rp {Number(item.totalHpp).toLocaleString('id-ID')}
                                             </td>
-                                            <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold ${isLoss ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                            <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold nums ${isLoss ? 'text-destructive' : 'text-success'}`}>
                                                 Rp {Number(item.grossProfit).toLocaleString('id-ID')}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${isLoss ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' :
-                                                    margin > 40 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' :
-                                                        margin > 20 ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20' :
-                                                            'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium nums ${isLoss ? 'bg-destructive/12 text-destructive border border-destructive/20' :
+                                                    margin > 40 ? 'bg-success/15 text-success border border-success/30' :
+                                                        margin > 20 ? 'bg-info/15 text-info border border-info/30' :
+                                                            'bg-warning/15 text-warning border border-warning/30'
                                                     }`}>
                                                     {margin.toFixed(1)}%
                                                 </span>

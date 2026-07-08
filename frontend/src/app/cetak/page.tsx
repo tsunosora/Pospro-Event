@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CheckCircle2, Loader2, Printer } from 'lucide-react';
 import {
     listPrintJobs, getPrintQueueStats, verifyPrintPin,
     startPrintJob, finishPrintJob, pickupPrintJob,
-    PrintJob, PrintJobStatus,
+    PrintJob,
 } from '@/lib/api/print-queue';
 
 const PIN_KEY = 'cetak_pin_session';
@@ -34,13 +35,13 @@ function formatDate(s: string | null) {
 
 function StatusBadge({ s }: { s: 'PENDING' | 'PARTIAL' | 'PAID' | 'FAILED' }) {
     const map: Record<string, string> = {
-        PAID: 'bg-green-100 text-green-800 border-green-300',
-        PARTIAL: 'bg-amber-100 text-amber-800 border-amber-300',
-        PENDING: 'bg-red-100 text-red-800 border-red-300',
-        FAILED: 'bg-gray-100 text-gray-600 border-gray-300',
+        PAID: 'bg-success/15 text-success border-success/30',
+        PARTIAL: 'bg-warning/15 text-warning border-warning/30',
+        PENDING: 'bg-destructive/12 text-destructive border-destructive/30',
+        FAILED: 'bg-muted text-muted-foreground border-border',
     };
     const label = s === 'PAID' ? 'LUNAS' : s === 'PARTIAL' ? 'DP' : s === 'PENDING' ? 'BELUM LUNAS' : s;
-    return <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${map[s]}`}>{label}</span>;
+    return <span className={`text-xs font-bold px-2 py-0.5 rounded border ${map[s]}`}>{label}</span>;
 }
 
 export default function CetakPage() {
@@ -142,46 +143,54 @@ export default function CetakPage() {
 
     if (!authed) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-sky-50 p-4">
-                <form onSubmit={handlePin} className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm">
-                    <h1 className="text-2xl font-bold mb-1">Antrian Cetak Paper</h1>
-                    <p className="text-sm text-gray-500 mb-5">Masukkan PIN operator</p>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+                <form onSubmit={handlePin} className="glass rounded-2xl p-8 w-full max-w-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Printer className="w-5 h-5 text-primary" />
+                        <h1 className="text-2xl font-bold">Antrian Cetak Paper</h1>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-5">Masukkan PIN operator</p>
                     <input
                         type="password"
                         inputMode="numeric"
                         value={pinInput}
                         onChange={e => setPinInput(e.target.value)}
-                        className="w-full border rounded-lg px-4 py-3 text-lg tracking-widest text-center focus:ring-2 focus:ring-indigo-400 outline-none"
+                        className="w-full border border-border rounded-lg px-4 py-3 text-lg tracking-widest text-center focus:ring-2 focus:ring-primary/40 outline-none bg-card"
                         placeholder="••••"
                         autoFocus
                     />
-                    {pinError && <p className="text-red-600 text-sm mt-2">{pinError}</p>}
+                    {pinError && <p className="text-destructive text-sm mt-2">{pinError}</p>}
                     <button
                         type="submit"
                         disabled={pinLoading}
-                        className="w-full mt-4 bg-indigo-600 text-white font-semibold py-3 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                    >{pinLoading ? 'Memeriksa...' : 'Masuk'}</button>
+                        className="w-full mt-4 bg-primary text-white font-semibold py-3 rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                        {pinLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Memeriksa...</> : 'Masuk'}
+                    </button>
                 </form>
                 <div className="mt-6 text-center">
-                    <p className="text-sm font-semibold text-gray-400 tracking-wide">Voliko Print</p>
-                    <p className="text-xs text-gray-400 mt-0.5">&copy; 2026 Muhammad Faisal Abdul Hakim</p>
+                    <p className="text-sm font-semibold text-muted-foreground tracking-wide">Voliko Print</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">&copy; 2026 Muhammad Faisal Abdul Hakim</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+        <div className="min-h-screen bg-background p-4 sm:p-6">
             <div className="max-w-7xl mx-auto">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <div>
-                        <h1 className="text-2xl font-bold">Antrian Cetak Paper</h1>
-                        <p className="text-sm text-gray-600">
-                            Operator: <span className="font-semibold">{operatorName || '—'}</span>
+                        <div className="flex items-center gap-2">
+                            <Printer className="w-5 h-5 text-primary" />
+                            <h1 className="text-2xl font-bold">Antrian Cetak Paper</h1>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            Operator: <span className="font-semibold text-foreground">{operatorName || '—'}</span>
                             {operatorName && (
                                 <button
                                     onClick={() => { setOperatorName(''); localStorage.removeItem(OP_KEY); }}
-                                    className="ml-2 text-xs text-indigo-600 underline"
+                                    className="ml-2 text-xs text-primary underline cursor-pointer transition-colors hover:text-primary/70"
                                 >ganti</button>
                             )}
                         </p>
@@ -191,7 +200,7 @@ export default function CetakPage() {
                         placeholder="Cari no. job / invoice / pelanggan..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm w-72 bg-white"
+                        className="border border-border rounded-lg px-3 py-2 text-sm w-72 bg-card"
                     />
                 </div>
 
@@ -203,43 +212,43 @@ export default function CetakPage() {
                             <button
                                 key={t.key}
                                 onClick={() => setTab(t.key)}
-                                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap border ${active ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'}`}
-                            >{t.label} <span className={`ml-1 px-1.5 rounded ${active ? 'bg-indigo-500' : 'bg-gray-100'}`}>{count}</span></button>
+                                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap border transition-colors cursor-pointer ${active ? 'bg-primary text-white border-primary' : 'bg-card text-foreground border-border hover:bg-muted'}`}
+                            >{t.label} <span className={`ml-1 px-1.5 rounded nums ${active ? 'bg-primary/70' : 'bg-muted'}`}>{count}</span></button>
                         );
                     })}
                 </div>
 
                 {filtered.length === 0 ? (
-                    <div className="bg-white border border-dashed rounded-xl p-10 text-center text-gray-500">Tidak ada job di tab ini.</div>
+                    <div className="glass border-dashed rounded-xl p-10 text-center text-muted-foreground">Tidak ada job di tab ini.</div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {filtered.map(job => {
                             const item = job.transactionItem;
                             const variant = item.productVariant;
                             return (
-                                <div key={job.id} className="bg-white border rounded-xl p-4 shadow-sm flex flex-col">
+                                <div key={job.id} className="glass rounded-xl p-4 flex flex-col animate-in">
                                     <div className="flex items-start justify-between gap-2 mb-2">
                                         <div>
-                                            <p className="font-mono text-xs text-indigo-700 font-bold">{job.jobNumber}</p>
-                                            <p className="text-[11px] text-gray-500">{formatDate(job.createdAt)}</p>
+                                            <p className="font-mono text-xs text-primary font-bold">{job.jobNumber}</p>
+                                            <p className="text-xs text-muted-foreground">{formatDate(job.createdAt)}</p>
                                         </div>
                                         <StatusBadge s={job.transaction.status} />
                                     </div>
                                     <div className="mb-2">
                                         <p className="font-semibold text-sm">{variant.product.name}</p>
-                                        {variant.variantName && <p className="text-xs text-gray-600">{variant.variantName}</p>}
-                                        <p className="text-xs text-gray-500 mt-1">Qty: <span className="font-bold text-gray-800">{job.quantity}</span>{item.clickType && ` • ${item.clickType}`}</p>
+                                        {variant.variantName && <p className="text-xs text-muted-foreground">{variant.variantName}</p>}
+                                        <p className="text-xs text-muted-foreground mt-1">Qty: <span className="font-bold text-foreground nums">{job.quantity}</span>{item.clickType && ` • ${item.clickType}`}</p>
                                     </div>
-                                    <div className="text-xs text-gray-700 mb-2 border-t pt-2">
+                                    <div className="text-xs text-foreground mb-2 border-t border-border pt-2 space-y-0.5">
                                         <p>Invoice: <span className="font-mono">{job.transaction.invoiceNumber}</span></p>
                                         {job.transaction.checkoutNumber && (
                                             <p>SC: <span className="font-mono">{job.transaction.checkoutNumber}</span></p>
                                         )}
                                         <p>Pelanggan: {job.transaction.customerName || '—'}</p>
                                     </div>
-                                    {job.notes && <p className="text-[11px] bg-amber-50 text-amber-800 border border-amber-200 rounded p-1.5 mb-2">{job.notes}</p>}
+                                    {job.notes && <p className="text-xs bg-warning/15 text-warning border border-warning/30 rounded p-1.5 mb-2">{job.notes}</p>}
                                     {(job.startedAt || job.finishedAt || job.pickedUpAt) && (
-                                        <div className="text-[10px] text-gray-500 mb-2 space-y-0.5">
+                                        <div className="text-xs text-muted-foreground mb-2 space-y-0.5">
                                             {job.startedAt && <p>Mulai: {formatDate(job.startedAt)} oleh {job.operatorName || '—'}</p>}
                                             {job.finishedAt && <p>Selesai: {formatDate(job.finishedAt)}</p>}
                                             {job.pickedUpAt && <p>Diambil: {formatDate(job.pickedUpAt)}</p>}
@@ -248,16 +257,24 @@ export default function CetakPage() {
 
                                     <div className="mt-auto pt-2">
                                         {job.status === 'ANTRIAN' && (
-                                            <button disabled={busyId === job.id} onClick={() => handleStart(job)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg disabled:opacity-50">Mulai Cetak</button>
+                                            <button disabled={busyId === job.id} onClick={() => handleStart(job)} className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-2 rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                                                {busyId === job.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Mulai Cetak
+                                            </button>
                                         )}
                                         {job.status === 'PROSES' && (
-                                            <button disabled={busyId === job.id} onClick={() => handleFinish(job)} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg disabled:opacity-50">Tandai Selesai</button>
+                                            <button disabled={busyId === job.id} onClick={() => handleFinish(job)} className="w-full bg-success hover:bg-success/90 text-white font-semibold py-2 rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                                                {busyId === job.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Tandai Selesai
+                                            </button>
                                         )}
                                         {job.status === 'SELESAI' && (
-                                            <button disabled={busyId === job.id} onClick={() => handlePickup(job)} className="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 rounded-lg disabled:opacity-50">Konfirmasi Diambil</button>
+                                            <button disabled={busyId === job.id} onClick={() => handlePickup(job)} className="w-full bg-info hover:bg-info/90 text-white font-semibold py-2 rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                                                {busyId === job.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Konfirmasi Diambil
+                                            </button>
                                         )}
                                         {job.status === 'DIAMBIL' && (
-                                            <div className="text-center text-xs text-gray-500 py-2">✓ Selesai & Diambil</div>
+                                            <div className="text-center text-xs text-muted-foreground py-2 flex items-center justify-center gap-1">
+                                                <CheckCircle2 className="w-4 h-4 text-success" /> Selesai & Diambil
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -269,8 +286,8 @@ export default function CetakPage() {
 
             {/* Footer */}
             <footer className="mt-8 py-4 text-center">
-                <p className="text-sm font-semibold text-gray-400 tracking-wide">Voliko Print</p>
-                <p className="text-xs text-gray-400 mt-0.5">&copy; 2026 Muhammad Faisal Abdul Hakim</p>
+                <p className="text-sm font-semibold text-muted-foreground tracking-wide">Voliko Print</p>
+                <p className="text-xs text-muted-foreground mt-0.5">&copy; 2026 Muhammad Faisal Abdul Hakim</p>
             </footer>
         </div>
     );

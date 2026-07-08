@@ -57,8 +57,8 @@ export default function RabLooseItemsSettingsPage() {
     });
 
     return (
-        <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-xl font-bold flex items-center gap-2">
                         <Boxes className="h-5 w-5 text-primary" /> Item Lepas RAB
@@ -73,12 +73,12 @@ export default function RabLooseItemsSettingsPage() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Cari deskripsi…"
-                        className="border rounded pl-7 pr-3 py-1.5 text-sm w-64"
+                        className="border border-border bg-background rounded-lg pl-7 pr-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
                     />
                 </div>
             </div>
 
-            <div className="border rounded-lg overflow-x-auto">
+            <div className="border border-border rounded-xl overflow-x-auto">
                 <table className="w-full text-xs">
                     <thead className="bg-muted/40 text-left">
                         <tr>
@@ -118,22 +118,22 @@ export default function RabLooseItemsSettingsPage() {
                                         )}
                                     </td>
                                     <td className="p-2">{it.unit || "—"}</td>
-                                    <td className="p-2 text-right font-mono">{fmtRp(it.lastPriceRab)}</td>
-                                    <td className="p-2 text-right font-mono">{fmtRp(it.lastPriceCost)}</td>
-                                    <td className="p-2 text-right">{it.usageCount}</td>
+                                    <td className="p-2 text-right nums">{fmtRp(it.lastPriceRab)}</td>
+                                    <td className="p-2 text-right nums">{fmtRp(it.lastPriceCost)}</td>
+                                    <td className="p-2 text-right nums">{it.usageCount}</td>
                                     <td className="p-2 text-[11px] text-muted-foreground">
                                         {it.lastUsedAt ? new Date(it.lastUsedAt).toLocaleDateString("id-ID") : "—"}
                                     </td>
                                     <td className="p-2">
                                         {promoted ? (
                                             <span
-                                                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-800"
+                                                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success"
                                                 title={it.promotedVariant?.product?.name || ""}
                                             >
                                                 <BadgeCheck className="h-3 w-3" /> Dipromote
                                             </span>
                                         ) : (
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                                                 Item lepas
                                             </span>
                                         )}
@@ -144,7 +144,7 @@ export default function RabLooseItemsSettingsPage() {
                                                 onClick={() => setPromoteTarget(it)}
                                                 disabled={promoted}
                                                 title={promoted ? "Sudah dipromote" : "Promote ke Katalog"}
-                                                className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                                                className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-border hover:bg-muted cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
                                                 <PackagePlus className="h-3 w-3" /> Promote
                                             </button>
@@ -152,7 +152,7 @@ export default function RabLooseItemsSettingsPage() {
                                                 onClick={() => setDeleteTarget(it)}
                                                 disabled={promoted}
                                                 title={promoted ? "Tidak bisa dihapus (sudah dipromote)" : "Hapus"}
-                                                className="p-1 text-red-600 hover:bg-red-50 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+                                                className="p-1 text-destructive hover:bg-destructive/10 rounded cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
                                                 <Trash2 className="h-3.5 w-3.5" />
                                             </button>
@@ -178,7 +178,7 @@ export default function RabLooseItemsSettingsPage() {
 
             {deleteTarget && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                    <div className="bg-background border rounded-lg shadow-lg max-w-md w-full p-5 space-y-3">
+                    <div className="glass rounded-xl max-w-md w-full p-5 space-y-3">
                         <h3 className="font-semibold">Hapus item lepas?</h3>
                         <p className="text-sm text-muted-foreground">
                             <b>{deleteTarget.description}</b> akan dihapus permanen dari kamus.
@@ -186,14 +186,14 @@ export default function RabLooseItemsSettingsPage() {
                         <div className="flex items-center gap-2 justify-end">
                             <button
                                 onClick={() => setDeleteTarget(null)}
-                                className="px-3 py-1.5 text-sm border rounded hover:bg-muted"
+                                className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-muted cursor-pointer transition-colors"
                             >
                                 <X className="h-4 w-4 inline -mt-0.5" /> Batal
                             </button>
                             <button
                                 onClick={() => deleteMut.mutate(deleteTarget.id)}
                                 disabled={deleteMut.isPending}
-                                className="flex items-center gap-1 bg-red-600 text-white px-3 py-1.5 rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                                className="flex items-center gap-1 bg-destructive text-destructive-foreground px-3 py-1.5 rounded-lg text-sm hover:bg-destructive/90 cursor-pointer transition-colors disabled:opacity-50"
                             >
                                 {deleteMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                                 <Trash2 className="h-3.5 w-3.5" /> Hapus
@@ -268,7 +268,7 @@ function PromoteModal({
 
     return (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-background border rounded-lg shadow-lg max-w-lg w-full p-5 space-y-3">
+            <div className="glass rounded-xl max-w-lg w-full p-5 space-y-3">
                 <h3 className="font-semibold flex items-center gap-2">
                     <PackagePlus className="h-4 w-4" /> Promote ke Katalog
                 </h3>
@@ -282,7 +282,7 @@ function PromoteModal({
                         <input
                             value={productName}
                             onChange={(e) => setProductName(e.target.value)}
-                            className="w-full border rounded px-3 py-2 text-sm"
+                            className="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
                             autoFocus
                         />
                     </div>
@@ -292,7 +292,7 @@ function PromoteModal({
                             <input
                                 value={sku}
                                 onChange={(e) => setSku(e.target.value)}
-                                className="w-full border rounded px-3 py-2 text-sm font-mono"
+                                className="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
                             />
                         </div>
                         <div>
@@ -301,7 +301,7 @@ function PromoteModal({
                                 type="number"
                                 value={price}
                                 onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
-                                className="w-full border rounded px-3 py-2 text-sm font-mono text-right"
+                                className="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm nums text-right focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
                             />
                         </div>
                     </div>
@@ -311,7 +311,7 @@ function PromoteModal({
                             <select
                                 value={categoryId}
                                 onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : "")}
-                                className="w-full border rounded px-3 py-2 text-sm bg-background"
+                                className="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm transition-colors"
                             >
                                 <option value="">— pilih —</option>
                                 {categories.map((c) => (
@@ -324,7 +324,7 @@ function PromoteModal({
                             <select
                                 value={unitId}
                                 onChange={(e) => setUnitId(e.target.value ? Number(e.target.value) : "")}
-                                className="w-full border rounded px-3 py-2 text-sm bg-background"
+                                className="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm transition-colors"
                             >
                                 <option value="">— pilih —</option>
                                 {units.map((u) => (
@@ -335,19 +335,19 @@ function PromoteModal({
                     </div>
                 </div>
 
-                {error && <p className="text-xs text-red-600">{error}</p>}
+                {error && <p className="text-xs text-destructive">{error}</p>}
 
                 <div className="flex items-center gap-2 justify-end pt-2">
                     <button
                         onClick={onClose}
-                        className="px-3 py-1.5 text-sm border rounded hover:bg-muted"
+                        className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-muted cursor-pointer transition-colors"
                     >
                         Batal
                     </button>
                     <button
                         onClick={submit}
                         disabled={promoteMut.isPending}
-                        className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm hover:opacity-90 disabled:opacity-50"
+                        className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm hover:opacity-90 cursor-pointer transition-colors disabled:opacity-50"
                     >
                         {promoteMut.isPending ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />

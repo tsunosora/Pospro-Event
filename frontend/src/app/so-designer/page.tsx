@@ -53,33 +53,33 @@ export default function DesignerGatePage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-8">
+            <div className="glass rounded-2xl w-full max-w-sm p-8 animate-in">
                 <div className="flex flex-col items-center mb-6">
-                    <div className="bg-indigo-600 rounded-xl p-3 mb-3">
+                    <div className="bg-primary rounded-xl p-3 mb-3">
                         <FileSignature className="h-8 w-8 text-white" />
                     </div>
-                    <h1 className="text-xl font-bold text-slate-900">Portal Desainer</h1>
-                    <p className="text-sm text-slate-500 text-center mt-1">Buat & kelola Surat Order tanpa perlu login akun</p>
+                    <h1 className="text-xl font-bold text-foreground">Portal Desainer</h1>
+                    <p className="text-sm text-muted-foreground text-center mt-1">Buat & kelola Surat Order tanpa perlu login akun</p>
                 </div>
 
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm mb-4">
+                    <div className="bg-destructive/12 border border-destructive/30 text-destructive rounded-lg px-3 py-2 text-sm mb-4">
                         {error}
                     </div>
                 )}
 
                 {fetching ? (
-                    <div className="flex justify-center py-6 text-slate-400">
+                    <div className="flex justify-center py-6 text-muted-foreground">
                         <Loader2 className="h-5 w-5 animate-spin" />
                     </div>
                 ) : (
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Nama Desainer</label>
+                            <label className="block text-sm font-medium text-foreground mb-1">Nama Desainer</label>
                             <select
                                 value={selectedId}
                                 onChange={e => { setSelectedId(Number(e.target.value)); setError(null); }}
-                                className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                className="w-full border border-border rounded-lg px-3 py-2.5 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary/50"
                             >
                                 <option value="">-- Pilih nama kamu --</option>
                                 {designers.map(d => (
@@ -89,16 +89,16 @@ export default function DesignerGatePage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">PIN</label>
+                            <label className="block text-sm font-medium text-foreground mb-1">PIN</label>
                             <div className="relative">
-                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <input
                                     type="password"
                                     value={pin}
                                     onChange={e => { setPin(e.target.value); setError(null); }}
                                     onKeyDown={e => e.key === "Enter" && handleLogin()}
                                     placeholder="Masukkan PIN"
-                                    className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 tracking-widest"
+                                    className="w-full pl-9 pr-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 tracking-widest bg-card"
                                     maxLength={10}
                                 />
                             </div>
@@ -107,7 +107,7 @@ export default function DesignerGatePage() {
                         <button
                             onClick={handleLogin}
                             disabled={loading || !selectedId || !pin.trim()}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
+                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2.5 rounded-lg text-sm transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                             Masuk
@@ -115,7 +115,7 @@ export default function DesignerGatePage() {
                     </div>
                 )}
 
-                <p className="text-xs text-slate-400 text-center mt-6">
+                <p className="text-xs text-muted-foreground text-center mt-6">
                     Belum terdaftar? Hubungi admin untuk mendaftarkan nama & PIN kamu.
                 </p>
             </div>

@@ -53,9 +53,9 @@ function TrendBadge({ percent, isRevenue = false }: { percent: number | null; is
         return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border/50"><Minus className="w-3 h-3" />0%</span>;
     }
     if (percent > 0) {
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-600 border border-green-500/20"><TrendingUp className="w-3 h-3" />+{percent}%</span>;
+        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success/15 text-success border border-success/30"><TrendingUp className="w-3 h-3" />+{percent}%</span>;
     }
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/20"><TrendingDown className="w-3 h-3" />{percent}%</span>;
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-destructive/12 text-destructive border border-destructive/30"><TrendingDown className="w-3 h-3" />{percent}%</span>;
 }
 
 export default function SalesReportPage() {
@@ -181,12 +181,12 @@ export default function SalesReportPage() {
     };
     const maxRevenue = topItems[0]?.revenue || 1;
 
-    const RANK_COLORS = ['text-yellow-500', 'text-slate-400', 'text-amber-600'];
-    const RANK_BG = ['bg-yellow-500/10 border-yellow-500/30', 'bg-slate-400/10 border-slate-400/30', 'bg-amber-500/10 border-amber-500/30'];
+    const RANK_COLORS = ['text-yellow-500', 'text-muted-foreground', 'text-amber-600'];
+    const RANK_BG = ['bg-yellow-500/10 border-yellow-500/30', 'bg-muted/60 border-border', 'bg-amber-500/10 border-amber-500/30'];
 
     return (
         <div className="space-y-6">
-            <div className="sm:flex sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Laporan Penjualan</h1>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -195,7 +195,7 @@ export default function SalesReportPage() {
                     </p>
                 </div>
                 <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
-                    <button onClick={handleExportExcel} className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 text-green-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-500/20 transition-colors shadow-sm">
+                    <button onClick={handleExportExcel} className="flex items-center gap-2 bg-success/15 border border-success/30 text-success px-4 py-2 rounded-lg text-sm font-medium hover:bg-success/25 transition-colors shadow-sm">
                         <FileSpreadsheet className="h-4 w-4" />
                         Export Excel
                     </button>
@@ -279,24 +279,24 @@ export default function SalesReportPage() {
                 <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {/* Pendapatan Kas — cash basis, identik dengan dashboard */}
-                        <div className="glass p-6 rounded-xl border border-emerald-500/30 bg-emerald-500/5 flex flex-col justify-center">
-                            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-1">Pendapatan Kas</p>
-                            <h2 className="text-3xl font-bold text-foreground">Rp {Number(summary?.pendapatanKas || 0).toLocaleString('id-ID')}</h2>
+                        <div className="glass p-6 rounded-xl border border-success/30 bg-success/10 flex flex-col justify-center">
+                            <p className="text-sm font-medium text-success mb-1">Pendapatan Kas</p>
+                            <h2 className="text-3xl font-bold text-foreground nums">Rp {Number(summary?.pendapatanKas || 0).toLocaleString('id-ID')}</h2>
                             <p className="text-xs text-muted-foreground mt-1">Uang masuk aktual (cash basis)</p>
                         </div>
                         {/* Invoice Lunas — accrual, total grandTotal invoice PAID */}
                         <div className="glass p-6 rounded-xl border border-border flex flex-col justify-center">
                             <p className="text-sm font-medium text-muted-foreground mb-1">Invoice Lunas</p>
-                            <h2 className="text-3xl font-bold text-foreground">Rp {Number(summary?.totalRevenue || 0).toLocaleString('id-ID')}</h2>
+                            <h2 className="text-3xl font-bold text-foreground nums">Rp {Number(summary?.totalRevenue || 0).toLocaleString('id-ID')}</h2>
                             <p className="text-xs text-muted-foreground mt-1">Total invoice PAID (accrual)</p>
                         </div>
                         <div className="glass p-6 rounded-xl border border-border flex flex-col justify-center">
                             <p className="text-sm font-medium text-muted-foreground mb-1">Volume Transaksi</p>
-                            <h2 className="text-3xl font-bold text-foreground">{summary?.totalTransactions || 0}<span className="text-lg text-muted-foreground font-normal ml-1">struk</span></h2>
+                            <h2 className="text-3xl font-bold text-foreground nums">{summary?.totalTransactions || 0}<span className="text-lg text-muted-foreground font-normal ml-1">struk</span></h2>
                         </div>
                         <div className="glass p-6 rounded-xl border border-border flex flex-col justify-center">
                             <p className="text-sm font-medium text-muted-foreground mb-1">Rata-rata Order (Basket Size)</p>
-                            <h2 className="text-3xl font-bold text-foreground">Rp {Math.round(summary?.averageTransactionValue || 0).toLocaleString('id-ID')}<span className="text-lg text-muted-foreground font-normal ml-1">/trx</span></h2>
+                            <h2 className="text-3xl font-bold text-foreground nums">Rp {Math.round(summary?.averageTransactionValue || 0).toLocaleString('id-ID')}<span className="text-lg text-muted-foreground font-normal ml-1">/trx</span></h2>
                         </div>
                     </div>
 
@@ -317,8 +317,8 @@ export default function SalesReportPage() {
                                             <p className="text-xs text-muted-foreground">{item.sku}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="font-bold text-primary">{item.qty} pcs</p>
-                                            <p className="text-xs text-muted-foreground">Rp {Number(item.revenue).toLocaleString('id-ID')}</p>
+                                            <p className="font-bold text-primary nums">{item.qty} pcs</p>
+                                            <p className="text-xs text-muted-foreground nums">Rp {Number(item.revenue).toLocaleString('id-ID')}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -334,34 +334,34 @@ export default function SalesReportPage() {
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border/50">
                                     <div className="flex items-center gap-3">
-                                        <Banknote className="h-5 w-5 text-green-500 shrink-0" />
+                                        <Banknote className="h-5 w-5 text-success shrink-0" />
                                         <div>
                                             <span className="font-medium block text-sm">Cash / Tunai</span>
                                             <span className="text-xs text-muted-foreground">{summary?.paymentMethods?.CASH || 0} trx</span>
                                         </div>
                                     </div>
-                                    <span className="font-bold text-base text-green-600">Rp {Number(summary?.paymentMethodsRevenue?.CASH || 0).toLocaleString('id-ID')}</span>
+                                    <span className="font-bold text-base text-success nums">Rp {Number(summary?.paymentMethodsRevenue?.CASH || 0).toLocaleString('id-ID')}</span>
                                 </div>
                                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border/50">
                                     <div className="flex items-center gap-3">
-                                        <CreditCard className="h-5 w-5 text-blue-500 shrink-0" />
+                                        <CreditCard className="h-5 w-5 text-info shrink-0" />
                                         <div>
                                             <span className="font-medium block text-sm">QRIS</span>
                                             <span className="text-xs text-muted-foreground">{summary?.paymentMethods?.QRIS || 0} trx</span>
                                         </div>
                                     </div>
-                                    <span className="font-bold text-base text-blue-600">Rp {Number(summary?.paymentMethodsRevenue?.QRIS || 0).toLocaleString('id-ID')}</span>
+                                    <span className="font-bold text-base text-info nums">Rp {Number(summary?.paymentMethodsRevenue?.QRIS || 0).toLocaleString('id-ID')}</span>
                                 </div>
                                 <div className="p-4 bg-muted/30 rounded-lg border border-border/50 space-y-3">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <Landmark className="h-5 w-5 text-orange-500 shrink-0" />
+                                            <Landmark className="h-5 w-5 text-warning shrink-0" />
                                             <div>
                                                 <span className="font-medium block text-sm">Transfer Bank</span>
                                                 <span className="text-xs text-muted-foreground">{summary?.paymentMethods?.BANK_TRANSFER || 0} trx</span>
                                             </div>
                                         </div>
-                                        <span className="font-bold text-base text-orange-600">Rp {Number(summary?.paymentMethodsRevenue?.BANK_TRANSFER || 0).toLocaleString('id-ID')}</span>
+                                        <span className="font-bold text-base text-warning nums">Rp {Number(summary?.paymentMethodsRevenue?.BANK_TRANSFER || 0).toLocaleString('id-ID')}</span>
                                     </div>
                                     {summary?.bankTransfersRevenue && Object.keys(summary.bankTransfersRevenue).length > 0 && (
                                         <div className="pt-3 border-t border-border/50 space-y-2">
@@ -489,7 +489,7 @@ export default function SalesReportPage() {
                                 {(filterKasir || filterMetode || filterWaktu !== 'semua') && (
                                     <button
                                         onClick={() => { setFilterKasir(''); setFilterMetode(''); setFilterWaktu('semua'); }}
-                                        className="text-xs text-red-500 hover:text-red-600 font-medium px-2 py-0.5 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors"
+                                        className="text-xs text-destructive hover:text-destructive font-medium px-2 py-0.5 rounded-md bg-destructive/10 hover:bg-destructive/20 transition-colors"
                                     >
                                         Reset filter
                                     </button>
@@ -579,8 +579,8 @@ export default function SalesReportPage() {
                                                                     : <ChevronRight className="w-3.5 h-3.5" />
                                                                 }
                                                             </button>
-                                                            {trx.status === 'PENDING' && <span className="bg-sky-500/10 text-sky-600 border border-sky-500/20 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">PENDING</span>}
-                                                            {trx.status === 'PARTIAL' && Number(trx.downPayment) > 0 && <span className="bg-orange-500/10 text-orange-600 border border-orange-500/20 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">DP</span>}
+                                                            {trx.status === 'PENDING' && <span className="bg-info/15 text-info border border-info/30 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">PENDING</span>}
+                                                            {trx.status === 'PARTIAL' && Number(trx.downPayment) > 0 && <span className="bg-warning/15 text-warning border border-warning/30 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">DP</span>}
                                                             {trx.status === 'PARTIAL' && Number(trx.downPayment) === 0 && trx.dueDate && <span className="bg-violet-500/10 text-violet-600 border border-violet-500/20 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">KREDIT</span>}
                                                             <div>
                                                                 <span>{trx.invoiceNumber}</span>
@@ -595,7 +595,7 @@ export default function SalesReportPage() {
                                                             ? <span className="text-muted-foreground">—</span>
                                                             : trx.status === 'PAID' && trx.dpPaymentMethod
                                                                 ? <div className="flex flex-col gap-0.5">
-                                                                    <span className="inline-flex items-center rounded-md bg-orange-500/10 px-2 py-0.5 text-[10px] font-medium text-orange-600">
+                                                                    <span className="inline-flex items-center rounded-md bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning">
                                                                         DP: {fmtMethod(trx.dpPaymentMethod, trx.dpBankAccountId)}
                                                                     </span>
                                                                     <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
@@ -603,7 +603,7 @@ export default function SalesReportPage() {
                                                                     </span>
                                                                 </div>
                                                             : trx.status === 'PARTIAL' && Number(trx.downPayment) > 0
-                                                                ? <span className="inline-flex items-center rounded-md bg-orange-500/10 px-2 py-1 text-xs font-medium text-orange-600">
+                                                                ? <span className="inline-flex items-center rounded-md bg-warning/15 px-2 py-1 text-xs font-medium text-warning">
                                                                     DP: {fmtMethod(trx.dpPaymentMethod || trx.paymentMethod, trx.dpBankAccountId ?? trx.bankAccountId, trx.bankAccount)}
                                                                 </span>
                                                                 : <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
@@ -611,7 +611,7 @@ export default function SalesReportPage() {
                                                                 </span>
                                                         }
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-foreground text-right">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-foreground text-right nums">
                                                         Rp {Number(trx.grandTotal).toLocaleString('id-ID')}
                                                     </td>
                                                 </tr>
@@ -699,8 +699,8 @@ export default function SalesReportPage() {
                                 </div>
                                 <div className="col-span-2">
                                     <p className="text-muted-foreground text-xs mb-1">Status Pembayaran</p>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${selectedTransaction.status === 'PAID' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
-                                        selectedTransaction.status === 'PARTIAL' ? 'bg-orange-500/10 text-orange-600 border border-orange-500/20' :
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${selectedTransaction.status === 'PAID' ? 'bg-success/15 text-success border border-success/30' :
+                                        selectedTransaction.status === 'PARTIAL' ? 'bg-warning/15 text-warning border border-warning/30' :
                                             'bg-muted text-muted-foreground'
                                         }`}>
                                         {selectedTransaction.status === 'PARTIAL' ? 'DP / SEBAGIAN' : selectedTransaction.status === 'PAID' ? 'LUNAS' : selectedTransaction.status}
@@ -837,9 +837,9 @@ export default function SalesReportPage() {
                                                 <span>Rp {Math.round(computedSubtotal).toLocaleString('id-ID')}</span>
                                             </div>
                                             {discount > 0 && (
-                                                <div className="flex justify-between text-emerald-600">
+                                                <div className="flex justify-between text-success">
                                                     <span>Diskon</span>
-                                                    <span>- Rp {discount.toLocaleString('id-ID')}</span>
+                                                    <span className="nums">- Rp {discount.toLocaleString('id-ID')}</span>
                                                 </div>
                                             )}
                                             {tax > 0 && (
@@ -860,14 +860,14 @@ export default function SalesReportPage() {
                                             </div>
                                             {/* DP Details if partial */}
                                             {selectedTransaction.status === 'PARTIAL' && (
-                                                <div className="mt-3 p-3 bg-orange-500/5 rounded-lg border border-orange-500/20 space-y-1">
-                                                    <div className="flex justify-between font-medium text-orange-700 text-xs">
+                                                <div className="mt-3 p-3 bg-warning/10 rounded-lg border border-warning/20 space-y-1">
+                                                    <div className="flex justify-between font-medium text-warning text-xs">
                                                         <span>Uang Muka (DP)</span>
-                                                        <span>Rp {downPayment.toLocaleString('id-ID')}</span>
+                                                        <span className="nums">Rp {downPayment.toLocaleString('id-ID')}</span>
                                                     </div>
-                                                    <div className="flex justify-between font-bold text-red-600 text-sm pt-1 border-t border-orange-500/20">
+                                                    <div className="flex justify-between font-bold text-destructive text-sm pt-1 border-t border-warning/20">
                                                         <span>Sisa Tagihan</span>
-                                                        <span>Rp {(computedGrandTotal - downPayment).toLocaleString('id-ID')}</span>
+                                                        <span className="nums">Rp {(computedGrandTotal - downPayment).toLocaleString('id-ID')}</span>
                                                     </div>
                                                 </div>
                                             )}
@@ -894,7 +894,7 @@ export default function SalesReportPage() {
                                 {(selectedTransaction.status === 'PAID' || selectedTransaction.status === 'PARTIAL' || selectedTransaction.status === 'PENDING') && (
                                     <button
                                         onClick={() => setShowEditModal(true)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-500/20 transition-colors outline-none"
+                                        className="flex items-center gap-2 px-4 py-2 bg-warning/15 border border-warning/30 text-warning rounded-lg text-sm font-medium hover:bg-warning/25 transition-colors outline-none"
                                     >
                                         <PenSquare className="w-4 h-4" />
                                         {isManager ? 'Edit' : selectedTransaction.status === 'PENDING' ? 'Edit Invoice' : 'Ajukan Edit'}

@@ -114,7 +114,7 @@ function VariantCounter({
     const label = [variant.variantName, variant.size, variant.color].filter(Boolean).join(' · ');
 
     return (
-        <div className={`p-3.5 bg-card rounded-xl border ${estimation.isEstimated ? 'border-amber-400/50' : 'border-border'}`}>
+        <div className={`p-3.5 bg-card rounded-xl border ${estimation.isEstimated ? 'border-warning/50' : 'border-border'}`}>
             <div className="flex items-center gap-3">
                 {img ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -134,9 +134,9 @@ function VariantCounter({
                             <button
                                 type="button"
                                 onClick={onEstimateToggle}
-                                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${estimation.isEstimated
-                                    ? 'bg-amber-500/20 text-amber-700 border-amber-500/40'
-                                    : 'bg-muted text-muted-foreground border-border hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'
+                                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${estimation.isEstimated
+                                    ? 'bg-warning/15 text-warning border-warning/30'
+                                    : 'bg-muted text-muted-foreground border-border hover:bg-warning/10 hover:text-warning hover:border-warning/30'
                                     }`}
                             >
                                 {estimation.isEstimated ? '~ Estimasi aktif' : 'Gunakan Estimasi'}
@@ -182,18 +182,18 @@ function VariantCounter({
                             value={estimation.decimalVal}
                             onChange={e => onDecimalChange(e.target.value)}
                             placeholder="Estimasi m²"
-                            className="flex-1 text-center text-base font-bold border border-amber-400 rounded-lg py-2 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400/30 text-amber-900"
+                            className="flex-1 text-center text-base font-bold nums border border-warning/50 rounded-lg py-2 bg-warning/10 focus:outline-none focus:ring-2 focus:ring-warning/30 text-foreground"
                         />
-                        <span className="text-xs text-amber-700 font-medium shrink-0">{unit}</span>
+                        <span className="text-xs text-warning font-medium shrink-0">{unit}</span>
                     </div>
                     <input
                         type="text"
                         value={estimation.notes}
                         onChange={e => onNotesChange(e.target.value)}
                         placeholder="Catatan estimasi (misal: sisa ±30% dari roll baru 50m²)"
-                        className="w-full text-xs border border-amber-300 rounded-lg px-3 py-2 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-amber-300/30 text-amber-800"
+                        className="w-full text-xs border border-warning/30 rounded-lg px-3 py-2 bg-warning/10 focus:outline-none focus:ring-2 focus:ring-warning/30 text-foreground"
                     />
-                    <p className="text-[10px] text-amber-600">
+                    <p className="text-[10px] text-warning">
                         Nilai estimasi akan dicatat dengan tanda (~) pada laporan admin.
                     </p>
                 </div>
@@ -303,7 +303,7 @@ function CountingScreen({
     if (submitted) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center">
-                <CheckCircle2 className="h-20 w-20 text-emerald-500 mb-4" />
+                <CheckCircle2 className="h-20 w-20 text-success mb-4" />
                 <h2 className="text-2xl font-bold">Data Tersimpan!</h2>
                 <p className="text-muted-foreground mt-2 text-sm">
                     Hasil hitungan Anda sudah diterima admin.<br />Terima kasih, {operatorName}!
@@ -339,7 +339,7 @@ function CountingScreen({
                         <p className="text-xs text-muted-foreground">Operator: <strong>{operatorName}</strong></p>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm font-bold text-primary">{filled} / {totalVariants}</p>
+                        <p className="text-sm font-bold text-primary nums">{filled} / {totalVariants}</p>
                         <p className="text-xs text-muted-foreground">sudah diisi</p>
                     </div>
                 </div>
@@ -353,7 +353,7 @@ function CountingScreen({
 
             {/* Product List */}
             <div className="px-4 pt-4 space-y-6">
-                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 text-xs">
+                <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 text-warning text-xs">
                     Hitung fisik produk di gudang. Stok komputer sengaja disembunyikan agar hasil hitungan akurat.
                     Data tersimpan otomatis — Anda bisa kembali melanjutkan jika sinyal terputus.
                     Untuk bahan roll (banner), gunakan tombol <strong>Gunakan Estimasi</strong> jika tidak bisa diukur tepat.

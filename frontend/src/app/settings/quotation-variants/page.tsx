@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Plus, Pencil, Trash2, Loader2, Save, X, Eye, EyeOff,
@@ -105,10 +105,10 @@ export default function QuotationVariantsSettingsPage() {
 
     return (
         <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
-            <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <FileText className="h-6 w-6 text-violet-600" />
+                        <FileText className="h-6 w-6 text-primary" />
                         Varian Penawaran
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -116,14 +116,14 @@ export default function QuotationVariantsSettingsPage() {
                         Tiap varian punya template & default DP sendiri.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                         <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
                         Tampilkan nonaktif
                     </label>
                     <button
                         onClick={() => { resetForm(); setShowForm(true); }}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-md text-sm font-semibold"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-semibold transition-colors"
                     >
                         <Plus className="h-4 w-4" /> Tambah Varian
                     </button>
@@ -132,12 +132,12 @@ export default function QuotationVariantsSettingsPage() {
 
             {/* Form */}
             {showForm && (
-                <div className="rounded-xl border-2 border-violet-200 bg-violet-50/40 p-4 space-y-3">
+                <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                        <h2 className="font-bold text-violet-900">
+                        <h2 className="font-bold text-foreground">
                             {editingId ? "Edit Varian" : "Tambah Varian Baru"}
                         </h2>
-                        <button onClick={resetForm} className="p-1.5 hover:bg-white rounded-md">
+                        <button onClick={resetForm} className="p-1.5 hover:bg-card rounded-md cursor-pointer transition-colors">
                             <X className="h-4 w-4" />
                         </button>
                     </div>
@@ -148,7 +148,7 @@ export default function QuotationVariantsSettingsPage() {
                                 <input
                                     value={code}
                                     onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_"))}
-                                    className="w-full border-2 rounded-md pl-10 pr-3 py-2 text-sm font-mono uppercase focus:border-violet-500 outline-none"
+                                    className="w-full border-2 rounded-md pl-10 pr-3 py-2 text-sm font-mono uppercase focus:border-primary outline-none"
                                     placeholder="INTERIOR"
                                     maxLength={50}
                                 />
@@ -158,7 +158,7 @@ export default function QuotationVariantsSettingsPage() {
                             <input
                                 value={label}
                                 onChange={(e) => setLabel(e.target.value)}
-                                className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-violet-500 outline-none"
+                                className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-primary outline-none"
                                 placeholder="Jasa Interior Building"
                             />
                         </Field>
@@ -168,7 +168,7 @@ export default function QuotationVariantsSettingsPage() {
                         <input
                             value={subject}
                             onChange={(e) => setSubject(e.target.value)}
-                            className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-violet-500 outline-none"
+                            className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-primary outline-none"
                             placeholder='Penawaran Jasa Interior — Custom Office Fitout'
                         />
                     </Field>
@@ -178,7 +178,7 @@ export default function QuotationVariantsSettingsPage() {
                             <select
                                 value={templateKey}
                                 onChange={(e) => setTemplateKey(e.target.value as TemplateKey)}
-                                className="w-full border-2 rounded-md px-3 py-2 text-sm bg-white focus:border-violet-500 outline-none"
+                                className="w-full border-2 rounded-md px-3 py-2 text-sm bg-background focus:border-primary outline-none"
                             >
                                 {TEMPLATE_OPTIONS.map((t) => (
                                     <option key={t.value} value={t.value}>{t.label}</option>
@@ -196,7 +196,7 @@ export default function QuotationVariantsSettingsPage() {
                                     min="0" max="100" step="0.5"
                                     value={defaultDpPercent}
                                     onChange={(e) => setDefaultDpPercent(parseFloat(e.target.value) || 0)}
-                                    className="w-full border-2 rounded-md pl-10 pr-3 py-2 text-sm focus:border-violet-500 outline-none"
+                                    className="w-full border-2 rounded-md pl-10 pr-3 py-2 text-sm focus:border-primary outline-none"
                                 />
                             </div>
                         </Field>
@@ -209,7 +209,7 @@ export default function QuotationVariantsSettingsPage() {
                                 <input
                                     value={color}
                                     onChange={(e) => setColor(e.target.value)}
-                                    className="flex-1 border-2 rounded-md pl-10 pr-3 py-2 text-sm font-mono focus:border-violet-500 outline-none"
+                                    className="flex-1 border-2 rounded-md pl-10 pr-3 py-2 text-sm font-mono focus:border-primary outline-none"
                                     placeholder="#c8203a"
                                 />
                                 {color && (
@@ -222,7 +222,7 @@ export default function QuotationVariantsSettingsPage() {
                                 type="number"
                                 value={orderIndex}
                                 onChange={(e) => setOrderIndex(parseInt(e.target.value) || 0)}
-                                className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-violet-500 outline-none"
+                                className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-primary outline-none"
                             />
                         </Field>
                     </div>
@@ -234,20 +234,20 @@ export default function QuotationVariantsSettingsPage() {
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 rows={2}
-                                className="w-full border-2 rounded-md pl-10 pr-3 py-2 text-sm focus:border-violet-500 outline-none"
+                                className="w-full border-2 rounded-md pl-10 pr-3 py-2 text-sm focus:border-primary outline-none"
                                 placeholder="Jasa custom interior untuk office, retail, restaurant, dll"
                             />
                         </div>
                     </Field>
 
                     <div className="flex justify-end gap-2 pt-2 border-t">
-                        <button onClick={resetForm} className="px-4 py-2 border-2 rounded-md text-sm font-semibold hover:bg-white">
+                        <button onClick={resetForm} className="px-4 py-2 border-2 border-border rounded-md text-sm font-semibold hover:bg-card cursor-pointer transition-colors">
                             Batal
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={createMut.isPending || updateMut.isPending}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-md text-sm font-bold disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-bold disabled:opacity-50 transition-colors"
                         >
                             {(createMut.isPending || updateMut.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                             {editingId ? "Update" : "Simpan"}
@@ -257,9 +257,10 @@ export default function QuotationVariantsSettingsPage() {
             )}
 
             {/* List */}
-            <div className="rounded-xl border-2 border-slate-200 bg-white overflow-hidden">
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+                    <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground">
                         <tr>
                             <th className="px-3 py-2.5 text-left">Kode</th>
                             <th className="px-3 py-2.5 text-left">Label</th>
@@ -277,42 +278,42 @@ export default function QuotationVariantsSettingsPage() {
                             <tr><td colSpan={6} className="px-3 py-10 text-center text-muted-foreground text-sm">Belum ada varian. Klik <b>Tambah Varian</b> untuk membuat.</td></tr>
                         )}
                         {variants.map((v) => (
-                            <tr key={v.id} className={`border-t border-slate-100 ${!v.isActive ? "opacity-50" : ""}`}>
+                            <tr key={v.id} className={`border-t border-border transition-colors ${!v.isActive ? "opacity-50" : ""}`}>
                                 <td className="px-3 py-2.5 font-mono text-xs font-bold">{v.code}</td>
                                 <td className="px-3 py-2.5">
                                     <div className="font-medium">{v.label}</div>
                                     {v.description && <div className="text-[11px] text-muted-foreground truncate max-w-xs">{v.description}</div>}
                                 </td>
                                 <td className="px-3 py-2.5 text-xs">
-                                    <span className="bg-slate-100 px-2 py-0.5 rounded font-mono">{v.templateKey}</span>
+                                    <span className="bg-muted px-2 py-0.5 rounded font-mono">{v.templateKey}</span>
                                 </td>
-                                <td className="px-3 py-2.5 text-right font-mono text-xs">{Number(v.defaultDpPercent)}%</td>
+                                <td className="px-3 py-2.5 text-right font-mono text-xs nums">{Number(v.defaultDpPercent)}%</td>
                                 <td className="px-3 py-2.5">
                                     {v.color ? (
                                         <div className="inline-flex items-center gap-1.5">
                                             <span className="w-5 h-5 rounded border" style={{ backgroundColor: v.color }} />
                                             <span className="text-[11px] font-mono">{v.color}</span>
                                         </div>
-                                    ) : <span className="text-slate-400">—</span>}
+                                    ) : <span className="text-muted-foreground">—</span>}
                                 </td>
                                 <td className="px-3 py-2.5">
                                     <div className="flex items-center justify-center gap-0.5">
-                                        <button onClick={() => startEdit(v)} title="Edit" className="p-1.5 text-amber-700 hover:bg-amber-50 rounded">
+                                        <button onClick={() => startEdit(v)} title="Edit" className="p-1.5 text-warning hover:bg-warning/10 rounded cursor-pointer transition-colors">
                                             <Pencil className="h-3.5 w-3.5" />
                                         </button>
                                         {v.isActive ? (
-                                            <button onClick={() => toggleActiveMut.mutate({ id: v.id, isActive: false })} title="Nonaktifkan" className="p-1.5 text-slate-600 hover:bg-slate-100 rounded">
+                                            <button onClick={() => toggleActiveMut.mutate({ id: v.id, isActive: false })} title="Nonaktifkan" className="p-1.5 text-muted-foreground hover:bg-muted rounded cursor-pointer transition-colors">
                                                 <EyeOff className="h-3.5 w-3.5" />
                                             </button>
                                         ) : (
-                                            <button onClick={() => toggleActiveMut.mutate({ id: v.id, isActive: true })} title="Aktifkan" className="p-1.5 text-slate-600 hover:bg-slate-100 rounded">
+                                            <button onClick={() => toggleActiveMut.mutate({ id: v.id, isActive: true })} title="Aktifkan" className="p-1.5 text-muted-foreground hover:bg-muted rounded cursor-pointer transition-colors">
                                                 <Eye className="h-3.5 w-3.5" />
                                             </button>
                                         )}
                                         <button
                                             onClick={() => { if (confirm(`Hapus varian "${v.label}"?\nKalau sudah dipakai quotation, akan otomatis dinonaktifkan saja.`)) deleteMut.mutate(v.id); }}
                                             title="Hapus"
-                                            className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                                            className="p-1.5 text-destructive hover:bg-destructive/10 rounded cursor-pointer transition-colors"
                                         >
                                             <Trash2 className="h-3.5 w-3.5" />
                                         </button>
@@ -322,6 +323,7 @@ export default function QuotationVariantsSettingsPage() {
                         ))}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     );
@@ -338,7 +340,7 @@ function Field({
 }) {
     return (
         <label className="block">
-            <span className="text-sm font-semibold text-slate-700 mb-1 block">{label}</span>
+            <span className="text-sm font-semibold text-foreground mb-1 block">{label}</span>
             {children}
             {hint && <span className="text-[11px] text-muted-foreground mt-1 block">{hint}</span>}
         </label>

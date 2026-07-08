@@ -14,9 +14,9 @@ import {
 type OpnameStatus = 'ONGOING' | 'COMPLETED' | 'CANCELLED';
 
 const STATUS_BADGE: Record<OpnameStatus, { label: string; cls: string }> = {
-    ONGOING:   { label: 'Berlangsung', cls: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' },
-    COMPLETED: { label: 'Selesai',     cls: 'bg-blue-500/15 text-blue-600 border-blue-500/30' },
-    CANCELLED: { label: 'Dibatalkan',  cls: 'bg-red-500/15 text-red-600 border-red-500/30' },
+    ONGOING:   { label: 'Berlangsung', cls: 'bg-success/15 text-success border-success/30' },
+    COMPLETED: { label: 'Selesai',     cls: 'bg-info/15 text-info border-info/30' },
+    CANCELLED: { label: 'Dibatalkan',  cls: 'bg-destructive/12 text-destructive border-destructive/30' },
 };
 
 function StatusBadge({ status }: { status: OpnameStatus }) {
@@ -154,7 +154,7 @@ function VariantWasteHistory({ variantId, since }: { variantId: number; since: s
     return (
         <div className="mt-1 space-y-0.5">
             {waste.map((w: any) => (
-                <p key={w.id} className="text-[10px] text-amber-600 leading-tight">
+                <p key={w.id} className="text-[10px] text-warning leading-tight">
                     {new Date(w.date).toLocaleDateString('id-ID')} — {w.reason} <span className="font-medium">(-{w.quantity})</span>
                 </p>
             ))}
@@ -274,7 +274,7 @@ function SessionDetail({ sessionId, onBack }: { sessionId: string; onBack: () =>
 
             {/* Warning jika ada selisih */}
             {session.status === 'ONGOING' && hasMismatch && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 text-sm">
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-warning/10 border border-warning/20 text-warning text-sm">
                     <AlertTriangle className="h-4 w-4 shrink-0" />
                     <span>Ada selisih stok yang perlu ditinjau sebelum diselesaikan.</span>
                 </div>
@@ -324,19 +324,19 @@ function SessionDetail({ sessionId, onBack }: { sessionId: string; onBack: () =>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="p-3 text-center font-mono">{v.systemStock}</td>
+                                        <td className="p-3 text-center font-mono nums">{v.systemStock}</td>
                                         {operators.map(op => {
                                             const inp = variantsByOp[op];
                                             return (
                                                 <td key={op} className="p-3 text-center">
                                                     {inp ? (
                                                         <div className="flex flex-col items-center gap-0.5">
-                                                            <span className={`font-mono font-medium ${inp.variance !== 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                                            <span className={`font-mono nums font-medium ${inp.variance !== 0 ? 'text-warning' : 'text-success'}`}>
                                                                 {inp.actual}
                                                             </span>
                                                             {inp.isEstimated && (
                                                                 <span
-                                                                    className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded cursor-help border border-amber-300"
+                                                                    className="text-[10px] bg-warning/15 text-warning px-1.5 py-0.5 rounded cursor-help border border-warning/30"
                                                                     title={inp.estimationNotes ?? 'Nilai estimasi (tidak terukur tepat)'}
                                                                 >
                                                                     ~Est.
@@ -349,8 +349,8 @@ function SessionDetail({ sessionId, onBack }: { sessionId: string; onBack: () =>
                                                 </td>
                                             );
                                         })}
-                                        <td className="p-3 text-center font-mono font-semibold">
-                                            <span className={finalVariance > 0 ? 'text-emerald-600' : finalVariance < 0 ? 'text-red-500' : 'text-muted-foreground'}>
+                                        <td className="p-3 text-center font-mono nums font-semibold">
+                                            <span className={finalVariance > 0 ? 'text-success' : finalVariance < 0 ? 'text-destructive' : 'text-muted-foreground'}>
                                                 {finalVariance > 0 ? `+${finalVariance}` : finalVariance === 0 ? '✓' : finalVariance}
                                             </span>
                                         </td>
@@ -375,7 +375,7 @@ function SessionDetail({ sessionId, onBack }: { sessionId: string; onBack: () =>
 
             {/* Actions */}
             {session.status === 'ONGOING' && (
-                <div className="flex gap-3 pt-2 border-t border-border">
+                <div className="flex flex-wrap gap-3 pt-2 border-t border-border">
                     <button
                         onClick={() => cancelMutation.mutate()}
                         disabled={cancelMutation.isPending}
@@ -419,7 +419,7 @@ export default function OpnamePage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <ClipboardList className="h-6 w-6 text-primary" />
@@ -455,8 +455,8 @@ export default function OpnamePage() {
                             className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-muted/30 cursor-pointer transition-all"
                         >
                             <div className="shrink-0">
-                                {s.status === 'ONGOING' && <Clock className="h-5 w-5 text-emerald-500" />}
-                                {s.status === 'COMPLETED' && <CheckCircle2 className="h-5 w-5 text-blue-500" />}
+                                {s.status === 'ONGOING' && <Clock className="h-5 w-5 text-success" />}
+                                {s.status === 'COMPLETED' && <CheckCircle2 className="h-5 w-5 text-info" />}
                                 {s.status === 'CANCELLED' && <Ban className="h-5 w-5 text-muted-foreground" />}
                             </div>
                             <div className="flex-1 min-w-0">

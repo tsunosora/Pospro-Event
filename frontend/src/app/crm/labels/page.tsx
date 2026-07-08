@@ -44,7 +44,7 @@ export default function CrmLabelsPage() {
         <div className="p-4 max-w-3xl mx-auto space-y-4">
             <Link
                 href="/crm"
-                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
                 <ArrowLeft className="h-4 w-4" />
                 Kembali
@@ -63,10 +63,10 @@ export default function CrmLabelsPage() {
                     if (!newName.trim()) return;
                     createMut.mutate();
                 }}
-                className="rounded-lg border border-border bg-card p-3 flex items-end gap-2"
+                className="glass rounded-xl p-3 flex flex-wrap items-end gap-2"
             >
                 <div className="flex-1">
-                    <label className="text-[11px] text-muted-foreground">Nama Label</label>
+                    <label className="text-xs text-muted-foreground">Nama Label</label>
                     <input
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
@@ -75,7 +75,7 @@ export default function CrmLabelsPage() {
                     />
                 </div>
                 <div>
-                    <label className="text-[11px] text-muted-foreground">Warna</label>
+                    <label className="text-xs text-muted-foreground">Warna</label>
                     <input
                         type="color"
                         value={newColor}
@@ -86,14 +86,14 @@ export default function CrmLabelsPage() {
                 <button
                     type="submit"
                     disabled={!newName.trim() || createMut.isPending}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer"
                 >
                     <Plus className="h-4 w-4" />
                     Tambah
                 </button>
             </form>
 
-            <div className="rounded-lg border border-border bg-card divide-y divide-border">
+            <div className="glass rounded-xl divide-y divide-border">
                 {isLoading && (
                     <div className="p-4 text-sm text-muted-foreground">Memuat...</div>
                 )}
@@ -131,7 +131,7 @@ function LabelRow({
     const dirty = name !== label.name || color !== label.color;
 
     return (
-        <div className="flex items-center gap-2 p-2.5">
+        <div className="flex flex-wrap items-center gap-2 p-2.5 min-w-0">
             <span
                 className="px-2 py-0.5 rounded text-xs font-medium border"
                 style={{
@@ -156,14 +156,14 @@ function LabelRow({
             <button
                 onClick={() => onSave({ name: name.trim(), color })}
                 disabled={!dirty || !name.trim()}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border bg-background text-xs hover:bg-muted disabled:opacity-40"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border bg-background text-xs hover:bg-muted disabled:opacity-40 transition-colors cursor-pointer"
             >
                 <Save className="h-3 w-3" />
                 Simpan
             </button>
             <button
                 onClick={onDelete}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-destructive/40 bg-destructive/5 text-destructive text-xs hover:bg-destructive/10"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-destructive/40 bg-destructive/5 text-destructive text-xs hover:bg-destructive/10 transition-colors cursor-pointer"
             >
                 <Trash2 className="h-3 w-3" />
             </button>

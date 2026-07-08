@@ -6,12 +6,14 @@ import {
     Search, Plus, Minus, Camera, Package, Loader2,
     User, KeyRound, LogOut, X, Check, ArrowUpCircle, Edit3, PackagePlus, AlertCircle,
     UserCheck, UserPlus, Phone, Briefcase,
+    Lightbulb, CheckCircle2, AlertTriangle, MapPin, Palette,
+    ArrowDownToLine, Sparkles, type LucideIcon,
 } from "lucide-react";
 import {
     bootstrapPublicGudang, savePin, clearPin, readPin,
     restockPublicGudang, adjustStockPublicGudang, createNewItemPublicGudang,
     registerPublicWorker,
-    type Bootstrap, type PublicWorker, type PublicWarehouse, type PublicProduct,
+    type PublicWorker, type PublicWarehouse, type PublicProduct,
 } from "@/lib/api/publicGudang";
 import { verifyWarehousePin, getWarehousePinStatus } from "@/lib/api/warehousePin";
 import { CameraCaptureModal } from "@/components/CameraCaptureModal";
@@ -67,7 +69,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
                 </div>
 
                 {status?.isSet === false && (
-                    <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                    <div className="text-xs text-warning bg-warning/15 border border-warning/30 rounded p-2">
                         PIN belum diatur oleh admin.
                     </div>
                 )}
@@ -86,7 +88,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
                         placeholder="••••"
                     />
                 </div>
-                {err && <p className="text-xs text-red-600">{err}</p>}
+                {err && <p className="text-xs text-destructive">{err}</p>}
                 <button
                     type="submit"
                     disabled={loading}
@@ -103,7 +105,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
                 </a>
                 <a
                     href="/"
-                    className="w-full border rounded py-2 text-sm text-red-600 hover:bg-red-50 border-red-200 flex items-center justify-center gap-2"
+                    className="w-full border rounded py-2 text-sm text-destructive hover:bg-destructive/12 border-destructive/30 flex items-center justify-center gap-2"
                 >
                     <LogOut className="h-4 w-4" /> Keluar
                 </a>
@@ -163,7 +165,7 @@ function WorkerGreetingBar({
                 {/* Switch button */}
                 <button
                     onClick={onSwitch}
-                    className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-border bg-white hover:bg-muted text-[11px] font-medium"
+                    className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-border bg-card hover:bg-muted text-[11px] font-medium transition-colors"
                 >
                     Bukan saya
                 </button>
@@ -279,14 +281,14 @@ function VariantPicker({
                                     <div className="text-[10px] text-muted-foreground truncate">
                                         {v.sku}{v.categoryName ? ` · ${v.categoryName}` : ""}
                                         {v.warehouseName && (
-                                            <span className="ml-1 inline-flex items-center gap-0.5 px-1 py-0 rounded bg-blue-100 text-blue-800 text-[9px] font-semibold">
-                                                📍 {v.warehouseName}
+                                            <span className="ml-1 inline-flex items-center gap-0.5 px-1 py-0 rounded bg-info/15 text-info text-[9px] font-semibold">
+                                                <MapPin className="h-2.5 w-2.5" /> {v.warehouseName}
                                             </span>
                                         )}
                                     </div>
                                 </div>
                                 <div className="text-right shrink-0">
-                                    <div className={`text-sm font-bold ${v.stock > 0 ? "text-emerald-700" : "text-red-600"}`}>
+                                    <div className={`text-sm font-bold nums ${v.stock > 0 ? "text-success" : "text-destructive"}`}>
                                         {v.stock}
                                     </div>
                                     <div className="text-[9px] text-muted-foreground">{v.unitName ?? "unit"}</div>
@@ -367,8 +369,8 @@ function Inner({ onLock }: { onLock: () => void }) {
     if (error || !bootstrap) {
         return (
             <div className="p-8 text-center">
-                <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-                <p className="text-sm text-red-600">Gagal load data — coba refresh.</p>
+                <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+                <p className="text-sm text-destructive">Gagal load data — coba refresh.</p>
                 <button onClick={onLock} className="mt-3 text-xs underline text-muted-foreground">Logout PIN</button>
             </div>
         );
@@ -394,14 +396,14 @@ function Inner({ onLock }: { onLock: () => void }) {
                 <div className="flex items-center gap-1.5 shrink-0">
                     <a
                         href="/gudang/ambil"
-                        className="text-[11px] sm:text-xs px-2.5 py-1.5 border-2 border-blue-200 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-medium inline-flex items-center gap-1"
+                        className="text-[11px] sm:text-xs px-2.5 py-1.5 border-2 border-info/30 bg-info/15 text-info rounded-lg hover:bg-info/25 font-medium inline-flex items-center gap-1 transition-colors"
                         title="Ambil / Kembalikan barang"
                     >
-                        📦 <span className="hidden sm:inline">Ambil/Kembali</span>
+                        <Package className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Ambil/Kembali</span>
                     </a>
                     <button
                         onClick={onLock}
-                        className="text-[11px] sm:text-xs px-2.5 py-1.5 border-2 rounded-lg hover:bg-red-50 text-red-600 border-red-200 inline-flex items-center gap-1"
+                        className="text-[11px] sm:text-xs px-2.5 py-1.5 border-2 rounded-lg hover:bg-destructive/12 text-destructive border-destructive/30 inline-flex items-center gap-1 transition-colors"
                     >
                         <LogOut className="h-3.5 w-3.5" />
                         <span className="hidden sm:inline">Keluar</span>
@@ -426,7 +428,7 @@ function Inner({ onLock }: { onLock: () => void }) {
                         <ModeCard
                             active={mode === "restock"}
                             onClick={() => setMode("restock")}
-                            emoji="📥"
+                            icon={ArrowDownToLine}
                             title="Barang Masuk"
                             subtitle="Tambah stok"
                             cls="emerald"
@@ -434,7 +436,7 @@ function Inner({ onLock }: { onLock: () => void }) {
                         <ModeCard
                             active={mode === "adjust"}
                             onClick={() => setMode("adjust")}
-                            emoji="✏️"
+                            icon={Edit3}
                             title="Hitung Ulang"
                             subtitle="Koreksi stok"
                             cls="amber"
@@ -442,17 +444,17 @@ function Inner({ onLock }: { onLock: () => void }) {
                         <ModeCard
                             active={mode === "new-item"}
                             onClick={() => setMode("new-item")}
-                            emoji="🆕"
+                            icon={Sparkles}
                             title="Barang Baru"
                             subtitle="Belum ada"
                             cls="violet"
                         />
                     </div>
                     {/* Hint text per mode aktif */}
-                    <div className="text-[11px] text-center text-muted-foreground mt-2 italic">
-                        {mode === "restock" && "💡 Pakai saat barang masuk gudang (pulang event, beli dari supplier)"}
-                        {mode === "adjust" && "💡 Pakai untuk koreksi setelah cek fisik (hilang, rusak, selisih)"}
-                        {mode === "new-item" && "💡 Pakai untuk daftarkan barang yang belum ada di sistem"}
+                    <div className="text-[11px] text-center text-muted-foreground mt-2 italic inline-flex items-center justify-center gap-1">
+                        {mode === "restock" && <><Lightbulb className="h-3 w-3 shrink-0" /> Pakai saat barang masuk gudang (pulang event, beli dari supplier)</>}
+                        {mode === "adjust" && <><Lightbulb className="h-3 w-3 shrink-0" /> Pakai untuk koreksi setelah cek fisik (hilang, rusak, selisih)</>}
+                        {mode === "new-item" && <><Lightbulb className="h-3 w-3 shrink-0" /> Pakai untuk daftarkan barang yang belum ada di sistem</>}
                     </div>
                 </div>
             </div>
@@ -460,10 +462,10 @@ function Inner({ onLock }: { onLock: () => void }) {
             {/* Body */}
             <div className="max-w-3xl mx-auto p-3 sm:p-4">
                 {!workerId && (
-                    <div className="rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 p-4 text-center">
-                        <User className="h-8 w-8 text-amber-600 mx-auto mb-2" />
-                        <p className="text-sm font-semibold text-amber-900">Pilih nama Anda dulu di atas</p>
-                        <p className="text-xs text-amber-700 mt-1">Wajib untuk audit log siapa yang melakukan perubahan stok.</p>
+                    <div className="rounded-lg border-2 border-dashed border-warning/30 bg-warning/15 p-4 text-center">
+                        <User className="h-8 w-8 text-warning mx-auto mb-2" />
+                        <p className="text-sm font-semibold text-foreground">Pilih nama Anda dulu di atas</p>
+                        <p className="text-xs text-warning mt-1">Wajib untuk audit log siapa yang melakukan perubahan stok.</p>
                     </div>
                 )}
 
@@ -549,24 +551,24 @@ function Inner({ onLock }: { onLock: () => void }) {
 }
 
 function ModeCard({
-    active, onClick, emoji, title, subtitle, cls,
+    active, onClick, icon: Icon, title, subtitle, cls,
 }: {
     active: boolean;
     onClick: () => void;
-    emoji: string;
+    icon: LucideIcon;
     title: string;
     subtitle: string;
     cls: "emerald" | "amber" | "violet";
 }) {
     const activeCls = {
-        emerald: "bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-300",
-        amber: "bg-amber-600 text-white border-amber-700 shadow-md ring-2 ring-amber-300",
-        violet: "bg-violet-600 text-white border-violet-700 shadow-md ring-2 ring-violet-300",
+        emerald: "bg-success text-success-foreground border-success shadow-md ring-2 ring-success/40",
+        amber: "bg-warning text-warning-foreground border-warning shadow-md ring-2 ring-warning/40",
+        violet: "bg-primary text-primary-foreground border-primary shadow-md ring-2 ring-primary/40",
     }[cls];
     const idleCls = {
-        emerald: "bg-emerald-50/50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-400",
-        amber: "bg-amber-50/50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:border-amber-400",
-        violet: "bg-violet-50/50 text-violet-700 border-violet-200 hover:bg-violet-100 hover:border-violet-400",
+        emerald: "bg-success/10 text-success border-success/30 hover:bg-success/20 hover:border-success/50",
+        amber: "bg-warning/10 text-warning border-warning/30 hover:bg-warning/20 hover:border-warning/50",
+        violet: "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:border-primary/50",
     }[cls];
     return (
         <button
@@ -574,7 +576,7 @@ function ModeCard({
             onClick={onClick}
             className={`flex flex-col items-center justify-center gap-0.5 px-2 py-3 rounded-xl border-2 transition-all active:scale-95 ${active ? activeCls : idleCls}`}
         >
-            <span className="text-2xl sm:text-3xl leading-none">{emoji}</span>
+            <Icon className="h-7 w-7 sm:h-8 sm:w-8" />
             <span className="text-xs sm:text-sm font-bold mt-1">{title}</span>
             <span className={`text-[9px] sm:text-[10px] ${active ? "opacity-90" : "opacity-70"}`}>{subtitle}</span>
         </button>
@@ -631,11 +633,11 @@ function RestockForm({
 
     return (
         <div className="space-y-3">
-            <div className="rounded-lg border-2 border-emerald-200 bg-emerald-50/40 p-3">
-                <h2 className="text-sm font-bold text-emerald-900 inline-flex items-center gap-1.5">
+            <div className="rounded-lg border-2 border-success/30 bg-success/10 p-3">
+                <h2 className="text-sm font-bold text-success inline-flex items-center gap-1.5">
                     <ArrowUpCircle className="h-4 w-4" /> Tambah Stok (Restok Barang Masuk)
                 </h2>
-                <p className="text-[11px] text-emerald-700 mt-0.5">
+                <p className="text-[11px] text-success mt-0.5">
                     Untuk barang yang baru kembali dari event / pembelian baru. Stok akan <b>bertambah</b>.
                 </p>
             </div>
@@ -644,7 +646,7 @@ function RestockForm({
             <div className="bg-background border rounded-lg p-3 space-y-2">
                 <label className="text-xs font-semibold text-foreground block">1. Pilih Barang</label>
                 {picked ? (
-                    <div className="flex items-center gap-2 p-2 bg-emerald-50 rounded border border-emerald-200">
+                    <div className="flex items-center gap-2 p-2 bg-success/15 rounded border border-success/30">
                         {picked.imageUrl ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img src={`${apiBase}${picked.imageUrl}`} alt="" className="w-12 h-12 rounded object-cover" />
@@ -656,13 +658,13 @@ function RestockForm({
                             <div className="text-[10px] text-muted-foreground">
                                 {picked.sku} · Stok skrg: <b>{picked.stock}</b> {picked.unitName ?? "unit"}
                                 {picked.warehouseName && (
-                                    <span className="ml-1 inline-flex items-center gap-0.5 px-1 py-0 rounded bg-blue-100 text-blue-800 text-[9px] font-semibold">
-                                        📍 {picked.warehouseName}
+                                    <span className="ml-1 inline-flex items-center gap-0.5 px-1 py-0 rounded bg-info/15 text-info text-[9px] font-semibold">
+                                        <MapPin className="h-2.5 w-2.5" /> {picked.warehouseName}
                                     </span>
                                 )}
                             </div>
                         </div>
-                        <button onClick={() => setPicked(null)} className="p-1 hover:bg-red-100 rounded text-red-600"><X className="h-4 w-4" /></button>
+                        <button onClick={() => setPicked(null)} className="p-1 hover:bg-destructive/12 rounded text-destructive transition-colors"><X className="h-4 w-4" /></button>
                     </div>
                 ) : (
                     <VariantPicker flat={flat} onPick={setPicked} selectedId={null} apiBase={apiBase} />
@@ -678,7 +680,7 @@ function RestockForm({
                             <button
                                 type="button"
                                 onClick={() => setQty((q) => Math.max(1, q - 1))}
-                                className="h-12 w-12 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 inline-flex items-center justify-center text-xl font-bold"
+                                className="h-12 w-12 rounded-lg bg-success/15 hover:bg-success/25 text-success inline-flex items-center justify-center text-xl font-bold transition-colors"
                             >
                                 <Minus className="h-5 w-5" />
                             </button>
@@ -688,12 +690,12 @@ function RestockForm({
                                 min={1}
                                 value={qty}
                                 onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
-                                className="flex-1 h-12 text-center text-2xl font-bold border-2 border-emerald-300 rounded-lg"
+                                className="flex-1 h-12 text-center text-2xl font-bold nums border-2 border-success/30 rounded-lg"
                             />
                             <button
                                 type="button"
                                 onClick={() => setQty((q) => q + 1)}
-                                className="h-12 w-12 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 inline-flex items-center justify-center text-xl font-bold"
+                                className="h-12 w-12 rounded-lg bg-success/15 hover:bg-success/25 text-success inline-flex items-center justify-center text-xl font-bold transition-colors"
                             >
                                 <Plus className="h-5 w-5" />
                             </button>
@@ -704,14 +706,14 @@ function RestockForm({
                                     key={n}
                                     type="button"
                                     onClick={() => setQty((q) => q + n)}
-                                    className="text-xs py-1.5 rounded border bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                    className="text-xs py-1.5 rounded border bg-success/15 text-success hover:bg-success/25 transition-colors"
                                 >
                                     +{n}
                                 </button>
                             ))}
                         </div>
-                        <p className="text-[11px] text-emerald-700 bg-emerald-50 rounded p-1.5 text-center">
-                            Stok setelah: <b>{picked.stock + qty}</b> {picked.unitName ?? "unit"} (sebelumnya {picked.stock})
+                        <p className="text-[11px] text-success bg-success/15 rounded p-1.5 text-center">
+                            Stok setelah: <b className="nums">{picked.stock + qty}</b> {picked.unitName ?? "unit"} (sebelumnya <b className="nums">{picked.stock}</b>)
                         </p>
                     </div>
 
@@ -756,14 +758,14 @@ function RestockForm({
                         type="button"
                         disabled={mut.isPending || !picked || qty <= 0}
                         onClick={() => mut.mutate()}
-                        className="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow"
+                        className="w-full bg-success text-success-foreground py-3.5 rounded-xl font-bold text-sm hover:bg-success/90 disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow"
                     >
-                        {mut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                        ✅ Konfirmasi Restok +{qty} oleh {worker?.name ?? "—"}
+                        {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        Konfirmasi Restok +{qty} oleh {worker?.name ?? "—"}
                     </button>
 
                     {mut.isError && (
-                        <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                        <div className="text-xs text-destructive bg-destructive/12 border border-destructive/30 rounded p-2">
                             {(mut.error as any)?.response?.data?.message || (mut.error as Error).message}
                         </div>
                     )}
@@ -771,7 +773,7 @@ function RestockForm({
             )}
 
             {success && (
-                <div className="rounded-lg border-2 border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900 shadow-md animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="rounded-lg border-2 border-success/30 bg-success/15 p-3 text-sm text-foreground shadow-md animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="flex items-start gap-2">
                         <div className="text-2xl">🎉</div>
                         <div className="flex-1">{success}</div>
@@ -852,11 +854,11 @@ function AdjustForm({
 
     return (
         <div className="space-y-3">
-            <div className="rounded-lg border-2 border-amber-200 bg-amber-50/40 p-3">
-                <h2 className="text-sm font-bold text-amber-900 inline-flex items-center gap-1.5">
+            <div className="rounded-lg border-2 border-warning/30 bg-warning/10 p-3">
+                <h2 className="text-sm font-bold text-warning inline-flex items-center gap-1.5">
                     <Edit3 className="h-4 w-4" /> Edit Stok (Adjust ke Jumlah Riil)
                 </h2>
-                <p className="text-[11px] text-amber-700 mt-0.5">
+                <p className="text-[11px] text-warning mt-0.5">
                     Untuk koreksi setelah cek fisik. Set stok ke <b>jumlah pasti</b> yang ada di gudang. Reason wajib diisi.
                 </p>
             </div>
@@ -864,7 +866,7 @@ function AdjustForm({
             <div className="bg-background border rounded-lg p-3 space-y-2">
                 <label className="text-xs font-semibold block">1. Pilih Barang</label>
                 {picked ? (
-                    <div className="flex items-center gap-2 p-2 bg-amber-50 rounded border border-amber-200">
+                    <div className="flex items-center gap-2 p-2 bg-warning/15 rounded border border-warning/30">
                         {picked.imageUrl ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img src={`${apiBase}${picked.imageUrl}`} alt="" className="w-12 h-12 rounded object-cover" />
@@ -876,13 +878,13 @@ function AdjustForm({
                             <div className="text-[10px] text-muted-foreground">
                                 {picked.sku} · Sistem catat: <b>{picked.stock}</b> {picked.unitName ?? "unit"}
                                 {picked.warehouseName && (
-                                    <span className="ml-1 inline-flex items-center gap-0.5 px-1 py-0 rounded bg-blue-100 text-blue-800 text-[9px] font-semibold">
-                                        📍 {picked.warehouseName}
+                                    <span className="ml-1 inline-flex items-center gap-0.5 px-1 py-0 rounded bg-info/15 text-info text-[9px] font-semibold">
+                                        <MapPin className="h-2.5 w-2.5" /> {picked.warehouseName}
                                     </span>
                                 )}
                             </div>
                         </div>
-                        <button onClick={() => setPicked(null)} className="p-1 hover:bg-red-100 rounded text-red-600"><X className="h-4 w-4" /></button>
+                        <button onClick={() => setPicked(null)} className="p-1 hover:bg-destructive/12 rounded text-destructive transition-colors"><X className="h-4 w-4" /></button>
                     </div>
                 ) : (
                     <VariantPicker flat={flat} onPick={setPicked} selectedId={null} apiBase={apiBase} />
@@ -897,7 +899,7 @@ function AdjustForm({
                             <button
                                 type="button"
                                 onClick={() => setNewStock((s) => Math.max(0, s - 1))}
-                                className="h-12 w-12 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 inline-flex items-center justify-center"
+                                className="h-12 w-12 rounded-lg bg-warning/15 hover:bg-warning/25 text-warning inline-flex items-center justify-center transition-colors"
                             >
                                 <Minus className="h-5 w-5" />
                             </button>
@@ -907,24 +909,24 @@ function AdjustForm({
                                 min={0}
                                 value={newStock}
                                 onChange={(e) => setNewStock(Math.max(0, Number(e.target.value) || 0))}
-                                className="flex-1 h-12 text-center text-2xl font-bold border-2 border-amber-300 rounded-lg"
+                                className="flex-1 h-12 text-center text-2xl font-bold nums border-2 border-warning/30 rounded-lg"
                             />
                             <button
                                 type="button"
                                 onClick={() => setNewStock((s) => s + 1)}
-                                className="h-12 w-12 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 inline-flex items-center justify-center"
+                                className="h-12 w-12 rounded-lg bg-warning/15 hover:bg-warning/25 text-warning inline-flex items-center justify-center transition-colors"
                             >
                                 <Plus className="h-5 w-5" />
                             </button>
                         </div>
-                        <div className={`text-center text-sm font-bold p-2 rounded ${diff === 0 ? "bg-slate-100 text-slate-600" : diff > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                        <div className={`text-center text-sm font-bold nums p-2 rounded ${diff === 0 ? "bg-muted text-muted-foreground" : diff > 0 ? "bg-success/15 text-success" : "bg-destructive/12 text-destructive"}`}>
                             {diff === 0 ? "Sama (tidak ada perubahan)" : `Selisih: ${diff > 0 ? "+" : ""}${diff} ${picked.unitName ?? "unit"}`}
                         </div>
                     </div>
 
                     <div className="bg-background border rounded-lg p-3 space-y-2.5">
                         <div>
-                            <label className="text-xs font-semibold block mb-1">3. Alasan Selisih <span className="text-red-500">*</span></label>
+                            <label className="text-xs font-semibold block mb-1">3. Alasan Selisih <span className="text-destructive">*</span></label>
                             <select
                                 value={reasonType}
                                 onChange={(e) => setReasonType(e.target.value)}
@@ -976,14 +978,14 @@ function AdjustForm({
                             const confirmText = `Adjust stok "${picked.productName}":\n${picked.stock} → ${newStock} (${diff > 0 ? "+" : ""}${diff})\n\nReason: ${reasonType}${reasonNote ? `: ${reasonNote}` : ""}\n\nLanjut?`;
                             if (window.confirm(confirmText)) mut.mutate();
                         }}
-                        className="w-full bg-amber-600 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-amber-700 disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow"
+                        className="w-full bg-warning text-warning-foreground py-3.5 rounded-xl font-bold text-sm hover:bg-warning/90 disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow"
                     >
-                        {mut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                        ✏️ Konfirmasi Adjust ({diff > 0 ? "+" : ""}{diff})
+                        {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Edit3 className="h-4 w-4" />}
+                        Konfirmasi Adjust (<span className="nums">{diff > 0 ? "+" : ""}{diff}</span>)
                     </button>
 
                     {mut.isError && (
-                        <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                        <div className="text-xs text-destructive bg-destructive/12 border border-destructive/30 rounded p-2">
                             {(mut.error as any)?.response?.data?.message || (mut.error as Error).message}
                         </div>
                     )}
@@ -991,7 +993,7 @@ function AdjustForm({
             )}
 
             {success && (
-                <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="rounded-lg border-2 border-warning/30 bg-warning/15 p-3 text-sm text-foreground">
                     {success}
                 </div>
             )}
@@ -1130,18 +1132,18 @@ function NewItemForm({
 
     return (
         <div className="space-y-3">
-            <div className="rounded-lg border-2 border-violet-200 bg-violet-50/40 p-3">
-                <h2 className="text-sm font-bold text-violet-900 inline-flex items-center gap-1.5">
+            <div className="rounded-lg border-2 border-primary/30 bg-primary/10 p-3">
+                <h2 className="text-sm font-bold text-primary inline-flex items-center gap-1.5">
                     <PackagePlus className="h-4 w-4" /> Tambah Barang Baru ke Sistem
                 </h2>
-                <p className="text-[11px] text-violet-700 mt-0.5">
+                <p className="text-[11px] text-primary mt-0.5">
                     Untuk barang yang belum pernah ada di sistem (misal: Kursi Tiffany model baru). SKU auto-generate.
                 </p>
             </div>
 
             <div className="bg-background border rounded-lg p-3 space-y-2.5">
                 <div>
-                    <label className="text-xs font-semibold block mb-1">Nama Barang <span className="text-red-500">*</span></label>
+                    <label className="text-xs font-semibold block mb-1">Nama Barang <span className="text-destructive">*</span></label>
                     <input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
@@ -1154,7 +1156,7 @@ function NewItemForm({
 
                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="text-xs font-semibold block mb-1">Kategori <span className="text-red-500">*</span></label>
+                        <label className="text-xs font-semibold block mb-1">Kategori <span className="text-destructive">*</span></label>
                         <select
                             value={categoryId ?? ""}
                             onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : null)}
@@ -1166,7 +1168,7 @@ function NewItemForm({
                         </select>
                     </div>
                     <div>
-                        <label className="text-xs font-semibold block mb-1">Satuan <span className="text-red-500">*</span></label>
+                        <label className="text-xs font-semibold block mb-1">Satuan <span className="text-destructive">*</span></label>
                         <select
                             value={unitId ?? ""}
                             onChange={(e) => setUnitId(e.target.value ? Number(e.target.value) : null)}
@@ -1180,7 +1182,7 @@ function NewItemForm({
                 </div>
 
                 {/* Toggle multi-varian */}
-                <div className="rounded-lg border-2 border-violet-200 bg-violet-50/30 p-2.5">
+                <div className="rounded-lg border-2 border-primary/30 bg-primary/10 p-2.5">
                     <label className="flex items-start gap-2 cursor-pointer">
                         <input
                             type="checkbox"
@@ -1201,7 +1203,7 @@ function NewItemForm({
                                 }
                                 // Saat checkbox on dari off → tetap pakai varian existing apa adanya
                             }}
-                            className="mt-0.5 h-4 w-4 accent-violet-600"
+                            className="mt-0.5 h-4 w-4 accent-primary"
                         />
                         <div className="flex-1 min-w-0">
                             <div className="text-xs font-semibold">Ada varian/ukuran/warna?</div>
@@ -1216,9 +1218,9 @@ function NewItemForm({
                 <div>
                     <div className="flex items-center justify-between mb-2">
                         <label className="text-xs font-semibold inline-flex items-center gap-1.5">
-                            {hasMultiVariant ? "🎨 Varian-varian" : "Stok Awal"}
+                            {hasMultiVariant ? <><Palette className="h-3.5 w-3.5" /> Varian-varian</> : "Stok Awal"}
                             {hasMultiVariant && (
-                                <span className="text-[10px] font-normal text-violet-700">
+                                <span className="text-[10px] font-normal text-primary">
                                     ({variants.length} varian, total {totalAllStock} stok)
                                 </span>
                             )}
@@ -1227,7 +1229,7 @@ function NewItemForm({
                             <button
                                 type="button"
                                 onClick={addVariantRow}
-                                className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded bg-violet-100 hover:bg-violet-200 text-violet-700 font-semibold"
+                                className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/15 hover:bg-primary/20 text-primary font-semibold"
                             >
                                 <Plus className="h-3 w-3" /> Tambah Varian
                             </button>
@@ -1238,16 +1240,16 @@ function NewItemForm({
                         {variants.map((v, idx) => (
                             <div
                                 key={v._key}
-                                className={`border-2 rounded-lg p-2 ${hasMultiVariant ? "border-violet-200 bg-violet-50/30" : "border-violet-100 bg-background"}`}
+                                className={`border-2 rounded-lg p-2 ${hasMultiVariant ? "border-primary/30 bg-primary/10" : "border-primary/20 bg-background"}`}
                             >
                                 {hasMultiVariant && (
                                     <div className="flex items-center justify-between mb-1.5">
-                                        <span className="text-[10px] font-bold text-violet-700">Varian #{idx + 1}</span>
+                                        <span className="text-[10px] font-bold text-primary">Varian #{idx + 1}</span>
                                         {variants.length > 1 && (
                                             <button
                                                 type="button"
                                                 onClick={() => removeVariantRow(v._key)}
-                                                className="p-0.5 hover:bg-red-100 text-red-600 rounded"
+                                                className="p-0.5 hover:bg-destructive/12 text-destructive rounded transition-colors"
                                                 title="Hapus varian ini"
                                             >
                                                 <X className="h-3 w-3" />
@@ -1270,7 +1272,7 @@ function NewItemForm({
                                     <button
                                         type="button"
                                         onClick={() => updateVariantRow(v._key, { initialStock: Math.max(0, v.initialStock - 1) })}
-                                        className="h-10 w-10 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700 inline-flex items-center justify-center shrink-0"
+                                        className="h-10 w-10 rounded-lg bg-primary/15 hover:bg-primary/20 text-primary inline-flex items-center justify-center shrink-0"
                                     >
                                         <Minus className="h-4 w-4" />
                                     </button>
@@ -1280,12 +1282,12 @@ function NewItemForm({
                                         min={0}
                                         value={v.initialStock}
                                         onChange={(e) => updateVariantRow(v._key, { initialStock: Math.max(0, Number(e.target.value) || 0) })}
-                                        className="flex-1 h-10 text-center text-lg font-bold border-2 border-violet-300 rounded-lg"
+                                        className="flex-1 h-10 text-center text-lg font-bold border-2 border-primary/40 rounded-lg"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => updateVariantRow(v._key, { initialStock: v.initialStock + 1 })}
-                                        className="h-10 w-10 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700 inline-flex items-center justify-center shrink-0"
+                                        className="h-10 w-10 rounded-lg bg-primary/15 hover:bg-primary/20 text-primary inline-flex items-center justify-center shrink-0"
                                     >
                                         <Plus className="h-4 w-4" />
                                     </button>
@@ -1296,7 +1298,7 @@ function NewItemForm({
                                                     key={n}
                                                     type="button"
                                                     onClick={() => updateVariantRow(v._key, { initialStock: v.initialStock + n })}
-                                                    className="text-[10px] py-1 px-1.5 rounded border bg-violet-50 text-violet-700 hover:bg-violet-100"
+                                                    className="text-[10px] py-1 px-1.5 rounded border bg-primary/10 text-primary hover:bg-primary/15"
                                                 >
                                                     +{n}
                                                 </button>
@@ -1309,18 +1311,18 @@ function NewItemForm({
                                 <button
                                     type="button"
                                     onClick={() => updateVariantRow(v._key, { showDetail: !v.showDetail })}
-                                    className="mt-1.5 w-full text-[10px] font-medium text-violet-700 hover:bg-violet-100 rounded px-2 py-1 inline-flex items-center justify-center gap-1 transition"
+                                    className="mt-1.5 w-full text-[10px] font-medium text-primary hover:bg-primary/15 rounded px-2 py-1 inline-flex items-center justify-center gap-1 transition"
                                 >
                                     {v.showDetail ? "▲ Tutup detail" : "▼ Detail varian"}
                                     {(v.photo || v.description || v.notes) && (
-                                        <span className="ml-1 px-1 py-0 rounded-full bg-violet-200 text-violet-900 text-[9px]">
+                                        <span className="ml-1 px-1 py-0 rounded-full bg-primary/20 text-primary text-[9px]">
                                             {[v.photo && "📷", v.description && "📝", v.notes && "💬"].filter(Boolean).join(" ")}
                                         </span>
                                     )}
                                 </button>
 
                                 {v.showDetail && (
-                                    <div className="mt-1.5 pt-1.5 border-t border-violet-200 space-y-1.5">
+                                    <div className="mt-1.5 pt-1.5 border-t border-primary/30 space-y-1.5">
                                         {/* Foto khusus varian */}
                                         <div>
                                             <label className="text-[10px] font-semibold block mb-1 inline-flex items-center gap-1">
@@ -1370,7 +1372,7 @@ function NewItemForm({
                         <button
                             type="button"
                             onClick={addVariantRow}
-                            className="w-full mt-2 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 border-dashed border-violet-300 text-violet-700 text-xs font-semibold hover:bg-violet-50"
+                            className="w-full mt-2 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 border-dashed border-primary/40 text-primary text-xs font-semibold hover:bg-primary/10"
                         >
                             <Plus className="h-3.5 w-3.5" /> Tambah Varian Lain
                         </button>
@@ -1417,20 +1419,20 @@ function NewItemForm({
                 type="button"
                 disabled={mut.isPending || !canSubmit}
                 onClick={() => mut.mutate()}
-                className="w-full bg-violet-600 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-violet-700 disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow"
+                className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-bold text-sm hover:bg-primary/90 disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow"
             >
-                {mut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                📦 Tambah "{name || "barang baru"}" {hasMultiVariant ? `(${variants.length} varian)` : ""} oleh {worker?.name ?? "—"}
+                {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+                Tambah "{name || "barang baru"}" {hasMultiVariant ? `(${variants.length} varian)` : ""} oleh {worker?.name ?? "—"}
             </button>
 
             {mut.isError && (
-                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                <div className="text-xs text-destructive bg-destructive/12 border border-destructive/30 rounded p-2">
                     {(mut.error as any)?.response?.data?.message || (mut.error as Error).message}
                 </div>
             )}
 
             {success && (
-                <div className="rounded-lg border-2 border-violet-300 bg-violet-50 p-3 text-sm text-violet-900">
+                <div className="rounded-lg border-2 border-primary/40 bg-primary/10 p-3 text-sm text-foreground">
                     {success}
                 </div>
             )}
@@ -1463,7 +1465,7 @@ function PhotoCapture({
                     <button
                         type="button"
                         onClick={onClear}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow"
+                        className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 shadow"
                     >
                         <X className="h-3 w-3" />
                     </button>
@@ -1620,29 +1622,29 @@ function WelcomeModal({
                 <div className="space-y-2.5">
                     <button
                         onClick={() => setShowPicker(true)}
-                        className="w-full inline-flex items-center justify-center gap-3 py-4 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition active:scale-[0.98]"
+                        className="w-full inline-flex items-center justify-center gap-3 py-4 px-4 rounded-xl bg-success hover:bg-success/90 text-success-foreground shadow-md transition active:scale-[0.98]"
                     >
                         <UserCheck className="h-5 w-5" />
                         <div className="text-left">
-                            <div className="text-sm font-bold">✅ Sudah Terdaftar</div>
+                            <div className="text-sm font-bold">Sudah Terdaftar</div>
                             <div className="text-[11px] opacity-90">Pilih nama saya dari daftar</div>
                         </div>
                     </button>
 
                     <button
                         onClick={onWantRegister}
-                        className="w-full inline-flex items-center justify-center gap-3 py-4 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-md transition active:scale-[0.98]"
+                        className="w-full inline-flex items-center justify-center gap-3 py-4 px-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition active:scale-[0.98]"
                     >
                         <UserPlus className="h-5 w-5" />
                         <div className="text-left">
-                            <div className="text-sm font-bold">➕ Belum, Daftar Dulu</div>
+                            <div className="text-sm font-bold">Belum, Daftar Dulu</div>
                             <div className="text-[11px] opacity-90">Isi data diri saya (1 menit)</div>
                         </div>
                     </button>
                 </div>
 
-                <div className="pt-3 border-t text-[11px] text-muted-foreground text-center">
-                    💡 Pendaftaran wajib supaya setiap perubahan stok tercatat siapa yang melakukan (audit log).
+                <div className="pt-3 border-t text-[11px] text-muted-foreground text-center inline-flex items-center justify-center gap-1 w-full">
+                    <Lightbulb className="h-3 w-3 shrink-0" /> Pendaftaran wajib supaya setiap perubahan stok tercatat siapa yang melakukan (audit log).
                 </div>
 
                 <button
@@ -1712,7 +1714,7 @@ function RegisterWorkerModal({
             <div className="bg-background rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md max-h-[95vh] overflow-y-auto">
                 <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-background z-10">
                     <h2 className="text-base font-bold inline-flex items-center gap-2">
-                        <UserPlus className="h-4 w-4 text-violet-600" /> Daftar Karyawan Baru
+                        <UserPlus className="h-4 w-4 text-primary" /> Daftar Karyawan Baru
                     </h2>
                     <button onClick={onClose} className="p-1 hover:bg-muted rounded">
                         <X className="h-4 w-4" />
@@ -1730,11 +1732,11 @@ function RegisterWorkerModal({
                             {photo && photoPreview ? (
                                 <div className="relative">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={photoPreview} alt="Foto" className="w-20 h-20 rounded-full object-cover border-2 border-violet-300" />
+                                    <img src={photoPreview} alt="Foto" className="w-20 h-20 rounded-full object-cover border-2 border-primary/40" />
                                     <button
                                         type="button"
                                         onClick={() => { setPhoto(null); setPhotoPreview(null); }}
-                                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow"
+                                        className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow"
                                     >
                                         <X className="h-3 w-3" />
                                     </button>
@@ -1747,7 +1749,7 @@ function RegisterWorkerModal({
                             <button
                                 type="button"
                                 onClick={() => setShowCamera(true)}
-                                className="flex-1 inline-flex items-center justify-center gap-2 border-2 border-dashed border-violet-300 rounded-lg py-3 text-sm text-violet-700 hover:bg-violet-50"
+                                className="flex-1 inline-flex items-center justify-center gap-2 border-2 border-dashed border-primary/40 rounded-lg py-3 text-sm text-primary hover:bg-primary/10"
                             >
                                 <Camera className="h-4 w-4" />
                                 {photo ? "Ganti Foto" : "Ambil Foto"}
@@ -1758,7 +1760,7 @@ function RegisterWorkerModal({
                     {/* Nama lengkap */}
                     <div>
                         <label className="text-xs font-semibold block mb-1">
-                            Nama Lengkap <span className="text-red-500">*</span>
+                            Nama Lengkap <span className="text-destructive">*</span>
                         </label>
                         <div className="relative">
                             <User className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1776,7 +1778,7 @@ function RegisterWorkerModal({
                     {/* Nama panggilan */}
                     <div>
                         <label className="text-xs font-semibold block mb-1">
-                            Nama Panggilan <span className="text-red-500">*</span>
+                            Nama Panggilan <span className="text-destructive">*</span>
                             <span className="text-[10px] font-normal text-muted-foreground ml-1">(yang dipakai sehari-hari)</span>
                         </label>
                         <div className="relative">
@@ -1789,8 +1791,8 @@ function RegisterWorkerModal({
                                 maxLength={100}
                             />
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                            ⚠️ Harus unik. Kalau "Budi" sudah dipakai orang lain, coba "Budi 2" atau "Budi T".
+                        <p className="text-[10px] text-muted-foreground mt-0.5 inline-flex items-start gap-1">
+                            <AlertTriangle className="h-3 w-3 shrink-0 mt-px" /> Harus unik. Kalau "Budi" sudah dipakai orang lain, coba "Budi 2" atau "Budi T".
                         </p>
                     </div>
 
@@ -1830,8 +1832,8 @@ function RegisterWorkerModal({
                     </div>
 
                     {mut.isError && (
-                        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2.5">
-                            ❌ {(mut.error as any)?.response?.data?.message || (mut.error as Error).message}
+                        <div className="text-xs text-destructive bg-destructive/12 border border-destructive/30 rounded p-2.5 flex items-start gap-1.5">
+                            <AlertCircle className="h-4 w-4 shrink-0 mt-px" /> {(mut.error as any)?.response?.data?.message || (mut.error as Error).message}
                         </div>
                     )}
                 </div>
@@ -1841,10 +1843,10 @@ function RegisterWorkerModal({
                         type="button"
                         disabled={!canSubmit || mut.isPending}
                         onClick={() => mut.mutate()}
-                        className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm disabled:opacity-50 shadow"
+                        className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm disabled:opacity-50 shadow"
                     >
                         {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-                        {mut.isPending ? "Mendaftarkan…" : "✅ Daftar Sekarang"}
+                        {mut.isPending ? "Mendaftarkan…" : "Daftar Sekarang"}
                     </button>
                     <button
                         type="button"
@@ -1896,11 +1898,11 @@ function VariantPhotoCapture({
                 <div className="flex items-center gap-2">
                     <div className="relative shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={preview} alt="Foto varian" className="w-16 h-16 rounded-lg object-cover border-2 border-violet-200" />
+                        <img src={preview} alt="Foto varian" className="w-16 h-16 rounded-lg object-cover border-2 border-primary/30" />
                         <button
                             type="button"
                             onClick={onClear}
-                            className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow"
+                            className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow"
                         >
                             <X className="h-2.5 w-2.5" />
                         </button>
@@ -1908,7 +1910,7 @@ function VariantPhotoCapture({
                     <button
                         type="button"
                         onClick={() => setShowCamera(true)}
-                        className="text-[10px] px-2 py-1 rounded border bg-violet-50 text-violet-700 hover:bg-violet-100"
+                        className="text-[10px] px-2 py-1 rounded border bg-primary/10 text-primary hover:bg-primary/15"
                     >
                         Ganti
                     </button>
@@ -1917,7 +1919,7 @@ function VariantPhotoCapture({
                 <button
                     type="button"
                     onClick={() => setShowCamera(true)}
-                    className="w-full inline-flex items-center justify-center gap-1.5 border border-dashed border-violet-300 rounded py-2 text-[11px] text-violet-700 hover:bg-violet-50"
+                    className="w-full inline-flex items-center justify-center gap-1.5 border border-dashed border-primary/40 rounded py-2 text-[11px] text-primary hover:bg-primary/10"
                 >
                     <Camera className="h-3.5 w-3.5" />
                     Ambil Foto Varian

@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Plus, Pencil, Trash2, Loader2, Check, X, Eye, EyeOff,
     Users as UsersIcon, Upload, User as UserIcon, Link as LinkIcon, RefreshCw, Copy,
+    AlertTriangle, Lock, Tag, Wallet,
 } from "lucide-react";
 import {
     getWorkers, createWorker, updateWorker, deleteWorker, restoreWorker,
@@ -193,7 +194,7 @@ export default function WorkersSettingsPage() {
 
     return (
         <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-xl font-bold flex items-center gap-2">
                         <UsersIcon className="h-5 w-5 text-primary" /> Pekerja / Tukang
@@ -206,7 +207,7 @@ export default function WorkersSettingsPage() {
                     <select
                         value={positionFilter}
                         onChange={(e) => setPositionFilter(e.target.value)}
-                        className="text-xs border rounded px-2 py-1.5 bg-white"
+                        className="text-xs border border-border rounded px-2 py-1.5 bg-card"
                     >
                         <option value="">Semua role</option>
                         {WORKER_POSITIONS.map((p) => (
@@ -221,7 +222,7 @@ export default function WorkersSettingsPage() {
                     </label>
                     <button
                         onClick={() => { resetForm(); setShowForm(true); }}
-                        className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm hover:opacity-90"
+                        className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm hover:opacity-90 cursor-pointer transition-colors"
                     >
                         <Plus className="h-4 w-4" /> Tambah Pekerja
                     </button>
@@ -229,7 +230,7 @@ export default function WorkersSettingsPage() {
             </div>
 
             {showForm && (
-                <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                <div className="glass rounded-xl p-4 space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-[120px_1fr] gap-4">
                         <div>
                             <label className="text-xs font-medium block mb-1">Foto</label>
@@ -253,12 +254,12 @@ export default function WorkersSettingsPage() {
                                 </div>
                                 <div>
                                     <label className="text-xs font-medium block mb-1">
-                                        Jabatan / Role <span className="text-red-500">*</span>
+                                        Jabatan / Role <span className="text-destructive">*</span>
                                     </label>
                                     <select
                                         value={position}
                                         onChange={(e) => setPosition(e.target.value)}
-                                        className="w-full border rounded px-3 py-2 text-sm bg-white"
+                                        className="w-full border border-border rounded px-3 py-2 text-sm bg-card"
                                     >
                                         <option value="">— Pilih Role —</option>
                                         {WORKER_POSITIONS.map((p) => (
@@ -283,8 +284,8 @@ export default function WorkersSettingsPage() {
 
                             {/* ── Custom nama untuk TTD ── */}
                             <div>
-                                <label className="text-xs font-medium block mb-1">
-                                    ✍️ Nama untuk TTD <span className="text-muted-foreground font-normal">(opsional)</span>
+                                <label className="text-xs font-medium flex items-center gap-1 mb-1">
+                                        <Pencil className="h-3.5 w-3.5 shrink-0" /> Nama untuk TTD <span className="text-muted-foreground font-normal">(opsional)</span>
                                 </label>
                                 <input
                                     value={signatureDisplayName}
@@ -300,15 +301,15 @@ export default function WorkersSettingsPage() {
 
                             {/* ── Payroll section ── */}
                             <div className="pt-2 border-t border-dashed border-border">
-                                <div className="text-xs font-bold text-emerald-700 mb-2 flex items-center gap-1">
-                                    💰 Payroll & Absensi
+                                <div className="text-xs font-bold text-success mb-2 flex items-center gap-1">
+                                        <Wallet className="h-3.5 w-3.5" /> Payroll & Absensi
                                 </div>
                                 <div className="mb-3">
                                     <label className="text-xs font-medium block mb-1">Tim Crew (opsional)</label>
                                     <select
                                         value={teamId === "" ? "" : String(teamId)}
                                         onChange={(e) => setTeamId(e.target.value === "" ? "" : Number(e.target.value))}
-                                        className="w-full border rounded px-3 py-2 text-sm bg-white"
+                                        className="w-full border border-border rounded px-3 py-2 text-sm bg-card"
                                     >
                                         <option value="">— Tidak ada tim (independent) —</option>
                                         {teams.map((t) => (
@@ -418,9 +419,9 @@ export default function WorkersSettingsPage() {
                             </div>
                         </div>
                     </div>
-                    {error && <p className="text-xs text-red-600">{error}</p>}
+                    {error && <p className="text-xs text-destructive">{error}</p>}
                     <div className="flex items-center gap-2 justify-end">
-                        <button onClick={resetForm} className="px-3 py-1.5 text-sm border rounded hover:bg-muted">Batal</button>
+                        <button onClick={resetForm} className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted cursor-pointer transition-colors">Batal</button>
                         <button
                             onClick={handleSave}
                             disabled={createMut.isPending || updateMut.isPending}
@@ -443,7 +444,7 @@ export default function WorkersSettingsPage() {
                     <div className="col-span-full p-6 text-center text-muted-foreground text-sm">Belum ada pekerja.</div>
                 )}
                 {workers.map((w) => (
-                    <div key={w.id} className={`border rounded-lg p-3 flex gap-3 ${!w.isActive ? "bg-muted/40 opacity-70" : ""}`}>
+                    <div key={w.id} className={`glass rounded-xl p-3 flex gap-3 ${!w.isActive ? "opacity-60" : ""}`}>
                         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                             {w.photoUrl ? (
                                 <img src={`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}${w.photoUrl}`} alt={w.name} className="w-full h-full object-cover" />
@@ -454,24 +455,24 @@ export default function WorkersSettingsPage() {
                         <div className="flex-1 min-w-0">
                             <div className="font-semibold text-sm truncate flex items-center gap-1.5">
                                 {w.name}
-                                {!w.isActive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">nonaktif</span>}
+                                {!w.isActive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">nonaktif</span>}
                             </div>
                             {(() => {
                                 const meta = getPositionMeta(w.position);
                                 if (meta) {
                                     const colorCls: Record<string, string> = {
-                                        blue: "bg-blue-100 text-blue-700 border-blue-200",
-                                        emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
-                                        violet: "bg-violet-100 text-violet-700 border-violet-200",
-                                        amber: "bg-amber-100 text-amber-700 border-amber-200",
-                                        red: "bg-red-100 text-red-700 border-red-200",
-                                        slate: "bg-slate-100 text-slate-700 border-slate-200",
+                                        blue: "bg-info/15 text-info border-info/30",
+                                        emerald: "bg-success/15 text-success border-success/30",
+                                        violet: "bg-primary/15 text-primary border-primary/30",
+                                        amber: "bg-warning/15 text-warning border-warning/30",
+                                        red: "bg-destructive/12 text-destructive border-destructive/30",
+                                        slate: "bg-muted text-muted-foreground border-border",
                                         pink: "bg-pink-100 text-pink-700 border-pink-200",
                                         cyan: "bg-cyan-100 text-cyan-700 border-cyan-200",
                                     };
                                     return (
                                         <span
-                                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border mt-0.5 ${colorCls[meta.color] ?? "bg-slate-100 text-slate-700 border-slate-200"}`}
+                                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border mt-0.5 ${colorCls[meta.color] ?? "bg-muted text-muted-foreground border-border"}`}
                                         >
                                             <span>{meta.emoji}</span>
                                             {meta.label}
@@ -492,24 +493,24 @@ export default function WorkersSettingsPage() {
                                 <div className="mt-1.5 flex items-center gap-1 flex-wrap">
                                     {w.dailyWageRate && (
                                         <span
-                                            className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono"
+                                            className="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success font-mono nums inline-flex items-center gap-0.5"
                                             title={`Gaji harian: Rp ${parseFloat(w.dailyWageRate).toLocaleString('id-ID')}${w.overtimeRatePerHour ? ` · Lembur Rp ${parseFloat(w.overtimeRatePerHour).toLocaleString('id-ID')}/jam` : ''}`}
                                         >
-                                            💰 Rp {parseFloat(w.dailyWageRate).toLocaleString('id-ID')}/hari
+                                            <Wallet className="h-3 w-3" /> Rp {parseFloat(w.dailyWageRate).toLocaleString('id-ID')}/hari
                                         </span>
                                     )}
                                     {w.isPic && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-semibold">
-                                            👤 PIC
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-info/15 text-info font-semibold inline-flex items-center gap-0.5">
+                                            <UserIcon className="h-3 w-3" /> PIC
                                         </span>
                                     )}
                                     {w.team && (
                                         <span
-                                            className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                                            className="text-[10px] px-1.5 py-0.5 rounded font-semibold inline-flex items-center gap-0.5"
                                             style={{ backgroundColor: `${w.team.color}20`, color: w.team.color, border: `1px solid ${w.team.color}40` }}
                                             title={`Member tim ${w.team.name}`}
                                         >
-                                            🏷️ {w.team.name}
+                                            <Tag className="h-3 w-3" /> {w.team.name}
                                         </span>
                                     )}
                                 </div>
@@ -518,7 +519,7 @@ export default function WorkersSettingsPage() {
                             {/* PIC link section — tampil kalau worker = PIC dan punya token */}
                             {w.isPic && w.picAccessToken && (
                                 <div className="mt-2 pt-2 border-t border-border/40">
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-blue-600 mb-1 flex items-center gap-1">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-info mb-1 flex items-center gap-1">
                                         <LinkIcon className="h-3 w-3" />
                                         Link Absensi PIC
                                     </div>
@@ -532,7 +533,7 @@ export default function WorkersSettingsPage() {
                                         <button
                                             onClick={() => handleCopyLink(w)}
                                             title="Copy link"
-                                            className="p-1.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                            className="p-1.5 rounded bg-info/15 text-info hover:bg-info/25 cursor-pointer transition-colors"
                                         >
                                             {copiedTokenId === w.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                                         </button>
@@ -540,7 +541,7 @@ export default function WorkersSettingsPage() {
                                             onClick={() => handleRegenerate(w)}
                                             disabled={regenerateTokenMut.isPending}
                                             title="Regenerate token (link lama jadi invalid)"
-                                            className="p-1.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-50"
+                                            className="p-1.5 rounded bg-warning/15 text-warning hover:bg-warning/25 disabled:opacity-50 cursor-pointer transition-colors"
                                         >
                                             <RefreshCw className={`h-3 w-3 ${regenerateTokenMut.isPending ? 'animate-spin' : ''}`} />
                                         </button>
@@ -548,12 +549,12 @@ export default function WorkersSettingsPage() {
                                     <p className="text-[10px] text-muted-foreground mt-0.5">
                                         Kasih link ini ke {w.name} untuk isi absensi tanpa login.
                                         {w.picPin ? (
-                                            <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold">
-                                                🔐 PIN aktif
+                                            <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/15 text-primary font-semibold">
+                                                <Lock className="h-3 w-3" /> PIN aktif
                                             </span>
                                         ) : (
-                                            <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">
-                                                ⚠️ Belum pakai PIN
+                                            <span className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-warning/15 text-warning font-semibold">
+                                                <AlertTriangle className="h-3 w-3" /> Belum pakai PIN
                                             </span>
                                         )}
                                     </p>
@@ -563,7 +564,7 @@ export default function WorkersSettingsPage() {
                             {/* Signature + Stamp untuk worker MARKETING/SALES (penawaran) atau ADMIN (invoice) */}
                             {isSignerPosition(w.position) && (
                                 <div className="mt-2 pt-2 border-t border-border/40">
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-violet-600 mb-1">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-primary mb-1">
                                         Tanda Tangan & Stempel
                                         <span className="ml-1 font-normal text-muted-foreground normal-case">
                                             ({w.position === 'ADMIN' ? 'untuk Invoice' : 'untuk Penawaran'})
@@ -575,12 +576,12 @@ export default function WorkersSettingsPage() {
                                             <div className="text-[10px] text-muted-foreground mb-0.5 flex items-center justify-between gap-1">
                                                 <span>Tanda Tangan</span>
                                                 {w.signatureDisplayName && (
-                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold" title={`Nama di TTD: ${w.signatureDisplayName}`}>
-                                                        ✍️ {w.signatureDisplayName.length > 18 ? w.signatureDisplayName.slice(0, 16) + "…" : w.signatureDisplayName}
+                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-primary/15 text-primary font-semibold" title={`Nama di TTD: ${w.signatureDisplayName}`}>
+                                                        <Pencil className="h-2.5 w-2.5 inline" /> {w.signatureDisplayName.length > 18 ? w.signatureDisplayName.slice(0, 16) + "…" : w.signatureDisplayName}
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="aspect-[2/1] rounded border border-dashed bg-white overflow-hidden flex items-center justify-center">
+                                            <div className="aspect-[2/1] rounded border border-dashed bg-card overflow-hidden flex items-center justify-center">
                                                 {w.signatureImageUrl ? (
                                                     <img
                                                         src={`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}${w.signatureImageUrl}`}
@@ -595,7 +596,7 @@ export default function WorkersSettingsPage() {
                                                 <button
                                                     onClick={() => handleUploadSig(w.id)}
                                                     disabled={uploadSigMut.isPending}
-                                                    className="flex-1 inline-flex items-center justify-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-violet-100 text-violet-700 hover:bg-violet-200 disabled:opacity-50"
+                                                    className="flex-1 inline-flex items-center justify-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50 cursor-pointer transition-colors"
                                                 >
                                                     {uploadSigMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                                                     {w.signatureImageUrl ? "Ganti" : "Upload"}
@@ -603,9 +604,9 @@ export default function WorkersSettingsPage() {
                                                 {w.signatureImageUrl && (
                                                     <button
                                                         onClick={() => { if (confirm("Hapus tanda tangan?")) removeSigMut.mutate(w.id); }}
-                                                        className="text-[10px] px-1 py-0.5 rounded text-red-600 hover:bg-red-50"
+                                                        className="text-[10px] px-1 py-0.5 rounded text-destructive hover:bg-destructive/10 cursor-pointer transition-colors"
                                                     >
-                                                        ✕
+                                                        <X className="h-3 w-3" />
                                                     </button>
                                                 )}
                                             </div>
@@ -613,7 +614,7 @@ export default function WorkersSettingsPage() {
                                         {/* Stamp slot */}
                                         <div>
                                             <div className="text-[10px] text-muted-foreground mb-0.5">Stempel</div>
-                                            <div className="aspect-square rounded border border-dashed bg-white overflow-hidden flex items-center justify-center">
+                                            <div className="aspect-square rounded border border-dashed bg-card overflow-hidden flex items-center justify-center">
                                                 {w.stampImageUrl ? (
                                                     <img
                                                         src={`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}${w.stampImageUrl}`}
@@ -628,7 +629,7 @@ export default function WorkersSettingsPage() {
                                                 <button
                                                     onClick={() => handleUploadStamp(w.id)}
                                                     disabled={uploadStampMut.isPending}
-                                                    className="flex-1 inline-flex items-center justify-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-50"
+                                                    className="flex-1 inline-flex items-center justify-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-warning/15 text-warning hover:bg-warning/25 disabled:opacity-50 cursor-pointer transition-colors"
                                                 >
                                                     {uploadStampMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                                                     {w.stampImageUrl ? "Ganti" : "Upload"}
@@ -636,9 +637,9 @@ export default function WorkersSettingsPage() {
                                                 {w.stampImageUrl && (
                                                     <button
                                                         onClick={() => { if (confirm("Hapus stempel?")) removeStampMut.mutate(w.id); }}
-                                                        className="text-[10px] px-1 py-0.5 rounded text-red-600 hover:bg-red-50"
+                                                        className="text-[10px] px-1 py-0.5 rounded text-destructive hover:bg-destructive/10 cursor-pointer transition-colors"
                                                     >
-                                                        ✕
+                                                        <X className="h-3 w-3" />
                                                     </button>
                                                 )}
                                             </div>
@@ -648,19 +649,19 @@ export default function WorkersSettingsPage() {
                             )}
                         </div>
                         <div className="flex flex-col gap-1">
-                            <button onClick={() => startEdit(w)} title="Edit" className="p-1.5 hover:bg-muted rounded">
+                            <button onClick={() => startEdit(w)} title="Edit" className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors">
                                 <Pencil className="h-3.5 w-3.5" />
                             </button>
                             {w.isActive ? (
-                                <button onClick={() => toggleActiveMut.mutate({ id: w.id, isActive: false })} title="Nonaktifkan" className="p-1.5 hover:bg-muted rounded">
+                                <button onClick={() => toggleActiveMut.mutate({ id: w.id, isActive: false })} title="Nonaktifkan" className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors">
                                     <EyeOff className="h-3.5 w-3.5" />
                                 </button>
                             ) : (
-                                <button onClick={() => restoreMut.mutate(w.id)} title="Aktifkan" className="p-1.5 hover:bg-muted rounded">
+                                <button onClick={() => restoreMut.mutate(w.id)} title="Aktifkan" className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors">
                                     <Eye className="h-3.5 w-3.5" />
                                 </button>
                             )}
-                            <button onClick={() => setDeleteConfirm(w)} title="Hapus" className="p-1.5 hover:bg-red-50 text-red-600 rounded">
+                            <button onClick={() => setDeleteConfirm(w)} title="Hapus" className="p-1.5 hover:bg-destructive/10 text-destructive rounded cursor-pointer transition-colors">
                                 <Trash2 className="h-3.5 w-3.5" />
                             </button>
                         </div>
@@ -676,13 +677,13 @@ export default function WorkersSettingsPage() {
                             <b>{deleteConfirm.name}</b> akan {((deleteConfirm._count?.withdrawals ?? 0) > 0) ? "dinonaktifkan (riwayat pengambilan tetap utuh)" : "dihapus permanen"}.
                         </p>
                         <div className="flex items-center gap-2 justify-end">
-                            <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1.5 text-sm border rounded hover:bg-muted">
+                            <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted cursor-pointer transition-colors">
                                 <X className="h-4 w-4 inline -mt-0.5" /> Batal
                             </button>
                             <button
                                 onClick={() => deleteMut.mutate(deleteConfirm.id)}
                                 disabled={deleteMut.isPending}
-                                className="flex items-center gap-1 bg-red-600 text-white px-3 py-1.5 rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                                className="flex items-center gap-1 bg-destructive text-destructive-foreground px-3 py-1.5 rounded text-sm hover:bg-destructive/90 disabled:opacity-50 cursor-pointer transition-colors"
                             >
                                 {deleteMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                                 <Trash2 className="h-3.5 w-3.5" /> Hapus

@@ -26,10 +26,10 @@ function proofUrl(filename: string): string {
 }
 
 const STATUS_BADGE: Record<SalesOrderStatus, string> = {
-    DRAFT: 'bg-gray-100 text-gray-700 border-gray-200',
-    SENT: 'bg-blue-100 text-blue-700 border-blue-200',
-    INVOICED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    CANCELLED: 'bg-red-100 text-red-700 border-red-200',
+    DRAFT: 'bg-muted text-muted-foreground border-border',
+    SENT: 'bg-info/15 text-info border-info/30',
+    INVOICED: 'bg-success/15 text-success border-success/30',
+    CANCELLED: 'bg-destructive/12 text-destructive border-destructive/30',
 };
 
 const STATUS_LABEL: Record<SalesOrderStatus, string> = {
@@ -106,7 +106,7 @@ export default function SalesOrderDetailPage() {
     return (
         <div className="max-w-5xl mx-auto space-y-4">
             <div className="flex items-center gap-2">
-                <Link href="/sales-orders" className="p-2 hover:bg-muted rounded-md">
+                <Link href="/sales-orders" className="p-2 hover:bg-muted rounded-md transition-colors">
                     <ArrowLeft className="h-5 w-5" />
                 </Link>
                 <div className="flex-1">
@@ -124,26 +124,26 @@ export default function SalesOrderDetailPage() {
             </div>
 
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm">
+                <div className="bg-destructive/12 border border-destructive/30 text-destructive px-3 py-2 rounded-md text-sm">
                     {error}
                 </div>
             )}
 
             {so.status === 'INVOICED' && so.transaction && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3 text-sm flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                <div className="bg-success/15 border border-success/30 rounded-md p-3 text-sm flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-success" />
                     <div className="flex-1">
                         SO ini sudah dibuatkan nota: <span className="font-mono font-semibold">{so.transaction.invoiceNumber}</span>
                         {so.transaction.status && ` — ${so.transaction.status}`}
                     </div>
-                    <Link href={`/transactions/dp?search=${so.transaction.invoiceNumber}`} className="text-emerald-700 hover:underline text-xs flex items-center gap-1">
+                    <Link href={`/transactions/dp?search=${so.transaction.invoiceNumber}`} className="text-success hover:underline text-xs flex items-center gap-1">
                         Lihat <ExternalLink className="h-3 w-3" />
                     </Link>
                 </div>
             )}
 
             {so.status === 'CANCELLED' && so.cancelReason && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm">
+                <div className="bg-destructive/12 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
                     <span className="font-semibold">Dibatalkan:</span> {so.cancelReason}
                 </div>
             )}
@@ -179,12 +179,12 @@ export default function SalesOrderDetailPage() {
                                             <div className="text-xs text-muted-foreground font-mono">SKU: {it.productVariant?.sku}</div>
                                         </div>
                                         <div className="mt-1 text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
-                                            <span>Qty: <b className="text-foreground">{it.quantity}</b></span>
+                                            <span>Qty: <b className="text-foreground nums">{it.quantity}</b></span>
                                             {it.widthCm && it.heightCm && (
-                                                <span>Dim: <b className="text-foreground">{it.widthCm}×{it.heightCm} {it.unitType || 'cm'}</b></span>
+                                                <span>Dim: <b className="text-foreground nums">{it.widthCm}×{it.heightCm} {it.unitType || 'cm'}</b></span>
                                             )}
-                                            {it.pcs && it.pcs > 1 && <span>Pcs: <b className="text-foreground">{it.pcs}</b></span>}
-                                            {it.customPrice && <span>Harga Override: <b className="text-foreground">Rp {Number(it.customPrice).toLocaleString('id-ID')}</b></span>}
+                                            {it.pcs && it.pcs > 1 && <span>Pcs: <b className="text-foreground nums">{it.pcs}</b></span>}
+                                            {it.customPrice && <span>Harga Override: <b className="text-foreground nums">Rp {Number(it.customPrice).toLocaleString('id-ID')}</b></span>}
                                         </div>
                                         {it.note && <div className="text-xs italic text-muted-foreground mt-1">&ldquo;{it.note}&rdquo;</div>}
                                     </div>
@@ -201,7 +201,7 @@ export default function SalesOrderDetailPage() {
 
                     <Section title={`Proof Gambar (${so.proofs?.length ?? 0})`}>
                         {canEdit && (
-                            <label className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-md cursor-pointer hover:bg-muted text-sm mb-3">
+                            <label className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-md cursor-pointer hover:bg-muted text-sm mb-3 transition-colors">
                                 {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                                 Tambah Gambar
                                 <input
@@ -229,7 +229,7 @@ export default function SalesOrderDetailPage() {
                                         {canEdit && (
                                             <button
                                                 onClick={() => deleteProofMut.mutate(p.id)}
-                                                className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition"
+                                                className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-colors cursor-pointer"
                                             >
                                                 <Trash2 className="h-3 w-3" />
                                             </button>
@@ -250,7 +250,7 @@ export default function SalesOrderDetailPage() {
                             </p>
                             <button
                                 onClick={() => router.push(`/pos?fromSO=${so.id}`)}
-                                className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-emerald-700"
+                                className="w-full inline-flex items-center justify-center gap-2 bg-success text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-success/90 transition-colors cursor-pointer"
                             >
                                 <FileText className="h-4 w-4" />
                                 Buat Nota di POS
@@ -262,7 +262,7 @@ export default function SalesOrderDetailPage() {
                         <Section title="Edit SO">
                             <Link
                                 href={`/sales-orders/new?edit=${so.id}`}
-                                className="w-full inline-flex items-center justify-center gap-2 border border-border px-3 py-2 rounded-md text-sm font-medium hover:bg-muted"
+                                className="w-full inline-flex items-center justify-center gap-2 border border-border px-3 py-2 rounded-md text-sm font-medium hover:bg-muted transition-colors"
                             >
                                 <Edit3 className="h-4 w-4" />
                                 Edit (belum tersedia)
@@ -278,7 +278,7 @@ export default function SalesOrderDetailPage() {
                             {!showCancel ? (
                                 <button
                                     onClick={() => setShowCancel(true)}
-                                    className="w-full inline-flex items-center justify-center gap-2 border border-red-300 text-red-700 px-3 py-2 rounded-md text-sm font-medium hover:bg-red-50"
+                                    className="w-full inline-flex items-center justify-center gap-2 border border-destructive/30 text-destructive px-3 py-2 rounded-md text-sm font-medium hover:bg-destructive/12 transition-colors cursor-pointer"
                                 >
                                     <XCircle className="h-4 w-4" /> Batalkan SO
                                 </button>
@@ -294,14 +294,14 @@ export default function SalesOrderDetailPage() {
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => { setShowCancel(false); setCancelReason(''); }}
-                                            className="flex-1 px-3 py-1.5 text-sm border border-border rounded hover:bg-muted"
+                                            className="flex-1 px-3 py-1.5 text-sm border border-border rounded hover:bg-muted transition-colors cursor-pointer"
                                         >
                                             Batal
                                         </button>
                                         <button
                                             onClick={() => cancelMut.mutate()}
                                             disabled={!cancelReason.trim() || cancelMut.isPending}
-                                            className="flex-1 inline-flex items-center justify-center gap-1 bg-red-600 text-white px-3 py-1.5 rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                                            className="flex-1 inline-flex items-center justify-center gap-1 bg-destructive text-destructive-foreground px-3 py-1.5 rounded text-sm hover:bg-destructive/90 disabled:opacity-50 transition-colors cursor-pointer"
                                         >
                                             {cancelMut.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
                                             Konfirmasi
@@ -319,7 +319,7 @@ export default function SalesOrderDetailPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <div className="bg-card border border-border rounded-lg p-4">
+        <div className="glass rounded-xl p-4">
             <h2 className="text-sm font-semibold mb-3">{title}</h2>
             {children}
         </div>

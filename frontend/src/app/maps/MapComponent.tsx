@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { MapContainer, TileLayer, CircleMarker, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
+import { useEffect } from "react";
+import { MapPin } from "lucide-react";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -157,18 +158,15 @@ export default function MapComponent({ branches, competitors, searchResults, lay
                             <div className="text-sm font-sans min-w-[180px]">
                                 <div className="flex items-center gap-2 mb-1">
                                     <span style={{ width: 10, height: 10, borderRadius: "50%", background: getColorByMargin(margin), display: "inline-block" }} />
-                                    <p className="font-bold text-gray-900">{b.name}</p>
+                                    <p className="font-bold text-foreground">{b.name}</p>
                                 </div>
-                                {b.address && <p className="text-xs text-gray-500 mb-2">{b.address}</p>}
+                                {b.address && <p className="text-xs text-muted-foreground mb-2">{b.address}</p>}
                                 <div className="space-y-0.5 text-xs">
-                                    <div className="flex justify-between"><span className="text-gray-500">Omset:</span><span className="font-medium">{fmt(omset)}</span></div>
-                                    <div className="flex justify-between"><span className="text-gray-500">Margin:</span><span style={{ color: getColorByMargin(margin), fontWeight: 600 }}>{margin}%</span></div>
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Omset:</span><span className="font-medium nums">{fmt(omset)}</span></div>
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Margin:</span><span className="nums font-semibold" style={{ color: getColorByMargin(margin) }}>{margin}%</span></div>
                                 </div>
-                                <div className="mt-2 pt-2 border-t border-gray-100">
-                                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
-                                        background: margin > 35 ? "#dcfce7" : margin >= 15 ? "#fef3c7" : "#fee2e2",
-                                        color: margin > 35 ? "#166534" : margin >= 15 ? "#92400e" : "#991b1b"
-                                    }}>
+                                <div className="mt-2 pt-2 border-t border-border">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${margin > 35 ? "bg-success/15 text-success" : margin >= 15 ? "bg-warning/15 text-warning" : "bg-destructive/12 text-destructive"}`}>
                                         {margin > 35 ? "Profit Tinggi" : margin >= 15 ? "Profit Sedang" : "Profit Rendah"}
                                     </span>
                                 </div>
@@ -189,11 +187,11 @@ export default function MapComponent({ branches, competitors, searchResults, lay
                             <div className="text-sm font-sans min-w-[160px]">
                                 <div className="flex items-center gap-1.5 mb-1">
                                     <span style={{ width: 10, height: 10, background: "#ef4444", borderRadius: 2, transform: "rotate(45deg)", display: "inline-block" }} />
-                                    <p className="font-bold text-gray-900">{c.name}</p>
+                                    <p className="font-bold text-foreground">{c.name}</p>
                                 </div>
-                                {c.type && <span className="inline-block text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full mb-1">{c.type}</span>}
-                                {c.address && <p className="text-xs text-gray-500 mt-1">{c.address}</p>}
-                                {c.notes && <p className="text-xs text-gray-600 mt-1 italic">{c.notes}</p>}
+                                {c.type && <span className="inline-block text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded-full mb-1">{c.type}</span>}
+                                {c.address && <p className="text-xs text-muted-foreground mt-1">{c.address}</p>}
+                                {c.notes && <p className="text-xs text-muted-foreground mt-1 italic">{c.notes}</p>}
                             </div>
                         </Popup>
                     </Marker>
@@ -207,10 +205,10 @@ export default function MapComponent({ branches, competitors, searchResults, lay
                         <div className="text-sm font-sans min-w-[160px]">
                             <div className="flex items-center gap-1.5 mb-1">
                                 <span style={{ width: 10, height: 10, background: "#3b82f6", borderRadius: "50%", display: "inline-block" }} />
-                                <p className="font-bold text-gray-900">{r.name}</p>
+                                <p className="font-bold text-foreground">{r.name}</p>
                             </div>
-                            {r.address && <p className="text-xs text-gray-500">{r.address}</p>}
-                            <p className="text-xs text-blue-600 mt-1">📍 Hasil pencarian</p>
+                            {r.address && <p className="text-xs text-muted-foreground">{r.address}</p>}
+                            <p className="flex items-center gap-1 text-xs text-info mt-1"><MapPin className="w-3 h-3" /> Hasil pencarian</p>
                         </div>
                     </Popup>
                 </Marker>

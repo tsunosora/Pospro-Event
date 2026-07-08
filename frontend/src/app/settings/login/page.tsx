@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSettings, updateSettings, uploadLoginBgImage } from '@/lib/api';
-import { Upload, X, Plus, GripVertical, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Upload, X, Plus, GripVertical, Image as ImageIcon, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
 
 export default function LoginAppearancePage() {
     const qc = useQueryClient();
@@ -70,7 +70,7 @@ export default function LoginAppearancePage() {
     }
 
     return (
-        <div className="p-6 space-y-8 max-w-2xl">
+        <div className="space-y-8 max-w-2xl">
             <div>
                 <h2 className="text-xl font-bold mb-1">Tampilan Halaman Login</h2>
                 <p className="text-sm text-muted-foreground">
@@ -80,13 +80,13 @@ export default function LoginAppearancePage() {
             </div>
 
             {/* Background Images */}
-            <section className="space-y-4">
+            <section className="glass rounded-xl p-5 space-y-4">
                 <div className="flex items-center justify-between">
                     <h3 className="font-semibold flex items-center gap-2">
                         <ImageIcon className="h-4 w-4 text-primary" />
                         Gambar Latar
                     </h3>
-                    <span className="text-xs text-muted-foreground">{bgImages.length} gambar</span>
+                    <span className="text-xs text-muted-foreground nums">{bgImages.length} gambar</span>
                 </div>
 
                 {bgImages.length === 0 ? (
@@ -106,7 +106,7 @@ export default function LoginAppearancePage() {
                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
                                 <button
                                     onClick={() => removeImage(i)}
-                                    className="absolute top-1.5 right-1.5 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                    className="absolute top-1.5 right-1.5 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/90 cursor-pointer"
                                     title="Hapus gambar"
                                 >
                                     <X className="h-3 w-3" />
@@ -131,9 +131,9 @@ export default function LoginAppearancePage() {
                     <button
                         onClick={() => fileRef.current?.click()}
                         disabled={uploading}
-                        className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm hover:bg-muted transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm hover:bg-muted transition-colors disabled:opacity-50 cursor-pointer"
                     >
-                        <Upload className="h-4 w-4" />
+                        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                         {uploading ? 'Mengupload...' : 'Upload Gambar'}
                     </button>
                     <p className="text-xs text-muted-foreground mt-1.5">
@@ -144,7 +144,7 @@ export default function LoginAppearancePage() {
             </section>
 
             {/* Taglines */}
-            <section className="space-y-4">
+            <section className="glass rounded-xl p-5 space-y-4">
                 <h3 className="font-semibold">Tagline / Slogan</h3>
                 <p className="text-sm text-muted-foreground -mt-2">
                     Teks yang berganti-ganti di bagian bawah panel login.
@@ -162,7 +162,7 @@ export default function LoginAppearancePage() {
                                 <span className="flex-1 text-sm">{t}</span>
                                 <button
                                     onClick={() => removeTagline(i)}
-                                    className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                                    className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </button>
@@ -183,7 +183,7 @@ export default function LoginAppearancePage() {
                     <button
                         onClick={addTagline}
                         disabled={!newTagline.trim()}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 disabled:opacity-40 transition-colors cursor-pointer"
                     >
                         <Plus className="h-4 w-4" />
                         Tambah
@@ -196,12 +196,16 @@ export default function LoginAppearancePage() {
                 <button
                     onClick={save}
                     disabled={saving}
-                    className="px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer"
                 >
+                    {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                     {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </button>
                 {saved && (
-                    <span className="text-sm text-emerald-500 font-medium">Tersimpan!</span>
+                    <span className="flex items-center gap-1.5 text-sm text-success font-medium">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Tersimpan!
+                    </span>
                 )}
             </div>
         </div>

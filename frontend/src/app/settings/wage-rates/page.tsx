@@ -6,7 +6,7 @@ import {
     listWageRates, createWageRate, updateWageRate, deleteWageRate,
     type WageRate, type WageRateInput,
 } from "@/lib/api/wage-rates";
-import { Wallet, Plus, Pencil, Trash2, Check, X, Loader2, Search } from "lucide-react";
+import { Wallet, Plus, Pencil, Trash2, Check, Loader2, Search, MapPin } from "lucide-react";
 
 function formatRp(n: number | string): string {
     const v = typeof n === "string" ? parseFloat(n) : n;
@@ -87,10 +87,10 @@ export default function WageRatesPage() {
 
     return (
         <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4">
-            <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-                        <Wallet className="h-6 w-6 text-emerald-600" />
+                        <Wallet className="h-6 w-6 text-primary" />
                         Tarif Gaji per Kota & Divisi
                     </h1>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -100,15 +100,15 @@ export default function WageRatesPage() {
                 </div>
                 <button
                     onClick={() => { resetForm(); setShowForm(true); }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium text-sm transition-colors cursor-pointer"
                 >
                     <Plus className="h-4 w-4" /> Tambah Tarif
                 </button>
             </div>
 
             {showForm && (
-                <div className="border-2 border-emerald-300 bg-emerald-50/50 rounded-lg p-4 space-y-3">
-                    <div className="text-sm font-bold text-emerald-800">
+                <div className="glass rounded-xl p-4 space-y-3 border border-primary/30">
+                    <div className="text-sm font-bold text-foreground">
                         {editId ? "Edit" : "Tambah"} Tarif Gaji
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -118,7 +118,7 @@ export default function WageRatesPage() {
                                 value={form.city}
                                 onChange={(e) => setForm(f => ({ ...f, city: e.target.value }))}
                                 placeholder="Jakarta, Bandung, ..."
-                                className="w-full border rounded px-3 py-2 text-sm bg-white"
+                                className="w-full border border-border rounded px-3 py-2 text-sm bg-card"
                                 autoFocus
                             />
                         </div>
@@ -128,7 +128,7 @@ export default function WageRatesPage() {
                                 value={form.division}
                                 onChange={(e) => setForm(f => ({ ...f, division: e.target.value }))}
                                 placeholder="Tukang Kayu, Welder, Helper, ..."
-                                className="w-full border rounded px-3 py-2 text-sm bg-white"
+                                className="w-full border border-border rounded px-3 py-2 text-sm bg-card"
                             />
                         </div>
                         <div>
@@ -139,7 +139,7 @@ export default function WageRatesPage() {
                                 value={form.dailyWageRate}
                                 onChange={(e) => setForm(f => ({ ...f, dailyWageRate: e.target.value.replace(/[^\d.]/g, "") }))}
                                 placeholder="200000"
-                                className="w-full border rounded px-3 py-2 text-sm bg-white font-mono"
+                                className="w-full border border-border rounded px-3 py-2 text-sm bg-card nums"
                             />
                         </div>
                         <div>
@@ -150,7 +150,7 @@ export default function WageRatesPage() {
                                 value={form.overtimeRatePerHour}
                                 onChange={(e) => setForm(f => ({ ...f, overtimeRatePerHour: e.target.value.replace(/[^\d.]/g, "") }))}
                                 placeholder="25000"
-                                className="w-full border rounded px-3 py-2 text-sm bg-white font-mono"
+                                className="w-full border border-border rounded px-3 py-2 text-sm bg-card nums"
                             />
                         </div>
                         <div className="md:col-span-2">
@@ -159,7 +159,7 @@ export default function WageRatesPage() {
                                 value={form.notes ?? ""}
                                 onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))}
                                 placeholder="(opsional)"
-                                className="w-full border rounded px-3 py-2 text-sm bg-white"
+                                className="w-full border border-border rounded px-3 py-2 text-sm bg-card"
                             />
                         </div>
                     </div>
@@ -171,13 +171,13 @@ export default function WageRatesPage() {
                         />
                         Aktif (kalau dimatikan, tidak muncul di dropdown PIC)
                     </label>
-                    {error && <p className="text-xs text-red-600">{error}</p>}
+                    {error && <p className="text-xs text-destructive">{error}</p>}
                     <div className="flex gap-2 justify-end">
-                        <button onClick={resetForm} className="px-3 py-1.5 text-sm border rounded hover:bg-white">Batal</button>
+                        <button onClick={resetForm} className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted transition-colors cursor-pointer">Batal</button>
                         <button
                             onClick={handleSave}
                             disabled={createMut.isPending || updateMut.isPending}
-                            className="inline-flex items-center gap-1 px-4 py-1.5 rounded text-sm bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+                            className="inline-flex items-center gap-1 px-4 py-1.5 rounded text-sm bg-primary hover:bg-primary/90 text-white disabled:opacity-50 transition-colors cursor-pointer"
                         >
                             {(createMut.isPending || updateMut.isPending) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                             {editId ? "Update" : "Simpan"}
@@ -209,11 +209,12 @@ export default function WageRatesPage() {
             <div className="space-y-3">
                 {grouped.map(([city, list]) => (
                     <div key={city} className="border rounded-lg overflow-hidden">
-                        <div className="bg-slate-100 px-3 py-2 font-bold text-sm flex items-center gap-2">
-                            <span>📍</span>
+                        <div className="bg-muted px-3 py-2 font-bold text-sm flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-muted-foreground" />
                             {city}
                             <span className="text-xs text-muted-foreground font-normal">· {list.length} divisi</span>
                         </div>
+                        <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="bg-muted/30 text-xs">
                                 <tr>
@@ -229,10 +230,10 @@ export default function WageRatesPage() {
                                     <tr key={r.id} className={`border-t ${!r.isActive ? "opacity-50 bg-muted/10" : ""}`}>
                                         <td className="p-2 font-medium">
                                             {r.division}
-                                            {!r.isActive && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">nonaktif</span>}
+                                            {!r.isActive && <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">nonaktif</span>}
                                         </td>
-                                        <td className="p-2 text-right font-mono">Rp {formatRp(r.dailyWageRate)}</td>
-                                        <td className="p-2 text-right font-mono text-muted-foreground">
+                                        <td className="p-2 text-right nums">Rp {formatRp(r.dailyWageRate)}</td>
+                                        <td className="p-2 text-right nums text-muted-foreground">
                                             {parseFloat(r.overtimeRatePerHour) > 0 ? `Rp ${formatRp(r.overtimeRatePerHour)}` : "—"}
                                         </td>
                                         <td className="p-2 text-xs text-muted-foreground">{r.notes ?? "—"}</td>
@@ -240,7 +241,7 @@ export default function WageRatesPage() {
                                             <div className="inline-flex gap-1">
                                                 <button
                                                     onClick={() => startEdit(r)}
-                                                    className="p-1.5 rounded hover:bg-blue-50 text-blue-600"
+                                                    className="p-1.5 rounded hover:bg-info/15 text-info transition-colors cursor-pointer"
                                                     title="Edit"
                                                 >
                                                     <Pencil className="h-3.5 w-3.5" />
@@ -250,7 +251,7 @@ export default function WageRatesPage() {
                                                         if (confirm(`Hapus tarif "${r.city} - ${r.division}"?`)) deleteMut.mutate(r.id);
                                                     }}
                                                     disabled={deleteMut.isPending}
-                                                    className="p-1.5 rounded hover:bg-red-50 text-red-600 disabled:opacity-50"
+                                                    className="p-1.5 rounded hover:bg-destructive/12 text-destructive disabled:opacity-50 transition-colors cursor-pointer"
                                                     title="Hapus"
                                                 >
                                                     <Trash2 className="h-3.5 w-3.5" />
@@ -261,6 +262,7 @@ export default function WageRatesPage() {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 ))}
             </div>

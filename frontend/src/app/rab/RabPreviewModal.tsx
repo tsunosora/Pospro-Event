@@ -5,7 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import {
     X, Loader2, ExternalLink, Calendar, MapPin, Building2, FileSpreadsheet,
-    TrendingUp, ArrowUpRight, ArrowDownRight, Image as ImageIcon,
+    TrendingUp, ArrowUpRight, ArrowDownRight,
+    Tag, Wallet, CreditCard, Package, Lightbulb, AlertTriangle,
 } from "lucide-react";
 import { getRab, getRabSummary, downloadRabXlsx, parseRabTags } from "@/lib/api/rab";
 
@@ -53,19 +54,19 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
     const margin = summary && summary.totals.totalRab > 0
         ? (summary.totals.totalSelisih / summary.totals.totalRab) * 100
         : 0;
-    const marginColor = margin >= 30 ? "text-green-600" : margin >= 15 ? "text-amber-600" : margin < 0 ? "text-red-600" : "text-amber-700";
+    const marginColor = margin >= 30 ? "text-success" : margin >= 15 ? "text-warning" : margin < 0 ? "text-destructive" : "text-warning";
 
     // Payment status
     const dpVal = summary?.income.dpAmount ?? 0;
     const pelVal = summary?.income.pelunasan ?? 0;
     const otherVal = summary?.income.incomeOther ?? 0;
     const paymentStatus =
-        totalIncome === 0 ? { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-slate-100 text-slate-700 border-slate-300", hint: "Belum ada DP/pelunasan masuk" }
-            : pelVal > 0 && dpVal > 0 ? { label: "Lunas (DP + Pelunasan)", emoji: "✅", cls: "bg-emerald-100 text-emerald-800 border-emerald-300", hint: "Sudah DP & pelunasan — saldo bersih = untung riil" }
-                : pelVal > 0 ? { label: "Lunas", emoji: "✅", cls: "bg-emerald-100 text-emerald-800 border-emerald-300", hint: "Pelunasan sudah masuk" }
-                    : dpVal > 0 ? { label: "Baru DP — belum pelunasan", emoji: "🟡", cls: "bg-amber-100 text-amber-800 border-amber-300", hint: "Baru bayar DP. Saldo minus wajar." }
-                        : otherVal > 0 ? { label: "Income Lain saja", emoji: "ℹ️", cls: "bg-blue-100 text-blue-800 border-blue-300", hint: "Hanya income lain" }
-                            : { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-slate-100 text-slate-700 border-slate-300", hint: "" };
+        totalIncome === 0 ? { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-muted text-muted-foreground border-border", hint: "Belum ada DP/pelunasan masuk" }
+            : pelVal > 0 && dpVal > 0 ? { label: "Lunas (DP + Pelunasan)", emoji: "✅", cls: "bg-success/15 text-success border-success/30", hint: "Sudah DP & pelunasan — saldo bersih = untung riil" }
+                : pelVal > 0 ? { label: "Lunas", emoji: "✅", cls: "bg-success/15 text-success border-success/30", hint: "Pelunasan sudah masuk" }
+                    : dpVal > 0 ? { label: "Baru DP — belum pelunasan", emoji: "🟡", cls: "bg-warning/15 text-warning border-warning/30", hint: "Baru bayar DP. Saldo minus wajar." }
+                        : otherVal > 0 ? { label: "Income Lain saja", emoji: "ℹ️", cls: "bg-info/15 text-info border-info/30", hint: "Hanya income lain" }
+                            : { label: "Belum ada pembayaran", emoji: "⏳", cls: "bg-muted text-muted-foreground border-border", hint: "" };
 
     const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -147,7 +148,7 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                 <img
                                     src={`${apiBase}${rab.imageUrl}`}
                                     alt={rab.title}
-                                    className="w-full max-h-72 object-contain bg-white"
+                                    className="w-full max-h-72 object-contain bg-card"
                                 />
                             </div>
                         )}
@@ -155,11 +156,11 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                         {/* Tags — tampil di atas Info Grid kalau ada */}
                         {parseRabTags(rab.tags).length > 0 && (
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="text-xs font-semibold text-muted-foreground mr-1">🏷️ Tag:</span>
+                                <span className="text-xs font-semibold text-muted-foreground mr-1 inline-flex items-center gap-1"><Tag className="w-3 h-3" /> Tag:</span>
                                 {parseRabTags(rab.tags).map((t) => (
                                     <span
                                         key={t}
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-info/15 text-info border border-info/30"
                                     >
                                         {t}
                                     </span>
@@ -219,11 +220,11 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                             const isAllMissing = summary.totals.totalCost === 0 && summary.totals.totalRab > 0;
                             if (isAllMissing) {
                                 return (
-                                    <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 text-sm">
-                                        <div className="font-bold text-amber-900 inline-flex items-center gap-1.5">
-                                            ⚠️ Real Cost Belum Diisi Sama Sekali
+                                    <div className="rounded-lg border-2 border-warning/40 bg-warning/10 p-3 text-sm">
+                                        <div className="font-bold text-foreground inline-flex items-center gap-1.5">
+                                            <AlertTriangle className="w-4 h-4 text-warning" /> Real Cost Belum Diisi Sama Sekali
                                         </div>
-                                        <p className="text-xs text-amber-800 mt-1">
+                                        <p className="text-xs text-muted-foreground mt-1">
                                             Margin tampil 100% karena Total COST = Rp 0. <b>Bukan untung beneran</b> — owner perlu input harga modal di tiap item RAB supaya margin akurat.
                                         </p>
                                     </div>
@@ -231,8 +232,8 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                             }
                             if (itemsWithMissingCost > 0) {
                                 return (
-                                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-xs text-blue-900">
-                                        💡 <b>{itemsWithMissingCost} dari {rab.items.length} item</b> belum ada Real Cost. Margin total kemungkinan over-estimate sampai cost lengkap.
+                                    <div className="rounded-lg border border-info/30 bg-info/10 p-2.5 text-xs text-info inline-flex items-start gap-1.5">
+                                        <Lightbulb className="w-3.5 h-3.5 shrink-0 mt-0.5" /> <span><b>{itemsWithMissingCost} dari {rab.items.length} item</b> belum ada Real Cost. Margin total kemungkinan over-estimate sampai cost lengkap.</span>
                                     </div>
                                 );
                             }
@@ -259,7 +260,7 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                 label="Selisih (Proyeksi)"
                                 value={fmtRp(summary.totals.totalSelisih)}
                                 icon={<TrendingUp className="h-4 w-4" />}
-                                valueClass={summary.totals.totalCost === 0 && summary.totals.totalRab > 0 ? "text-amber-600" : summary.totals.totalSelisih >= 0 ? "text-green-600" : "text-red-600"}
+                                valueClass={summary.totals.totalCost === 0 && summary.totals.totalRab > 0 ? "text-warning" : summary.totals.totalSelisih >= 0 ? "text-success" : "text-destructive"}
                                 hint={
                                     summary.totals.totalCost === 0 && summary.totals.totalRab > 0
                                         ? "⚠ Real Cost belum diisi"
@@ -271,12 +272,12 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                             {/* Saldo Bersih dengan payment status badge */}
                             <div className="rounded-lg border border-border p-3 bg-background flex flex-col">
                                 <div className="flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-1">
-                                    💰 Saldo Bersih
+                                    <Wallet className="w-3.5 h-3.5" /> Saldo Bersih
                                 </div>
                                 {totalIncome === 0 ? (
-                                    <div className="text-lg font-bold text-slate-500">—</div>
+                                    <div className="text-lg font-bold text-muted-foreground">—</div>
                                 ) : (
-                                    <div className={`text-lg font-bold ${summary.saldo >= 0 ? "text-emerald-600" : "text-amber-600"}`}>
+                                    <div className={`text-lg font-bold nums ${summary.saldo >= 0 ? "text-success" : "text-warning"}`}>
                                         {summary.saldo >= 0 ? "+" : "−"}{fmtRp(Math.abs(summary.saldo))}
                                     </div>
                                 )}
@@ -290,8 +291,8 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                     <div className="text-[10px] text-muted-foreground mt-1">
                                         Income {fmtRp(totalIncome)}
                                         {pelVal === 0 && dpVal > 0 && (
-                                            <span className="block italic text-amber-600 mt-0.5">
-                                                ⚠ Minus karena pelunasan belum diterima
+                                            <span className="block italic text-warning mt-0.5">
+                                                Minus karena pelunasan belum diterima
                                             </span>
                                         )}
                                     </div>
@@ -302,25 +303,25 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                         {/* Payment breakdown — DP / Pelunasan / Income Lain */}
                         {totalIncome > 0 && (
                             <div className="rounded-lg border border-border bg-muted/20 p-3">
-                                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                                    💳 Rincian Pembayaran Masuk
+                                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                    <CreditCard className="w-3.5 h-3.5" /> Rincian Pembayaran Masuk
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 text-sm">
                                     <div className="bg-background rounded p-2 border">
                                         <div className="text-[10px] uppercase text-muted-foreground">DP</div>
-                                        <div className={`font-mono font-semibold ${dpVal > 0 ? "text-foreground" : "text-muted-foreground/40"}`}>
+                                        <div className={`font-mono nums font-semibold ${dpVal > 0 ? "text-foreground" : "text-muted-foreground/40"}`}>
                                             {fmtRp(dpVal)}
                                         </div>
                                     </div>
                                     <div className="bg-background rounded p-2 border">
                                         <div className="text-[10px] uppercase text-muted-foreground">Pelunasan</div>
-                                        <div className={`font-mono font-semibold ${pelVal > 0 ? "text-emerald-700" : "text-muted-foreground/40"}`}>
+                                        <div className={`font-mono font-semibold nums ${pelVal > 0 ? "text-success" : "text-muted-foreground/40"}`}>
                                             {fmtRp(pelVal)}
                                         </div>
                                     </div>
                                     <div className="bg-background rounded p-2 border">
                                         <div className="text-[10px] uppercase text-muted-foreground">Income Lain</div>
-                                        <div className={`font-mono font-semibold ${otherVal > 0 ? "text-blue-700" : "text-muted-foreground/40"}`}>
+                                        <div className={`font-mono font-semibold nums ${otherVal > 0 ? "text-info" : "text-muted-foreground/40"}`}>
                                             {fmtRp(otherVal)}
                                         </div>
                                     </div>
@@ -333,7 +334,7 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                             <div className="rounded-lg border-2 border-violet-200 bg-violet-50/40 p-3">
                                 <div className="flex items-center justify-between mb-2">
                                     <h3 className="text-sm font-semibold text-violet-900 inline-flex items-center gap-1.5">
-                                        📦 Barang Inventaris
+                                        <Package className="w-4 h-4" /> Barang Inventaris
                                         <span className="text-[10px] font-normal text-violet-700">
                                             ({summary.totals.inventoryCount} item — aset perusahaan, bisa dipakai event berikutnya)
                                         </span>
@@ -358,12 +359,12 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                         label="Untung Operasional"
                                         value={fmtRp(summary.totals.operationalProfit)}
                                         icon={<TrendingUp className="h-4 w-4" />}
-                                        valueClass={summary.totals.operationalProfit >= 0 ? "text-green-600" : "text-red-600"}
+                                        valueClass={summary.totals.operationalProfit >= 0 ? "text-success" : "text-destructive"}
                                         hint="Total RAB − Cost Operasional"
                                     />
                                 </div>
-                                <div className="mt-2 text-[11px] text-violet-800/80 italic">
-                                    💡 Untung Operasional lebih representatif untuk evaluasi event ini — cost inventaris jadi aset, bisa dipakai project berikutnya.
+                                <div className="mt-2 text-[11px] text-violet-800/80 italic inline-flex items-start gap-1">
+                                    <Lightbulb className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Untung Operasional lebih representatif untuk evaluasi event ini — cost inventaris jadi aset, bisa dipakai project berikutnya.
                                 </div>
                             </div>
                         )}
@@ -394,9 +395,9 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                                 <tr key={c.categoryId}>
                                                     <td className="px-3 py-2 font-medium">{c.categoryName}</td>
                                                     <td className="px-3 py-2 text-center text-muted-foreground">{c.count}</td>
-                                                    <td className="px-3 py-2 text-right font-mono">{fmtRp(c.subtotalRab)}</td>
-                                                    <td className="px-3 py-2 text-right font-mono text-muted-foreground">{fmtRp(c.subtotalCost)}</td>
-                                                    <td className={`px-3 py-2 text-right font-mono font-semibold ${c.selisih >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                                    <td className="px-3 py-2 text-right font-mono nums">{fmtRp(c.subtotalRab)}</td>
+                                                    <td className="px-3 py-2 text-right font-mono nums text-muted-foreground">{fmtRp(c.subtotalCost)}</td>
+                                                    <td className={`px-3 py-2 text-right font-mono nums font-semibold ${c.selisih >= 0 ? "text-success" : "text-destructive"}`}>
                                                         {fmtRp(c.selisih)}
                                                     </td>
                                                 </tr>
@@ -406,9 +407,9 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                         <tr>
                                             <td className="px-3 py-2">TOTAL</td>
                                             <td className="px-3 py-2 text-center text-muted-foreground">{rab.items.length}</td>
-                                            <td className="px-3 py-2 text-right font-mono">{fmtRp(summary.totals.totalRab)}</td>
-                                            <td className="px-3 py-2 text-right font-mono text-muted-foreground">{fmtRp(summary.totals.totalCost)}</td>
-                                            <td className={`px-3 py-2 text-right font-mono ${summary.totals.totalSelisih >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                            <td className="px-3 py-2 text-right font-mono nums">{fmtRp(summary.totals.totalRab)}</td>
+                                            <td className="px-3 py-2 text-right font-mono nums text-muted-foreground">{fmtRp(summary.totals.totalCost)}</td>
+                                            <td className={`px-3 py-2 text-right font-mono nums ${summary.totals.totalSelisih >= 0 ? "text-success" : "text-destructive"}`}>
                                                 {fmtRp(summary.totals.totalSelisih)}
                                             </td>
                                         </tr>
@@ -423,19 +424,19 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                                 <div>
                                     <div className="text-xs text-muted-foreground">DP</div>
-                                    <div className="font-mono font-medium">{fmtRp(summary.income.dpAmount)}</div>
+                                    <div className="font-mono nums font-medium">{fmtRp(summary.income.dpAmount)}</div>
                                 </div>
                                 <div>
                                     <div className="text-xs text-muted-foreground">Pelunasan</div>
-                                    <div className="font-mono font-medium">{fmtRp(summary.income.pelunasan)}</div>
+                                    <div className="font-mono nums font-medium">{fmtRp(summary.income.pelunasan)}</div>
                                 </div>
                                 <div>
                                     <div className="text-xs text-muted-foreground">Lain-lain</div>
-                                    <div className="font-mono font-medium">{fmtRp(summary.income.incomeOther)}</div>
+                                    <div className="font-mono nums font-medium">{fmtRp(summary.income.incomeOther)}</div>
                                 </div>
                                 <div>
                                     <div className="text-xs text-muted-foreground">Total Income</div>
-                                    <div className="font-mono font-bold text-primary">{fmtRp(totalIncome)}</div>
+                                    <div className="font-mono nums font-bold text-primary">{fmtRp(totalIncome)}</div>
                                 </div>
                             </div>
                         </div>
@@ -483,19 +484,19 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                                         <div className="font-medium inline-flex items-center gap-1.5">
                                                             {it.isInventory && (
                                                                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-violet-200 text-violet-900 uppercase">
-                                                                    📦 Inventaris
+                                                                    <Package className="w-2.5 h-2.5" /> Inventaris
                                                                 </span>
                                                             )}
                                                             <span>{it.description}</span>
                                                         </div>
                                                         {it.unit && <span className="text-muted-foreground">{it.unit}</span>}
                                                     </td>
-                                                    <td className="px-2 py-1.5 text-right font-mono">{qRab}</td>
-                                                    <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">{qCost}</td>
-                                                    <td className="px-2 py-1.5 text-right font-mono">{fmtRp(r)}</td>
-                                                    <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">{fmtRp(c)}</td>
-                                                    <td className="px-2 py-1.5 text-right font-mono">{fmtRp(subRab)}</td>
-                                                    <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">{fmtRp(subCost)}</td>
+                                                    <td className="px-2 py-1.5 text-right font-mono nums">{qRab}</td>
+                                                    <td className="px-2 py-1.5 text-right font-mono nums text-muted-foreground">{qCost}</td>
+                                                    <td className="px-2 py-1.5 text-right font-mono nums">{fmtRp(r)}</td>
+                                                    <td className="px-2 py-1.5 text-right font-mono nums text-muted-foreground">{fmtRp(c)}</td>
+                                                    <td className="px-2 py-1.5 text-right font-mono nums">{fmtRp(subRab)}</td>
+                                                    <td className="px-2 py-1.5 text-right font-mono nums text-muted-foreground">{fmtRp(subCost)}</td>
                                                 </tr>
                                             );
                                         })}
@@ -530,7 +531,7 @@ function StatBox({ label, value, icon, valueClass, hint }: { label: string; valu
                 <span>{label}</span>
                 {icon}
             </div>
-            <div className={`text-lg font-bold font-mono ${valueClass ?? ""}`}>{value}</div>
+            <div className={`text-lg font-bold font-mono nums ${valueClass ?? ""}`}>{value}</div>
             {hint && <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>}
         </div>
     );

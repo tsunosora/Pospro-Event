@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Package, CheckCircle, XCircle, Warehouse as WarehouseIcon, Loader2,
-    Upload, X, Image as ImageIcon, Save,
+    Upload, X, Image as ImageIcon, Save, Clock, Sparkles, Search,
 } from "lucide-react";
 import {
     listInventoryAcquisitions, storeAcquisition, cancelAcquisition,
@@ -49,19 +49,19 @@ export default function InventoryAcquisitionsSection({ rabPlanId }: Props) {
     const totalPendingCost = pending.reduce((s, a) => s + Number(a.totalCost), 0);
 
     return (
-        <section className="bg-white rounded-lg border-2 border-violet-200 p-4 mt-6">
+        <section className="bg-card rounded-xl border border-primary/30 p-4 mt-6">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                    <Package className="h-5 w-5 text-violet-700" />
-                    <h3 className="font-bold text-violet-900">Pengadaan Inventaris</h3>
-                    <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-bold">
+                    <Package className="h-5 w-5 text-primary" />
+                    <h3 className="font-bold text-foreground">Pengadaan Inventaris</h3>
+                    <span className="text-xs bg-primary/15 text-primary px-2 py-0.5 rounded-full font-bold">
                         {acquisitions.length} item
                     </span>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                    {pending.length > 0 && <span className="mr-2"><span className="text-amber-600 font-semibold">⏳ {pending.length} pending</span> ({fmtRp(totalPendingCost)})</span>}
-                    {stored.length > 0 && <span className="mr-2"><span className="text-emerald-600 font-semibold">✅ {stored.length} sudah di-stok</span></span>}
-                    {cancelled.length > 0 && <span><span className="text-slate-500">❌ {cancelled.length} cancelled</span></span>}
+                <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
+                    {pending.length > 0 && <span className="inline-flex items-center gap-1"><span className="text-warning font-semibold inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {pending.length} pending</span> <span className="nums">({fmtRp(totalPendingCost)})</span></span>}
+                    {stored.length > 0 && <span className="text-success font-semibold inline-flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> {stored.length} sudah di-stok</span>}
+                    {cancelled.length > 0 && <span className="text-muted-foreground inline-flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> {cancelled.length} cancelled</span>}
                 </div>
             </div>
 
@@ -102,13 +102,13 @@ function AcquisitionRow({
     onCancel: () => void;
 }) {
     const statusBadge = acq.status === "PENDING"
-        ? <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded">⏳ PENDING</span>
+        ? <span className="text-xs font-bold bg-warning/15 text-warning inline-flex items-center gap-1 px-2 py-0.5 rounded"><Clock className="w-3 h-3" /> PENDING</span>
         : acq.status === "STORED"
-            ? <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">✅ STORED</span>
-            : <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">❌ CANCELLED</span>;
+            ? <span className="text-xs font-bold bg-success/15 text-success inline-flex items-center gap-1 px-2 py-0.5 rounded"><CheckCircle className="w-3 h-3" /> STORED</span>
+            : <span className="text-xs font-bold bg-muted text-muted-foreground inline-flex items-center gap-1 px-2 py-0.5 rounded"><XCircle className="w-3 h-3" /> CANCELLED</span>;
 
     return (
-        <div className={`p-3 rounded-lg border ${acq.status === "PENDING" ? "border-amber-200 bg-amber-50/30" : acq.status === "STORED" ? "border-emerald-200 bg-emerald-50/30" : "border-slate-200 bg-slate-50/30 opacity-70"}`}>
+        <div className={`p-3 rounded-lg border transition-colors ${acq.status === "PENDING" ? "border-warning/30 bg-warning/10" : acq.status === "STORED" ? "border-success/30 bg-success/10" : "border-border bg-muted/30 opacity-70"}`}>
             <div className="flex items-start gap-3 flex-wrap">
                 {acq.photoUrl && (
                     <img
@@ -122,15 +122,15 @@ function AcquisitionRow({
                         <span className="font-semibold text-sm">{acq.description}</span>
                         {statusBadge}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5 nums">
                         {Number(acq.quantity)} {acq.unit ?? "unit"} × {fmtRp(acq.unitCost)} = <b>{fmtRp(acq.totalCost)}</b>
                     </div>
                     {acq.productVariant && (
-                        <div className="text-[11px] text-emerald-700 mt-1 inline-flex items-center gap-1">
+                        <div className="text-xs text-success mt-1 inline-flex items-center gap-1">
                             <CheckCircle className="h-3 w-3" />
                             Sudah masuk stok: <b>{acq.productVariant.product.name}</b>
                             {acq.productVariant.variantName && ` — ${acq.productVariant.variantName}`}
-                            {acq.warehouse && <span className="text-muted-foreground"> · 🏬 {acq.warehouse.name}</span>}
+                            {acq.warehouse && <span className="text-muted-foreground inline-flex items-center gap-1"> · <WarehouseIcon className="h-3 w-3" /> {acq.warehouse.name}</span>}
                         </div>
                     )}
                 </div>
@@ -138,13 +138,13 @@ function AcquisitionRow({
                     <div className="flex gap-1.5 shrink-0">
                         <button
                             onClick={onStore}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded text-xs font-bold"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary hover:bg-primary/90 text-white rounded text-xs font-bold cursor-pointer transition-colors"
                         >
                             <Package className="h-3.5 w-3.5" /> Stok Sekarang
                         </button>
                         <button
                             onClick={onCancel}
-                            className="inline-flex items-center gap-1 px-2 py-1.5 text-red-600 hover:bg-red-50 rounded text-xs"
+                            className="inline-flex items-center gap-1 px-2 py-1.5 text-destructive hover:bg-destructive/10 rounded text-xs cursor-pointer transition-colors"
                         >
                             <XCircle className="h-3.5 w-3.5" /> Skip
                         </button>
@@ -263,25 +263,25 @@ function StoreModal({
             onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
-                className="bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] overflow-y-auto"
+                className="bg-card w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] overflow-y-auto"
                 onMouseDown={(e) => e.stopPropagation()}
             >
-                <div className="sticky top-0 bg-white border-b px-5 py-3 flex items-center justify-between">
+                <div className="sticky top-0 bg-card border-b border-border px-5 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Package className="h-5 w-5 text-violet-600" />
+                        <Package className="h-5 w-5 text-primary" />
                         <h2 className="text-lg font-bold">Stok ke Inventory</h2>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded">
+                    <button onClick={onClose} className="p-2 hover:bg-muted rounded cursor-pointer transition-colors">
                         <X className="h-4 w-4" />
                     </button>
                 </div>
 
                 <div className="p-5 space-y-4">
                     {/* Item info */}
-                    <div className="bg-violet-50 border-2 border-violet-200 rounded-lg p-3">
-                        <div className="text-[10px] uppercase font-bold text-violet-700">Item</div>
-                        <div className="font-bold">{acquisition.description}</div>
-                        <div className="text-xs text-violet-700 mt-0.5">
+                    <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
+                        <div className="text-xs uppercase font-bold text-primary">Item</div>
+                        <div className="font-bold text-foreground">{acquisition.description}</div>
+                        <div className="text-xs text-primary mt-0.5 nums">
                             {Number(acquisition.quantity)} {acquisition.unit ?? "unit"} × {fmtRp(acquisition.unitCost)} = <b>{fmtRp(acquisition.totalCost)}</b>
                         </div>
                     </div>
@@ -289,34 +289,34 @@ function StoreModal({
                     {/* Mode toggle */}
                     <div>
                         <label className="block text-sm font-semibold mb-1.5">Variant Produk</label>
-                        <div className="inline-flex gap-1 bg-slate-100 p-1 rounded-md w-full">
+                        <div className="inline-flex gap-1 bg-muted p-1 rounded-md w-full">
                             <button
                                 type="button"
                                 onClick={() => setMode("new")}
-                                className={`flex-1 px-3 py-1.5 rounded text-xs font-bold ${mode === "new" ? "bg-white text-violet-700 shadow-sm" : "text-slate-600"}`}
+                                className={`flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-bold cursor-pointer transition-colors ${mode === "new" ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
                             >
-                                ✨ Buat Variant Baru
+                                <Sparkles className="w-3.5 h-3.5" /> Buat Variant Baru
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setMode("existing")}
-                                className={`flex-1 px-3 py-1.5 rounded text-xs font-bold ${mode === "existing" ? "bg-white text-violet-700 shadow-sm" : "text-slate-600"}`}
+                                className={`flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-bold cursor-pointer transition-colors ${mode === "existing" ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
                             >
-                                🔍 Pilih Existing (re-stock)
+                                <Search className="w-3.5 h-3.5" /> Pilih Existing (re-stock)
                             </button>
                         </div>
                     </div>
 
                     {/* Mode New */}
                     {mode === "new" && (
-                        <div className="space-y-3 border-2 border-dashed border-slate-200 rounded-lg p-3">
+                        <div className="space-y-3 border-2 border-dashed border-border rounded-lg p-3">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 <div>
                                     <label className="block text-xs font-semibold mb-0.5">Nama Produk *</label>
                                     <input
                                         value={productName}
                                         onChange={(e) => setProductName(e.target.value)}
-                                        className="w-full border-2 rounded px-2 py-1.5 text-sm focus:border-violet-500 outline-none"
+                                        className="w-full border-2 border-border rounded px-2 py-1.5 text-sm focus:border-primary outline-none"
                                     />
                                 </div>
                                 <div>
@@ -325,7 +325,7 @@ function StoreModal({
                                         value={sku}
                                         onChange={(e) => setSku(e.target.value)}
                                         placeholder={`INV-${acquisition.rabPlan?.code ?? "?"}-${acquisition.id}`}
-                                        className="w-full border-2 rounded px-2 py-1.5 text-sm font-mono focus:border-violet-500 outline-none"
+                                        className="w-full border-2 border-border rounded px-2 py-1.5 text-sm font-mono focus:border-primary outline-none"
                                     />
                                 </div>
                                 <div>
@@ -333,7 +333,7 @@ function StoreModal({
                                     <select
                                         value={categoryId ?? ""}
                                         onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : null)}
-                                        className="w-full border-2 rounded px-2 py-1.5 text-sm bg-white focus:border-violet-500 outline-none"
+                                        className="w-full border-2 border-border rounded px-2 py-1.5 text-sm bg-card focus:border-primary outline-none"
                                     >
                                         <option value="">— pilih —</option>
                                         {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -344,7 +344,7 @@ function StoreModal({
                                     <select
                                         value={unitId ?? ""}
                                         onChange={(e) => setUnitId(e.target.value ? Number(e.target.value) : null)}
-                                        className="w-full border-2 rounded px-2 py-1.5 text-sm bg-white focus:border-violet-500 outline-none"
+                                        className="w-full border-2 border-border rounded px-2 py-1.5 text-sm bg-card focus:border-primary outline-none"
                                     >
                                         <option value="">— pilih —</option>
                                         {units.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -356,15 +356,15 @@ function StoreModal({
 
                     {/* Mode Existing */}
                     {mode === "existing" && (
-                        <div className="space-y-2 border-2 border-dashed border-slate-200 rounded-lg p-3">
+                        <div className="space-y-2 border-2 border-dashed border-border rounded-lg p-3">
                             <input
                                 type="search"
                                 placeholder="Cari nama produk / SKU..."
                                 value={variantSearch}
                                 onChange={(e) => setVariantSearch(e.target.value)}
-                                className="w-full border-2 rounded px-3 py-2 text-sm focus:border-violet-500 outline-none"
+                                className="w-full border-2 border-border rounded px-3 py-2 text-sm focus:border-primary outline-none"
                             />
-                            <div className="max-h-60 overflow-y-auto border rounded space-y-0.5">
+                            <div className="max-h-60 overflow-y-auto border border-border rounded space-y-0.5">
                                 {filteredVariants.length === 0 && (
                                     <div className="text-xs text-muted-foreground p-3 text-center">
                                         {variantSearch ? `Tidak ada hasil "${variantSearch}"` : "Loading..."}
@@ -375,10 +375,10 @@ function StoreModal({
                                         key={v.id}
                                         type="button"
                                         onClick={() => setProductVariantId(v.id)}
-                                        className={`w-full text-left px-3 py-2 text-xs hover:bg-violet-50 ${productVariantId === v.id ? "bg-violet-100 border-l-4 border-violet-500" : ""}`}
+                                        className={`w-full text-left px-3 py-2 text-xs hover:bg-primary/5 cursor-pointer transition-colors ${productVariantId === v.id ? "bg-primary/15 border-l-4 border-primary" : ""}`}
                                     >
                                         <div className="font-semibold">{v.productName}{v.variantName ? ` — ${v.variantName}` : ""}</div>
-                                        <div className="text-muted-foreground">SKU: <span className="font-mono">{v.sku}</span> · Stok: <b>{v.stock}</b></div>
+                                        <div className="text-muted-foreground nums">SKU: <span className="font-mono">{v.sku}</span> · Stok: <b>{v.stock}</b></div>
                                     </button>
                                 ))}
                             </div>
@@ -393,7 +393,7 @@ function StoreModal({
                         <select
                             value={warehouseId ?? ""}
                             onChange={(e) => setWarehouseId(e.target.value ? Number(e.target.value) : null)}
-                            className="w-full border-2 rounded-md px-3 py-2 text-sm bg-white focus:border-violet-500 outline-none"
+                            className="w-full border-2 border-border rounded-md px-3 py-2 text-sm bg-card focus:border-primary outline-none"
                         >
                             <option value="">— pilih warehouse —</option>
                             {warehouses.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -409,7 +409,7 @@ function StoreModal({
                             <button
                                 type="button"
                                 onClick={() => fileRef.current?.click()}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 rounded text-sm hover:bg-slate-50"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-border rounded text-sm hover:bg-muted cursor-pointer transition-colors"
                             >
                                 <Upload className="h-3.5 w-3.5" /> {photo ? "Ganti foto" : "Upload foto"}
                             </button>
@@ -428,17 +428,17 @@ function StoreModal({
                             onChange={(e) => setNotes(e.target.value)}
                             rows={2}
                             placeholder="Mis: kondisi barang, vendor, garansi"
-                            className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-violet-500 outline-none"
+                            className="w-full border-2 border-border rounded-md px-3 py-2 text-sm focus:border-primary outline-none"
                         />
                     </div>
                 </div>
 
-                <div className="sticky bottom-0 bg-white border-t px-5 py-3 flex gap-2">
-                    <button onClick={onClose} className="flex-1 px-4 py-2 border-2 rounded-md text-sm font-semibold hover:bg-slate-50">Batal</button>
+                <div className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex gap-2">
+                    <button onClick={onClose} className="flex-1 px-4 py-2 border-2 border-border rounded-md text-sm font-semibold hover:bg-muted cursor-pointer transition-colors">Batal</button>
                     <button
                         onClick={() => submitMut.mutate()}
                         disabled={submitMut.isPending || !warehouseId}
-                        className="flex-[2] inline-flex items-center justify-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-md text-sm font-bold disabled:opacity-50"
+                        className="flex-[2] inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md text-sm font-bold disabled:opacity-50 cursor-pointer transition-colors"
                     >
                         {submitMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                         Stok ke Warehouse

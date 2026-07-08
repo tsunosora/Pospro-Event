@@ -62,7 +62,7 @@ export default function CrmStagesPage() {
         <div className="p-4 max-w-4xl mx-auto space-y-4">
             <Link
                 href="/crm"
-                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
                 <ArrowLeft className="h-4 w-4" />
                 Kembali
@@ -81,10 +81,10 @@ export default function CrmStagesPage() {
                     if (!newName.trim()) return;
                     createMut.mutate();
                 }}
-                className="rounded-lg border border-border bg-card p-3 flex items-end gap-2"
+                className="glass rounded-xl p-4 flex flex-col sm:flex-row sm:items-end gap-3"
             >
                 <div className="flex-1">
-                    <label className="text-[11px] text-muted-foreground">Nama Stage</label>
+                    <label className="text-xs text-muted-foreground">Nama Stage</label>
                     <input
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
@@ -93,7 +93,7 @@ export default function CrmStagesPage() {
                     />
                 </div>
                 <div>
-                    <label className="text-[11px] text-muted-foreground">Warna</label>
+                    <label className="text-xs text-muted-foreground">Warna</label>
                     <input
                         type="color"
                         value={newColor}
@@ -111,7 +111,7 @@ export default function CrmStagesPage() {
                 </button>
             </form>
 
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="glass rounded-xl overflow-hidden">
                 {isLoading && <div className="p-4 text-sm text-muted-foreground">Memuat...</div>}
                 {data?.map((s, idx) => (
                     <StageRow
@@ -167,7 +167,7 @@ function StageRow({
                 <button
                     onClick={onUp}
                     disabled={first}
-                    className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    className="cursor-pointer text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
                     title="Naik"
                 >
                     <ChevronUp className="h-3.5 w-3.5" />
@@ -175,7 +175,7 @@ function StageRow({
                 <button
                     onClick={onDown}
                     disabled={last}
-                    className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    className="cursor-pointer text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
                     title="Turun"
                 >
                     <ChevronDown className="h-3.5 w-3.5" />
@@ -199,7 +199,7 @@ function StageRow({
                 className="h-7 w-10 rounded border border-border"
             />
 
-            <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
                 <input
                     type="checkbox"
                     checked={isTerminal}
@@ -207,7 +207,7 @@ function StageRow({
                 />
                 Terminal
             </label>
-            <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
                 <input
                     type="checkbox"
                     checked={isWinStage}

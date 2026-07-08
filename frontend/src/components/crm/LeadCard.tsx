@@ -6,7 +6,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
     Building2, CalendarClock, CalendarDays, ChevronDown, GripVertical, Loader2,
-    PartyPopper, User, MapPin, CheckCircle2, Image as ImageIcon,
+    PartyPopper, User, MapPin, CheckCircle2, Image as ImageIcon, Tent,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { LEAD_STATUS_META, updateLead, type Lead } from "@/lib/api/crm";
@@ -33,9 +33,9 @@ function followUpColor(iso: string): { bg: string; text: string; border: string 
     const d = dayjs(iso).startOf("day");
     const today = dayjs().startOf("day");
     const diffDays = d.diff(today, "day");
-    if (diffDays < 0) return { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" };       // overdue
-    if (diffDays <= 2) return { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" }; // urgent
-    return { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" };                       // future
+    if (diffDays < 0) return { bg: "bg-destructive/12", text: "text-destructive", border: "border-destructive/30" };  // overdue
+    if (diffDays <= 2) return { bg: "bg-warning/15", text: "text-warning", border: "border-warning/30" };             // urgent
+    return { bg: "bg-info/15", text: "text-info", border: "border-info/30" };                                         // future
 }
 
 /**
@@ -52,10 +52,10 @@ function eventDateColor(iso: string): { bg: string; text: string; border: string
     const today = dayjs().startOf("day");
     const diffDays = d.diff(today, "day");
     if (diffDays < 0) return { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200", label: "Selesai" };
-    if (diffDays <= 7) return { bg: "bg-red-50", text: "text-red-700", border: "border-red-300", label: "Minggu ini" };
-    if (diffDays <= 30) return { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", label: "Bulan ini" };
-    if (diffDays <= 60) return { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", label: "Siap-siap" };
-    return { bg: "bg-green-50", text: "text-green-700", border: "border-green-200", label: "Jangka panjang" };
+    if (diffDays <= 7) return { bg: "bg-destructive/12", text: "text-destructive", border: "border-destructive/30", label: "Minggu ini" };
+    if (diffDays <= 30) return { bg: "bg-warning/15", text: "text-warning", border: "border-warning/30", label: "Bulan ini" };
+    if (diffDays <= 60) return { bg: "bg-success/15", text: "text-success", border: "border-success/30", label: "Siap-siap" };
+    return { bg: "bg-info/15", text: "text-info", border: "border-info/30", label: "Jangka panjang" };
 }
 
 export type LeadCardDensity = "comfortable" | "compact" | "minimal";
@@ -127,7 +127,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
         >
             {/* Thumbnail header — kalau ada imageUrl, hidden in compact/minimal density */}
             {imageFullUrl && density === "comfortable" && (
-                <div className="relative w-full h-24 bg-slate-100 overflow-hidden border-b border-border">
+                <div className="relative w-full h-24 bg-muted overflow-hidden border-b border-border">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src={imageFullUrl}
@@ -137,7 +137,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                     />
                     {/* Gradient overlay supaya text di atas bisa kebaca */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
-                    <span className="absolute top-1 right-1 bg-white/80 backdrop-blur-sm rounded text-[9px] px-1.5 py-0.5 font-semibold text-slate-700 flex items-center gap-0.5">
+                    <span className="absolute top-1 right-1 bg-background/80 backdrop-blur-sm rounded text-[9px] px-1.5 py-0.5 font-semibold text-foreground flex items-center gap-0.5">
                         <ImageIcon className="h-2.5 w-2.5" /> Foto
                     </span>
                 </div>
@@ -157,7 +157,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                 <div className="flex-1 min-w-0">
                     <div className="font-semibold text-sm truncate">{display}</div>
                     {lead.productCategory && (
-                        <div className="text-[11px] text-emerald-700 truncate">{lead.productCategory}</div>
+                        <div className="text-[11px] text-success truncate">{lead.productCategory}</div>
                     )}
                 </div>
                 <LevelBadge level={lead.level} />
@@ -173,8 +173,8 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                         </div>
                     )}
                     {lead.city && (
-                        <div className="flex items-center gap-1 text-[11px] text-slate-700 font-semibold truncate">
-                            <MapPin className="h-3 w-3 shrink-0 text-rose-500" />
+                        <div className="flex items-center gap-1 text-[11px] text-foreground font-semibold truncate">
+                            <MapPin className="h-3 w-3 shrink-0 text-primary" />
                             <span className="truncate">{lead.city}</span>
                         </div>
                     )}
@@ -187,7 +187,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                     <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setEditing(editing === "marketing" ? null : "marketing"); }}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-info/15 text-info border-info/30 hover:bg-info/25 cursor-pointer transition-colors"
                         title="Klik untuk ganti marketing"
                     >
                         <User className="h-2.5 w-2.5" />
@@ -195,7 +195,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                         <ChevronDown className="h-2.5 w-2.5 opacity-60" />
                     </button>
                     {editing === "marketing" && (
-                        <div ref={popoverRef} className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border-2 border-border rounded-lg shadow-xl py-1 max-h-64 overflow-y-auto"
+                        <div ref={popoverRef} className="absolute z-30 top-full left-0 mt-1 w-56 bg-card border-2 border-border rounded-lg shadow-xl py-1 max-h-64 overflow-y-auto"
                             onClick={(e) => e.stopPropagation()}>
                             <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground border-b">
                                 Pilih Marketing
@@ -204,7 +204,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                                 type="button"
                                 onClick={() => updateMut.mutate({ assignedWorkerId: null })}
                                 disabled={updateMut.isPending}
-                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted ${!lead.assignedWorkerId ? "bg-blue-50 text-blue-700 font-semibold" : ""}`}
+                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted cursor-pointer ${!lead.assignedWorkerId ? "bg-info/15 text-info font-semibold" : ""}`}
                             >
                                 — Tanpa Marketing —
                             </button>
@@ -214,7 +214,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                                     type="button"
                                     onClick={() => updateMut.mutate({ assignedWorkerId: m.id })}
                                     disabled={updateMut.isPending}
-                                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 ${lead.assignedWorkerId === m.id ? "bg-blue-50 text-blue-700 font-semibold" : ""}`}
+                                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 cursor-pointer ${lead.assignedWorkerId === m.id ? "bg-info/15 text-info font-semibold" : ""}`}
                                 >
                                     <User className="h-3 w-3 text-muted-foreground" />
                                     <span className="truncate">{m.name}</span>
@@ -232,7 +232,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                     <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setEditing(editing === "brand" ? null : "brand"); }}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border hover:opacity-80"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border hover:opacity-80 cursor-pointer transition-opacity"
                         style={brandMeta ? { backgroundColor: `${brandMeta.color}20`, borderColor: `${brandMeta.color}60`, color: brandMeta.color } : { backgroundColor: "#f1f5f9", borderColor: "#cbd5e1", color: "#475569" }}
                         title="Klik untuk ganti brand"
                     >
@@ -240,7 +240,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                         <ChevronDown className="h-2.5 w-2.5 opacity-60" />
                     </button>
                     {editing === "brand" && (
-                        <div ref={popoverRef} className="absolute z-30 top-full left-0 mt-1 w-44 bg-white border-2 border-border rounded-lg shadow-xl py-1"
+                        <div ref={popoverRef} className="absolute z-30 top-full left-0 mt-1 w-44 bg-card border-2 border-border rounded-lg shadow-xl py-1"
                             onClick={(e) => e.stopPropagation()}>
                             <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground border-b">
                                 Pilih Brand
@@ -253,7 +253,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                                         type="button"
                                         onClick={() => updateMut.mutate({ brand: b as Brand })}
                                         disabled={updateMut.isPending}
-                                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 ${lead.brand === b ? "font-bold" : ""}`}
+                                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 cursor-pointer ${lead.brand === b ? "font-bold" : ""}`}
                                         style={lead.brand === b ? { backgroundColor: `${m.color}15` } : {}}
                                     >
                                         <span>{m.emoji}</span>
@@ -321,7 +321,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                     >
                         <PartyPopper className="h-3 w-3 shrink-0" />
                         <span className="truncate flex-1">
-                            🎪 {rangeShort}
+                            <Tent className="h-3 w-3 mr-1 inline align-[-1px]" />{rangeShort}
                             {diffDays > 7 && diffDays <= 60 && (
                                 <span className="font-normal opacity-70"> ({diffDays} hari)</span>
                             )}
@@ -335,7 +335,7 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
             {density !== "minimal" && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
                     <span
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-600 border border-slate-200"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground border border-border"
                         title={`Lead masuk: ${dayjs(lead.leadCameAt).format("DD MMM YYYY HH:mm")}`}
                     >
                         <CalendarDays className="h-2.5 w-2.5" />
@@ -358,13 +358,13 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
 
             {/* Convert status indicator (compact) — detail chips di pindah ke LeadDrawer */}
             {density !== "minimal" && isConverted && (
-                <div className="flex items-center gap-1 pt-1 border-t border-dashed border-slate-200">
+                <div className="flex items-center gap-1 pt-1 border-t border-dashed border-border">
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200">
                         <CheckCircle2 className="h-2.5 w-2.5" />
                         Sudah jadi Customer
                     </span>
                     {(rabCount > 0 || quotationCount > 0) && (
-                        <span className="text-[10px] text-slate-500">
+                        <span className="text-[10px] text-muted-foreground">
                             · {rabCount > 0 && `${rabCount} RAB`}
                             {rabCount > 0 && quotationCount > 0 && ", "}
                             {quotationCount > 0 && `${quotationCount} Penawaran`}

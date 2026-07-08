@@ -51,7 +51,7 @@ export function PrintModal({ doc, settings, onClose }: { doc: Invoice; settings:
                         <button onClick={handlePrint} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
                             <Printer className="h-4 w-4" /> Cetak / PDF
                         </button>
-                        <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-2"><X className="h-4 w-4" /></button>
+                        <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-2 rounded-md transition-colors cursor-pointer"><X className="h-4 w-4" /></button>
                     </div>
                 </div>
                 <div className="overflow-y-auto grow p-8">

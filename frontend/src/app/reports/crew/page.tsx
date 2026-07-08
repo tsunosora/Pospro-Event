@@ -104,12 +104,12 @@ export default function CrewReportPage() {
     return (
         <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold">Laporan Crew Lapangan</h1>
                     <p className="text-sm text-muted-foreground">Rekap durasi setup & ranking performa per crew</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <select
                         value={eventFilter}
                         onChange={(e) => setEventFilter(e.target.value)}
@@ -133,7 +133,7 @@ export default function CrewReportPage() {
                     <button
                         onClick={exportCsv}
                         disabled={!data || data.rows.length === 0}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted disabled:opacity-50 cursor-pointer transition-colors"
                     >
                         <Download className="h-3.5 w-3.5" /> Export CSV
                     </button>
@@ -145,7 +145,7 @@ export default function CrewReportPage() {
                 <StatCard label="Total Tugas Selesai" value={String(stats.totalJobs)} icon={<Calendar className="h-4 w-4" />} />
                 <StatCard label="Total Jam Crew" value={fmtDuration(stats.totalMinutes)} icon={<Clock className="h-4 w-4" />} valueClass="text-primary" />
                 <StatCard label="Crew Aktif" value={String(stats.uniqueCrew)} icon={<Users className="h-4 w-4" />} />
-                <StatCard label="Rata-rata Durasi" value={fmtDuration(stats.avgMinutes)} icon={<Trophy className="h-4 w-4" />} valueClass="text-amber-600" />
+                <StatCard label="Rata-rata Durasi" value={fmtDuration(stats.avgMinutes)} icon={<Trophy className="h-4 w-4" />} valueClass="text-warning" />
             </div>
 
             {isLoading ? (
@@ -160,8 +160,8 @@ export default function CrewReportPage() {
                 <>
                 {/* Team leaderboard (if any) */}
                 {data.byTeam.length > 0 && (
-                    <div className="border rounded-lg overflow-hidden bg-background">
-                        <div className="px-4 py-3 border-b bg-muted/30 flex items-center gap-2">
+                    <div className="glass rounded-xl overflow-hidden">
+                        <div className="px-4 py-3 border-b border-border/50 bg-muted/20 flex items-center gap-2">
                             <Users className="h-4 w-4 text-primary" />
                             <h2 className="font-semibold">Leaderboard Team</h2>
                         </div>
@@ -178,16 +178,16 @@ export default function CrewReportPage() {
                                         </div>
                                         <div className="grid grid-cols-3 gap-2 mt-3 text-center">
                                             <div>
-                                                <div className="text-lg font-bold text-primary">{fmtDuration(t.totalMinutes)}</div>
-                                                <div className="text-[10px] text-muted-foreground">Total Jam</div>
+                                                <div className="text-lg font-bold text-primary nums">{fmtDuration(t.totalMinutes)}</div>
+                                                <div className="text-xs text-muted-foreground">Total Jam</div>
                                             </div>
                                             <div>
-                                                <div className="text-lg font-bold">{t.jobs}</div>
-                                                <div className="text-[10px] text-muted-foreground">Tugas</div>
+                                                <div className="text-lg font-bold nums">{t.jobs}</div>
+                                                <div className="text-xs text-muted-foreground">Tugas</div>
                                             </div>
                                             <div>
-                                                <div className="text-lg font-bold">{t.uniqueWorkers}</div>
-                                                <div className="text-[10px] text-muted-foreground">Crew</div>
+                                                <div className="text-lg font-bold nums">{t.uniqueWorkers}</div>
+                                                <div className="text-xs text-muted-foreground">Crew</div>
                                             </div>
                                         </div>
                                         <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -202,9 +202,9 @@ export default function CrewReportPage() {
 
                 <div className="grid lg:grid-cols-5 gap-4">
                     {/* Leaderboard */}
-                    <div className="lg:col-span-2 border rounded-lg overflow-hidden bg-background">
-                        <div className="px-4 py-3 border-b bg-muted/30 flex items-center gap-2">
-                            <Trophy className="h-4 w-4 text-amber-500" />
+                    <div className="lg:col-span-2 glass rounded-xl overflow-hidden">
+                        <div className="px-4 py-3 border-b border-border/50 bg-muted/20 flex items-center gap-2">
+                            <Trophy className="h-4 w-4 text-warning" />
                             <h2 className="font-semibold">Leaderboard Crew Individual</h2>
                         </div>
                         <div className="divide-y">
@@ -219,13 +219,13 @@ export default function CrewReportPage() {
                                                 <span className="font-semibold text-sm">{w.workerName}</span>
                                             </div>
                                             <div className="text-right">
-                                                <div className="font-bold text-sm">{fmtDuration(w.totalMinutes)}</div>
-                                                <div className="text-[10px] text-muted-foreground">{w.jobs} tugas</div>
+                                                <div className="font-bold text-sm nums">{fmtDuration(w.totalMinutes)}</div>
+                                                <div className="text-xs text-muted-foreground nums">{w.jobs} tugas</div>
                                             </div>
                                         </div>
                                         <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                                             <div
-                                                className={`h-full ${i === 0 ? "bg-amber-500" : i === 1 ? "bg-gray-400" : i === 2 ? "bg-orange-400" : "bg-primary/60"}`}
+                                                className={`h-full ${i === 0 ? "bg-warning" : i === 1 ? "bg-muted-foreground/60" : i === 2 ? "bg-warning/60" : "bg-primary/60"}`}
                                                 style={{ width: `${pct}%` }}
                                             />
                                         </div>
@@ -236,8 +236,8 @@ export default function CrewReportPage() {
                     </div>
 
                     {/* Detail per assignment */}
-                    <div className="lg:col-span-3 border rounded-lg overflow-hidden bg-background">
-                        <div className="px-4 py-3 border-b bg-muted/30">
+                    <div className="lg:col-span-3 glass rounded-xl overflow-hidden">
+                        <div className="px-4 py-3 border-b border-border/50 bg-muted/20">
                             <h2 className="font-semibold">Detail Tugas Selesai</h2>
                             <p className="text-xs text-muted-foreground mt-0.5">Total {data.rows.length} entri, urutan: terbaru di atas</p>
                         </div>
@@ -258,9 +258,9 @@ export default function CrewReportPage() {
                                     {data.rows.map((r) => (
                                         <tr key={r.id} className="hover:bg-muted/20">
                                             <td className="px-3 py-2">
-                                                <Link href={`/events/${r.eventId}`} className="hover:text-primary">
+                                                <Link href={`/events/${r.eventId}`} className="hover:text-primary transition-colors">
                                                     <div className="font-medium">{r.eventName}</div>
-                                                    <div className="text-[10px] text-muted-foreground">{r.eventCode}</div>
+                                                    <div className="text-xs text-muted-foreground">{r.eventCode}</div>
                                                 </Link>
                                             </td>
                                             <td className="px-3 py-2">
@@ -270,14 +270,14 @@ export default function CrewReportPage() {
                                                         {r.teamName}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-[10px] text-muted-foreground italic">—</span>
+                                                    <span className="text-xs text-muted-foreground italic">—</span>
                                                 )}
                                             </td>
                                             <td className="px-3 py-2">{r.workerName}</td>
                                             <td className="px-3 py-2 text-muted-foreground">{r.role ?? "—"}</td>
                                             <td className="px-3 py-2 text-xs">{fmtDateTime(r.startedAt)}</td>
                                             <td className="px-3 py-2 text-xs">{fmtDateTime(r.finishedAt)}</td>
-                                            <td className="px-3 py-2 text-right font-semibold">{fmtDuration(r.durationMinutes)}</td>
+                                            <td className="px-3 py-2 text-right font-semibold nums">{fmtDuration(r.durationMinutes)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -298,12 +298,12 @@ export default function CrewReportPage() {
 
 function StatCard({ label, value, icon, valueClass }: { label: string; value: string; icon?: React.ReactNode; valueClass?: string }) {
     return (
-        <div className="border rounded-lg bg-background p-3">
+        <div className="glass rounded-xl p-3">
             <div className="flex items-center justify-between text-muted-foreground text-xs mb-1">
                 <span>{label}</span>
                 {icon}
             </div>
-            <div className={`text-2xl font-bold ${valueClass ?? ""}`}>{value}</div>
+            <div className={`text-2xl font-bold nums ${valueClass ?? ""}`}>{value}</div>
         </div>
     );
 }

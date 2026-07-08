@@ -87,12 +87,12 @@ export function CameraCaptureModal({
 
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-background rounded-lg shadow-xl max-w-xl w-full max-h-[92vh] flex flex-col">
-                <div className="p-4 border-b flex items-center justify-between">
+            <div className="glass-strong rounded-xl max-w-xl w-full max-h-[92vh] flex flex-col">
+                <div className="p-4 border-b border-border flex items-center justify-between">
                     <h3 className="font-semibold flex items-center gap-2">
                         <Camera className="h-5 w-5 text-primary" /> {title}
                     </h3>
-                    <button onClick={onCancel} disabled={submitting} className="p-1 hover:bg-muted rounded disabled:opacity-50">
+                    <button onClick={onCancel} disabled={submitting} className="p-1 hover:bg-muted rounded-lg transition-colors cursor-pointer disabled:opacity-50">
                         <X className="h-4 w-4" />
                     </button>
                 </div>
@@ -100,7 +100,7 @@ export function CameraCaptureModal({
                     {error ? (
                         <div className="text-white text-center p-6">
                             <p className="font-medium">Kamera tidak tersedia</p>
-                            <p className="text-xs text-gray-300 mt-2">{error}</p>
+                            <p className="text-xs text-white/60 mt-2">{error}</p>
                         </div>
                     ) : captured ? (
                         <img src={captured.url} alt="captured" className="max-w-full max-h-[60vh] object-contain" />
@@ -108,18 +108,18 @@ export function CameraCaptureModal({
                         <video ref={videoRef} playsInline muted className="max-w-full max-h-[60vh] object-contain" />
                     )}
                 </div>
-                <div className="p-4 border-t flex items-center gap-2 justify-between">
+                <div className="p-4 border-t border-border flex flex-wrap items-center gap-2 justify-between">
                     {captured ? (
                         <>
                             <button
                                 onClick={retake} disabled={submitting}
-                                className="flex items-center gap-1 px-3 py-2 border rounded text-sm hover:bg-muted disabled:opacity-50"
+                                className="flex items-center gap-1 px-3 py-2 border border-border rounded-lg text-sm hover:bg-muted transition-colors cursor-pointer disabled:opacity-50"
                             >
                                 <RefreshCcw className="h-4 w-4" /> Ulang
                             </button>
                             <button
                                 onClick={confirm} disabled={submitting}
-                                className="flex items-center gap-1 bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                                className="flex items-center gap-1 bg-success text-white px-4 py-2 rounded-lg text-sm hover:bg-success/90 transition-colors cursor-pointer disabled:opacity-50"
                             >
                                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                                 Konfirmasi & Submit
@@ -129,13 +129,13 @@ export function CameraCaptureModal({
                         <>
                             <button
                                 onClick={flipCamera}
-                                className="flex items-center gap-1 px-3 py-2 border rounded text-sm hover:bg-muted"
+                                className="flex items-center gap-1 px-3 py-2 border border-border rounded-lg text-sm hover:bg-muted transition-colors cursor-pointer"
                             >
                                 <RefreshCcw className="h-4 w-4" /> Balik Kamera
                             </button>
                             <button
                                 onClick={capture} disabled={!stream || !!error}
-                                className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded text-sm hover:opacity-90 disabled:opacity-50"
+                                className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
                             >
                                 <Camera className="h-4 w-4" /> Ambil Foto
                             </button>

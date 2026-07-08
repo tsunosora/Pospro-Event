@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Hash, Pencil, Save, X, Loader2, AlertTriangle } from "lucide-react";
+import { Hash, Pencil, Save, X, Loader2, AlertTriangle, BookOpen } from "lucide-react";
 import { listDocCounters, setDocCounter, type DocumentNumberCounter } from "@/lib/api/document-numbers";
 
 const toast = {
@@ -63,10 +63,10 @@ export default function DocumentNumbersSettingsPage() {
     const years = Object.keys(grouped).map(Number).sort((a, b) => b - a);
 
     return (
-        <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-5">
+        <div className="max-w-4xl mx-auto space-y-5">
             <div>
                 <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <Hash className="h-6 w-6 text-blue-600" />
+                    <Hash className="h-6 w-6 text-primary" />
                     Nomor Urut Dokumen
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -75,12 +75,12 @@ export default function DocumentNumbersSettingsPage() {
             </div>
 
             {/* Warning section */}
-            <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-3 flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                <div className="text-xs text-amber-900">
+            <div className="rounded-lg border border-warning/30 bg-warning/15 p-3 flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                <div className="text-xs text-warning">
                     <strong>Hati-hati saat edit counter.</strong> Angka di-set sebagai <b>nilai terakhir yang sudah dipakai</b>.
-                    Quotation berikutnya akan dapat <code className="bg-white px-1 rounded">lastSeq + 1</code>.
-                    Misal set ke <code className="bg-white px-1 rounded">99</code> → quotation berikutnya nomor <code className="bg-white px-1 rounded">100</code>.
+                    Quotation berikutnya akan dapat <code className="bg-card px-1 rounded">lastSeq + 1</code>.
+                    Misal set ke <code className="bg-card px-1 rounded">99</code> → quotation berikutnya nomor <code className="bg-card px-1 rounded">100</code>.
                     Untuk skip ke nomor 100, set lastSeq = <b>99</b>.
                 </div>
             </div>
@@ -92,9 +92,9 @@ export default function DocumentNumbersSettingsPage() {
                     <button
                         key={String(y)}
                         onClick={() => setYearFilter(y as any)}
-                        className={`px-3 py-1.5 rounded-md text-sm font-semibold ${yearFilter === y
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-100 hover:bg-gray-200"
+                        className={`px-3 py-1.5 rounded-md text-sm font-semibold cursor-pointer transition-colors ${yearFilter === y
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted hover:bg-muted/80 text-foreground"
                             }`}
                     >
                         {y === "" ? "Semua" : y}
@@ -110,18 +110,19 @@ export default function DocumentNumbersSettingsPage() {
             )}
 
             {!isLoading && counters.length === 0 && (
-                <div className="rounded-lg border-2 border-dashed border-slate-200 p-12 text-center text-muted-foreground">
+                <div className="rounded-lg border-2 border-dashed border-border p-12 text-center text-muted-foreground">
                     Belum ada counter. Counter otomatis dibuat saat assign nomor pertama kali.
                 </div>
             )}
 
             {years.map((year) => (
-                <div key={year} className="rounded-xl border-2 border-slate-200 bg-white overflow-hidden">
-                    <div className="px-4 py-2.5 bg-slate-50 border-b font-bold text-slate-900">
+                <div key={year} className="rounded-xl border border-border bg-card overflow-hidden">
+                    <div className="px-4 py-2.5 bg-muted border-b font-bold text-foreground">
                         Tahun {year}
                     </div>
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50/50 text-xs uppercase tracking-wide text-slate-600">
+                        <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                             <tr>
                                 <th className="px-3 py-2 text-left">Tipe Dokumen</th>
                                 <th className="px-3 py-2 text-left">Kode (Brand)</th>
@@ -135,7 +136,7 @@ export default function DocumentNumbersSettingsPage() {
                                 const key = `${c.docType}|${c.kode}|${c.year}`;
                                 const isEditing = editingKey === key;
                                 return (
-                                    <tr key={c.id} className="border-t border-slate-100">
+                                    <tr key={c.id} className="border-t border-border">
                                         <td className="px-3 py-2.5">
                                             <div className="font-medium">{DOC_TYPE_LABEL[c.docType] ?? c.docType}</div>
                                             <div className="text-[11px] text-muted-foreground font-mono">{c.docType}</div>
@@ -148,14 +149,14 @@ export default function DocumentNumbersSettingsPage() {
                                                     min="0"
                                                     value={editValue}
                                                     onChange={(e) => setEditValue(parseInt(e.target.value) || 0)}
-                                                    className="w-24 border-2 rounded px-2 py-1 text-right font-mono text-sm focus:border-blue-500 outline-none"
+                                                    className="w-24 border-2 rounded px-2 py-1 text-right font-mono text-sm focus:border-primary outline-none nums"
                                                     autoFocus
                                                 />
                                             ) : (
-                                                <span className="font-mono font-semibold">{c.lastSeq}</span>
+                                                <span className="font-mono font-semibold nums">{c.lastSeq}</span>
                                             )}
                                         </td>
-                                        <td className="px-3 py-2.5 text-right font-mono text-sm text-blue-700 font-bold">
+                                        <td className="px-3 py-2.5 text-right font-mono text-sm text-primary font-bold nums">
                                             {(isEditing ? editValue : c.lastSeq) + 1}
                                         </td>
                                         <td className="px-3 py-2.5">
@@ -165,14 +166,14 @@ export default function DocumentNumbersSettingsPage() {
                                                         <button
                                                             onClick={() => handleSave(c)}
                                                             disabled={setMut.isPending}
-                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700 disabled:opacity-50"
+                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-primary text-primary-foreground rounded text-xs font-bold hover:bg-primary/90 disabled:opacity-50 cursor-pointer transition-colors"
                                                         >
                                                             {setMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                                                             Save
                                                         </button>
                                                         <button
                                                             onClick={() => setEditingKey(null)}
-                                                            className="p-1 text-slate-600 hover:bg-slate-100 rounded"
+                                                            className="p-1 text-muted-foreground hover:bg-muted rounded cursor-pointer transition-colors"
                                                         >
                                                             <X className="h-3.5 w-3.5" />
                                                         </button>
@@ -180,7 +181,7 @@ export default function DocumentNumbersSettingsPage() {
                                                 ) : (
                                                     <button
                                                         onClick={() => startEdit(c)}
-                                                        className="inline-flex items-center gap-1 px-2 py-1 text-amber-700 hover:bg-amber-50 rounded text-xs"
+                                                        className="inline-flex items-center gap-1 px-2 py-1 text-warning hover:bg-warning/10 rounded text-xs cursor-pointer transition-colors"
                                                     >
                                                         <Pencil className="h-3 w-3" /> Edit
                                                     </button>
@@ -192,12 +193,13 @@ export default function DocumentNumbersSettingsPage() {
                             })}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             ))}
 
             {/* Info */}
-            <div className="rounded-lg border bg-slate-50 p-4 text-xs text-slate-700 space-y-2">
-                <h3 className="font-bold text-slate-900">📚 Penjelasan Counter</h3>
+            <div className="rounded-lg border border-border bg-muted p-4 text-xs text-muted-foreground space-y-2">
+                <h3 className="font-bold text-foreground flex items-center gap-1.5"><BookOpen className="w-4 h-4" /> Penjelasan Counter</h3>
                 <ul className="space-y-1.5 list-disc pl-5">
                     <li><b>Pnwr</b> — Penawaran (surat penawaran). Counter terpisah per brand-code (Ep / Xp / dll) dan per tahun.</li>
                     <li><b>RAB</b> — Counter RAB global (tidak per brand).</li>

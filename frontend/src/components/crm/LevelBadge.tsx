@@ -1,10 +1,10 @@
 import type { LeadLevel } from "@/lib/api/crm";
 
 const STYLES: Record<LeadLevel, string> = {
-    HOT: "bg-red-100 text-red-700 border-red-200",
-    WARM: "bg-orange-100 text-orange-700 border-orange-200",
-    COLD: "bg-sky-100 text-sky-700 border-sky-200",
-    UNQUALIFIED: "bg-zinc-100 text-zinc-600 border-zinc-200",
+    HOT: "bg-destructive/12 text-destructive border-destructive/30",
+    WARM: "bg-warning/15 text-warning border-warning/30",
+    COLD: "bg-info/15 text-info border-info/30",
+    UNQUALIFIED: "bg-muted text-muted-foreground border-border",
 };
 
 const LABEL: Record<LeadLevel, string> = {

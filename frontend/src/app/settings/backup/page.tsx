@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Download, Upload, Database, CheckSquare, Square, Shield,
     AlertTriangle, CheckCircle2, Loader2, ChevronDown, ChevronUp,
     Trash2, ArrowLeft, Info, FileArchive, Image, Zap, MessageCircle,
-    Server, RefreshCw, Clock, Play, HardDrive, ToggleLeft, ToggleRight
+    Server, Clock, Play, HardDrive, ToggleLeft, ToggleRight,
+    Package, Monitor
 } from "lucide-react";
 import Link from "next/link";
 import { getBackupGroups, exportBackup, previewBackupFile, restoreBackup,
@@ -280,8 +281,8 @@ export default function BackupPage() {
                 {/* ── SECTION BACKUP / EXPORT ─────────────────────────────── */}
                 <div className="glass p-6 rounded-xl border border-border shadow-sm space-y-5">
                     <div className="flex items-center gap-3 border-b border-border pb-4">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-950/40 rounded-lg">
-                            <Download className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <div className="p-2 bg-info/15 rounded-lg">
+                            <Download className="w-5 h-5 text-info" />
                         </div>
                         <div>
                             <h2 className="text-base font-semibold">Ekspor Backup Pilihan</h2>
@@ -290,7 +291,7 @@ export default function BackupPage() {
                     </div>
 
                     {/* Info isi ZIP */}
-                    <div className="flex items-start gap-2 text-xs bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2.5 text-blue-700 dark:text-blue-400">
+                    <div className="flex items-start gap-2 text-xs bg-info/10 border border-info/30 rounded-lg px-3 py-2.5 text-info">
                         <FileArchive className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <div className="space-y-0.5">
                             <p className="font-semibold">Isi file ZIP backup:</p>
@@ -348,7 +349,7 @@ export default function BackupPage() {
                         </div>
                         <div
                             onClick={() => setIncludeImages(v => !v)}
-                            className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${includeImages ? "bg-blue-500" : "bg-muted"}`}
+                            className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${includeImages ? "bg-info" : "bg-muted"}`}
                         >
                             <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${includeImages ? "translate-x-5" : ""}`} />
                         </div>
@@ -358,7 +359,7 @@ export default function BackupPage() {
                         type="button"
                         onClick={() => handleExport(false)}
                         disabled={isExporting || selectedGroups.size === 0}
-                        className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 px-5 py-3 rounded-xl font-semibold text-sm transition-colors shadow-md"
+                        className="w-full flex items-center justify-center gap-2 bg-info text-white hover:bg-info/90 disabled:opacity-50 px-5 py-3 rounded-xl font-semibold text-sm transition-colors shadow-md"
                     >
                         {isExporting ? (
                             <><Loader2 className="w-4 h-4 animate-spin" /> Membuat ZIP...</>
@@ -373,8 +374,8 @@ export default function BackupPage() {
                 {/* ── SECTION RESTORE / IMPORT ────────────────────────────── */}
                 <div className="glass p-6 rounded-xl border border-border shadow-sm space-y-5">
                     <div className="flex items-center gap-3 border-b border-border pb-4">
-                        <div className="p-2 bg-green-100 dark:bg-green-950/40 rounded-lg">
-                            <Upload className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        <div className="p-2 bg-success/15 rounded-lg">
+                            <Upload className="w-5 h-5 text-success" />
                         </div>
                         <div>
                             <h2 className="text-base font-semibold">Restore dari Backup</h2>
@@ -389,7 +390,7 @@ export default function BackupPage() {
                             onDragLeave={() => setDragOver(false)}
                             onDrop={handleFileDrop}
                             onClick={() => fileInputRef.current?.click()}
-                            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${dragOver ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-border hover:border-primary/50 hover:bg-muted/30"}`}
+                            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${dragOver ? "border-success bg-success/10" : "border-border hover:border-primary/50 hover:bg-muted/30"}`}
                         >
                             <FileArchive className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
                             <p className="text-sm font-medium text-foreground">Drag & drop file backup di sini</p>
@@ -402,10 +403,10 @@ export default function BackupPage() {
                         <div className="space-y-4">
                             {/* File info */}
                             <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border">
-                                <FileArchive className="w-8 h-8 text-green-600 shrink-0" />
+                                <FileArchive className="w-8 h-8 text-success shrink-0" />
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium truncate">{restoreFile.name}</p>
-                                    <p className="text-xs text-muted-foreground">{(restoreFile.size / 1024).toFixed(1)} KB</p>
+                                    <p className="text-xs text-muted-foreground nums">{(restoreFile.size / 1024).toFixed(1)} KB</p>
                                 </div>
                                 <button type="button" onClick={resetRestore} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded">
                                     <Trash2 className="w-4 h-4" />
@@ -421,8 +422,8 @@ export default function BackupPage() {
                             {restorePreview && !previewLoading && (
                                 <>
                                     {/* Meta info */}
-                                    <div className="text-xs space-y-1.5 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                                        <p className="font-semibold text-blue-700 dark:text-blue-400">Info Backup</p>
+                                    <div className="text-xs space-y-1.5 p-3 bg-info/10 border border-info/30 rounded-lg">
+                                        <p className="font-semibold text-info">Info Backup</p>
                                         <p className="text-muted-foreground">Dibuat: {new Date(restorePreview.meta.createdAt).toLocaleString('id-ID')}</p>
                                         <p className="text-muted-foreground">Aplikasi: {restorePreview.meta.app} v{restorePreview.meta.version}</p>
                                         <div className="flex flex-wrap gap-3 mt-1">
@@ -433,7 +434,7 @@ export default function BackupPage() {
                                                 </span>
                                             )}
                                             {restorePreview.hasWaConfig && (
-                                                <span className="flex items-center gap-1 text-green-700 dark:text-green-400 font-medium">
+                                                <span className="flex items-center gap-1 text-success font-medium">
                                                     <MessageCircle className="w-3 h-3" />
                                                     Konfigurasi WhatsApp tersedia
                                                 </span>
@@ -451,7 +452,7 @@ export default function BackupPage() {
                                                 <span className="text-muted-foreground mt-0.5">Data yang sudah ada tidak akan ditimpa. Aman untuk migrasi parsial.</span>
                                             </button>
                                             <button type="button" onClick={() => setRestoreMode("overwrite")}
-                                                className={`flex flex-col items-start p-3 rounded-lg border text-left text-xs transition-all ${restoreMode === "overwrite" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400" : "border-border hover:bg-muted/40"}`}>
+                                                className={`flex flex-col items-start p-3 rounded-lg border text-left text-xs transition-all ${restoreMode === "overwrite" ? "border-warning/60 bg-warning/10 text-warning" : "border-border hover:bg-muted/40"}`}>
                                                 <span className="font-semibold">Overwrite</span>
                                                 <span className="text-muted-foreground mt-0.5">Hapus & tulis ulang. Gunakan untuk restore penuh di sistem baru.</span>
                                             </button>
@@ -482,7 +483,7 @@ export default function BackupPage() {
                                                             onChange={() => toggleRestoreTable(item.table)}
                                                             className="w-3.5 h-3.5 accent-primary" />
                                                         <span className="flex-1 font-mono text-foreground/80">{item.table}</span>
-                                                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${item.count > 0 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-muted text-muted-foreground"}`}>
+                                                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium nums ${item.count > 0 ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
                                                             {item.count} baris
                                                         </span>
                                                     </label>
@@ -493,7 +494,7 @@ export default function BackupPage() {
 
                                     {/* Warning overwrite */}
                                     {restoreMode === "overwrite" && (
-                                        <div className="flex items-start gap-2 text-xs text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg px-3 py-2">
+                                        <div className="flex items-start gap-2 text-xs text-warning bg-warning/15 border border-warning/30 rounded-lg px-3 py-2">
                                             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                             <span>Mode Overwrite akan <strong>menghapus semua data</strong> pada tabel yang dipilih sebelum mengisi ulang dari backup.</span>
                                         </div>
@@ -503,7 +504,7 @@ export default function BackupPage() {
                                         type="button"
                                         onClick={() => setShowRestoreConfirm(true)}
                                         disabled={isRestoring || selectedRestoreTables.size === 0}
-                                        className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-colors shadow-md disabled:opacity-50 text-white ${restoreMode === "overwrite" ? "bg-orange-600 hover:bg-orange-700" : "bg-green-600 hover:bg-green-700"}`}
+                                        className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-colors shadow-md disabled:opacity-50 ${restoreMode === "overwrite" ? "bg-warning text-warning-foreground hover:bg-warning/90" : "bg-success text-success-foreground hover:bg-success/90"}`}
                                     >
                                         {isRestoring
                                             ? <><Loader2 className="w-4 h-4 animate-spin" /> Merestore...</>
@@ -515,31 +516,31 @@ export default function BackupPage() {
 
                             {/* Hasil restore */}
                             {restoreResult && (
-                                <div className={`p-4 rounded-xl border space-y-3 ${restoreResult.error ? "border-destructive/50 bg-destructive/5" : "border-green-500/50 bg-green-50 dark:bg-green-950/20"}`}>
+                                <div className={`p-4 rounded-xl border space-y-3 ${restoreResult.error ? "border-destructive/50 bg-destructive/5" : "border-success/50 bg-success/10"}`}>
                                     {restoreResult.error ? (
                                         <div className="flex items-center gap-2 text-destructive font-semibold text-sm">
                                             <AlertTriangle className="w-4 h-4" /> {restoreResult.error}
                                         </div>
                                     ) : (
                                         <>
-                                            <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-semibold text-sm">
+                                            <div className="flex items-center gap-2 text-success font-semibold text-sm">
                                                 <CheckCircle2 className="w-4 h-4" /> {restoreResult.message}
                                             </div>
                                             <div className="grid grid-cols-4 gap-2 text-xs">
-                                                <div className="bg-white dark:bg-muted/30 rounded-lg p-2 text-center border border-border">
-                                                    <p className="text-lg font-bold text-green-700 dark:text-green-400">{restoreResult.totalRestored}</p>
+                                                <div className="bg-card rounded-lg p-2 text-center border border-border">
+                                                    <p className="text-lg font-bold text-success nums">{restoreResult.totalRestored}</p>
                                                     <p className="text-muted-foreground">Baris Data</p>
                                                 </div>
-                                                <div className="bg-white dark:bg-muted/30 rounded-lg p-2 text-center border border-border">
-                                                    <p className="text-lg font-bold text-muted-foreground">{restoreResult.totalSkipped}</p>
+                                                <div className="bg-card rounded-lg p-2 text-center border border-border">
+                                                    <p className="text-lg font-bold text-muted-foreground nums">{restoreResult.totalSkipped}</p>
                                                     <p className="text-muted-foreground">Dilewati</p>
                                                 </div>
-                                                <div className="bg-white dark:bg-muted/30 rounded-lg p-2 text-center border border-border">
-                                                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{restoreResult.imagesRestored ?? 0}</p>
+                                                <div className="bg-card rounded-lg p-2 text-center border border-border">
+                                                    <p className="text-lg font-bold text-info nums">{restoreResult.imagesRestored ?? 0}</p>
                                                     <p className="text-muted-foreground">Foto</p>
                                                 </div>
-                                                <div className="bg-white dark:bg-muted/30 rounded-lg p-2 text-center border border-border">
-                                                    <p className={`text-lg font-bold ${restoreResult.waConfigRestored ? "text-green-600" : "text-muted-foreground"}`}>
+                                                <div className="bg-card rounded-lg p-2 text-center border border-border">
+                                                    <p className={`text-lg font-bold ${restoreResult.waConfigRestored ? "text-success" : "text-muted-foreground"}`}>
                                                         {restoreResult.waConfigRestored ? "✓" : "–"}
                                                     </p>
                                                     <p className="text-muted-foreground">Config WA</p>
@@ -569,19 +570,19 @@ export default function BackupPage() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs text-muted-foreground">
                     <div className="space-y-1.5">
-                        <p className="font-semibold text-foreground">📦 Isi File ZIP Backup</p>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5"><Package className="w-4 h-4 shrink-0" /> Isi File ZIP Backup</p>
                         <p>File backup berisi <strong>data.json</strong> (database), folder <strong>uploads/</strong> (foto), dan <strong>whatsapp_bot_config.json</strong> (grup & setting bot WA).</p>
                     </div>
                     <div className="space-y-1.5">
-                        <p className="font-semibold text-foreground">🖥️ Migrasi Sistem Baru</p>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5"><Monitor className="w-4 h-4 shrink-0" /> Migrasi Sistem Baru</p>
                         <p>Klik <strong>Backup Semua Sekarang</strong> → Install PosPro di PC baru → Restore dengan mode <strong>Overwrite</strong>. Data, foto & config WA pulih otomatis.</p>
                     </div>
                     <div className="space-y-1.5">
-                        <p className="font-semibold text-foreground">⚠️ Perbedaan Mode</p>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" /> Perbedaan Mode</p>
                         <p><strong>Skip Existing</strong>: tidak menimpa data yang sudah ada. <strong>Overwrite</strong>: hapus & tulis ulang. Gunakan Overwrite hanya di sistem kosong/baru.</p>
                     </div>
                     <div className="space-y-1.5">
-                        <p className="font-semibold text-foreground">💬 WhatsApp Bot</p>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5"><MessageCircle className="w-4 h-4 shrink-0" /> WhatsApp Bot</p>
                         <p>Config grup WA dipulihkan otomatis dari backup. Namun <strong>QR Code perlu di-scan ulang</strong> di sistem baru karena sesi auth tidak dapat dipindahkan.</p>
                     </div>
                 </div>
@@ -602,15 +603,15 @@ export default function BackupPage() {
             <div className="glass rounded-2xl border border-border overflow-hidden">
                 <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-emerald-500/10 rounded-lg"><Server className="w-5 h-5 text-emerald-600" /></div>
+                        <div className="p-2 bg-success/10 rounded-lg"><Server className="w-5 h-5 text-success" /></div>
                         <div>
                             <h2 className="font-semibold text-foreground">Backup Otomatis via Rclone</h2>
                             <p className="text-xs text-muted-foreground mt-0.5">Backup terjadwal disimpan ke server & disync ke cloud (GDrive, S3, Dropbox, dll) menggunakan rclone</p>
                         </div>
                     </div>
                     {rcloneStatus?.enabled && (
-                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Aktif
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-success/10 text-success border border-success/20 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> Aktif
                         </span>
                     )}
                 </div>
@@ -621,16 +622,16 @@ export default function BackupPage() {
                     {rcloneLoading ? (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Memeriksa rclone...</div>
                     ) : rcloneStatus?.installed ? (
-                        <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-sm">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                            <span className="text-emerald-700 font-medium">rclone terinstal</span>
+                        <div className="flex items-center gap-2 px-3 py-2.5 bg-success/10 border border-success/20 rounded-xl text-sm">
+                            <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                            <span className="text-success font-medium">rclone terinstal</span>
                             <span className="text-muted-foreground font-mono text-xs">v{rcloneStatus.version}</span>
                         </div>
                     ) : (
-                        <div className="flex items-start gap-2 px-3 py-2.5 bg-red-500/5 border border-red-500/20 rounded-xl text-sm">
-                            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                        <div className="flex items-start gap-2 px-3 py-2.5 bg-destructive/10 border border-destructive/20 rounded-xl text-sm">
+                            <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
                             <div>
-                                <p className="text-red-700 font-medium">rclone tidak ditemukan di server</p>
+                                <p className="text-destructive font-medium">rclone tidak ditemukan di server</p>
                                 <p className="text-xs text-muted-foreground mt-0.5">Install rclone: <code className="bg-muted px-1 rounded">curl https://rclone.org/install.sh | sudo bash</code> lalu konfigurasikan remote dengan <code className="bg-muted px-1 rounded">rclone config</code></p>
                             </div>
                         </div>
@@ -716,20 +717,20 @@ export default function BackupPage() {
                                 </p>
                             ) : <p className="text-sm text-muted-foreground">Belum pernah dijalankan</p>}
                             {rcloneStatus?.lastStatus && (
-                                <p className={`text-xs mt-0.5 ${rcloneStatus.lastStatus.startsWith('Gagal') ? 'text-red-500' : 'text-emerald-600'}`}>
+                                <p className={`text-xs mt-0.5 ${rcloneStatus.lastStatus.startsWith('Gagal') ? 'text-destructive' : 'text-success'}`}>
                                     {rcloneStatus.lastStatus}
                                 </p>
                             )}
                         </div>
                         <button onClick={handleTriggerRclone} disabled={rcloneTriggering || !rcloneStatus?.installed}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+                            className="flex items-center gap-2 px-4 py-2 bg-success text-white rounded-xl text-sm font-semibold hover:bg-success/90 disabled:opacity-50 transition-colors whitespace-nowrap">
                             {rcloneTriggering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                             {rcloneTriggering ? "Memproses..." : "Backup Sekarang"}
                         </button>
                     </div>
 
                     {rcloneTriggerMsg && (
-                        <div className={`flex items-start gap-2 rounded-xl px-4 py-3 text-sm ${rcloneTriggerMsg.ok ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                        <div className={`flex items-start gap-2 rounded-xl px-4 py-3 text-sm ${rcloneTriggerMsg.ok ? "bg-success/10 text-success border border-success/30" : "bg-destructive/10 text-destructive border border-destructive/30"}`}>
                             {rcloneTriggerMsg.ok ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" /> : <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />}
                             <span>{rcloneTriggerMsg.text}</span>
                         </div>
@@ -745,7 +746,7 @@ export default function BackupPage() {
                                 {rcloneStatus.localBackups.map((f: any, i: number) => (
                                     <div key={f.name} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs border ${i === 0 ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-border'}`}>
                                         <span className="font-mono text-foreground truncate">{f.name}</span>
-                                        <span className="text-muted-foreground shrink-0 ml-2">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                                        <span className="text-muted-foreground shrink-0 ml-2 nums">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
                                     </div>
                                 ))}
                             </div>
@@ -758,8 +759,8 @@ export default function BackupPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-background rounded-2xl border border-border shadow-2xl p-6 max-w-md w-full space-y-4">
                         <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${restoreMode === "overwrite" ? "bg-orange-100 dark:bg-orange-950/40" : "bg-green-100 dark:bg-green-950/40"}`}>
-                                <AlertTriangle className={`w-5 h-5 ${restoreMode === "overwrite" ? "text-orange-600" : "text-green-600"}`} />
+                            <div className={`p-2 rounded-lg ${restoreMode === "overwrite" ? "bg-warning/15" : "bg-success/15"}`}>
+                                <AlertTriangle className={`w-5 h-5 ${restoreMode === "overwrite" ? "text-warning" : "text-success"}`} />
                             </div>
                             <h3 className="font-bold text-base">Konfirmasi Restore</h3>
                         </div>
@@ -773,8 +774,8 @@ export default function BackupPage() {
                             )}
                         </p>
                         {restoreMode === "overwrite" && (
-                            <p className="text-sm text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 rounded-lg px-3 py-2 border border-orange-200 dark:border-orange-800">
-                                ⚠️ Tindakan ini tidak bisa dibatalkan. Semua data di tabel yang dipilih akan dihapus dan diganti dengan data dari backup.
+                            <p className="text-sm text-warning bg-warning/15 rounded-lg px-3 py-2 border border-warning/30 flex items-start gap-2">
+                                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> Tindakan ini tidak bisa dibatalkan. Semua data di tabel yang dipilih akan dihapus dan diganti dengan data dari backup.
                             </p>
                         )}
                         <div className="flex gap-3 pt-1">
@@ -782,7 +783,7 @@ export default function BackupPage() {
                                 Batal
                             </button>
                             <button type="button" onClick={handleRestore}
-                                className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${restoreMode === "overwrite" ? "bg-orange-600 hover:bg-orange-700" : "bg-green-600 hover:bg-green-700"}`}>
+                                className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${restoreMode === "overwrite" ? "bg-warning text-warning-foreground hover:bg-warning/90" : "bg-success text-success-foreground hover:bg-success/90"}`}>
                                 Ya, Restore Sekarang
                             </button>
                         </div>

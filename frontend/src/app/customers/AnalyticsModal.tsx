@@ -11,10 +11,10 @@ dayjs.locale("id");
 
 const STATUS_LABEL: Record<string, string> = { PAID: "Lunas", PARTIAL: "DP", PENDING: "Pending", FAILED: "Gagal" };
 const STATUS_CLS: Record<string, string> = {
-    PAID: "bg-emerald-100 text-emerald-700",
-    PARTIAL: "bg-amber-100 text-amber-700",
+    PAID: "bg-success/15 text-success",
+    PARTIAL: "bg-warning/15 text-warning",
     PENDING: "bg-muted text-muted-foreground",
-    FAILED: "bg-destructive/10 text-destructive",
+    FAILED: "bg-destructive/12 text-destructive",
 };
 
 export function AnalyticsModal({ customerId, onClose }: { customerId: number; onClose: () => void }) {
@@ -53,7 +53,7 @@ export function AnalyticsModal({ customerId, onClose }: { customerId: number; on
                                 href={waLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-colors"
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-success hover:bg-success/90 text-white text-xs font-semibold transition-colors"
                             >
                                 <MessageCircle className="w-3.5 h-3.5" /> WA Blast
                             </a>
@@ -88,13 +88,13 @@ export function AnalyticsModal({ customerId, onClose }: { customerId: number; on
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             {[
                                 { label: "Total Order", value: `${data.totalOrders}x`, icon: ShoppingBag, cls: "text-primary bg-primary/10" },
-                                { label: "Total Pendapatan", value: `Rp ${data.totalRevenue.toLocaleString("id-ID")}`, icon: Wallet, cls: "text-emerald-600 bg-emerald-100" },
-                                { label: "Rata-rata Order", value: `Rp ${Math.round(avgOrder).toLocaleString("id-ID")}`, icon: TrendingUp, cls: "text-amber-600 bg-amber-100" },
+                                { label: "Total Pendapatan", value: `Rp ${data.totalRevenue.toLocaleString("id-ID")}`, icon: Wallet, cls: "text-success bg-success/15" },
+                                { label: "Rata-rata Order", value: `Rp ${Math.round(avgOrder).toLocaleString("id-ID")}`, icon: TrendingUp, cls: "text-warning bg-warning/15" },
                                 {
                                     label: "Terakhir Order",
                                     value: data.lastOrderDate ? dayjs(data.lastOrderDate).format("DD MMM YYYY") : "–",
                                     icon: Calendar,
-                                    cls: "text-violet-600 bg-violet-100"
+                                    cls: "text-info bg-info/15"
                                 },
                             ].map(s => (
                                 <div key={s.label} className="rounded-xl border border-border p-3 space-y-2">
@@ -102,7 +102,7 @@ export function AnalyticsModal({ customerId, onClose }: { customerId: number; on
                                         <s.icon className="w-4 h-4" />
                                     </div>
                                     <p className="text-xs text-muted-foreground">{s.label}</p>
-                                    <p className="text-sm font-bold leading-tight break-words">{s.value}</p>
+                                    <p className="text-sm font-bold leading-tight break-words nums">{s.value}</p>
                                 </div>
                             ))}
                         </div>
@@ -183,7 +183,7 @@ export function AnalyticsModal({ customerId, onClose }: { customerId: number; on
                                                 </p>
                                             </div>
                                             <div className="text-right shrink-0 space-y-1">
-                                                <p className="text-sm font-semibold">Rp {t.downPayment.toLocaleString("id-ID")}</p>
+                                                <p className="text-sm font-semibold nums">Rp {t.downPayment.toLocaleString("id-ID")}</p>
                                                 <div className="flex items-center gap-1.5 justify-end">
                                                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${STATUS_CLS[t.status] ?? ""}`}>
                                                         {STATUS_LABEL[t.status] ?? t.status}
@@ -217,28 +217,28 @@ function fmtShort(n: number) {
 }
 
 function marginColor(pct: number) {
-    if (pct >= 30) return "text-emerald-600";
-    if (pct >= 15) return "text-amber-600";
-    if (pct < 0) return "text-red-600";
-    return "text-red-500";
+    if (pct >= 30) return "text-success";
+    if (pct >= 15) return "text-warning";
+    if (pct < 0) return "text-destructive";
+    return "text-destructive";
 }
 
 const EVENT_STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-    DRAFT: { label: "Draft", cls: "bg-gray-100 text-gray-700" },
-    SCHEDULED: { label: "Terjadwal", cls: "bg-blue-100 text-blue-700" },
-    IN_PROGRESS: { label: "Berlangsung", cls: "bg-amber-100 text-amber-800" },
-    COMPLETED: { label: "Selesai", cls: "bg-green-100 text-green-700" },
-    CANCELLED: { label: "Batal", cls: "bg-red-100 text-red-700" },
+    DRAFT: { label: "Draft", cls: "bg-muted text-muted-foreground" },
+    SCHEDULED: { label: "Terjadwal", cls: "bg-info/15 text-info" },
+    IN_PROGRESS: { label: "Berlangsung", cls: "bg-warning/15 text-warning" },
+    COMPLETED: { label: "Selesai", cls: "bg-success/15 text-success" },
+    CANCELLED: { label: "Batal", cls: "bg-destructive/12 text-destructive" },
 };
 
 const INV_STATUS_CLS: Record<string, string> = {
-    DRAFT: "bg-gray-100 text-gray-700",
-    SENT: "bg-blue-100 text-blue-700",
-    ACCEPTED: "bg-emerald-100 text-emerald-700",
-    REJECTED: "bg-red-100 text-red-700",
-    EXPIRED: "bg-yellow-100 text-yellow-800",
-    PAID: "bg-emerald-100 text-emerald-700",
-    CANCELLED: "bg-red-100 text-red-700",
+    DRAFT: "bg-muted text-muted-foreground",
+    SENT: "bg-info/15 text-info",
+    ACCEPTED: "bg-success/15 text-success",
+    REJECTED: "bg-destructive/12 text-destructive",
+    EXPIRED: "bg-warning/15 text-warning",
+    PAID: "bg-success/15 text-success",
+    CANCELLED: "bg-destructive/12 text-destructive",
 };
 
 function EventAnalyticsSection({ ea }: { ea: any }) {
@@ -268,7 +268,7 @@ function EventAnalyticsSection({ ea }: { ea: any }) {
         <div className="space-y-3">
             <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-indigo-600" />
+                    <Calendar className="h-4 w-4 text-primary" />
                     Project & Event Analytics
                 </h3>
                 <span className="text-[10px] text-muted-foreground">Lini Booth/Event B2B</span>
@@ -276,25 +276,25 @@ function EventAnalyticsSection({ ea }: { ea: any }) {
 
             {/* 4 stat cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <div className="border rounded-lg p-3 bg-background">
+                <div className="border border-border rounded-xl p-3 bg-background">
                     <div className="text-[10px] text-muted-foreground uppercase">Penawaran ACC</div>
-                    <div className="text-lg font-bold">{ea.quotationCount}</div>
-                    <div className="text-[10px] text-muted-foreground">Total {fmtShort(ea.totalQuotationValue)}</div>
+                    <div className="text-lg font-bold nums">{ea.quotationCount}</div>
+                    <div className="text-[10px] text-muted-foreground nums">Total {fmtShort(ea.totalQuotationValue)}</div>
                 </div>
-                <div className="border rounded-lg p-3 bg-background">
+                <div className="border border-border rounded-xl p-3 bg-background">
                     <div className="text-[10px] text-muted-foreground uppercase">Invoice PAID</div>
-                    <div className="text-lg font-bold text-emerald-600">{ea.invoiceCount}</div>
-                    <div className="text-[10px] text-muted-foreground">Total {fmtShort(ea.totalInvoicePaid)}</div>
+                    <div className="text-lg font-bold text-success nums">{ea.invoiceCount}</div>
+                    <div className="text-[10px] text-muted-foreground nums">Total {fmtShort(ea.totalInvoicePaid)}</div>
                 </div>
-                <div className="border rounded-lg p-3 bg-background">
+                <div className="border border-border rounded-xl p-3 bg-background">
                     <div className="text-[10px] text-muted-foreground uppercase">RAB Plan</div>
-                    <div className="text-lg font-bold">{ea.rabCount}</div>
-                    <div className={`text-[10px] ${marginColor(ea.rabMarginPct)}`}>Margin {ea.rabMarginPct.toFixed(1)}%</div>
+                    <div className="text-lg font-bold nums">{ea.rabCount}</div>
+                    <div className={`text-[10px] nums ${marginColor(ea.rabMarginPct)}`}>Margin {ea.rabMarginPct.toFixed(1)}%</div>
                 </div>
-                <div className="border rounded-lg p-3 bg-background">
+                <div className="border border-border rounded-xl p-3 bg-background">
                     <div className="text-[10px] text-muted-foreground uppercase">Event</div>
-                    <div className="text-lg font-bold">{ea.eventCount}</div>
-                    <div className={`text-[10px] ${marginColor(ea.eventMarginPct)}`}>
+                    <div className="text-lg font-bold nums">{ea.eventCount}</div>
+                    <div className={`text-[10px] nums ${marginColor(ea.eventMarginPct)}`}>
                         {fmtShort(ea.eventGrossProfit)} ({ea.eventMarginPct.toFixed(1)}%)
                     </div>
                 </div>
@@ -302,18 +302,18 @@ function EventAnalyticsSection({ ea }: { ea: any }) {
 
             {/* Event income/expense breakdown */}
             {ea.eventCount > 0 && (
-                <div className="border rounded-lg p-3 bg-background grid grid-cols-3 gap-2 text-center">
+                <div className="border border-border rounded-xl p-3 bg-background grid grid-cols-3 gap-2 text-center">
                     <div>
                         <div className="text-[10px] text-muted-foreground">Income (cashflow tagged)</div>
-                        <div className="text-sm font-bold text-emerald-600">{fmtShort(ea.totalEventIncome)}</div>
+                        <div className="text-sm font-bold text-success nums">{fmtShort(ea.totalEventIncome)}</div>
                     </div>
                     <div>
                         <div className="text-[10px] text-muted-foreground">Expense (cashflow tagged)</div>
-                        <div className="text-sm font-bold text-red-600">{fmtShort(ea.totalEventExpense)}</div>
+                        <div className="text-sm font-bold text-destructive nums">{fmtShort(ea.totalEventExpense)}</div>
                     </div>
                     <div>
                         <div className="text-[10px] text-muted-foreground">Profit (Income − Expense)</div>
-                        <div className={`text-sm font-bold ${marginColor(ea.eventMarginPct)}`}>{fmtShort(ea.eventGrossProfit)}</div>
+                        <div className={`text-sm font-bold nums ${marginColor(ea.eventMarginPct)}`}>{fmtShort(ea.eventGrossProfit)}</div>
                     </div>
                 </div>
             )}
@@ -330,11 +330,11 @@ function EventAnalyticsSection({ ea }: { ea: any }) {
                             <Link
                                 key={inv.id}
                                 href={inv.type === 'QUOTATION' ? `/penawaran/${inv.id}` : `/invoices/${inv.id}`}
-                                className="block px-3 py-2 hover:bg-muted/30 flex items-center justify-between gap-2"
+                                className="block px-3 py-2 hover:bg-muted/30 flex items-center justify-between gap-2 transition-colors"
                             >
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
-                                        <span className={`text-[9px] px-1.5 py-0.5 rounded ${inv.type === 'QUOTATION' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'} font-medium`}>
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded ${inv.type === 'QUOTATION' ? 'bg-info/15 text-info' : 'bg-success/15 text-success'} font-medium`}>
                                             {inv.type === 'QUOTATION' ? 'SPH' : 'INV'}
                                         </span>
                                         <span className="text-xs font-medium truncate">{inv.invoiceNumber}</span>
@@ -345,7 +345,7 @@ function EventAnalyticsSection({ ea }: { ea: any }) {
                                     )}
                                 </div>
                                 <div className="text-right shrink-0">
-                                    <div className="text-xs font-bold">{fmtShort(Number(inv.total))}</div>
+                                    <div className="text-xs font-bold nums">{fmtShort(Number(inv.total))}</div>
                                     <div className="text-[9px] text-muted-foreground">{dayjs(inv.date).format("DD MMM YY")}</div>
                                 </div>
                             </Link>
@@ -363,7 +363,7 @@ function EventAnalyticsSection({ ea }: { ea: any }) {
                     </div>
                     <div className="divide-y max-h-40 overflow-y-auto">
                         {ea.recentRabPlans.map((r: any) => (
-                            <Link key={r.id} href={`/rab/${r.id}`} className="block px-3 py-2 hover:bg-muted/30 flex items-center justify-between gap-2">
+                            <Link key={r.id} href={`/rab/${r.id}`} className="block px-3 py-2 hover:bg-muted/30 flex items-center justify-between gap-2 transition-colors">
                                 <div className="min-w-0 flex-1">
                                     <div className="text-xs font-medium truncate">{r.code} — {r.title}</div>
                                     {r.projectName && <div className="text-[10px] text-muted-foreground truncate">{r.projectName}</div>}
@@ -386,7 +386,7 @@ function EventAnalyticsSection({ ea }: { ea: any }) {
                         {ea.recentEvents.map((ev: any) => {
                             const status = EVENT_STATUS_LABEL[ev.status] ?? EVENT_STATUS_LABEL.SCHEDULED;
                             return (
-                                <Link key={ev.id} href={`/events/${ev.id}`} className="block px-3 py-2 hover:bg-muted/30 flex items-center justify-between gap-2">
+                                <Link key={ev.id} href={`/events/${ev.id}`} className="block px-3 py-2 hover:bg-muted/30 flex items-center justify-between gap-2 transition-colors">
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs font-medium truncate">{ev.name}</span>

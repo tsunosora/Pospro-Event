@@ -159,7 +159,7 @@ export function DetailModal({ supplier, products, onClose, onEditSupplier }: Det
                             {item.productVariant.sku}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right font-medium text-foreground">
+                        <td className="px-4 py-3 text-right font-medium text-foreground nums">
                           Rp {Number(item.purchasePrice).toLocaleString("id-ID")}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs max-w-[150px] truncate">

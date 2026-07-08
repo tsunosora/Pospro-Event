@@ -21,8 +21,9 @@ import { getWorkers, type Worker } from "@/lib/api/workers";
 import { getEvents } from "@/lib/api/events";
 import { listCrewByEvent } from "@/lib/api/event-crew";
 import {
-    Calendar, Check, CheckCheck, ChevronLeft, ChevronRight, ClipboardList, Download, FileSpreadsheet, FileText, History,
-    Loader2, Plus, Receipt, Trash2, Wallet, X,
+    AlertTriangle, Calendar, CalendarDays, Check, CheckCheck, ChevronLeft, ChevronRight, ClipboardList,
+    Download, FileSpreadsheet, FileText, History, Loader2, Pencil, Plus, Receipt, RefreshCw,
+    Save, Settings2, Trash2, Wallet, X, Zap,
 } from "lucide-react";
 
 /** Tombol Laporan Owner (PDF + Excel) untuk sebuah periode [from, to]. Dipakai di tab Weekly & Monthly. */
@@ -40,16 +41,16 @@ function OwnerReportButtons({ from, to, label, fileBase }: { from: string; to: s
         } finally { setBusy(null); }
     }
     return (
-        <div className="inline-flex items-center rounded border-2 border-indigo-300 bg-indigo-50 overflow-hidden">
-            <span className="pl-2.5 pr-1 text-xs font-medium text-indigo-700 inline-flex items-center gap-1">
+        <div className="inline-flex items-center rounded border-2 border-info/30 bg-info/10 overflow-hidden">
+            <span className="pl-2.5 pr-1 text-xs font-medium text-info inline-flex items-center gap-1">
                 <Receipt className="h-3.5 w-3.5" /> Laporan Owner
             </span>
             <button onClick={() => run("pdf")} disabled={busy !== null} title="Laporan pengeluaran gaji (PDF)"
-                className="px-2 py-1.5 text-xs text-indigo-700 hover:bg-indigo-100 border-l border-indigo-200 disabled:opacity-50 inline-flex items-center gap-1">
+                className="px-2 py-1.5 text-xs text-info hover:bg-info/20 border-l border-info/20 disabled:opacity-50 inline-flex items-center gap-1 transition-colors">
                 {busy === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} PDF
             </button>
             <button onClick={() => run("xlsx")} disabled={busy !== null} title="Laporan pengeluaran gaji (Excel)"
-                className="px-2 py-1.5 text-xs text-indigo-700 hover:bg-indigo-100 border-l border-indigo-200 disabled:opacity-50 inline-flex items-center gap-1">
+                className="px-2 py-1.5 text-xs text-info hover:bg-info/20 border-l border-info/20 disabled:opacity-50 inline-flex items-center gap-1 transition-colors">
                 {busy === "xlsx" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />} Excel
             </button>
         </div>
@@ -74,21 +75,21 @@ function defaultWeekEnd(weekStart: string): string {
 }
 
 const STATUS_LABEL: Record<AttendanceStatus, { emoji: string; label: string; cls: string }> = {
-    FULL_DAY: { emoji: "✓", label: "Hadir", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
-    HALF_DAY: { emoji: "½", label: "½ hari", cls: "bg-amber-100 text-amber-700 border-amber-300" },
-    ABSENT: { emoji: "✗", label: "Absen", cls: "bg-red-100 text-red-700 border-red-300" },
+    FULL_DAY: { emoji: "✓", label: "Hadir", cls: "bg-success/15 text-success border-success/30" },
+    HALF_DAY: { emoji: "½", label: "½ hari", cls: "bg-warning/15 text-warning border-warning/30" },
+    ABSENT: { emoji: "✗", label: "Absen", cls: "bg-destructive/12 text-destructive border-destructive/30" },
 };
 
 const APPROVAL_LABEL: Record<AttendanceApprovalStatus, { label: string; cls: string }> = {
-    PENDING: { label: "Pending", cls: "bg-amber-100 text-amber-800 border-amber-300" },
-    APPROVED: { label: "Approved", cls: "bg-emerald-100 text-emerald-800 border-emerald-300" },
-    REJECTED: { label: "Rejected", cls: "bg-red-100 text-red-800 border-red-300" },
+    PENDING: { label: "Pending", cls: "bg-warning/15 text-warning border-warning/30" },
+    APPROVED: { label: "Approved", cls: "bg-success/15 text-success border-success/30" },
+    REJECTED: { label: "Rejected", cls: "bg-destructive/12 text-destructive border-destructive/30" },
 };
 
 const ADJ_TYPE_LABEL: Record<PayrollAdjustmentType, { emoji: string; label: string; cls: string; sign: 1 | -1 }> = {
-    BONUS: { emoji: "🎁", label: "Bonus", cls: "bg-emerald-100 text-emerald-700", sign: 1 },
-    ALLOWANCE: { emoji: "🍱", label: "Tunjangan", cls: "bg-blue-100 text-blue-700", sign: 1 },
-    DEDUCTION: { emoji: "⚠️", label: "Potongan", cls: "bg-red-100 text-red-700", sign: -1 },
+    BONUS: { emoji: "🎁", label: "Bonus", cls: "bg-success/15 text-success", sign: 1 },
+    ALLOWANCE: { emoji: "🍱", label: "Tunjangan", cls: "bg-info/15 text-info", sign: 1 },
+    DEDUCTION: { emoji: "⚠️", label: "Potongan", cls: "bg-destructive/12 text-destructive", sign: -1 },
     ADVANCE: { emoji: "💸", label: "Kasbon", cls: "bg-purple-100 text-purple-700", sign: -1 },
 };
 
@@ -111,7 +112,7 @@ export default function PayrollPage() {
         <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4">
             <div>
                 <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-                    <Wallet className="h-6 w-6 text-emerald-600" />
+                    <Wallet className="h-6 w-6 text-primary" />
                     Payroll & Absensi
                 </h1>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -121,17 +122,18 @@ export default function PayrollPage() {
 
             <div className="flex border-b border-border overflow-x-auto">
                 {([
-                    { key: "input-mingguan", label: "🗓️ Input Mingguan" },
-                    { key: "weekly", label: "📅 Rekap Mingguan" },
-                    { key: "monthly", label: "🗓️ Bulanan" },
-                    { key: "manual", label: "✏️ Input Harian" },
-                    { key: "adjustments", label: "💰 Tunjangan/Potongan" },
-                ] as const).map((t) => (
+                    { key: "input-mingguan" as Tab, label: "Input Mingguan", Icon: CalendarDays },
+                    { key: "weekly" as Tab, label: "Rekap Mingguan", Icon: Calendar },
+                    { key: "monthly" as Tab, label: "Bulanan", Icon: CalendarDays },
+                    { key: "manual" as Tab, label: "Input Harian", Icon: Pencil },
+                    { key: "adjustments" as Tab, label: "Tunjangan/Potongan", Icon: Wallet },
+                ]).map((t) => (
                     <button
                         key={t.key}
                         onClick={() => setTab(t.key)}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition whitespace-nowrap ${tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition whitespace-nowrap ${tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
                     >
+                        <t.Icon className="w-4 h-4" />
                         {t.label}
                     </button>
                 ))}
@@ -360,17 +362,17 @@ function InputMingguanTab() {
                 <span className="text-xs text-muted-foreground ml-1">Rentang:</span>
                 <input type="date" value={weekStart} max={weekEnd}
                     onChange={(e) => e.target.value && setWeekStart(e.target.value)}
-                    className="px-2 py-1 border rounded text-xs bg-white" title="Dari tanggal" />
+                    className="px-2 py-1 border rounded text-xs bg-background" title="Dari tanggal" />
                 <span className="text-xs">–</span>
                 <input type="date" value={weekEnd} min={weekStart}
                     onChange={(e) => e.target.value && setWeekEnd(e.target.value)}
-                    className="px-2 py-1 border rounded text-xs bg-white" title="Sampai tanggal" />
+                    className="px-2 py-1 border rounded text-xs bg-background" title="Sampai tanggal" />
 
                 <span className="text-sm font-medium ml-2">Tim:</span>
                 <select
                     value={teamId ?? ""}
                     onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : null)}
-                    className="px-3 py-1.5 border rounded bg-white text-sm"
+                    className="px-3 py-1.5 border rounded bg-background text-sm"
                 >
                     <option value="">— Semua pekerja —</option>
                     {(data?.teams ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -384,7 +386,7 @@ function InputMingguanTab() {
                     href="/settings/wage-rates"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-success/30 bg-success/10 text-success hover:bg-success/20 font-medium transition-colors"
                     title="Tambah Kota/Divisi & tarifnya (buka di tab baru)"
                 >
                     <Plus className="h-3 w-3" /> Tarif baru
@@ -394,41 +396,42 @@ function InputMingguanTab() {
                         if (grid.size && !confirm("Muat ulang daftar Kota/Divisi & event dari server? Input yang belum disimpan akan hilang.")) return;
                         qc.invalidateQueries({ queryKey: ["weekly-input"] });
                     }}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border hover:bg-muted font-medium"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border hover:bg-muted font-medium transition-colors cursor-pointer"
                     title="Muat ulang daftar setelah menambah tarif baru"
                 >
-                    🔄 Muat ulang
+                    <RefreshCw className="h-3 w-3" /> Muat ulang
                 </button>
             </div>
 
             {/* Toolbar BULK: set Event + Kota + Divisi utk banyak pekerja sekaligus */}
-            <div className="flex items-center gap-2 bg-blue-50/60 border border-blue-200 rounded-lg p-2.5 flex-wrap text-sm">
-                <span className="font-medium text-blue-900 whitespace-nowrap">⚡ Bulk ({selected.size} dipilih):</span>
-                <select value={bulkEvent} onChange={(e) => setBulkEvent(e.target.value)} className="px-2 py-1 border rounded bg-white text-xs max-w-[220px]" title="Event">
+            <div className="flex items-center gap-2 bg-info/10 border border-info/20 rounded-lg p-2.5 flex-wrap text-sm">
+                <span className="font-medium text-foreground whitespace-nowrap inline-flex items-center gap-1"><Zap className="w-3.5 h-3.5 text-info" /> Bulk ({selected.size} dipilih):</span>
+                <select value={bulkEvent} onChange={(e) => setBulkEvent(e.target.value)} className="px-2 py-1 border rounded bg-background text-xs max-w-[220px]" title="Event">
                     <option value={KEEP}>Event — biarkan —</option>
                     <option value="">(tanpa event)</option>
                     {(data?.events ?? []).map((ev) => <option key={ev.id} value={ev.id}>{ev.name}{ev.code ? ` (${ev.code})` : ""}</option>)}
                 </select>
-                <select value={bulkCity} onChange={(e) => setBulkCity(e.target.value)} className="px-2 py-1 border rounded bg-white text-xs" title="Kota">
+                <select value={bulkCity} onChange={(e) => setBulkCity(e.target.value)} className="px-2 py-1 border rounded bg-background text-xs" title="Kota">
                     <option value={KEEP}>Kota — biarkan —</option>
                     <option value="">(kosongkan)</option>
                     {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <select value={bulkDivision} onChange={(e) => setBulkDivision(e.target.value)} className="px-2 py-1 border rounded bg-white text-xs" title="Divisi">
+                <select value={bulkDivision} onChange={(e) => setBulkDivision(e.target.value)} className="px-2 py-1 border rounded bg-background text-xs" title="Divisi">
                     <option value={KEEP}>Divisi — biarkan —</option>
                     <option value="">(kosongkan)</option>
                     {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
                 <button onClick={applyBulk} disabled={selected.size === 0}
-                    className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50">
+                    className="px-3 py-1 rounded bg-primary hover:bg-primary/90 text-white text-xs font-semibold disabled:opacity-50 transition-colors">
                     Terapkan ke {selected.size} pekerja
                 </button>
-                {selected.size > 0 && <button onClick={() => setSelected(new Set())} className="text-xs text-blue-700 underline">batal pilih</button>}
+                {selected.size > 0 && <button onClick={() => setSelected(new Set())} className="text-xs text-primary underline cursor-pointer">batal pilih</button>}
             </div>
 
             {noMatrix && (
-                <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded p-3">
-                    ⚠️ Tabel tarif (Kota × Divisi) masih kosong. Isi dulu di <b>Pengaturan → Tarif Gaji (WageRate)</b> agar gaji otomatis terhitung. Sementara ini tarif memakai default per pekerja.
+                <div className="text-sm text-warning bg-warning/15 border border-warning/30 rounded p-3 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>Tabel tarif (Kota × Divisi) masih kosong. Isi dulu di <b>Pengaturan → Tarif Gaji (WageRate)</b> agar gaji otomatis terhitung. Sementara ini tarif memakai default per pekerja.</span>
                 </div>
             )}
 
@@ -471,30 +474,30 @@ function InputMingguanTab() {
                                 const isOpen = expanded.has(w.id);
                                 return (
                                     <FragmentRow key={w.id}>
-                                        <tr className={`border-t hover:bg-muted/20 ${selected.has(w.id) ? "bg-blue-50/40" : ""}`}>
+                                        <tr className={`border-t hover:bg-muted/20 ${selected.has(w.id) ? "bg-primary/5" : ""}`}>
                                             <td className="p-2 text-center align-top">
                                                 <input type="checkbox" checked={selected.has(w.id)} onChange={() => toggleSelect(w.id)} />
                                             </td>
                                             <td className="p-2 align-top">
                                                 <div className="font-medium leading-tight">{w.name}</div>
                                                 {row.eventId != null && (
-                                                    <div className="text-[10px] text-blue-700 font-medium truncate max-w-[140px]" title={eventMap.get(row.eventId)?.name ?? ""}>
-                                                        🎪 {eventMap.get(row.eventId)?.code ?? eventMap.get(row.eventId)?.name ?? `#${row.eventId}`}
+                                                    <div className="text-[10px] text-info font-medium truncate max-w-[140px] inline-flex items-center gap-0.5" title={eventMap.get(row.eventId)?.name ?? ""}>
+                                                        <Calendar className="h-2.5 w-2.5 shrink-0" /> {eventMap.get(row.eventId)?.code ?? eventMap.get(row.eventId)?.name ?? `#${row.eventId}`}
                                                     </div>
                                                 )}
                                                 <div className="flex gap-1 mt-0.5">
-                                                    <button onClick={() => fillRow(w.id, "FULL_DAY")} title="Isi semua Hadir" className="text-[10px] px-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">✓×7</button>
-                                                    <button onClick={() => fillRow(w.id, null)} title="Kosongkan semua" className="text-[10px] px-1 rounded bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100">bersihkan</button>
+                                                    <button onClick={() => fillRow(w.id, "FULL_DAY")} title="Isi semua Hadir" className="text-[10px] px-1 rounded bg-success/10 text-success border border-success/30 hover:bg-success/20 transition-colors cursor-pointer">✓×7</button>
+                                                    <button onClick={() => fillRow(w.id, null)} title="Kosongkan semua" className="text-[10px] px-1 rounded bg-muted text-muted-foreground border border-border hover:bg-muted/70 transition-colors cursor-pointer">bersihkan</button>
                                                 </div>
                                             </td>
                                             <td className="p-1 align-top">
-                                                <select value={row.city ?? ""} onChange={(e) => applyContext([w.id], { city: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-white">
+                                                <select value={row.city ?? ""} onChange={(e) => applyContext([w.id], { city: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-background">
                                                     <option value="">(default pekerja)</option>
                                                     {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
                                                 </select>
                                             </td>
                                             <td className="p-1 align-top">
-                                                <select value={row.division ?? ""} onChange={(e) => applyContext([w.id], { division: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-white">
+                                                <select value={row.division ?? ""} onChange={(e) => applyContext([w.id], { division: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-background">
                                                     <option value="">(default pekerja)</option>
                                                     {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
                                                 </select>
@@ -505,7 +508,7 @@ function InputMingguanTab() {
                                                     <td key={d} className="p-1 text-center align-top">
                                                         <button
                                                             onClick={() => setCell(w.id, d, { status: cycleStatus(cell.status) })}
-                                                            className={`w-9 h-8 rounded border text-sm font-bold ${cell.status ? STATUS_LABEL[cell.status].cls : "bg-slate-50 text-slate-300 border-slate-200"}`}
+                                                            className={`w-9 h-8 rounded border text-sm font-bold cursor-pointer transition-colors ${cell.status ? STATUS_LABEL[cell.status].cls : "bg-muted/50 text-muted-foreground/50 border-border"}`}
                                                         >
                                                             {cell.status ? STATUS_LABEL[cell.status].emoji : "·"}
                                                         </button>
@@ -527,28 +530,28 @@ function InputMingguanTab() {
                                                 <button
                                                     onClick={() => setExpanded((prev) => { const n = new Set(prev); n.has(w.id) ? n.delete(w.id) : n.add(w.id); return n; })}
                                                     title="Rincian Kota/Divisi per hari"
-                                                    className={`text-xs px-1.5 py-1 rounded border ${isOpen ? "bg-amber-100 border-amber-300" : "hover:bg-muted"}`}
-                                                >⚙</button>
+                                                    className={`p-1.5 rounded border cursor-pointer transition-colors ${isOpen ? "bg-warning/15 border-warning/30 text-warning" : "hover:bg-muted text-muted-foreground"}`}
+                                                ><Settings2 className="h-3.5 w-3.5" /></button>
                                             </td>
                                         </tr>
                                         {isOpen && (
-                                            <tr className="bg-amber-50/40 border-t border-amber-200">
-                                                <td colSpan={4} className="p-2 text-[10px] text-amber-800 align-top">
+                                            <tr className="bg-warning/5 border-t border-warning/20">
+                                                <td colSpan={4} className="p-2 text-[10px] text-warning align-top">
                                                     Override Event/Kota/Divisi per hari (untuk hari kerja di event/kota berbeda):
                                                 </td>
                                                 {(data?.days ?? []).map((d) => {
                                                     const cell = row.days[d] ?? EMPTY_CELL;
                                                     return (
                                                         <td key={d} className="p-1 align-top">
-                                                            <select value={cell.eventId ?? ""} onChange={(e) => setCell(w.id, d, { eventId: e.target.value ? Number(e.target.value) : null })} className="w-[44px] text-[9px] border rounded mb-1 bg-white" title="Event">
+                                                            <select value={cell.eventId ?? ""} onChange={(e) => setCell(w.id, d, { eventId: e.target.value ? Number(e.target.value) : null })} className="w-[44px] text-[9px] border rounded mb-1 bg-background" title="Event">
                                                                 <option value="">event</option>
                                                                 {(data?.events ?? []).map((ev) => <option key={ev.id} value={ev.id}>{ev.code || ev.name}</option>)}
                                                             </select>
-                                                            <select value={cell.city ?? ""} onChange={(e) => setCell(w.id, d, { city: e.target.value || null })} className="w-[44px] text-[9px] border rounded mb-1 bg-white" title="Kota">
+                                                            <select value={cell.city ?? ""} onChange={(e) => setCell(w.id, d, { city: e.target.value || null })} className="w-[44px] text-[9px] border rounded mb-1 bg-background" title="Kota">
                                                                 <option value="">kota</option>
                                                                 {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
                                                             </select>
-                                                            <select value={cell.division ?? ""} onChange={(e) => setCell(w.id, d, { division: e.target.value || null })} className="w-[44px] text-[9px] border rounded bg-white" title="Divisi">
+                                                            <select value={cell.division ?? ""} onChange={(e) => setCell(w.id, d, { division: e.target.value || null })} className="w-[44px] text-[9px] border rounded bg-background" title="Divisi">
                                                                 <option value="">div</option>
                                                                 {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
                                                             </select>
@@ -568,15 +571,15 @@ function InputMingguanTab() {
 
             <div className="flex items-center justify-between gap-3 flex-wrap sticky bottom-0 bg-background/95 py-2 border-t">
                 <div className="text-sm">
-                    Estimasi total minggu ini: <b className="text-emerald-700">Rp {formatRp(grandEstimate)}</b>
+                    Estimasi total minggu ini: <b className="text-success nums">Rp {formatRp(grandEstimate)}</b>
                 </div>
                 <button
                     onClick={() => saveMut.mutate()}
                     disabled={saveMut.isPending || (data?.workers.length ?? 0) === 0}
-                    className="px-6 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-2"
+                    className="px-6 py-2.5 rounded-lg bg-success hover:bg-success/90 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-2 transition-colors"
                 >
-                    {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                    💾 Simpan minggu ini (auto-approve)
+                    {saveMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Simpan minggu ini (auto-approve)
                 </button>
             </div>
         </div>
@@ -678,16 +681,16 @@ function WeeklyTab() {
                 {/* Rentang tanggal custom (mis. sampai tgl 20) */}
                 <input type="date" value={weekStart} max={weekEnd}
                     onChange={(e) => e.target.value && setWeekStart(e.target.value)}
-                    className="px-2 py-1 border rounded text-xs bg-white" title="Dari tanggal" />
+                    className="px-2 py-1 border rounded text-xs bg-background" title="Dari tanggal" />
                 <span className="text-xs">–</span>
                 <input type="date" value={weekEnd} min={weekStart}
                     onChange={(e) => e.target.value && setWeekEnd(e.target.value)}
-                    className="px-2 py-1 border rounded text-xs bg-white" title="Sampai tanggal" />
+                    className="px-2 py-1 border rounded text-xs bg-background" title="Sampai tanggal" />
                 {data && data.pendingCount > 0 && (
                     <button
                         onClick={handleBulkApproveAll}
                         disabled={bulkApproveMut.isPending}
-                        className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium disabled:opacity-50"
+                        className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-success hover:bg-success/90 text-white rounded font-medium disabled:opacity-50 transition-colors"
                     >
                         {bulkApproveMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
                         Approve Semua ({data.pendingCount})
@@ -696,7 +699,7 @@ function WeeklyTab() {
                 <button
                     onClick={handleExport}
                     disabled={exporting || !data}
-                    className={`${data && data.pendingCount > 0 ? "" : "ml-auto"} inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border-2 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded font-medium disabled:opacity-50`}
+                    className={`${data && data.pendingCount > 0 ? "" : "ml-auto"} inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border-2 border-success/30 bg-success/10 hover:bg-success/20 text-success rounded font-medium disabled:opacity-50 transition-colors`}
                 >
                     {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                     Export Excel
@@ -739,7 +742,7 @@ function WeeklyTab() {
                                         <td className="p-2 sticky left-0 bg-background min-w-[160px]">
                                             <div className="font-medium">{row.name}</div>
                                             <div className="text-[10px] text-muted-foreground">
-                                                {row.hasPayroll ? `Rp ${formatRp(row.dailyWageRate)}/hari` : <span className="text-amber-600">Gaji belum diset</span>}
+                                                {row.hasPayroll ? `Rp ${formatRp(row.dailyWageRate)}/hari` : <span className="text-warning">Gaji belum diset</span>}
                                             </div>
                                         </td>
                                         {row.cells.map((cell, i) => (
@@ -756,17 +759,17 @@ function WeeklyTab() {
                                                 )}
                                             </td>
                                         ))}
-                                        <td className="p-2 text-right font-mono text-emerald-700 whitespace-nowrap">
+                                        <td className="p-2 text-right font-mono nums text-success whitespace-nowrap">
                                             {row.approvedWage > 0 ? `Rp ${formatRp(row.approvedWage)}` : "—"}
                                         </td>
-                                        <td className="p-2 text-right font-mono whitespace-nowrap">
+                                        <td className="p-2 text-right font-mono nums whitespace-nowrap">
                                             {row.adjustments.net !== 0 ? (
-                                                <span className={row.adjustments.net >= 0 ? "text-blue-700" : "text-red-700"}>
+                                                <span className={row.adjustments.net >= 0 ? "text-info" : "text-destructive"}>
                                                     {row.adjustments.net >= 0 ? "+" : ""}Rp {formatRp(row.adjustments.net)}
                                                 </span>
                                             ) : "—"}
                                         </td>
-                                        <td className="p-2 text-right font-mono font-bold text-navy whitespace-nowrap">
+                                        <td className="p-2 text-right font-mono nums font-bold text-navy whitespace-nowrap">
                                             {row.grandTotal > 0 ? `Rp ${formatRp(row.grandTotal)}` : "—"}
                                         </td>
                                         <td className="p-2 text-center">
@@ -774,7 +777,7 @@ function WeeklyTab() {
                                                 onClick={() => handleWeeklyPayslip(row.workerId, row.name)}
                                                 disabled={slipLoadingId === row.workerId}
                                                 title="Download Slip Gaji Mingguan (PDF)"
-                                                className="p-1.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 disabled:opacity-50"
+                                                className="p-1.5 rounded bg-info/15 hover:bg-info/25 text-info disabled:opacity-50 transition-colors"
                                             >
                                                 {slipLoadingId === row.workerId
                                                     ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -784,11 +787,11 @@ function WeeklyTab() {
                                     </tr>
                                 ))}
                             </tbody>
-                            <tfoot className="bg-emerald-50 border-t-2 border-emerald-200">
+                            <tfoot className="bg-success/10 border-t-2 border-success/30">
                                 <tr>
-                                    <td colSpan={8} className="p-2 text-right font-bold text-emerald-800">GRAND TOTAL FINAL CAIR:</td>
+                                    <td colSpan={8} className="p-2 text-right font-bold text-success">GRAND TOTAL FINAL CAIR:</td>
                                     <td colSpan={2} className="p-2"></td>
-                                    <td className="p-2 text-right font-mono font-bold text-emerald-800">Rp {formatRp(data.grandFinal)}</td>
+                                    <td className="p-2 text-right font-mono nums font-bold text-success">Rp {formatRp(data.grandFinal)}</td>
                                     <td className="p-2"></td>
                                 </tr>
                             </tfoot>
@@ -806,16 +809,16 @@ function WeeklyTab() {
 
 function SummaryCard({ label, value, hint, color = "slate" }: { label: string; value: string; hint?: string; color?: "slate" | "emerald" | "blue" | "red" | "navy" }) {
     const colors: Record<string, string> = {
-        slate: "border-slate-300 bg-slate-50",
-        emerald: "border-emerald-300 bg-emerald-50",
-        blue: "border-blue-300 bg-blue-50",
-        red: "border-red-300 bg-red-50",
-        navy: "border-blue-700 bg-blue-100",
+        slate: "border-border bg-muted/30",
+        emerald: "border-success/30 bg-success/10",
+        blue: "border-info/30 bg-info/10",
+        red: "border-destructive/30 bg-destructive/10",
+        navy: "border-primary/30 bg-primary/10",
     };
     return (
         <div className={`border rounded-lg p-2 ${colors[color]}`}>
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</div>
-            <div className="text-sm sm:text-base font-bold font-mono mt-0.5">{value}</div>
+            <div className="text-sm sm:text-base font-bold nums mt-0.5">{value}</div>
             {hint && <div className="text-[10px] text-muted-foreground">{hint}</div>}
         </div>
     );
@@ -843,18 +846,18 @@ function AttendanceCell({ cell, onApprove, onReject, onAudit }: {
                 <span className={`text-[8px] px-1 rounded border ${aBadge.cls} font-medium`}>{aBadge.label.charAt(0)}</span>
             )}
             {/* Hover actions */}
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 hidden group-hover:flex bg-white border rounded shadow-lg z-10 p-0.5">
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 hidden group-hover:flex bg-card border rounded shadow-lg z-10 p-0.5">
                 {cell.approvalStatus !== 'APPROVED' && (
-                    <button onClick={onApprove} className="p-1 hover:bg-emerald-100 text-emerald-700 rounded" title="Approve">
+                    <button onClick={onApprove} className="p-1 hover:bg-success/20 text-success rounded transition-colors" title="Approve">
                         <Check className="h-3 w-3" />
                     </button>
                 )}
                 {cell.approvalStatus !== 'REJECTED' && (
-                    <button onClick={onReject} className="p-1 hover:bg-red-100 text-red-700 rounded" title="Reject">
+                    <button onClick={onReject} className="p-1 hover:bg-destructive/12 text-destructive rounded transition-colors" title="Reject">
                         <X className="h-3 w-3" />
                     </button>
                 )}
-                <button onClick={onAudit} className="p-1 hover:bg-blue-100 text-blue-700 rounded" title="Audit log">
+                <button onClick={onAudit} className="p-1 hover:bg-info/15 text-info rounded transition-colors" title="Audit log">
                     <History className="h-3 w-3" />
                 </button>
             </div>
@@ -872,9 +875,9 @@ function AuditLogModal({ attendanceId, onClose }: { attendanceId: number; onClos
 
     return (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-card rounded-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between p-4 border-b">
-                    <h2 className="text-lg font-bold flex items-center gap-2"><History className="h-5 w-5 text-blue-600" /> Audit Log Attendance #{attendanceId}</h2>
+                    <h2 className="text-lg font-bold flex items-center gap-2"><History className="h-5 w-5 text-info" /> Audit Log Attendance #{attendanceId}</h2>
                     <button onClick={onClose} className="p-1 hover:bg-muted rounded"><X className="h-5 w-5" /></button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -882,33 +885,33 @@ function AuditLogModal({ attendanceId, onClose }: { attendanceId: number; onClos
                     {!isLoading && logs.length === 0 && <div className="text-center text-muted-foreground text-sm">Belum ada history.</div>}
                     {logs.map((log) => {
                         const actionColor: Record<string, string> = {
-                            CREATE: "bg-blue-100 text-blue-800",
-                            UPDATE: "bg-amber-100 text-amber-800",
-                            DELETE: "bg-red-100 text-red-800",
-                            APPROVE: "bg-emerald-100 text-emerald-800",
-                            REJECT: "bg-red-100 text-red-800",
+                            CREATE: "bg-info/15 text-info",
+                            UPDATE: "bg-warning/15 text-warning",
+                            DELETE: "bg-destructive/12 text-destructive",
+                            APPROVE: "bg-success/15 text-success",
+                            REJECT: "bg-destructive/12 text-destructive",
                         };
                         const oldData = log.oldData ? JSON.parse(log.oldData) : null;
                         const newData = log.newData ? JSON.parse(log.newData) : null;
                         return (
                             <div key={log.id} className="border rounded p-3 text-xs space-y-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <span className={`px-2 py-0.5 rounded font-bold ${actionColor[log.action] ?? "bg-slate-100"}`}>{log.action}</span>
+                                    <span className={`px-2 py-0.5 rounded font-bold ${actionColor[log.action] ?? "bg-muted"}`}>{log.action}</span>
                                     <span className="text-muted-foreground">{dayjs(log.createdAt).format("DD MMM YYYY HH:mm")}</span>
                                     {log.changedBy && <span className="text-muted-foreground">by {log.changedBy.name ?? log.changedBy.email}</span>}
                                     {log.changedByPic && <span className="text-muted-foreground">by PIC: {log.changedByPic.name}</span>}
                                 </div>
-                                {log.notes && <div className="text-amber-700 italic">📝 {log.notes}</div>}
+                                {log.notes && <div className="text-warning italic flex items-start gap-1"><FileText className="h-3 w-3 shrink-0 mt-0.5" />{log.notes}</div>}
                                 {oldData && (
                                     <details>
                                         <summary className="cursor-pointer text-muted-foreground">Sebelum</summary>
-                                        <pre className="bg-red-50 p-2 rounded text-[10px] overflow-x-auto mt-1">{JSON.stringify(oldData, null, 2)}</pre>
+                                        <pre className="bg-destructive/5 p-2 rounded text-[10px] overflow-x-auto mt-1">{JSON.stringify(oldData, null, 2)}</pre>
                                     </details>
                                 )}
                                 {newData && (
                                     <details>
                                         <summary className="cursor-pointer text-muted-foreground">Sesudah</summary>
-                                        <pre className="bg-emerald-50 p-2 rounded text-[10px] overflow-x-auto mt-1">{JSON.stringify(newData, null, 2)}</pre>
+                                        <pre className="bg-success/10 p-2 rounded text-[10px] overflow-x-auto mt-1">{JSON.stringify(newData, null, 2)}</pre>
                                     </details>
                                 )}
                             </div>
@@ -962,13 +965,13 @@ function MonthlyTab() {
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap bg-muted/30 rounded-lg p-2">
-                <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="px-3 py-1.5 border rounded bg-white text-sm">
+                <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="px-3 py-1.5 border rounded bg-background text-sm">
                     {monthOptions.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
-                <input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-24 px-3 py-1.5 border rounded bg-white text-sm" />
+                <input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-24 px-3 py-1.5 border rounded bg-background text-sm" />
                 <button onClick={() => { setYear(now.year()); setMonth(now.month() + 1); }} className="px-3 py-1.5 text-xs border rounded hover:bg-background">Bulan ini</button>
                 <button onClick={handleExport} disabled={exporting || !data}
-                    className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border-2 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded font-medium disabled:opacity-50">
+                    className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border-2 border-success/30 bg-success/10 hover:bg-success/20 text-success rounded font-medium disabled:opacity-50 transition-colors">
                     {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                     Export Excel
                 </button>
@@ -1014,26 +1017,26 @@ function MonthlyTab() {
                                         <td className="p-2">
                                             <div className="font-medium">{row.name}</div>
                                             <div className="text-[10px] text-muted-foreground">
-                                                {row.hasPayroll ? `Rp ${formatRp(row.dailyWageRate)}/hari` : <span className="text-amber-600">Belum diset</span>}
+                                                {row.hasPayroll ? `Rp ${formatRp(row.dailyWageRate)}/hari` : <span className="text-warning">Belum diset</span>}
                                             </div>
                                         </td>
                                         <td className="p-2 text-center">{row.fullDays}</td>
                                         <td className="p-2 text-center">{row.halfDays}</td>
-                                        <td className="p-2 text-center font-mono">{row.overtimeHours}</td>
-                                        <td className="p-2 text-right font-mono text-emerald-700">Rp {formatRp(row.approvedTotal)}</td>
-                                        <td className={`p-2 text-right font-mono ${row.adjustments.net >= 0 ? "text-blue-700" : "text-red-700"}`}>
+                                        <td className="p-2 text-center nums">{row.overtimeHours}</td>
+                                        <td className="p-2 text-right nums text-success">Rp {formatRp(row.approvedTotal)}</td>
+                                        <td className={`p-2 text-right nums ${row.adjustments.net >= 0 ? "text-info" : "text-destructive"}`}>
                                             {row.adjustments.net !== 0 ? `${row.adjustments.net >= 0 ? "+" : ""}Rp ${formatRp(row.adjustments.net)}` : "—"}
                                         </td>
                                         <td className="p-2 text-center">
-                                            {row.pendingCount > 0 && <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">{row.pendingCount}</span>}
+                                            {row.pendingCount > 0 && <span className="px-1.5 py-0.5 rounded bg-warning/15 text-warning text-[10px] font-bold">{row.pendingCount}</span>}
                                         </td>
-                                        <td className="p-2 text-right font-mono font-bold text-navy whitespace-nowrap">Rp {formatRp(row.grandTotal)}</td>
+                                        <td className="p-2 text-right nums font-bold text-navy whitespace-nowrap">Rp {formatRp(row.grandTotal)}</td>
                                         <td className="p-2 text-center">
                                             <button
                                                 onClick={() => handlePayslip(row.workerId, row.name)}
                                                 disabled={slipLoadingId === row.workerId}
                                                 title="Download Slip Gaji PDF"
-                                                className="p-1.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 disabled:opacity-50"
+                                                className="p-1.5 rounded bg-info/15 hover:bg-info/25 text-info disabled:opacity-50 transition-colors"
                                             >
                                                 {slipLoadingId === row.workerId
                                                     ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1043,10 +1046,10 @@ function MonthlyTab() {
                                     </tr>
                                 ))}
                             </tbody>
-                            <tfoot className="bg-emerald-50 border-t-2 border-emerald-200">
+                            <tfoot className="bg-success/10 border-t-2 border-success/30">
                                 <tr>
-                                    <td colSpan={7} className="p-2 text-right font-bold text-emerald-800">GRAND TOTAL FINAL CAIR:</td>
-                                    <td className="p-2 text-right font-mono font-bold text-emerald-800">Rp {formatRp(data.grandFinal)}</td>
+                                    <td colSpan={7} className="p-2 text-right font-bold text-success">GRAND TOTAL FINAL CAIR:</td>
+                                    <td className="p-2 text-right nums font-bold text-success">Rp {formatRp(data.grandFinal)}</td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -1144,12 +1147,12 @@ function ManualEntryTab() {
             <div className="flex items-center gap-3 bg-muted/30 rounded-lg p-3 flex-wrap">
                 <ClipboardList className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm font-medium">Tanggal:</span>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="px-3 py-1.5 border rounded bg-white text-sm" />
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="px-3 py-1.5 border rounded bg-background text-sm" />
                 <span className="text-sm font-medium ml-1">Event:</span>
                 <select
                     value={eventId ?? ""}
                     onChange={(e) => setEventId(e.target.value ? Number(e.target.value) : null)}
-                    className="px-3 py-1.5 border rounded bg-white text-sm max-w-[260px]"
+                    className="px-3 py-1.5 border rounded bg-background text-sm max-w-[260px]"
                 >
                     <option value="">— Umum (tanpa event) —</option>
                     {events.map((ev) => (
@@ -1162,7 +1165,8 @@ function ManualEntryTab() {
             </div>
 
             {eventId != null && displayWorkers.length === 0 && (
-                <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-3">
+                <div className="text-sm text-warning bg-warning/15 border border-warning/30 rounded p-3 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
                     Belum ada crew ter-assign di event ini. Assign dulu di <b>Event → tab Crew</b>.
                 </div>
             )}
@@ -1185,14 +1189,14 @@ function ManualEntryTab() {
                                     <td className="p-2">
                                         <div className="font-medium">{w.name}</div>
                                         <div className="text-[10px] text-muted-foreground">{w.position ?? ""}</div>
-                                        {rl && <div className="text-[10px] text-emerald-700 font-medium">💰 {rl}</div>}
+                                        {rl && <div className="text-[10px] text-success font-medium inline-flex items-center gap-0.5"><Wallet className="h-2.5 w-2.5" /> {rl}</div>}
                                     </td>
                                     <td className="p-2 text-center">
                                         <select value={r.status} onChange={(e) => setRows((prev) => {
                                             const next = new Map(prev);
                                             next.set(w.id, { ...r, status: e.target.value as AttendanceStatus });
                                             return next;
-                                        })} className="px-2 py-1 border rounded text-sm bg-white">
+                                        })} className="px-2 py-1 border rounded text-sm bg-background">
                                             <option value="FULL_DAY">✓ Hadir</option>
                                             <option value="HALF_DAY">½ Hari</option>
                                             <option value="ABSENT">✗ Absen</option>
@@ -1213,9 +1217,9 @@ function ManualEntryTab() {
             </div>
 
             <button onClick={() => submitMut.mutate()} disabled={submitMut.isPending}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-2">
-                {submitMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                💾 Simpan Absensi {dayjs(date).format("DD MMM YYYY")}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-success hover:bg-success/90 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-2 transition-colors">
+                {submitMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Simpan Absensi {dayjs(date).format("DD MMM YYYY")}
             </button>
         </div>
     );
@@ -1281,23 +1285,23 @@ function AdjustmentsTab() {
         <div className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap bg-muted/30 rounded-lg p-2">
                 <span className="text-sm font-medium">Periode:</span>
-                <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="px-2 py-1 border rounded text-sm bg-white" />
+                <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="px-2 py-1 border rounded text-sm bg-background" />
                 <span className="text-muted-foreground">→</span>
-                <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="px-2 py-1 border rounded text-sm bg-white" />
+                <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="px-2 py-1 border rounded text-sm bg-background" />
                 <button onClick={() => { resetForm(); setShowForm(true); }}
-                    className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium">
+                    className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary hover:bg-primary/90 text-white rounded font-medium transition-colors">
                     <Plus className="h-3.5 w-3.5" /> Tambah
                 </button>
             </div>
 
             {showForm && (
-                <div className="border-2 border-emerald-300 bg-emerald-50/50 rounded-lg p-4 space-y-3">
-                    <div className="text-sm font-bold text-emerald-800">{editId ? "Edit" : "Tambah"} Tunjangan/Potongan</div>
+                <div className="border-2 border-success/30 bg-success/5 rounded-lg p-4 space-y-3">
+                    <div className="text-sm font-bold text-success">{editId ? "Edit" : "Tambah"} Tunjangan/Potongan</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs font-medium block mb-1">Worker *</label>
                             <select value={form.workerId || ""} onChange={(e) => setForm(f => ({ ...f, workerId: Number(e.target.value) }))}
-                                className="w-full border rounded px-3 py-2 text-sm bg-white">
+                                className="w-full border rounded px-3 py-2 text-sm bg-background">
                                 <option value="">— Pilih worker —</option>
                                 {workers.map(w => <option key={w.id} value={w.id}>{w.name}{w.position ? ` (${w.position})` : ""}</option>)}
                             </select>
@@ -1305,7 +1309,7 @@ function AdjustmentsTab() {
                         <div>
                             <label className="text-xs font-medium block mb-1">Tipe *</label>
                             <select value={form.type} onChange={(e) => setForm(f => ({ ...f, type: e.target.value as PayrollAdjustmentType }))}
-                                className="w-full border rounded px-3 py-2 text-sm bg-white">
+                                className="w-full border rounded px-3 py-2 text-sm bg-background">
                                 {(Object.keys(ADJ_TYPE_LABEL) as PayrollAdjustmentType[]).map(t => (
                                     <option key={t} value={t}>{ADJ_TYPE_LABEL[t].emoji} {ADJ_TYPE_LABEL[t].label} ({ADJ_TYPE_LABEL[t].sign > 0 ? "+" : "−"})</option>
                                 ))}
@@ -1331,9 +1335,9 @@ function AdjustmentsTab() {
                         </div>
                     </div>
                     <div className="flex gap-2 justify-end">
-                        <button onClick={resetForm} className="px-3 py-1.5 text-sm border rounded hover:bg-white">Batal</button>
+                        <button onClick={resetForm} className="px-3 py-1.5 text-sm border rounded hover:bg-muted transition-colors">Batal</button>
                         <button onClick={handleSave} disabled={createMut.isPending || updateMut.isPending}
-                            className="inline-flex items-center gap-1 px-4 py-1.5 rounded text-sm bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">
+                            className="inline-flex items-center gap-1 px-4 py-1.5 rounded text-sm bg-success hover:bg-success/90 text-white disabled:opacity-50 transition-colors">
                             {(createMut.isPending || updateMut.isPending) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                             {editId ? "Update" : "Simpan"}
                         </button>
@@ -1371,17 +1375,17 @@ function AdjustmentsTab() {
                                                 {meta.emoji} {meta.label}
                                             </span>
                                         </td>
-                                        <td className={`p-2 text-right font-mono font-semibold ${meta.sign > 0 ? "text-emerald-700" : "text-red-700"}`}>
+                                        <td className={`p-2 text-right nums font-semibold ${meta.sign > 0 ? "text-success" : "text-destructive"}`}>
                                             {meta.sign > 0 ? "+" : "−"}Rp {formatRp(amt)}
                                         </td>
                                         <td className="p-2 text-xs text-muted-foreground">{a.notes ?? "—"}</td>
                                         <td className="p-2 text-center">
                                             <div className="inline-flex gap-1">
-                                                <button onClick={() => startEdit(a)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Edit">
+                                                <button onClick={() => startEdit(a)} className="p-1.5 rounded hover:bg-info/15 text-info transition-colors" title="Edit">
                                                     <Plus className="h-3.5 w-3.5 rotate-45" />
                                                 </button>
                                                 <button onClick={() => { if (confirm("Hapus adjustment ini?")) deleteMut.mutate(a.id); }}
-                                                    className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Hapus">
+                                                    className="p-1.5 rounded hover:bg-destructive/10 text-destructive transition-colors" title="Hapus">
                                                     <Trash2 className="h-3.5 w-3.5" />
                                                 </button>
                                             </div>

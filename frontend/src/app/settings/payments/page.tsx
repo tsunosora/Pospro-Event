@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { getSettings, uploadQrisImage, getBankAccounts, createBankAccount, updateBankAccount, deleteBankAccount } from "@/lib/api";
-import { Loader2, UploadCloud, Plus, Settings2, Trash2 } from "lucide-react";
-import Image from "next/image";
+import { Loader2, UploadCloud, Plus, Settings2, Trash2, CreditCard } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default function PaymentSettings() {
     const [qrisUrl, setQrisUrl] = useState<string | null>(null);
@@ -81,8 +83,8 @@ export default function PaymentSettings() {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
     return (
-        <div className="p-6">
-            <h1 className="text-2xl font-bold mb-6">Metode Pembayaran</h1>
+        <div className="space-y-6">
+            <PageHeader title="Metode Pembayaran" icon={CreditCard} />
 
             <div className="grid lg:grid-cols-2 gap-8 items-start">
 
@@ -124,21 +126,27 @@ export default function PaymentSettings() {
                             <Settings2 className="h-5 w-5 text-primary" />
                             Transfer Bank
                         </h2>
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
                             onClick={() => {
                                 setBankForm({ id: 0, bankName: '', accountNumber: '', accountOwner: '', isActive: true });
                                 setShowBankForm(true);
                             }}
-                            className="bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground p-1.5 rounded-lg transition-colors"
                             title="Tambah Rekening"
+                            className="text-primary hover:bg-primary/10 hover:text-primary"
                         >
                             <Plus className="h-5 w-5" />
-                        </button>
+                        </Button>
                     </div>
 
                     <div className="flex-1 space-y-3">
                         {banks.length === 0 ? (
-                            <p className="text-sm text-center py-4 text-muted-foreground">Belum ada rekening bank yang ditambahkan.</p>
+                            <EmptyState
+                                compact
+                                icon={CreditCard}
+                                description="Belum ada rekening bank yang ditambahkan."
+                            />
                         ) : (
                             banks.map(bank => (
                                 <div key={bank.id} className="flex items-center justify-between p-3 border border-border bg-background rounded-xl">
@@ -150,21 +158,24 @@ export default function PaymentSettings() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button
+                                        <Button
+                                            variant="outline"
+                                            size="xs"
                                             onClick={() => {
                                                 setBankForm(bank);
                                                 setShowBankForm(true);
                                             }}
-                                            className="text-xs font-semibold px-2 py-1 rounded bg-muted hover:bg-muted/80 transition-colors"
                                         >
                                             Edit
-                                        </button>
-                                        <button
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-xs"
                                             onClick={() => handleDeleteBank(bank.id)}
-                                            className="text-destructive/70 hover:text-destructive hover:bg-destructive/10 p-1 rounded transition-colors"
+                                            className="text-destructive/70 hover:text-destructive hover:bg-destructive/10"
                                         >
                                             <Trash2 className="h-4 w-4" />
-                                        </button>
+                                        </Button>
                                     </div>
                                 </div>
                             ))
@@ -195,8 +206,8 @@ export default function PaymentSettings() {
                             </div>
 
                             <div className="pt-2 flex justify-end gap-2">
-                                <button type="button" onClick={() => setShowBankForm(false)} className="px-4 py-2 text-sm font-semibold rounded-lg bg-muted hover:bg-muted/80">Batal</button>
-                                <button type="submit" className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">Simpan Detail</button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => setShowBankForm(false)}>Batal</Button>
+                                <Button type="submit" size="sm">Simpan Detail</Button>
                             </div>
                         </form>
                     </div>

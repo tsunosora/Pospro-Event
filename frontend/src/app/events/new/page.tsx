@@ -36,7 +36,7 @@ function NewEventInner() {
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-2">
-                <Link href="/events" className="p-1.5 hover:bg-muted rounded">
+                <Link href="/events" className="p-1.5 hover:bg-muted rounded transition-colors cursor-pointer">
                     <ArrowLeft className="h-4 w-4" />
                 </Link>
                 <h1 className="text-xl font-bold flex items-center gap-2">

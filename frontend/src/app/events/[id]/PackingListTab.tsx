@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    Loader2, Plus, MapPin, CheckCircle2, Circle, Download, Package2, Droplet,
+    Loader2, Plus, MapPin, CheckCircle2, Download, Package2, Droplet,
 } from "lucide-react";
 import { getProducts } from "@/lib/api/products";
 import { getWorkers } from "@/lib/api/workers";
@@ -80,14 +80,14 @@ export default function PackingListTab({ eventId }: { eventId: number }) {
         <div className="space-y-4">
             <div className="flex items-center gap-2 flex-wrap">
                 <div className="grid grid-cols-3 gap-2 flex-1 min-w-0">
-                    <Stat label="Total" value={stats.total} cls="bg-slate-50" />
-                    <Stat label="Belum" value={stats.pending} cls="bg-gray-50" />
-                    <Stat label="Tercentang" value={stats.checked} cls="bg-emerald-50" />
+                    <Stat label="Total" value={stats.total} cls="bg-muted" />
+                    <Stat label="Belum" value={stats.pending} cls="bg-muted" />
+                    <Stat label="Tercentang" value={stats.checked} cls="bg-success/15" />
                 </div>
                 <button
                     onClick={handlePrefill}
                     disabled={!stats.checked}
-                    className="inline-flex items-center gap-1.5 border px-3 py-1.5 rounded text-sm hover:bg-muted disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 border border-border px-3 py-1.5 rounded text-sm hover:bg-muted disabled:opacity-50 cursor-pointer transition-colors"
                     title="Buat draft pengeluaran dari item yang sudah dicentang (untuk barang pinjam)"
                 >
                     <Download className="h-4 w-4" /> Pre-fill Pengeluaran
@@ -111,7 +111,7 @@ export default function PackingListTab({ eventId }: { eventId: number }) {
                 </span>
             </div>
 
-            <div className="text-[11px] text-muted-foreground border-l-2 border-amber-300 bg-amber-50/50 px-3 py-2 rounded">
+            <div className="text-[11px] text-muted-foreground border-l-2 border-warning/30 bg-warning/10 px-3 py-2 rounded">
                 Saat mencentang, pilih <b>Pinjam</b> (barang balik) atau <b>Operasional</b> (habis pakai). Otomatis masuk RAB event. Stok <b>tidak</b> berkurang di sini — untuk PINJAM lanjut ke Pengeluaran (foto+nama tukang).
             </div>
 
@@ -129,7 +129,8 @@ export default function PackingListTab({ eventId }: { eventId: number }) {
                     Belum ada barang dalam packing list. Tambah dari form di atas.
                 </div>
             ) : (
-                <div className="border rounded-lg overflow-hidden">
+                <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead className="bg-muted/40 text-xs text-left">
                             <tr>
@@ -159,6 +160,7 @@ export default function PackingListTab({ eventId }: { eventId: number }) {
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             )}
         </div>
@@ -167,9 +169,9 @@ export default function PackingListTab({ eventId }: { eventId: number }) {
 
 function Stat({ label, value, cls }: { label: string; value: number; cls: string }) {
     return (
-        <div className={`rounded p-2 ${cls} border`}>
+        <div className={`rounded p-2 ${cls} border border-border`}>
             <div className="text-[10px] text-muted-foreground uppercase">{label}</div>
-            <div className="text-lg font-bold">{value}</div>
+            <div className="text-lg font-bold nums">{value}</div>
         </div>
     );
 }
@@ -197,29 +199,29 @@ function PackingRow({ item, locations, onCheck, onUncheck, onUpdate, onDelete }:
     };
 
     return (
-        <tr className={`border-t align-top ${item.isChecked ? "bg-emerald-50/30" : ""}`}>
+        <tr className={`border-t border-border align-top ${item.isChecked ? "bg-success/10" : ""}`}>
             <td className="p-2">
                 {item.isChecked ? (
                     <button
                         onClick={onUncheck}
                         title="Batalkan centang (juga hapus dari RAB)"
-                        className="hover:scale-110 transition"
+                        className="hover:scale-110 transition cursor-pointer"
                     >
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                        <CheckCircle2 className="h-5 w-5 text-success" />
                     </button>
                 ) : (
                     <div className="flex flex-col gap-1">
                         <button
                             onClick={() => onCheck("PINJAM")}
                             title="Centang sebagai PINJAM (barang balik)"
-                            className="inline-flex items-center gap-1 text-[10px] border px-1.5 py-0.5 rounded hover:bg-blue-50 text-blue-700 border-blue-300"
+                            className="inline-flex items-center gap-1 text-[10px] border px-1.5 py-0.5 rounded hover:bg-info/10 text-info border-info/30 cursor-pointer transition-colors"
                         >
                             <Package2 className="h-3 w-3" /> Pinjam
                         </button>
                         <button
                             onClick={() => onCheck("OPERASIONAL")}
                             title="Centang sebagai OPERASIONAL (habis pakai)"
-                            className="inline-flex items-center gap-1 text-[10px] border px-1.5 py-0.5 rounded hover:bg-orange-50 text-orange-700 border-orange-300"
+                            className="inline-flex items-center gap-1 text-[10px] border px-1.5 py-0.5 rounded hover:bg-warning/10 text-warning border-warning/30 cursor-pointer transition-colors"
                         >
                             <Droplet className="h-3 w-3" /> Ops
                         </button>
@@ -232,7 +234,7 @@ function PackingRow({ item, locations, onCheck, onUncheck, onUpdate, onDelete }:
                         {item.productVariant.product.name}
                     </div>
                     {item.isChecked && item.disposition && (
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded border font-medium ${item.disposition === "PINJAM" ? "bg-blue-50 text-blue-700 border-blue-300" : "bg-orange-50 text-orange-700 border-orange-300"}`}>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded border font-medium ${item.disposition === "PINJAM" ? "bg-info/15 text-info border-info/30" : "bg-warning/15 text-warning border-warning/30"}`}>
                             {item.disposition === "PINJAM" ? "PINJAM" : "OPERASIONAL"}
                         </span>
                     )}
@@ -242,7 +244,7 @@ function PackingRow({ item, locations, onCheck, onUncheck, onUpdate, onDelete }:
                     <span className="ml-2">stok: {item.productVariant.stock}</span>
                 </div>
             </td>
-            <td className="p-2 text-right font-mono text-xs">
+            <td className="p-2 text-right font-mono text-xs nums">
                 {editing ? (
                     <input
                         type="number" min={1} value={qty}
@@ -299,13 +301,13 @@ function PackingRow({ item, locations, onCheck, onUncheck, onUpdate, onDelete }:
             <td className="p-2 text-right">
                 {editing ? (
                     <div className="flex flex-col gap-1">
-                        <button onClick={save} className="text-[10px] hover:underline text-emerald-700">Simpan</button>
-                        <button onClick={() => setEditing(false)} className="text-[10px] hover:underline text-muted-foreground">Batal</button>
+                        <button onClick={save} className="text-[10px] hover:underline text-success cursor-pointer transition-colors">Simpan</button>
+                        <button onClick={() => setEditing(false)} className="text-[10px] hover:underline text-muted-foreground cursor-pointer transition-colors">Batal</button>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-1">
-                        <button onClick={() => setEditing(true)} className="text-[10px] hover:underline">Edit</button>
-                        <button onClick={onDelete} className="text-[10px] hover:underline text-red-600">Hapus</button>
+                        <button onClick={() => setEditing(true)} className="text-[10px] hover:underline cursor-pointer transition-colors">Edit</button>
+                        <button onClick={onDelete} className="text-[10px] hover:underline text-destructive cursor-pointer transition-colors">Hapus</button>
                     </div>
                 )}
             </td>

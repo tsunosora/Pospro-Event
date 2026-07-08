@@ -20,10 +20,10 @@ const TABS: { key: 'ALL' | SalesOrderStatus; label: string; color: string }[] = 
 ];
 
 const STATUS_BADGE: Record<SalesOrderStatus, string> = {
-    DRAFT: 'bg-gray-100 text-gray-700 border-gray-200',
-    SENT: 'bg-blue-100 text-blue-700 border-blue-200',
-    INVOICED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    CANCELLED: 'bg-red-100 text-red-700 border-red-200',
+    DRAFT: 'bg-muted text-muted-foreground border-border',
+    SENT: 'bg-info/15 text-info border-info/30',
+    INVOICED: 'bg-success/15 text-success border-success/30',
+    CANCELLED: 'bg-destructive/12 text-destructive border-destructive/30',
 };
 
 const STATUS_LABEL: Record<SalesOrderStatus, string> = {
@@ -68,7 +68,7 @@ export default function SalesOrdersPage() {
                         Jembatan dari desainer ke kasir — upload proof, kirim ke group WA internal, lalu kasir buat nota.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     {/* Link ke portal desainer */}
                     <a
                         href="/so-designer"
@@ -98,9 +98,9 @@ export default function SalesOrdersPage() {
             {/* Summary strip */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <StatCard label="Total SO" value={summary.total} />
-                <StatCard label="Draft" value={summary.draft} accent="text-gray-700" />
-                <StatCard label="Menunggu Nota" value={summary.sent} accent="text-blue-600" />
-                <StatCard label="Sudah Invoice" value={summary.invoiced} accent="text-emerald-600" />
+                <StatCard label="Draft" value={summary.draft} accent="text-muted-foreground" />
+                <StatCard label="Menunggu Nota" value={summary.sent} accent="text-info" />
+                <StatCard label="Sudah Invoice" value={summary.invoiced} accent="text-success" />
             </div>
 
             {/* Tabs + search */}
@@ -169,11 +169,11 @@ export default function SalesOrdersPage() {
                                             {so.deadline ? dayjs(so.deadline).format('DD MMM YYYY') : '—'}
                                         </td>
                                         <td className="px-3 py-2 text-center">
-                                            <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_BADGE[so.status]}`}>
+                                            <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border ${STATUS_BADGE[so.status]}`}>
                                                 {STATUS_LABEL[so.status]}
                                             </span>
                                             {so.transaction && (
-                                                <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                                                <div className="text-xs text-muted-foreground mt-0.5 font-mono nums">
                                                     {so.transaction.invoiceNumber}
                                                 </div>
                                             )}
@@ -189,7 +189,7 @@ export default function SalesOrdersPage() {
                                                 {so.status === 'SENT' && (
                                                     <Link
                                                         href={`/pos?fromSO=${so.id}`}
-                                                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700"
+                                                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-success text-white hover:opacity-90 transition-opacity"
                                                     >
                                                         <ExternalLink className="h-3 w-3" /> Buat Nota
                                                     </Link>
@@ -211,7 +211,7 @@ function StatCard({ label, value, accent }: { label: string; value: number; acce
     return (
         <div className="bg-card border border-border rounded-lg p-3">
             <div className="text-xs text-muted-foreground">{label}</div>
-            <div className={`text-2xl font-bold mt-0.5 ${accent ?? ''}`}>{value}</div>
+            <div className={`text-2xl font-bold mt-0.5 nums ${accent ?? ''}`}>{value}</div>
         </div>
     );
 }

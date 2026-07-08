@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
     ChevronLeft, ChevronRight, Printer, Loader2, Search, X,
     AlertTriangle, Calendar, Copy, Download, Layers, Pencil,
+    Building2, Package, Users, MapPin, User,
 } from "lucide-react";
 import { getEvents, updateEvent, type EventRecord, type EventBrand, type EventStatus } from "@/lib/api/events";
 import { getRabSummary } from "@/lib/api/rab";
@@ -24,11 +25,11 @@ const PHASE_COLOR: Record<Phase, { solid: string; faded: string; label: string }
 };
 
 const STATUS_CFG: Record<EventStatus, { label: string; cls: string }> = {
-    DRAFT:       { label: "Draft",       cls: "bg-gray-200 text-gray-800" },
-    SCHEDULED:   { label: "Terjadwal",   cls: "bg-blue-100 text-blue-700" },
-    IN_PROGRESS: { label: "Berlangsung", cls: "bg-amber-100 text-amber-800" },
-    COMPLETED:   { label: "Selesai",     cls: "bg-green-100 text-green-700" },
-    CANCELLED:   { label: "Batal",       cls: "bg-red-100 text-red-700" },
+    DRAFT:       { label: "Draft",       cls: "bg-muted text-foreground" },
+    SCHEDULED:   { label: "Terjadwal",   cls: "bg-info/15 text-info" },
+    IN_PROGRESS: { label: "Berlangsung", cls: "bg-warning/15 text-warning" },
+    COMPLETED:   { label: "Selesai",     cls: "bg-success/15 text-success" },
+    CANCELLED:   { label: "Batal",       cls: "bg-destructive/12 text-destructive" },
 };
 
 const BRAND_STRIP: Record<EventBrand, string> = {
@@ -538,7 +539,7 @@ export default function EventTimelinePage() {
     }
 
     return (
-        <div className="flex flex-col h-[calc(100vh-4rem)] bg-white">
+        <div className="flex flex-col h-[calc(100vh-4rem)] bg-background">
             {/* ── Header ── */}
             <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-border print:hidden">
                 <div>
@@ -552,13 +553,13 @@ export default function EventTimelinePage() {
                     <div className="flex items-center gap-1 rounded-md border border-border p-0.5 bg-background">
                         <button
                             onClick={setBulanIni}
-                            className={`px-2 py-1 text-xs rounded ${isBulanIni ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                            className={`px-2 py-1 text-xs rounded cursor-pointer transition-colors ${isBulanIni ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
                         >
                             Bulan Ini
                         </button>
                         <button
                             onClick={set2Bulan}
-                            className={`px-2 py-1 text-xs rounded ${is2Bulan ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                            className={`px-2 py-1 text-xs rounded cursor-pointer transition-colors ${is2Bulan ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
                         >
                             2 Bulan
                         </button>
@@ -569,7 +570,7 @@ export default function EventTimelinePage() {
                             <button
                                 key={z}
                                 onClick={() => setZoom(z)}
-                                className={`px-2 py-1 text-xs rounded ${zoom === z ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                                className={`px-2 py-1 text-xs rounded cursor-pointer transition-colors ${zoom === z ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
                             >
                                 {z === "day" ? "Hari" : z === "week" ? "Minggu" : "Kuartal"}
                             </button>
@@ -586,7 +587,7 @@ export default function EventTimelinePage() {
                             {hasCustomRange ? `${rangeStart || "..."} → ${rangeEnd || "..."}` : "Range"}
                         </button>
                         {showRangePopover && (
-                            <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-border rounded-md shadow-lg p-3 min-w-[280px]">
+                            <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-md shadow-lg p-3 min-w-[280px]">
                                 <div className="text-xs font-semibold text-muted-foreground mb-2">Pilih rentang tanggal</div>
                                 <div className="space-y-2">
                                     <label className="block">
@@ -631,9 +632,9 @@ export default function EventTimelinePage() {
                             </div>
                         )}
                     </div>
-                    <button onClick={() => shift(-1)} className="p-1.5 rounded-md border border-border hover:bg-muted"><ChevronLeft className="h-4 w-4" /></button>
+                    <button onClick={() => shift(-1)} className="p-1.5 rounded-md border border-border hover:bg-muted cursor-pointer transition-colors"><ChevronLeft className="h-4 w-4" /></button>
                     <span className="text-sm font-semibold min-w-[10rem] text-center">{range.label}</span>
-                    <button onClick={() => shift(1)} className="p-1.5 rounded-md border border-border hover:bg-muted"><ChevronRight className="h-4 w-4" /></button>
+                    <button onClick={() => shift(1)} className="p-1.5 rounded-md border border-border hover:bg-muted cursor-pointer transition-colors"><ChevronRight className="h-4 w-4" /></button>
                     <button
                         onClick={() => {
                             setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -641,24 +642,24 @@ export default function EventTimelinePage() {
                             setRangeStart("");
                             setRangeEnd("");
                         }}
-                        className="px-2 py-1.5 text-xs rounded-md border border-border hover:bg-muted"
+                        className="px-2 py-1.5 text-xs rounded-md border border-border hover:bg-muted cursor-pointer transition-colors"
                     >
                         Today
                     </button>
-                    <button onClick={() => window.print()} className="ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted">
+                    <button onClick={() => window.print()} className="ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted cursor-pointer transition-colors">
                         <Printer className="h-3.5 w-3.5" /> Print
                     </button>
-                    <button onClick={exportICS} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted">
+                    <button onClick={exportICS} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted cursor-pointer transition-colors">
                         <Download className="h-3.5 w-3.5" /> .ics
                     </button>
-                    <button onClick={copyWhatsappSummary} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted">
+                    <button onClick={copyWhatsappSummary} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted cursor-pointer transition-colors">
                         <Copy className="h-3.5 w-3.5" /> Copy WA
                     </button>
                     <button
                         onClick={() => setEditMode((m) => !m)}
                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium ${
                             editMode
-                                ? "bg-amber-500 text-white hover:bg-amber-600"
+                                ? "bg-warning text-warning-foreground hover:bg-warning/90"
                                 : "border border-border bg-background hover:bg-muted"
                         }`}
                         title="Drag ujung kanan bar untuk geser tanggal selesai phase"
@@ -735,9 +736,9 @@ export default function EventTimelinePage() {
             {/* ── Stat Cards ── */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 px-6 py-4 border-b border-border">
                 <StatCard label="Total Events" value={stats.total} />
-                <StatCard label="Setup Days" value={stats.setupDays} valueClass="text-red-500" />
-                <StatCard label="Event Days" value={stats.eventDays} valueClass="text-yellow-500" />
-                <StatCard label="Dismantle Days" value={stats.dismantleDays} valueClass="text-blue-500" />
+                <StatCard label="Setup Days" value={stats.setupDays} valueClass="text-destructive" />
+                <StatCard label="Event Days" value={stats.eventDays} valueClass="text-warning" />
+                <StatCard label="Dismantle Days" value={stats.dismantleDays} valueClass="text-info" />
                 <StatCard label="Active Teams" value={stats.activeTeams} />
             </div>
 
@@ -779,7 +780,7 @@ export default function EventTimelinePage() {
                 <LegendChip color="bg-blue-500"   label="Dismantle" />
                 <span className="w-px h-4 bg-border mx-1" />
                 <LegendChip color="bg-blue-100 ring-1 ring-blue-400" label="Today (column highlight)" />
-                <span className="inline-flex items-center gap-1 text-amber-700"><AlertTriangle className="h-3 w-3" /> Conflict PIC</span>
+                <span className="inline-flex items-center gap-1 text-warning"><AlertTriangle className="h-3 w-3" /> Conflict PIC</span>
                 <span className="ml-auto text-muted-foreground">Bar pudar = sudah lewat hari ini · Bar penuh = on-going / future</span>
             </div>
 
@@ -807,7 +808,7 @@ export default function EventTimelinePage() {
 function StatCard({ label, value, valueClass }: { label: string; value: number; valueClass?: string }) {
     return (
         <div className="rounded-lg border border-border bg-background py-3 px-4 text-center">
-            <div className={`text-2xl font-bold ${valueClass ?? ""}`}>{value}</div>
+            <div className={`text-2xl font-bold nums ${valueClass ?? ""}`}>{value}</div>
             <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
         </div>
     );
@@ -851,9 +852,9 @@ function GanttTable({
             )}
 
             <table className="border-collapse">
-                <thead className="sticky top-0 bg-white z-20">
+                <thead className="sticky top-0 bg-card z-20">
                     <tr className="border-b border-border">
-                        <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2 sticky left-0 bg-white border-r border-border" style={{ width: 160 }}>Event</th>
+                        <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2 sticky left-0 bg-card border-r border-border" style={{ width: 160 }}>Event</th>
                         <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2" style={{ width: 130 }}>Client</th>
                         <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2" style={{ width: 110 }}>PIC</th>
                         <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2" style={{ width: 140 }}>Venue</th>
@@ -861,7 +862,7 @@ function GanttTable({
                             <th
                                 key={d.idx}
                                 className={`text-center font-medium py-2 border-l border-border/50 ${
-                                    d.isToday ? "bg-blue-100" : d.isWeekend ? "bg-muted/30" : ""
+                                    d.isToday ? "bg-info/15" : d.isWeekend ? "bg-muted/30" : ""
                                 } ${d.isMonthStart && zoom !== "day" ? "border-l-2 border-l-foreground/30" : ""}`}
                                 style={{ width: cellW, minWidth: cellW }}
                             >
@@ -881,7 +882,7 @@ function GanttTable({
                         {dayCells.map((d) => {
                             const c = capacityPerDay[d.idx] ?? 0;
                             const pct = (c / maxCapacity) * 100;
-                            const color = c === 0 ? "bg-transparent" : c <= 2 ? "bg-green-400" : c <= 4 ? "bg-yellow-400" : "bg-red-500";
+                            const color = c === 0 ? "bg-transparent" : c <= 2 ? "bg-success" : c <= 4 ? "bg-warning" : "bg-destructive";
                             return (
                                 <th key={d.idx} className="p-0 border-l border-border/30 align-bottom" style={{ width: cellW, minWidth: cellW, height: 24 }}>
                                     <div className="flex items-end justify-center h-full" title={`${c} event aktif`}>
@@ -998,8 +999,8 @@ function EventRow({
     const brandStrip = BRAND_STRIP[ev.brand];
 
     return (
-        <tr className={`border-b border-border/50 hover:bg-muted/30 ${searchHit ? "bg-yellow-50" : ""}`}>
-            <td className="px-2 py-1.5 text-xs font-medium sticky left-0 bg-white border-r border-border relative" style={{ width: 160 }}>
+        <tr className={`border-b border-border/50 hover:bg-muted/30 ${searchHit ? "bg-warning/10" : ""}`}>
+            <td className="px-2 py-1.5 text-xs font-medium sticky left-0 bg-card border-r border-border relative" style={{ width: 160 }}>
                 {/* Brand strip */}
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${brandStrip}`} />
                 <div className="pl-2">
@@ -1010,20 +1011,20 @@ function EventRow({
                         const org = ev.customer?.companyName?.trim() || ev.customerName?.trim();
                         return org ? (
                             <div
-                                className="inline-block mt-0.5 px-1 py-0 text-[9px] text-foreground/70 bg-muted/60 rounded truncate max-w-full"
+                                className="inline-flex items-center gap-0.5 mt-0.5 px-1 py-0 text-[9px] text-foreground/70 bg-muted/60 rounded truncate max-w-full"
                                 title={org}
                             >
-                                🏢 {org}
+                                <Building2 className="w-2.5 h-2.5 shrink-0" /> {org}
                             </div>
                         ) : null;
                     })()}
                     <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
                         <span className={`inline-block px-1 py-0 text-[8px] rounded ${status.cls} font-medium`}>{status.label}</span>
                         {ev._count?.withdrawals ? (
-                            <span className="text-[8px] text-muted-foreground" title={`${ev._count.withdrawals} pinjaman`}>📦{ev._count.withdrawals}</span>
+                            <span className="inline-flex items-center gap-0.5 text-[8px] text-muted-foreground" title={`${ev._count.withdrawals} pinjaman`}><Package className="w-2.5 h-2.5" />{ev._count.withdrawals}</span>
                         ) : null}
                         {ev._count?.crewAssignments ? (
-                            <span className="text-[8px] text-muted-foreground" title={`${ev._count.crewAssignments} crew ditugaskan`}>👷{ev._count.crewAssignments}</span>
+                            <span className="inline-flex items-center gap-0.5 text-[8px] text-muted-foreground" title={`${ev._count.crewAssignments} crew ditugaskan`}><Users className="w-2.5 h-2.5" />{ev._count.crewAssignments}</span>
                         ) : null}
                         {getTeamBreakdown(ev).map((t) => (
                             <span
@@ -1040,10 +1041,10 @@ function EventRow({
                             <span
                                 className={`inline-block px-1 py-0 text-[8px] rounded font-bold ${
                                     rabSummary.margin >= 30
-                                        ? "bg-green-100 text-green-700"
+                                        ? "bg-success/15 text-success"
                                         : rabSummary.margin >= 15
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : "bg-red-100 text-red-700"
+                                        ? "bg-warning/15 text-warning"
+                                        : "bg-destructive/12 text-destructive"
                                 }`}
                                 title={`RAB: Jual Rp ${rabSummary.totalRab.toLocaleString("id-ID")} · Modal Rp ${rabSummary.totalCost.toLocaleString("id-ID")} · Margin ${rabSummary.margin.toFixed(1)}%`}
                             >
@@ -1087,7 +1088,7 @@ function EventRow({
                 return (
                     <td
                         key={d.idx}
-                        className={`p-0 border-l border-border/50 relative ${d.isToday ? "bg-blue-50" : d.isWeekend ? "bg-muted/20" : ""}`}
+                        className={`p-0 border-l border-border/50 relative ${d.isToday ? "bg-info/10" : d.isWeekend ? "bg-muted/20" : ""}`}
                         style={{ width: cellW, minWidth: cellW, height: 48 }}
                     >
                         {phase && (
@@ -1158,9 +1159,9 @@ function QuickActionModal({ event: ev, phase, onClose }: { event: EventRecord; p
                     {phaseRange && (
                         <div className="flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-muted-foreground" /> {fmtDateID(phaseRange.start)} → {fmtDateID(phaseRange.end)} ({days} hari)</div>
                     )}
-                    <div>🏢 <strong>{clientName(ev)}</strong></div>
-                    <div>👤 PIC: {picName(ev)}</div>
-                    <div>📍 {ev.venue ?? "—"}</div>
+                    <div className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> <strong>{clientName(ev)}</strong></div>
+                    <div className="flex items-center gap-1.5"><User className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> PIC: {picName(ev)}</div>
+                    <div className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> {ev.venue ?? "—"}</div>
                     <div className="flex items-center gap-2">
                         Status: <span className={`inline-block px-2 py-0.5 text-[10px] rounded ${STATUS_CFG[ev.status].cls} font-medium`}>{STATUS_CFG[ev.status].label}</span>
                     </div>

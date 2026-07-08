@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getSettings, updateSettings, uploadLogoImage } from '@/lib/api';
 import { Store, Phone, MapPin, Save, Loader2, Ruler, ToggleLeft, ToggleRight, UploadCloud, Percent, KeyRound, Hash, Mail, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function GeneralSettings() {
     const [isLoading, setIsLoading] = useState(true);
@@ -215,7 +216,7 @@ export default function GeneralSettings() {
                             <input
                                 type="number" step="0.1" min="0" value={form.taxRate}
                                 onChange={e => setForm({ ...form, taxRate: Number(e.target.value) })}
-                                className="w-32 px-4 py-2 border border-border bg-background rounded-lg focus:ring-primary focus:border-primary outline-none"
+                                className="w-32 px-4 py-2 border border-border bg-background rounded-lg focus:ring-primary focus:border-primary outline-none nums"
                             />
                         </div>
                     )}
@@ -251,7 +252,7 @@ export default function GeneralSettings() {
                     <div className="space-y-2">
                         <label className="text-sm font-medium flex items-center gap-2">
                             <Hash className="h-4 w-4 text-muted-foreground" />
-                            Kode Perusahaan <span className="text-red-500">*</span>
+                            Kode Perusahaan <span className="text-destructive">*</span>
                         </label>
                         <input
                             type="text"
@@ -295,14 +296,14 @@ export default function GeneralSettings() {
                     </div>
                 </div>
 
-                <button
+                <Button
                     type="submit"
                     disabled={isSaving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground font-bold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    className="gap-2"
                 >
                     {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                     Simpan Perubahan
-                </button>
+                </Button>
             </form>
         </div>
     );

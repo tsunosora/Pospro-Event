@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, X, Building2, Phone, Mail, MapPin, Package, Search } from "lucide-react";
+import { Plus, X, Building2, Phone, Mail, MapPin, Package, Search, Ruler, Pencil } from "lucide-react";
 import { getProducts } from "@/lib/api";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -200,9 +200,9 @@ export function FormModal({
     };
 
     const TYPE_BADGE: Record<string, string> = {
-        SELLABLE: "bg-emerald-500/10 text-emerald-600",
-        SERVICE: "bg-violet-500/10 text-violet-600",
-        RAW_MATERIAL: "bg-amber-500/10 text-amber-600",
+        SELLABLE: "bg-success/15 text-success",
+        SERVICE: "bg-info/15 text-info",
+        RAW_MATERIAL: "bg-warning/15 text-warning",
     };
     const TYPE_LABEL: Record<string, string> = {
         SELLABLE: "Produk",
@@ -279,8 +279,8 @@ export function FormModal({
                             {/* Hints */}
                             <div className="flex flex-wrap gap-3 mb-3 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1"><Package className="h-3 w-3" /> Ikon katalog → pilih dari inventori</span>
-                                <span className="flex items-center gap-1">📐 Ikon ukuran → mode lebar × tinggi (banner, spanduk, dll.)</span>
-                                <span className="flex items-center gap-1">✏️ Semua field bisa diedit bebas untuk item custom</span>
+                                <span className="flex items-center gap-1"><Ruler className="h-3 w-3" /> Ikon ukuran → mode lebar × tinggi (banner, spanduk, dll.)</span>
+                                <span className="flex items-center gap-1"><Pencil className="h-3 w-3" /> Semua field bisa diedit bebas untuk item custom</span>
                             </div>
 
                             <div className="space-y-3">
@@ -346,7 +346,7 @@ export function FormModal({
                                                                         <div className="flex items-center gap-1.5">
                                                                             <p className="text-sm font-medium text-foreground truncate">{cat.label}</p>
                                                                             {cat.pricingMode === "AREA_BASED" && (
-                                                                                <span className="shrink-0 text-xs bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded-full">per m²</span>
+                                                                                <span className="shrink-0 text-xs bg-info/15 text-info px-1.5 py-0.5 rounded-full">per m²</span>
                                                                             )}
                                                                         </div>
                                                                         <p className="text-xs text-muted-foreground">{cat.unit} · {fmt(cat.price)}</p>
@@ -363,7 +363,7 @@ export function FormModal({
 
                                             {/* Unit — locked to m² when area mode */}
                                             {item.isAreaBased ? (
-                                                <div className="col-span-4 sm:col-span-2 flex items-center justify-center h-9 bg-blue-500/5 border border-blue-500/20 rounded-lg text-xs font-semibold text-blue-600">m²</div>
+                                                <div className="col-span-4 sm:col-span-2 flex items-center justify-center h-9 bg-info/5 border border-info/20 rounded-lg text-xs font-semibold text-info">m²</div>
                                             ) : (
                                                 <select value={item.unit} onChange={e => handleItemChange(idx, "unit", e.target.value)} className="col-span-4 sm:col-span-2 bg-background border border-input rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                                                     {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
@@ -373,8 +373,8 @@ export function FormModal({
 
                                             {/* Qty — shows calculated area when area mode */}
                                             {item.isAreaBased ? (
-                                                <div className="col-span-2 sm:col-span-1 flex items-center justify-center h-9 bg-blue-500/5 border border-blue-500/20 rounded-lg text-xs font-semibold text-blue-600">
-                                                    {item.quantity}
+                                                <div className="col-span-2 sm:col-span-1 flex items-center justify-center h-9 bg-info/5 border border-info/20 rounded-lg text-xs font-semibold text-info">
+                                                    <span className="nums">{item.quantity}</span>
                                                 </div>
                                             ) : (
                                                 <input required type="number" min="0.01" step="0.01" value={item.quantity} onChange={e => handleItemChange(idx, "quantity", parseFloat(e.target.value) || 0)} className="col-span-2 sm:col-span-1 bg-background border border-input rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
@@ -385,12 +385,12 @@ export function FormModal({
 
                                             {/* Subtotal + area toggle + delete */}
                                             <div className="col-span-2 flex items-center justify-end gap-1">
-                                                <span className="hidden sm:inline text-xs text-muted-foreground mr-1">{fmt(item.quantity * item.price)}</span>
+                                                <span className="hidden sm:inline text-xs nums text-muted-foreground mr-1">{fmt(item.quantity * item.price)}</span>
                                                 {/* Area mode toggle */}
                                                 <button type="button" onClick={() => toggleAreaMode(idx)}
                                                     title={item.isAreaBased ? "Kembali ke mode qty normal" : "Aktifkan mode ukuran (m²)"}
-                                                    className={`p-1.5 rounded-lg border text-xs transition-colors ${item.isAreaBased ? "bg-blue-500/10 text-blue-600 border-blue-500/30" : "border-input text-muted-foreground hover:text-blue-600 hover:border-blue-500/30"}`}>
-                                                    📐
+                                                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${item.isAreaBased ? "bg-info/15 text-info border-info/30" : "border-input text-muted-foreground hover:text-info hover:border-info/30"}`}>
+                                                    <Ruler className="h-3.5 w-3.5" />
                                                 </button>
                                                 {items.length > 1 && (
                                                     <button type="button" onClick={() => removeItem(idx)} className="text-muted-foreground hover:text-destructive transition-colors p-1"><X className="h-3.5 w-3.5" /></button>
@@ -400,14 +400,14 @@ export function FormModal({
 
                                         {/* Area dimension sub-row */}
                                         {item.isAreaBased && (
-                                            <div className="ml-1 flex items-center gap-2 bg-blue-500/5 border border-blue-500/20 rounded-lg px-3 py-2">
-                                                <span className="text-xs text-blue-600 font-medium shrink-0">📐 Ukuran:</span>
+                                            <div className="ml-1 flex items-center gap-2 bg-info/5 border border-info/20 rounded-lg px-3 py-2">
+                                                <span className="text-xs text-info font-medium shrink-0 flex items-center gap-1"><Ruler className="h-3.5 w-3.5" /> Ukuran:</span>
                                                 <div className="flex items-center gap-1.5">
                                                     <input
                                                         type="number" min="0.01" step="0.01"
                                                         value={item.width ?? 1}
                                                         onChange={e => handleDimensionChange(idx, "width", parseFloat(e.target.value) || 0)}
-                                                        className="w-16 bg-background border border-blue-500/30 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                                                        className="w-16 bg-background border border-info/30 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-info/30"
                                                     />
                                                     <span className="text-xs text-muted-foreground">m</span>
                                                     <span className="text-xs text-muted-foreground">×</span>
@@ -415,14 +415,14 @@ export function FormModal({
                                                         type="number" min="0.01" step="0.01"
                                                         value={item.height ?? 1}
                                                         onChange={e => handleDimensionChange(idx, "height", parseFloat(e.target.value) || 0)}
-                                                        className="w-16 bg-background border border-blue-500/30 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                                                        className="w-16 bg-background border border-info/30 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-info/30"
                                                     />
                                                     <span className="text-xs text-muted-foreground">m</span>
-                                                    <span className="text-xs text-blue-600 font-semibold ml-1">
+                                                    <span className="text-xs text-info font-semibold ml-1 nums">
                                                         = {item.quantity} m²
                                                     </span>
                                                     <span className="text-xs text-muted-foreground ml-2">→</span>
-                                                    <span className="text-xs font-medium text-foreground">{fmt(item.quantity * item.price)}</span>
+                                                    <span className="text-xs font-medium text-foreground nums">{fmt(item.quantity * item.price)}</span>
                                                 </div>
                                             </div>
                                         )}
@@ -449,10 +449,10 @@ export function FormModal({
 
                         {/* Totals preview */}
                         <div className="bg-muted/30 rounded-lg p-4 text-sm space-y-1.5">
-                            <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
-                            {discountNum > 0 && <div className="flex justify-between text-destructive"><span>Diskon</span><span>− {fmt(discountNum)}</span></div>}
-                            {taxRateNum > 0 && <div className="flex justify-between text-muted-foreground"><span>PPN {taxRateNum}%</span><span>{fmt(taxAmount)}</span></div>}
-                            <div className="flex justify-between font-bold text-foreground text-base pt-2 border-t border-border"><span>Total</span><span className="text-primary">{fmt(total)}</span></div>
+                            <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span className="nums">{fmt(subtotal)}</span></div>
+                            {discountNum > 0 && <div className="flex justify-between text-destructive"><span>Diskon</span><span className="nums">− {fmt(discountNum)}</span></div>}
+                            {taxRateNum > 0 && <div className="flex justify-between text-muted-foreground"><span>PPN {taxRateNum}%</span><span className="nums">{fmt(taxAmount)}</span></div>}
+                            <div className="flex justify-between font-bold text-foreground text-base pt-2 border-t border-border"><span>Total</span><span className="text-primary nums">{fmt(total)}</span></div>
                         </div>
 
                         {/* Notes */}

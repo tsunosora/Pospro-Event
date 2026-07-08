@@ -304,7 +304,7 @@ export function Sidebar() {
                                             />
                                             <span className="flex-1 text-left">{entry.name}</span>
                                             {totalBadge > 0 && (
-                                                <span className="mr-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                                                <span className="mr-1.5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 nums">
                                                     {totalBadge > 9 ? "9+" : totalBadge}
                                                 </span>
                                             )}
@@ -349,7 +349,7 @@ export function Sidebar() {
                                                             />
                                                             <span className="flex-1">{child.name}</span>
                                                             {badgeCount > 0 && (
-                                                                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                                                                <span className="ml-auto bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 nums">
                                                                     {badgeCount > 9 ? "9+" : badgeCount}
                                                                 </span>
                                                             )}
@@ -393,7 +393,7 @@ export function Sidebar() {
                                     />
                                     <span className="flex-1">{entry.name}</span>
                                     {badgeCount > 0 && (
-                                        <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                                        <span className="ml-auto bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 nums">
                                             {badgeCount > 9 ? '9+' : badgeCount}
                                         </span>
                                     )}

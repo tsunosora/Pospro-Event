@@ -5,6 +5,7 @@ import {
     Store, CreditCard, Users, Settings, Building2, Paintbrush,
     HardDrive, Bell, Palette, Tags, Warehouse, HardHat, KeyRound, MapPin,
     Boxes, Building, FileText, Hash, Search, ChevronRight, ChevronLeft,
+    Wallet, Package,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -12,7 +13,7 @@ import { usePathname } from "next/navigation";
 // ─── Group nav links per kategori untuk readability ──────────────────────────
 const NAV_GROUPS: Array<{
     label: string;
-    emoji: string;
+    icon: typeof Store;
     items: Array<{
         href: string;
         icon: typeof Store;
@@ -22,7 +23,7 @@ const NAV_GROUPS: Array<{
 }> = [
         {
             label: "Brand & Profil",
-            emoji: "🏢",
+            icon: Building2,
             items: [
                 { href: "/settings/general", icon: Store, label: "Profil Toko", desc: "Nama, logo, alamat utama" },
                 { href: "/settings/brands", icon: Building, label: "Brand (Multi-Perusahaan)", desc: "Exindo, Xposer, dll" },
@@ -31,7 +32,7 @@ const NAV_GROUPS: Array<{
         },
         {
             label: "Dokumen & Penawaran",
-            emoji: "📄",
+            icon: FileText,
             items: [
                 { href: "/settings/quotation-variants", icon: FileText, label: "Varian Penawaran", desc: "SEWA, Pengadaan, dll" },
                 { href: "/settings/document-numbers", icon: Hash, label: "Nomor Urut Dokumen", desc: "Counter penomoran" },
@@ -39,7 +40,7 @@ const NAV_GROUPS: Array<{
         },
         {
             label: "Tim & Pekerja",
-            emoji: "👥",
+            icon: Users,
             items: [
                 { href: "/settings/users", icon: Users, label: "Manajemen Staf", desc: "Akun login admin" },
                 { href: "/settings/workers", icon: HardHat, label: "Pekerja/Tukang", desc: "Marketing, Tukang, Crew" },
@@ -48,7 +49,7 @@ const NAV_GROUPS: Array<{
         },
         {
             label: "Keuangan",
-            emoji: "💰",
+            icon: Wallet,
             items: [
                 { href: "/settings/payments", icon: CreditCard, label: "Pembayaran", desc: "Metode pembayaran" },
                 { href: "/settings/bank-accounts", icon: Building2, label: "Rekening Bank", desc: "Akun bank untuk transfer" },
@@ -56,7 +57,7 @@ const NAV_GROUPS: Array<{
         },
         {
             label: "Inventory & Gudang",
-            emoji: "📦",
+            icon: Package,
             items: [
                 { href: "/settings/rab-categories", icon: Tags, label: "Kategori RAB" },
                 { href: "/settings/rab-loose-items", icon: Boxes, label: "Item Lepas RAB" },
@@ -67,7 +68,7 @@ const NAV_GROUPS: Array<{
         },
         {
             label: "Sistem",
-            emoji: "⚙️",
+            icon: Settings,
             items: [
                 { href: "/settings/notifications", icon: Bell, label: "Notifikasi & Discord" },
                 { href: "/settings/backup", icon: HardDrive, label: "Backup & Recovery", desc: "Versi 2.6" },
@@ -105,7 +106,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
             {/* ════════════════════════════════════════════════════════════ */}
 
             {/* Mobile: Header + Search (selalu di atas) */}
-            <div className="lg:hidden bg-background rounded-xl border-2 overflow-hidden">
+            <div className="lg:hidden glass rounded-xl overflow-hidden">
                 <div className="p-3 border-b bg-primary/5 flex items-center gap-2">
                     {!isAtRoot && activeLink && (
                         <Link
@@ -132,7 +133,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     placeholder="Cari pengaturan…"
-                                    className="w-full pl-8 pr-3 py-2 text-sm border rounded-md"
+                                    className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-md"
                                 />
                             </div>
                         </div>
@@ -144,8 +145,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                             ) : (
                                 filteredGroups.map((g) => (
                                     <div key={g.label} className="border-b last:border-b-0">
-                                        <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/30">
-                                            {g.emoji} {g.label}
+                                        <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/30 flex items-center gap-1.5">
+                                            <g.icon className="w-3 h-3 shrink-0" />
+                                            {g.label}
                                         </div>
                                         {g.items.map(({ href, icon: Icon, label, desc }) => {
                                             const isActive =
@@ -154,7 +156,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                                                 <Link
                                                     key={href}
                                                     href={href}
-                                                    className={`flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition border-l-4 ${isActive
+                                                    className={`flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition-colors border-l-4 ${isActive
                                                         ? "border-primary bg-primary/5"
                                                         : "border-transparent"
                                                         }`}
@@ -209,7 +211,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Cari pengaturan…"
-                            className="w-full pl-8 pr-3 py-2 text-sm border rounded-md bg-background"
+                            className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-md bg-background"
                         />
                     </div>
                 </div>
@@ -223,8 +225,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                     ) : (
                         filteredGroups.map((g) => (
                             <div key={g.label} className="mb-3">
-                                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
-                                    {g.emoji} {g.label}
+                                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 flex items-center gap-1.5">
+                                    <g.icon className="w-3 h-3 shrink-0" />
+                                    {g.label}
                                 </div>
                                 <div className="space-y-0.5">
                                     {g.items.map(({ href, icon: Icon, label, desc }) => {

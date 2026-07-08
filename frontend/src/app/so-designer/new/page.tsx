@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, Upload, Loader2, Save, Search, X } from "lucide-react";
+import { ArrowLeft, Trash2, Upload, Loader2, Save, Search, X } from "lucide-react";
 import { useDesignerSession } from "../useDesignerSession";
 import { designerCreateSO, designerUploadProofs, getPublicCustomers } from "@/lib/api/designers";
 import axios from "axios";
@@ -162,20 +162,20 @@ export default function DesignerNewSOPage() {
     if (!session) return null;
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-background">
             {/* Header */}
-            <div className="bg-indigo-700 text-white px-4 py-3 flex items-center gap-3 shadow sticky top-0 z-10">
-                <Link href="/so-designer/dashboard" className="p-1.5 hover:bg-indigo-600 rounded-lg">
+            <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3 shadow sticky top-0 z-10">
+                <Link href="/so-designer/dashboard" className="p-1.5 hover:bg-primary/80 rounded-lg transition-colors">
                     <ArrowLeft className="h-5 w-5" />
                 </Link>
                 <div>
                     <div className="font-semibold">Buat Sales Order Baru</div>
-                    <div className="text-xs text-indigo-200">Desainer: {session.name}</div>
+                    <div className="text-xs text-primary-foreground/70">Desainer: {session.name}</div>
                 </div>
             </div>
 
             <div className="max-w-2xl mx-auto p-4 space-y-4 pb-24">
-                {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">{error}</div>}
+                {error && <div className="bg-destructive/12 border border-destructive/30 text-destructive rounded-lg px-3 py-2 text-sm">{error}</div>}
 
                 {/* Customer */}
                 <Card title="Customer">
@@ -183,25 +183,25 @@ export default function DesignerNewSOPage() {
                         {/* Search customer terdaftar */}
                         <Field label="Cari customer terdaftar (opsional)">
                             <div className="relative">
-                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <input
                                     value={customerSearch}
                                     onChange={e => setCustomerSearch(e.target.value)}
                                     placeholder="Ketik nama atau HP untuk cari..."
-                                    className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+                                    className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg bg-card"
                                 />
                                 {filteredCustomers.length > 0 && (
-                                    <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                    <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                                         {filteredCustomers.map(c => (
                                             <button
                                                 key={c.id}
                                                 type="button"
                                                 onMouseDown={e => e.preventDefault()}
                                                 onClick={() => pickCustomer(c)}
-                                                className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm border-b border-slate-100 last:border-0"
+                                                className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-0 transition-colors"
                                             >
                                                 <div className="font-medium">{c.name}</div>
-                                                {c.phone && <div className="text-xs text-slate-400">{c.phone}</div>}
+                                                {c.phone && <div className="text-xs text-muted-foreground">{c.phone}</div>}
                                             </button>
                                         ))}
                                     </div>
@@ -211,15 +211,15 @@ export default function DesignerNewSOPage() {
 
                         <Field label="Nama Customer *">
                             <input value={customerName} onChange={e => setCustomerName(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white" placeholder="Nama pelanggan" />
+                                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card" placeholder="Nama pelanggan" />
                         </Field>
                         <Field label="No. HP / WA">
                             <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white" placeholder="08xx..." />
+                                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card" placeholder="08xx..." />
                         </Field>
                         <Field label="Alamat">
                             <textarea value={customerAddress} onChange={e => setCustomerAddress(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white" rows={2} placeholder="Opsional" />
+                                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card" rows={2} placeholder="Opsional" />
                         </Field>
                     </div>
                 </Card>
@@ -229,11 +229,11 @@ export default function DesignerNewSOPage() {
                     <div className="space-y-3">
                         <Field label="Deadline">
                             <input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white" />
+                                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card" />
                         </Field>
                         <Field label="Catatan / Instruksi Cetak">
                             <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white" rows={3}
+                                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card" rows={3}
                                 placeholder="Contoh: cetak double side, laminasi doff, art carton..." />
                         </Field>
                     </div>
@@ -242,24 +242,24 @@ export default function DesignerNewSOPage() {
                 {/* Items */}
                 <Card title={`Item (${items.length})`}>
                     <div className="relative mb-3">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <input
                             value={variantSearch}
                             onChange={e => { setVariantSearch(e.target.value); ensureProducts(); }}
                             onFocus={ensureProducts}
                             placeholder="Cari produk untuk ditambahkan..."
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+                            className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg bg-card"
                         />
                         {variantSearch && filteredVariants.length > 0 && (
-                            <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                            <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto">
                                 {filteredVariants.map(v => (
                                     <button key={v.productVariantId} type="button"
                                         onMouseDown={e => e.preventDefault()}
                                         onClick={() => addVariant(v)}
-                                        className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm border-b border-slate-100 last:border-0"
+                                        className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-0 transition-colors"
                                     >
                                         <div className="font-medium">{v.label}</div>
-                                        <div className="text-xs text-slate-400">{v.sku} • {v.pricingMode === "AREA_BASED" ? "per m²" : "per unit"}</div>
+                                        <div className="text-xs text-muted-foreground">{v.sku} • {v.pricingMode === "AREA_BASED" ? "per m²" : "per unit"}</div>
                                     </button>
                                 ))}
                             </div>
@@ -267,20 +267,20 @@ export default function DesignerNewSOPage() {
                     </div>
 
                     {items.length === 0 ? (
-                        <div className="text-center text-sm text-slate-400 py-6 border border-dashed border-slate-300 rounded-lg">
+                        <div className="text-center text-sm text-muted-foreground py-6 border border-dashed border-border rounded-lg">
                             Cari produk di atas untuk menambahkan item
                         </div>
                     ) : (
                         <div className="space-y-2">
                             {items.map((it, idx) => (
-                                <div key={it.key} className="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                                <div key={it.key} className="border border-border rounded-lg p-3 bg-muted">
                                     <div className="flex items-start justify-between gap-2">
                                         <div>
-                                            <div className="text-xs text-slate-400">Item {idx + 1}</div>
+                                            <div className="text-xs text-muted-foreground">Item {idx + 1}</div>
                                             <div className="font-medium text-sm">{it.productLabel}</div>
                                         </div>
                                         <button onClick={() => setItems(p => p.filter(i => i.key !== it.key))}
-                                            className="p-1 hover:bg-red-100 rounded text-red-500">
+                                            className="p-1 hover:bg-destructive/12 rounded text-destructive cursor-pointer transition-colors">
                                             <Trash2 className="h-4 w-4" />
                                         </button>
                                     </div>
@@ -289,7 +289,7 @@ export default function DesignerNewSOPage() {
                                             <Field label="Qty">
                                                 <input type="number" min={1} value={it.quantity}
                                                     onChange={e => updateItem(it.key, { quantity: Number(e.target.value) })}
-                                                    className="w-full px-2 py-1 text-sm border border-slate-300 rounded bg-white" />
+                                                    className="w-full px-2 py-1 text-sm border border-border rounded bg-card nums" />
                                             </Field>
                                         )}
                                         {it.pricingMode === "AREA_BASED" && (
@@ -297,17 +297,17 @@ export default function DesignerNewSOPage() {
                                                 <Field label="Lebar (cm)">
                                                     <input type="number" min={0} value={it.widthCm ?? ""}
                                                         onChange={e => updateItem(it.key, { widthCm: Number(e.target.value) })}
-                                                        className="w-full px-2 py-1 text-sm border border-slate-300 rounded bg-white" />
+                                                        className="w-full px-2 py-1 text-sm border border-border rounded bg-card nums" />
                                                 </Field>
                                                 <Field label="Tinggi (cm)">
                                                     <input type="number" min={0} value={it.heightCm ?? ""}
                                                         onChange={e => updateItem(it.key, { heightCm: Number(e.target.value) })}
-                                                        className="w-full px-2 py-1 text-sm border border-slate-300 rounded bg-white" />
+                                                        className="w-full px-2 py-1 text-sm border border-border rounded bg-card nums" />
                                                 </Field>
                                                 <Field label="Pcs">
                                                     <input type="number" min={1} value={it.pcs ?? 1}
                                                         onChange={e => updateItem(it.key, { pcs: Number(e.target.value) })}
-                                                        className="w-full px-2 py-1 text-sm border border-slate-300 rounded bg-white" />
+                                                        className="w-full px-2 py-1 text-sm border border-border rounded bg-card nums" />
                                                 </Field>
                                             </>
                                         )}
@@ -315,7 +315,7 @@ export default function DesignerNewSOPage() {
                                     <div className="mt-2">
                                         <input value={it.note ?? ""} onChange={e => updateItem(it.key, { note: e.target.value })}
                                             placeholder="Catatan item (finishing, file desain, dll)"
-                                            className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white" />
+                                            className="w-full px-2 py-1 text-xs border border-border rounded bg-card" />
                                     </div>
                                 </div>
                             ))}
@@ -325,8 +325,8 @@ export default function DesignerNewSOPage() {
 
                 {/* Proof */}
                 <Card title={`Screenshot Proof Final (${proofFiles.length}/10)`}>
-                    <p className="text-xs text-slate-500 mb-2">Upload screenshot ACC dari customer (WA pribadi). Akan dikirim ke group WA internal saat broadcast.</p>
-                    <label className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 text-sm text-slate-600">
+                    <p className="text-xs text-muted-foreground mb-2">Upload screenshot ACC dari customer (WA pribadi). Akan dikirim ke group WA internal saat broadcast.</p>
+                    <label className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted text-sm text-muted-foreground transition-colors">
                         <Upload className="h-4 w-4" /> Pilih Gambar
                         <input type="file" multiple accept="image/*" onChange={handleProofInput} className="hidden" />
                     </label>
@@ -335,9 +335,9 @@ export default function DesignerNewSOPage() {
                             {proofFiles.map((f, i) => (
                                 <div key={i} className="relative group">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-24 object-cover rounded-lg border border-slate-200" />
+                                    <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-24 object-cover rounded-lg border border-border" />
                                     <button onClick={() => setProofFiles(p => p.filter((_, j) => j !== i))}
-                                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100">
+                                        className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
                                         <X className="h-3 w-3" />
                                     </button>
                                 </div>
@@ -348,12 +348,12 @@ export default function DesignerNewSOPage() {
             </div>
 
             {/* Sticky footer */}
-            <div className="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 p-4 flex gap-2 max-w-2xl mx-auto">
-                <Link href="/so-designer/dashboard" className="flex-1 text-center py-2.5 border border-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50">
+            <div className="fixed bottom-0 inset-x-0 bg-card border-t border-border p-4 flex gap-2 max-w-2xl mx-auto">
+                <Link href="/so-designer/dashboard" className="flex-1 text-center py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted transition-colors">
                     Batal
                 </Link>
                 <button onClick={handleSave} disabled={saving}
-                    className="flex-1 inline-flex items-center justify-center gap-2 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50">
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Simpan SO
                 </button>
@@ -364,8 +364,8 @@ export default function DesignerNewSOPage() {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">{title}</h3>
+        <div className="glass rounded-xl p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3">{title}</h3>
             {children}
         </div>
     );
@@ -374,7 +374,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <label className="text-xs font-medium text-slate-500 block mb-1">{label}</label>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">{label}</label>
             {children}
         </div>
     );

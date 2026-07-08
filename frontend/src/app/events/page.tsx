@@ -15,17 +15,17 @@ const MONTHS_ID = [
 ];
 
 const STATUS_CFG: Record<EventStatus, { label: string; cls: string }> = {
-    DRAFT: { label: "Draft", cls: "bg-gray-100 text-gray-700" },
-    SCHEDULED: { label: "Terjadwal", cls: "bg-blue-50 text-blue-700" },
-    IN_PROGRESS: { label: "Berlangsung", cls: "bg-amber-50 text-amber-700" },
-    COMPLETED: { label: "Selesai", cls: "bg-green-50 text-green-700" },
-    CANCELLED: { label: "Dibatalkan", cls: "bg-red-50 text-red-700" },
+    DRAFT: { label: "Draft", cls: "bg-muted text-muted-foreground" },
+    SCHEDULED: { label: "Terjadwal", cls: "bg-info/15 text-info" },
+    IN_PROGRESS: { label: "Berlangsung", cls: "bg-warning/15 text-warning" },
+    COMPLETED: { label: "Selesai", cls: "bg-success/15 text-success" },
+    CANCELLED: { label: "Dibatalkan", cls: "bg-destructive/12 text-destructive" },
 };
 
 const BRAND_CFG: Record<EventBrand, { label: string; cls: string }> = {
-    EXINDO: { label: "CV. Exindo", cls: "bg-indigo-50 text-indigo-700 border-indigo-200" },
-    XPOSER: { label: "CV. Xposer", cls: "bg-pink-50 text-pink-700 border-pink-200" },
-    OTHER: { label: "Lain", cls: "bg-gray-50 text-gray-700 border-gray-200" },
+    EXINDO: { label: "CV. Exindo", cls: "bg-info/15 text-info border-info/30" },
+    XPOSER: { label: "CV. Xposer", cls: "bg-primary/15 text-primary border-primary/30" },
+    OTHER: { label: "Lain", cls: "bg-muted text-muted-foreground border-border" },
 };
 
 function fmtDate(d: string | null | undefined) {
@@ -101,13 +101,13 @@ export default function EventsListPage() {
 
     return (
         <div className="space-y-5">
-            <div className="flex items-center flex-wrap gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h1 className="text-xl font-bold flex items-center gap-2">
                     <CalendarDays className="h-5 w-5 text-primary" /> Jadwal Event
                 </h1>
                 <Link
                     href="/events/new"
-                    className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm hover:opacity-90"
+                    className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm hover:opacity-90 transition-opacity cursor-pointer"
                 >
                     <Plus className="h-4 w-4" /> Event Baru
                 </Link>
@@ -121,26 +121,26 @@ export default function EventsListPage() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Cari nama/venue/klien…"
-                        className="pl-7 pr-2 py-1.5 border rounded text-sm w-56"
+                        className="pl-7 pr-2 py-1.5 border border-border rounded bg-card text-sm w-56"
                     />
                 </div>
-                <div className="inline-flex border rounded overflow-hidden text-xs">
+                <div className="inline-flex border border-border rounded overflow-hidden text-xs">
                     {(["ALL", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "DRAFT"] as const).map((s) => (
                         <button
                             key={s}
                             onClick={() => setStatusFilter(s)}
-                            className={`px-2.5 py-1.5 ${statusFilter === s ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                            className={`px-2.5 py-1.5 cursor-pointer transition-colors ${statusFilter === s ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
                         >
                             {s === "ALL" ? "Semua" : STATUS_CFG[s as EventStatus].label}
                         </button>
                     ))}
                 </div>
-                <div className="inline-flex border rounded overflow-hidden text-xs">
+                <div className="inline-flex border border-border rounded overflow-hidden text-xs">
                     {(["ALL", "EXINDO", "XPOSER", "OTHER"] as const).map((b) => (
                         <button
                             key={b}
                             onClick={() => setBrandFilter(b)}
-                            className={`px-2.5 py-1.5 ${brandFilter === b ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                            className={`px-2.5 py-1.5 cursor-pointer transition-colors ${brandFilter === b ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
                         >
                             {b === "ALL" ? "Semua Brand" : BRAND_CFG[b as EventBrand].label}
                         </button>
@@ -160,7 +160,7 @@ export default function EventsListPage() {
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Memuat…
                 </div>
             ) : filteredEvents.length === 0 ? (
-                <div className="border rounded-lg py-10 text-center text-muted-foreground text-sm">
+                <div className="glass rounded-xl py-10 text-center text-muted-foreground text-sm">
                     {dateRange.preset !== "ALL" || statusFilter !== "ALL" || brandFilter !== "ALL" || search.trim() ? (
                         <>
                             Tidak ada event yang cocok dengan filter.
@@ -171,7 +171,7 @@ export default function EventsListPage() {
                                     setBrandFilter("ALL");
                                     setSearch("");
                                 }}
-                                className="block mx-auto mt-3 text-xs text-primary hover:underline"
+                                className="block mx-auto mt-3 text-xs text-primary hover:underline cursor-pointer transition-colors"
                             >
                                 Reset semua filter
                             </button>
@@ -184,7 +184,7 @@ export default function EventsListPage() {
                 <div className="space-y-6">
                     {groups.map((g) => (
                         <div key={g.key} className="space-y-2">
-                            <h2 className="font-semibold text-sm border-b pb-1">{g.label}</h2>
+                            <h2 className="font-semibold text-sm border-b border-border pb-1 text-foreground">{g.label}</h2>
                             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                                 {g.items.map((ev) => (
                                     <EventCard key={ev.id} ev={ev} />
@@ -202,16 +202,16 @@ function EventCard({ ev }: { ev: EventRecord }) {
     const brand = BRAND_CFG[ev.brand];
     const status = STATUS_CFG[ev.status];
     const phases: Array<{ key: string; label: string; cls: string; a: string | null; b: string | null }> = [
-        { key: "dep", label: "Berangkat", cls: "bg-yellow-400", a: ev.departureStart, b: ev.departureEnd },
+        { key: "dep", label: "Berangkat", cls: "bg-warning", a: ev.departureStart, b: ev.departureEnd },
         { key: "setup", label: "Pasang", cls: "bg-orange-400", a: ev.setupStart, b: ev.setupEnd },
-        { key: "event", label: "Event", cls: "bg-emerald-500", a: ev.eventStart, b: ev.eventEnd },
-        { key: "dismantle", label: "Bongkar", cls: "bg-sky-400", a: ev.loadingStart, b: ev.loadingEnd },
+        { key: "event", label: "Event", cls: "bg-success", a: ev.eventStart, b: ev.eventEnd },
+        { key: "dismantle", label: "Bongkar", cls: "bg-info", a: ev.loadingStart, b: ev.loadingEnd },
     ];
 
     return (
         <Link
             href={`/events/${ev.id}`}
-            className="block border rounded-lg p-3 hover:border-primary hover:shadow-sm transition"
+            className="block glass rounded-xl p-3 hover:border-primary hover:shadow-sm transition-colors"
         >
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">

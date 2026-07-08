@@ -135,10 +135,10 @@ export default function CrmDashboardPage() {
     return (
         <div className="p-4 max-w-7xl mx-auto space-y-5">
             {/* Header */}
-            <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <BarChart3 className="h-6 w-6 text-blue-600" />
+                        <BarChart3 className="h-6 w-6 text-primary" />
                         CRM Dashboard
                     </h1>
                     <p className="text-sm text-muted-foreground">
@@ -148,21 +148,21 @@ export default function CrmDashboardPage() {
                 <div className="flex gap-2 flex-wrap">
                     <Link
                         href="/crm/performance"
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border-2 border-violet-300 bg-violet-50 text-violet-700 text-sm font-semibold hover:bg-violet-100"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border-2 border-primary/30 bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/15 transition-colors"
                     >
                         <Trophy className="h-4 w-4" />
                         Performa Marketing
                     </Link>
                     <Link
                         href="/crm/board"
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border-2 border-slate-200 bg-white text-sm font-semibold hover:bg-slate-50"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border-2 border-border bg-card text-foreground text-sm font-semibold hover:bg-muted transition-colors"
                     >
                         <KanbanSquare className="h-4 w-4" />
                         Pipeline
                     </Link>
                     <Link
                         href="/crm/leads/new"
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-blue-600 text-white text-sm font-bold hover:bg-blue-700"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors"
                     >
                         <Plus className="h-4 w-4" />
                         Tambah Lead
@@ -171,7 +171,7 @@ export default function CrmDashboardPage() {
             </div>
 
             {/* Period filter */}
-            <div className="rounded-xl border-2 border-slate-200 bg-white p-3 space-y-2">
+            <div className="glass rounded-xl p-3 space-y-2">
                 <div className="flex flex-wrap gap-1">
                     {([
                         { k: "today", label: "Hari ini" },
@@ -185,10 +185,10 @@ export default function CrmDashboardPage() {
                         <button
                             key={p.k}
                             onClick={() => setPeriod(p.k)}
-                            className={`px-3 py-2 rounded-md text-sm font-semibold transition border-2 ${
+                            className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors border-2 ${
                                 period === p.k
-                                    ? "bg-blue-600 text-white border-blue-600"
-                                    : "bg-white text-slate-700 border-slate-200 hover:border-blue-300"
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-card text-foreground border-border hover:border-primary/50"
                             }`}
                         >
                             {p.label}
@@ -196,24 +196,24 @@ export default function CrmDashboardPage() {
                     ))}
                 </div>
                 {period === "custom" && (
-                    <div className="flex gap-2 items-center pt-2 border-t flex-wrap">
-                        <Calendar className="h-4 w-4 text-slate-500" />
-                        <label className="text-xs font-semibold text-slate-600">
+                    <div className="flex gap-2 items-center pt-2 border-t border-border flex-wrap">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <label className="text-xs font-semibold text-muted-foreground">
                             Dari
                             <input
                                 type="date"
                                 value={customFrom}
                                 onChange={(e) => setCustomFrom(e.target.value)}
-                                className="ml-1 border rounded px-2 py-1 text-sm"
+                                className="ml-1 border border-border rounded px-2 py-1 text-sm bg-card"
                             />
                         </label>
-                        <label className="text-xs font-semibold text-slate-600">
+                        <label className="text-xs font-semibold text-muted-foreground">
                             Sampai
                             <input
                                 type="date"
                                 value={customTo}
                                 onChange={(e) => setCustomTo(e.target.value)}
-                                className="ml-1 border rounded px-2 py-1 text-sm"
+                                className="ml-1 border border-border rounded px-2 py-1 text-sm bg-card"
                             />
                         </label>
                     </div>
@@ -227,14 +227,14 @@ export default function CrmDashboardPage() {
                 )}
 
                 {/* Brand filter — sub-toggle */}
-                <div className="flex items-center gap-2 flex-wrap pt-2 border-t">
-                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600">Brand:</span>
+                <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-border">
+                    <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Brand:</span>
                     <button
                         type="button"
                         onClick={() => setBrandFilter("")}
-                        className={`px-3 py-1 text-xs font-semibold rounded-full border-2 transition ${brandFilter === ""
-                            ? "bg-slate-700 text-white border-slate-700"
-                            : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                        className={`px-3 py-1 text-xs font-semibold rounded-full border-2 transition-colors ${brandFilter === ""
+                            ? "bg-foreground text-background border-foreground"
+                            : "bg-card text-foreground border-border hover:border-border/70"
                             }`}
                     >
                         Semua
@@ -247,9 +247,9 @@ export default function CrmDashboardPage() {
                                 key={b}
                                 type="button"
                                 onClick={() => setBrandFilter(b)}
-                                className={`px-3 py-1 text-xs font-semibold rounded-full border-2 transition inline-flex items-center gap-1 ${active
+                                className={`px-3 py-1 text-xs font-semibold rounded-full border-2 transition-colors inline-flex items-center gap-1 ${active
                                     ? `${meta.bg} ${meta.text} ${meta.border}`
-                                    : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                                    : "bg-card text-foreground border-border hover:border-border/70"
                                     }`}
                             >
                                 <span>{meta.emoji}</span>
@@ -260,13 +260,13 @@ export default function CrmDashboardPage() {
                 </div>
 
                 {/* Filter lokasi & venue */}
-                <div className="flex items-center gap-3 flex-wrap pt-2 border-t">
-                    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
+                <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-border">
+                    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                         Lokasi:
                         <select
                             value={cityFilter}
                             onChange={(e) => setCityFilter(e.target.value)}
-                            className="text-xs font-normal normal-case rounded-md border-2 border-slate-200 bg-white py-1 px-2"
+                            className="text-xs font-normal normal-case rounded-md border-2 border-border bg-card py-1 px-2"
                         >
                             <option value="">Semua lokasi</option>
                             {(cityOptions ?? []).map((c) => (
@@ -274,12 +274,12 @@ export default function CrmDashboardPage() {
                             ))}
                         </select>
                     </label>
-                    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
+                    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                         Venue:
                         <select
                             value={venueFilter}
                             onChange={(e) => setVenueFilter(e.target.value)}
-                            className="text-xs font-normal normal-case rounded-md border-2 border-slate-200 bg-white py-1 px-2"
+                            className="text-xs font-normal normal-case rounded-md border-2 border-border bg-card py-1 px-2"
                         >
                             <option value="">Semua venue</option>
                             {(venueOptions ?? []).map((v) => (
@@ -291,7 +291,7 @@ export default function CrmDashboardPage() {
                         <button
                             type="button"
                             onClick={() => { setCityFilter(""); setVenueFilter(""); }}
-                            className="text-xs text-red-600 hover:underline"
+                            className="text-xs text-destructive hover:underline"
                         >
                             Reset lokasi/venue
                         </button>
@@ -333,10 +333,10 @@ export default function CrmDashboardPage() {
 
             {/* Pipeline value bar */}
             {data && (
-                <div className="rounded-xl border-2 border-slate-200 bg-white p-4">
+                <div className="glass rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-3">
-                        <Wallet className="h-5 w-5 text-slate-700" />
-                        <h2 className="font-bold text-slate-900">Potensi Project Value</h2>
+                        <Wallet className="h-5 w-5 text-foreground" />
+                        <h2 className="font-bold text-foreground">Potensi Project Value</h2>
                         <span className="text-xs text-muted-foreground ml-auto">
                             Total: {fmtRpFull(data.projectValue.won + data.projectValue.lost + data.projectValue.pipeline)}
                         </span>
@@ -353,10 +353,10 @@ export default function CrmDashboardPage() {
             {/* Charts row 1: trend + level */}
             <div className="grid lg:grid-cols-3 gap-4">
                 {/* Daily trend */}
-                <div className="lg:col-span-2 rounded-xl border-2 border-slate-200 bg-white p-4">
+                <div className="lg:col-span-2 glass rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
-                        <Activity className="h-5 w-5 text-blue-600" />
-                        <h2 className="font-bold text-slate-900">Tren Harian Lead Masuk</h2>
+                        <Activity className="h-5 w-5 text-primary" />
+                        <h2 className="font-bold text-foreground">Tren Harian Lead Masuk</h2>
                     </div>
                     {data && data.dailySeries.length > 0 ? (
                         <ResponsiveContainer width="100%" height={260}>
@@ -414,10 +414,10 @@ export default function CrmDashboardPage() {
                 </div>
 
                 {/* Lead Quality donut */}
-                <div className="rounded-xl border-2 border-slate-200 bg-white p-4">
+                <div className="glass rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
-                        <Flame className="h-5 w-5 text-red-500" />
-                        <h2 className="font-bold text-slate-900">Kualitas Lead</h2>
+                        <Flame className="h-5 w-5 text-destructive" />
+                        <h2 className="font-bold text-foreground">Kualitas Lead</h2>
                     </div>
                     {data && data.byLevel.length > 0 ? (
                         <>
@@ -477,8 +477,8 @@ export default function CrmDashboardPage() {
 
             {/* Charts row 2: source + stage */}
             <div className="grid lg:grid-cols-2 gap-4">
-                <div className="rounded-xl border-2 border-slate-200 bg-white p-4">
-                    <h2 className="font-bold text-slate-900 mb-2">Sumber Lead</h2>
+                <div className="glass rounded-xl p-4">
+                    <h2 className="font-bold text-foreground mb-2">Sumber Lead</h2>
                     {data && data.bySource.length > 0 ? (
                         <ResponsiveContainer width="100%" height={220}>
                             <BarChart
@@ -502,8 +502,8 @@ export default function CrmDashboardPage() {
                     )}
                 </div>
 
-                <div className="rounded-xl border-2 border-slate-200 bg-white p-4">
-                    <h2 className="font-bold text-slate-900 mb-2">Distribusi Pipeline (Stage)</h2>
+                <div className="glass rounded-xl p-4">
+                    <h2 className="font-bold text-foreground mb-2">Distribusi Pipeline (Stage)</h2>
                     {data && data.byStage.length > 0 ? (
                         <ResponsiveContainer width="100%" height={220}>
                             <BarChart data={data.byStage}>
@@ -527,10 +527,10 @@ export default function CrmDashboardPage() {
             </div>
 
             {/* Frekuensi Lokasi / Venue Event */}
-            <div className="rounded-xl border-2 border-slate-200 bg-white p-4">
+            <div className="glass rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
-                    <MapPin className="h-5 w-5 text-rose-600" />
-                    <h2 className="font-bold text-slate-900">Frekuensi Lokasi / Venue Event</h2>
+                    <MapPin className="h-5 w-5 text-primary" />
+                    <h2 className="font-bold text-foreground">Frekuensi Lokasi / Venue Event</h2>
                     <span className="text-xs text-muted-foreground ml-auto">
                         Seberapa sering event terjadi di tiap lokasi
                     </span>
@@ -556,11 +556,11 @@ export default function CrmDashboardPage() {
 }
 
 const colorMap: Record<string, { bg: string; text: string; iconBg: string }> = {
-    blue: { bg: "bg-blue-50 border-blue-200", text: "text-blue-700", iconBg: "bg-blue-100 text-blue-700" },
-    emerald: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", iconBg: "bg-emerald-100 text-emerald-700" },
-    violet: { bg: "bg-violet-50 border-violet-200", text: "text-violet-700", iconBg: "bg-violet-100 text-violet-700" },
-    red: { bg: "bg-red-50 border-red-200", text: "text-red-700", iconBg: "bg-red-100 text-red-700" },
-    amber: { bg: "bg-amber-50 border-amber-200", text: "text-amber-700", iconBg: "bg-amber-100 text-amber-700" },
+    blue: { bg: "bg-info/10 border-info/30", text: "text-info", iconBg: "bg-info/20 text-info" },
+    emerald: { bg: "bg-success/10 border-success/30", text: "text-success", iconBg: "bg-success/15 text-success" },
+    violet: { bg: "bg-primary/10 border-primary/30", text: "text-primary", iconBg: "bg-primary/15 text-primary" },
+    red: { bg: "bg-destructive/10 border-destructive/30", text: "text-destructive", iconBg: "bg-destructive/15 text-destructive" },
+    amber: { bg: "bg-warning/10 border-warning/30", text: "text-warning", iconBg: "bg-warning/15 text-warning" },
 };
 
 function BigStat({
@@ -581,11 +581,11 @@ function BigStat({
         <div className={`rounded-xl border-2 ${c.bg} p-4`}>
             <div className="flex items-center gap-2 mb-1">
                 <span className={`p-1.5 rounded-lg ${c.iconBg}`}>{icon}</span>
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {label}
                 </span>
             </div>
-            <div className={`text-2xl font-bold ${c.text} truncate`}>{value}</div>
+            <div className={`text-2xl font-bold nums ${c.text} truncate`}>{value}</div>
             {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
         </div>
     );
@@ -599,7 +599,7 @@ function PipelineValueBar({
     const total = pv.won + pv.lost + pv.pipeline;
     if (total === 0) {
         return (
-            <div className="h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs text-slate-500">
+            <div className="h-6 rounded-full bg-muted flex items-center justify-center text-xs text-muted-foreground">
                 Belum ada nilai project
             </div>
         );
@@ -608,10 +608,10 @@ function PipelineValueBar({
     const pipePct = (pv.pipeline / total) * 100;
     const lostPct = (pv.lost / total) * 100;
     return (
-        <div className="h-6 rounded-full overflow-hidden flex bg-slate-100">
+        <div className="h-6 rounded-full overflow-hidden flex bg-muted">
             {wonPct > 0 && (
                 <div
-                    className="bg-emerald-500 flex items-center justify-center text-white text-[10px] font-bold"
+                    className="bg-success flex items-center justify-center text-success-foreground text-[10px] font-bold"
                     style={{ width: `${wonPct}%` }}
                     title={`Win: ${fmtRpFull(pv.won)}`}
                 >
@@ -620,7 +620,7 @@ function PipelineValueBar({
             )}
             {pipePct > 0 && (
                 <div
-                    className="bg-amber-400 flex items-center justify-center text-amber-900 text-[10px] font-bold"
+                    className="bg-warning flex items-center justify-center text-warning-foreground text-[10px] font-bold"
                     style={{ width: `${pipePct}%` }}
                     title={`Pipeline: ${fmtRpFull(pv.pipeline)}`}
                 >
@@ -629,7 +629,7 @@ function PipelineValueBar({
             )}
             {lostPct > 0 && (
                 <div
-                    className="bg-red-500 flex items-center justify-center text-white text-[10px] font-bold"
+                    className="bg-destructive flex items-center justify-center text-destructive-foreground text-[10px] font-bold"
                     style={{ width: `${lostPct}%` }}
                     title={`Lost: ${fmtRpFull(pv.lost)}`}
                 >
@@ -649,14 +649,14 @@ function ValueLegend({
     label: string;
     value: number;
 }) {
-    const dotMap = { emerald: "bg-emerald-500", amber: "bg-amber-400", red: "bg-red-500" };
+    const dotMap = { emerald: "bg-success", amber: "bg-warning", red: "bg-destructive" };
     return (
-        <div className="rounded-lg border bg-slate-50 p-2">
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+        <div className="rounded-lg border border-border bg-muted p-2">
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <span className={`w-2.5 h-2.5 rounded-full ${dotMap[color]}`} />
                 <span className="truncate">{label}</span>
             </div>
-            <div className="font-mono font-bold text-sm text-slate-900 mt-0.5">{fmtRpFull(value)}</div>
+            <div className="font-mono font-bold text-sm nums text-foreground mt-0.5">{fmtRpFull(value)}</div>
         </div>
     );
 }
@@ -665,7 +665,7 @@ function QuickLink({ href, icon, label }: { href: string; icon: React.ReactNode;
     return (
         <Link
             href={href}
-            className="flex items-center gap-2 px-3 py-2.5 rounded-md border-2 border-slate-200 bg-white hover:bg-slate-50 hover:border-blue-300 text-sm font-medium transition"
+            className="flex items-center gap-2 px-3 py-2.5 rounded-md border-2 border-border bg-card hover:bg-muted hover:border-primary/50 text-sm font-medium transition-colors"
         >
             {icon}
             {label}
@@ -725,10 +725,10 @@ function VenueFrequency({ byVenue }: { byVenue: DashboardSummary["byVenue"] }) {
     const chartData = filtered.slice(0, 12).map((v) => ({ name: v.venue, count: v.count }));
 
     const TIERS: { key: "all" | VenueTier; label: string; cls: string }[] = [
-        { key: "all", label: `Semua (${byVenue.length})`, cls: "bg-slate-700 text-white border-slate-700" },
-        { key: "high", label: `🔥 Banyak (${tierCounts.high})`, cls: "bg-rose-100 text-rose-700 border-rose-300" },
-        { key: "mid", label: `🔸 Medium (${tierCounts.mid})`, cls: "bg-amber-100 text-amber-700 border-amber-300" },
-        { key: "low", label: `🔹 Sedikit (${tierCounts.low})`, cls: "bg-sky-100 text-sky-700 border-sky-300" },
+        { key: "all", label: `Semua (${byVenue.length})`, cls: "bg-foreground text-background border-foreground" },
+        { key: "high", label: `Banyak (${tierCounts.high})`, cls: "bg-destructive/15 text-destructive border-destructive/30" },
+        { key: "mid", label: `Medium (${tierCounts.mid})`, cls: "bg-warning/15 text-warning border-warning/30" },
+        { key: "low", label: `Sedikit (${tierCounts.low})`, cls: "bg-info/15 text-info border-info/30" },
     ];
 
     return (
@@ -740,8 +740,8 @@ function VenueFrequency({ byVenue }: { byVenue: DashboardSummary["byVenue"] }) {
                         key={t.key}
                         type="button"
                         onClick={() => setTier(t.key)}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition ${
-                            tier === t.key ? t.cls : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-full border-2 transition-colors ${
+                            tier === t.key ? t.cls : "bg-card text-muted-foreground border-border hover:border-border/70"
                         }`}
                     >
                         {t.label}
@@ -751,7 +751,7 @@ function VenueFrequency({ byVenue }: { byVenue: DashboardSummary["byVenue"] }) {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari venue..."
-                    className="ml-auto text-xs rounded-md border-2 border-slate-200 bg-white py-1 px-2 w-40 focus:border-blue-500 outline-none"
+                    className="ml-auto text-xs rounded-md border-2 border-border bg-card py-1 px-2 w-40 focus:border-primary outline-none"
                 />
             </div>
             <p className="text-[10px] text-muted-foreground">
@@ -783,13 +783,13 @@ function VenueFrequency({ byVenue }: { byVenue: DashboardSummary["byVenue"] }) {
                         {shown.map((v) => {
                             const hiddenEvents = v.count - v.events.length;
                             return (
-                                <div key={v.venue} className="rounded-lg border border-slate-200 p-2.5">
+                                <div key={v.venue} className="rounded-lg border border-border p-2.5">
                                     <div className="flex items-center gap-2">
-                                        <MapPin className="h-3.5 w-3.5 text-rose-500 flex-shrink-0" />
-                                        <span className="font-semibold text-sm text-slate-900 flex-1 truncate">
+                                        <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                                        <span className="font-semibold text-sm text-foreground flex-1 truncate">
                                             {v.venue}
                                         </span>
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold whitespace-nowrap">
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold whitespace-nowrap nums">
                                             {v.count}× event
                                         </span>
                                     </div>
@@ -797,7 +797,7 @@ function VenueFrequency({ byVenue }: { byVenue: DashboardSummary["byVenue"] }) {
                                         {v.events.map((e, i) => (
                                             <span
                                                 key={i}
-                                                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600"
+                                                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
                                                 title={e.name ?? undefined}
                                             >
                                                 <Calendar className="h-2.5 w-2.5" />
@@ -805,7 +805,7 @@ function VenueFrequency({ byVenue }: { byVenue: DashboardSummary["byVenue"] }) {
                                             </span>
                                         ))}
                                         {hiddenEvents > 0 && (
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-500">
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                                                 +{hiddenEvents} tanggal lagi
                                             </span>
                                         )}

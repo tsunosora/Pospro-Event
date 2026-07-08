@@ -350,8 +350,8 @@ export default function InventoryPage() {
     };
 
     const PRODUCT_TYPE_CONFIG: Record<string, { label: string; className: string }> = {
-        SELLABLE:     { label: 'Siap Jual',  className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-        RAW_MATERIAL: { label: 'Bahan Baku', className: 'bg-amber-100 text-amber-700 border-amber-200' },
+        SELLABLE:     { label: 'Siap Jual',  className: 'bg-success/15 text-success border-success/30' },
+        RAW_MATERIAL: { label: 'Bahan Baku', className: 'bg-warning/15 text-warning border-warning/30' },
         SERVICE:      { label: 'Jasa',       className: 'bg-violet-100 text-violet-700 border-violet-200' },
     };
 
@@ -379,10 +379,10 @@ export default function InventoryPage() {
                         </button>
                         {showMobileActions && (
                             <div className="absolute right-0 top-full mt-1 w-56 bg-card border border-border rounded-xl shadow-xl z-40 py-1.5 overflow-hidden">
-                                <button onClick={() => { setShowPurchaseModal(true); setShowMobileActions(false); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors">
+                                <button onClick={() => { setShowPurchaseModal(true); setShowMobileActions(false); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-success hover:bg-success/10 transition-colors">
                                     <ShoppingCart className="h-4 w-4 shrink-0" /> Pembelian Stok
                                 </button>
-                                <button onClick={() => { setWasteVariant(null); setShowWasteModal(true); setShowMobileActions(false); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
+                                <button onClick={() => { setWasteVariant(null); setShowWasteModal(true); setShowMobileActions(false); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-warning hover:bg-warning/10 transition-colors">
                                     <Trash2 className="h-4 w-4 shrink-0" /> Catat Susut
                                 </button>
                                 <div className="h-px bg-border/60 my-1" />
@@ -417,10 +417,10 @@ export default function InventoryPage() {
                     <button onClick={() => setShowBulkModal(true)} className="flex items-center gap-2 bg-muted text-foreground px-4 py-2 rounded-lg font-medium hover:bg-muted/80 transition-colors border border-border text-sm">
                         <Upload className="h-4 w-4" /> Import Bulk
                     </button>
-                    <button onClick={() => setShowPurchaseModal(true)} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors shadow-sm text-sm">
+                    <button onClick={() => setShowPurchaseModal(true)} className="flex items-center gap-2 bg-success text-white px-4 py-2 rounded-lg font-medium hover:bg-success/90 transition-colors shadow-sm text-sm">
                         <ShoppingCart className="h-4 w-4" /> Pembelian
                     </button>
-                    <button onClick={() => { setWasteVariant(null); setShowWasteModal(true); }} className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-amber-600 transition-colors shadow-sm text-sm">
+                    <button onClick={() => { setWasteVariant(null); setShowWasteModal(true); }} className="flex items-center gap-2 bg-warning text-warning-foreground px-4 py-2 rounded-lg font-medium hover:bg-warning/90 transition-colors shadow-sm text-sm">
                         <Trash2 className="h-4 w-4" /> Catat Susut
                     </button>
                     <Link href="/inventory/products/new" className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-sm text-sm">
@@ -655,12 +655,12 @@ export default function InventoryPage() {
                                                         <div className="shrink-0 text-right">
                                                             {product.trackStock === false ? (
                                                                 <>
-                                                                    <p className="text-lg font-bold leading-none text-blue-500">∞</p>
-                                                                    <p className="text-[10px] text-blue-400 mt-0.5">tak terbatas</p>
+                                                                    <p className="text-lg font-bold leading-none text-info">∞</p>
+                                                                    <p className="text-[10px] text-info/70 mt-0.5">tak terbatas</p>
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <p className={`text-lg font-bold leading-none ${variant.stock < 10 ? 'text-destructive' : 'text-foreground'}`}>{variant.stock}</p>
+                                                                    <p className={`text-lg font-bold leading-none nums ${variant.stock < 10 ? 'text-destructive' : 'text-foreground'}`}>{variant.stock}</p>
                                                                     <p className="text-[10px] text-muted-foreground mt-0.5">stok saat ini</p>
                                                                     {variant.movements?.[0] && (
                                                                         <p className="text-[10px] text-muted-foreground/60 mt-0.5">
@@ -673,22 +673,22 @@ export default function InventoryPage() {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center flex-wrap gap-2 mt-1.5">
-                                                        <span className="text-sm font-bold text-primary">Rp {getEffectivePrice(variant).toLocaleString('id-ID')}</span>
-                                                        {(variant.priceTiers?.length > 0) && <span className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded font-medium">{variant.priceTiers.length} tier</span>}
+                                                        <span className="text-sm font-bold text-primary nums">Rp {getEffectivePrice(variant).toLocaleString('id-ID')}</span>
+                                                        {(variant.priceTiers?.length > 0) && <span className="text-[10px] bg-warning/15 text-warning px-1.5 py-0.5 rounded font-medium">{variant.priceTiers.length} tier</span>}
                                                         {Number(variant.hpp) > 0 && <span className="text-xs text-muted-foreground">Modal: Rp {Number(variant.hpp).toLocaleString('id-ID')}</span>}
                                                         {isFirst && product.category?.name && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{getCategoryLabel(product.category)}</span>}
                                                         {isFirst && typeCfg && <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${typeCfg.className}`}>{typeCfg.label}</span>}
                                                         <button
                                                             type="button"
                                                             onClick={() => setLocationVariant({ variant, product })}
-                                                            className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold border transition ${
+                                                            className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold border transition cursor-pointer ${
                                                                 variant.defaultWarehouse?.name
-                                                                    ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-200"
-                                                                    : "bg-slate-50 text-slate-500 border-dashed border-slate-300 hover:bg-slate-100"
+                                                                    ? "bg-info/15 text-info border-info/30 hover:bg-info/25"
+                                                                    : "bg-muted/50 text-muted-foreground border-dashed border-border hover:bg-muted"
                                                             }`}
                                                             title="Klik untuk set/ganti lokasi gudang"
                                                         >
-                                                            📍 {variant.defaultWarehouse?.name ?? "Set Lokasi"}
+                                                            <MapPin className="h-2.5 w-2.5" /> {variant.defaultWarehouse?.name ?? "Set Lokasi"}
                                                         </button>
                                                     </div>
                                                     <div className="flex items-center gap-1.5 mt-2.5">
@@ -710,17 +710,17 @@ export default function InventoryPage() {
                                                                 </button>
                                                                 {openDropdownId === product.id && (
                                                                     <div className="absolute right-0 top-full mt-1 w-52 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-xl shadow-xl z-30 py-1.5 overflow-hidden">
-                                                                        <button onClick={() => { setWasteVariant(variant); setShowWasteModal(true); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
+                                                                        <button onClick={() => { setWasteVariant(variant); setShowWasteModal(true); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-warning hover:bg-warning/10 transition-colors">
                                                                             <Trash2 className="h-3.5 w-3.5 shrink-0" /> Catat Susut
                                                                         </button>
                                                                         <div className="h-px bg-border/60 my-1" />
                                                                         <button onClick={() => { router.push(`/inventory/products/${product.id}/edit`); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm hover:bg-muted transition-colors">
                                                                             <Pencil className="h-3.5 w-3.5 shrink-0" /> Edit Produk
                                                                         </button>
-                                                                        <button onClick={() => { router.push(`/reports/hpp?editProductId=${product.id}`); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
+                                                                        <button onClick={() => { router.push(`/reports/hpp?editProductId=${product.id}`); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-info hover:bg-info/10 transition-colors">
                                                                             <Calculator className="h-3.5 w-3.5 shrink-0" /> Kalkulator HPP
                                                                         </button>
-                                                                        <button onClick={() => { handleShare(product.id); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors">
+                                                                        <button onClick={() => { handleShare(product.id); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-success hover:bg-success/10 transition-colors">
                                                                             <Share2 className="h-3.5 w-3.5 shrink-0" /> {shareToastId === product.id ? 'Link Disalin!' : 'Salin Link'}
                                                                         </button>
                                                                         <div className="h-px bg-border/60 my-1" />
@@ -817,23 +817,23 @@ export default function InventoryPage() {
                                                     <div className="flex gap-1 mt-0.5 items-center flex-wrap">
                                                         {variant.size && <span className="text-xs text-muted-foreground border border-border rounded px-1">{variant.size}</span>}
                                                         {variant.color && <span className="text-xs text-muted-foreground border border-border rounded px-1">{variant.color}</span>}
-                                                        {variant.boothProductType && <span className="text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">{variant.boothProductType}</span>}
+                                                        {variant.boothProductType && <span className="text-[10px] px-1 py-0.5 rounded bg-warning/15 text-warning border border-warning/30">{variant.boothProductType}</span>}
                                                         <button
                                                             type="button"
                                                             onClick={() => setLocationVariant({ variant, product })}
-                                                            className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold border transition ${
+                                                            className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold border transition cursor-pointer ${
                                                                 variant.defaultWarehouse?.name
-                                                                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-100"
-                                                                    : "bg-slate-50 text-slate-500 border-dashed border-slate-300 hover:bg-slate-100"
+                                                                    ? "bg-info/15 text-info border-info/30 hover:bg-info/25"
+                                                                    : "bg-muted/50 text-muted-foreground border-dashed border-border hover:bg-muted"
                                                             }`}
                                                             title="Klik untuk set/ganti lokasi gudang"
                                                         >
-                                                            📍 {variant.defaultWarehouse?.name ?? "Set Lokasi"}
+                                                            <MapPin className="h-2.5 w-2.5" /> {variant.defaultWarehouse?.name ?? "Set Lokasi"}
                                                         </button>
                                                         {variant.sourceRabPlanId && (
                                                             <a
                                                                 href={`/rab/${variant.sourceRabPlanId}`}
-                                                                className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium border border-blue-200"
+                                                                className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-info/15 text-info hover:bg-info/25 font-medium border border-info/30"
                                                                 title="Lihat rincian RAB asal"
                                                             >
                                                                 <FileSpreadsheet className="h-2.5 w-2.5" />
@@ -873,11 +873,11 @@ export default function InventoryPage() {
                                                     {isFirst && <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{getCategoryLabel(product.category)}</span>}
                                                 </td>
                                                 <td className="px-5 py-4 whitespace-nowrap text-sm text-foreground/80 text-right font-medium">
-                                                    Rp {getEffectivePrice(variant).toLocaleString('id-ID')}
-                                                    {variant.priceTiers?.length > 0 && <span className="ml-1 text-[10px] text-orange-500">({variant.priceTiers.length} tier)</span>}
+                                                    <span className="nums">Rp {getEffectivePrice(variant).toLocaleString('id-ID')}</span>
+                                                    {variant.priceTiers?.length > 0 && <span className="ml-1 text-[10px] text-warning">({variant.priceTiers.length} tier)</span>}
                                                 </td>
                                                 <td className="px-5 py-4 whitespace-nowrap text-sm text-muted-foreground text-right">
-                                                    Rp {Number(variant.hpp || 0).toLocaleString('id-ID')}
+                                                    <span className="nums">Rp {Number(variant.hpp || 0).toLocaleString('id-ID')}</span>
                                                 </td>
                                                 <td className="px-5 py-4 whitespace-nowrap text-right">
                                                     {(() => {
@@ -890,10 +890,10 @@ export default function InventoryPage() {
                                                 <td className="px-5 py-4 whitespace-nowrap text-right">
                                                     <div className="flex items-center justify-end gap-2">
                                                         {product.trackStock === false ? (
-                                                            <span className="text-sm font-bold text-blue-500">∞</span>
+                                                            <span className="text-sm font-bold text-info">∞</span>
                                                         ) : (
                                                             <>
-                                                                <span className={`text-sm font-medium ${variant.stock < 10 ? 'text-destructive' : 'text-foreground'}`}>{variant.stock}</span>
+                                                                <span className={`text-sm font-medium nums ${variant.stock < 10 ? 'text-destructive' : 'text-foreground'}`}>{variant.stock}</span>
                                                                 {variant.stock < 10 && <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">Menipis</span>}
                                                             </>
                                                         )}
@@ -921,17 +921,17 @@ export default function InventoryPage() {
                                                                 </button>
                                                                 {openDropdownId === product.id && (
                                                                     <div className="absolute right-0 top-full mt-1 w-52 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-xl shadow-xl z-30 py-1.5 overflow-hidden">
-                                                                        <button onClick={() => { setWasteVariant(variant); setShowWasteModal(true); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
+                                                                        <button onClick={() => { setWasteVariant(variant); setShowWasteModal(true); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-warning hover:bg-warning/10 transition-colors">
                                                                             <Trash2 className="h-3.5 w-3.5 shrink-0" /> Catat Susut
                                                                         </button>
                                                                         <div className="h-px bg-border/60 my-1" />
                                                                         <button onClick={() => { router.push(`/inventory/products/${product.id}/edit`); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm hover:bg-muted transition-colors">
                                                                             <Pencil className="h-3.5 w-3.5 shrink-0" /> Edit Produk
                                                                         </button>
-                                                                        <button onClick={() => { router.push(`/reports/hpp?editProductId=${product.id}`); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
+                                                                        <button onClick={() => { router.push(`/reports/hpp?editProductId=${product.id}`); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-info hover:bg-info/10 transition-colors">
                                                                             <Calculator className="h-3.5 w-3.5 shrink-0" /> Kalkulator HPP
                                                                         </button>
-                                                                        <button onClick={() => { handleShare(product.id); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors">
+                                                                        <button onClick={() => { handleShare(product.id); closeDropdown(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-success hover:bg-success/10 transition-colors">
                                                                             <Share2 className="h-3.5 w-3.5 shrink-0" /> {shareToastId === product.id ? 'Link Disalin!' : 'Salin Link Produk'}
                                                                         </button>
                                                                         <div className="h-px bg-border/60 my-1" />
@@ -1169,7 +1169,7 @@ export default function InventoryPage() {
                                         </div>
                                     </div>
                                     {wasteForm.panjang && wasteForm.lebar && (
-                                        <p className="text-xs text-amber-600 font-medium">
+                                        <p className="text-xs text-warning font-medium">
                                             Luas: {(Number(wasteForm.panjang) * Number(wasteForm.lebar)).toFixed(2)} m² → disimpan sebagai {Math.ceil(Number(wasteForm.panjang) * Number(wasteForm.lebar))} m²
                                         </p>
                                     )}
@@ -1201,7 +1201,7 @@ export default function InventoryPage() {
                             </div>
                             <div className="pt-4 flex justify-end gap-2">
                                 <button type="button" onClick={() => setShowWasteModal(false)} className="px-4 py-2 rounded-lg border border-border hover:bg-muted font-medium text-sm">Batal</button>
-                                <button type="submit" disabled={movementMutation.isPending || !wasteVariant} className="px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 disabled:opacity-50 text-sm">
+                                <button type="submit" disabled={movementMutation.isPending || !wasteVariant} className="px-4 py-2 bg-warning text-warning-foreground rounded-lg font-medium hover:bg-warning/90 disabled:opacity-50 text-sm">
                                     {movementMutation.isPending ? 'Menyimpan...' : 'Catat Susut'}
                                 </button>
                             </div>
@@ -1249,10 +1249,10 @@ export default function InventoryPage() {
                             {bulkStep === 'preview' && bulkPreview && (
                                 <div className="space-y-4">
                                     {bulkParseErrors.length > 0 && (
-                                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
-                                            <p className="text-xs font-semibold text-amber-700">Peringatan ({bulkParseErrors.length} baris dilewati):</p>
+                                        <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 space-y-1">
+                                            <p className="text-xs font-semibold text-warning">Peringatan ({bulkParseErrors.length} baris dilewati):</p>
                                             {bulkParseErrors.map((e, i) => (
-                                                <p key={i} className="text-xs text-amber-600">{e}</p>
+                                                <p key={i} className="text-xs text-warning">{e}</p>
                                             ))}
                                         </div>
                                     )}
@@ -1263,7 +1263,7 @@ export default function InventoryPage() {
                                             <p className="text-sm text-muted-foreground">
                                                 Ditemukan <strong>{bulkPreview.length} produk</strong> ({bulkPreview.reduce((a, p) => a + p.variants.length, 0)} varian total). Konfirmasi untuk mulai import.
                                             </p>
-                                            <div className="border border-border rounded-lg overflow-hidden">
+                                            <div className="border border-border rounded-lg overflow-x-auto">
                                                 <table className="w-full text-sm">
                                                     <thead className="bg-muted/50">
                                                         <tr>
@@ -1295,8 +1295,8 @@ export default function InventoryPage() {
                             {/* Step 3: Result */}
                             {bulkStep === 'result' && bulkResult && (
                                 <div className="space-y-4">
-                                    <div className={`rounded-lg p-4 border ${bulkResult.errors.length === 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
-                                        <p className={`font-semibold ${bulkResult.errors.length === 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                    <div className={`rounded-lg p-4 border ${bulkResult.errors.length === 0 ? 'bg-success/10 border-success/30' : 'bg-warning/10 border-warning/30'}`}>
+                                        <p className={`font-semibold ${bulkResult.errors.length === 0 ? 'text-success' : 'text-warning'}`}>
                                             {bulkResult.created} produk berhasil dibuat.{bulkResult.errors.length > 0 ? ` ${bulkResult.errors.length} gagal.` : ''}
                                         </p>
                                     </div>
@@ -1406,7 +1406,7 @@ function SetLocationModal({
                 <div className="p-4 border-b flex items-center justify-between">
                     <div className="min-w-0">
                         <h2 className="text-base font-bold inline-flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-blue-600" /> Set Lokasi Gudang
+                            <MapPin className="h-4 w-4 text-info" /> Set Lokasi Gudang
                         </h2>
                         <p className="text-[11px] text-muted-foreground truncate">
                             {productName}{variant.variantName ? ` · ${variant.variantName}` : ''} · {variant.sku}
@@ -1421,7 +1421,7 @@ function SetLocationModal({
                     {isLoading ? (
                         <div className="p-6 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></div>
                     ) : (warehouses ?? []).length === 0 ? (
-                        <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-800">
+                        <div className="p-4 rounded-lg border border-warning/30 bg-warning/10 text-sm text-warning">
                             Belum ada gudang aktif. Tambahkan dulu di <b>Pengaturan → Gudang</b>.
                         </div>
                     ) : (
@@ -1432,18 +1432,18 @@ function SetLocationModal({
                                 onClick={() => setPickedId(null)}
                                 className={`w-full text-left p-3 rounded-lg border-2 transition flex items-center gap-3 ${
                                     pickedId === null
-                                        ? "border-slate-700 bg-slate-100 dark:bg-slate-800"
-                                        : "border-slate-200 hover:border-slate-300 bg-background"
+                                        ? "border-foreground bg-muted"
+                                        : "border-border hover:border-border/70 bg-background"
                                 }`}
                             >
-                                <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 shrink-0">
+                                <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground shrink-0">
                                     <X className="h-4 w-4" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="text-sm font-semibold">Tidak Ditentukan</div>
                                     <div className="text-[10px] text-muted-foreground">Lepas dari gudang manapun</div>
                                 </div>
-                                {pickedId === null && <span className="text-slate-700 dark:text-slate-200 font-bold">✓</span>}
+                                {pickedId === null && <span className="text-foreground font-bold">✓</span>}
                             </button>
 
                             {/* List gudang */}
@@ -1456,18 +1456,18 @@ function SetLocationModal({
                                         onClick={() => setPickedId(w.id)}
                                         className={`w-full text-left p-3 rounded-lg border-2 transition flex items-center gap-3 ${
                                             active
-                                                ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30"
-                                                : "border-slate-200 hover:border-slate-300 bg-background"
+                                                ? "border-info bg-info/10"
+                                                : "border-border hover:border-border/70 bg-background"
                                         }`}
                                     >
-                                        <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 shrink-0">
+                                        <div className="w-9 h-9 rounded-full bg-info/15 flex items-center justify-center text-info shrink-0">
                                             <MapPin className="h-4 w-4" />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="text-sm font-semibold truncate">{w.name}</div>
                                             {w.address && <div className="text-[10px] text-muted-foreground truncate">{w.address}</div>}
                                         </div>
-                                        {active && <span className="text-blue-600 font-bold">✓</span>}
+                                        {active && <span className="text-info font-bold">✓</span>}
                                     </button>
                                 );
                             })}
@@ -1477,7 +1477,7 @@ function SetLocationModal({
 
                 {error && (
                     <div className="px-4 pb-2">
-                        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>
+                        <div className="text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded p-2">{error}</div>
                     </div>
                 )}
 
@@ -1492,7 +1492,7 @@ function SetLocationModal({
                     <button
                         onClick={() => mut.mutate()}
                         disabled={!changed || mut.isPending}
-                        className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 inline-flex items-center gap-1.5"
+                        className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-1.5"
                     >
                         {mut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                         Simpan Lokasi

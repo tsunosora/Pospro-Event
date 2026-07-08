@@ -74,7 +74,7 @@ export default function WarehousesSettingsPage() {
 
     return (
         <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-xl font-bold flex items-center gap-2">
                         <Building2 className="h-5 w-5 text-primary" /> Gudang
@@ -83,14 +83,14 @@ export default function WarehousesSettingsPage() {
                         Lokasi penyimpanan barang untuk pelabelan pengambilan. Stok barang dikelola di <b>Manajemen Stok</b>.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                         <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
                         Tampilkan nonaktif
                     </label>
                     <button
                         onClick={() => { setShowForm(true); setEditId(null); setName(""); setAddress(""); setNotes(""); setError(null); }}
-                        className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm hover:opacity-90"
+                        className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm hover:opacity-90 cursor-pointer transition-colors"
                     >
                         <Plus className="h-4 w-4" /> Tambah Gudang
                     </button>
@@ -98,7 +98,7 @@ export default function WarehousesSettingsPage() {
             </div>
 
             {showForm && (
-                <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                <div className="border rounded-xl p-4 bg-muted/30 space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs font-medium block mb-1">Nama *</label>
@@ -128,13 +128,13 @@ export default function WarehousesSettingsPage() {
                             className="w-full border rounded px-3 py-2 text-sm"
                         />
                     </div>
-                    {error && <p className="text-xs text-red-600">{error}</p>}
+                    {error && <p className="text-xs text-destructive">{error}</p>}
                     <div className="flex items-center gap-2 justify-end">
-                        <button onClick={resetForm} className="px-3 py-1.5 text-sm border rounded hover:bg-muted">Batal</button>
+                        <button onClick={resetForm} className="px-3 py-1.5 text-sm border rounded hover:bg-muted cursor-pointer transition-colors">Batal</button>
                         <button
                             onClick={handleSave}
                             disabled={createMut.isPending || updateMut.isPending}
-                            className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm hover:opacity-90 disabled:opacity-50"
+                            className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm hover:opacity-90 disabled:opacity-50 cursor-pointer transition-colors"
                         >
                             {(createMut.isPending || updateMut.isPending) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                             {editId ? "Update" : "Simpan"}
@@ -143,7 +143,8 @@ export default function WarehousesSettingsPage() {
                 </div>
             )}
 
-            <div className="border rounded-lg overflow-hidden">
+            <div className="border rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-left">
                         <tr>
@@ -171,28 +172,28 @@ export default function WarehousesSettingsPage() {
                                     <span className={!w.isActive ? "line-through" : "font-medium"}>{w.name}</span>
                                 </td>
                                 <td className="p-2 text-xs text-muted-foreground">{w.address || "—"}</td>
-                                <td className="p-2 text-center font-mono text-xs">{w._count?.withdrawals ?? 0}</td>
+                                <td className="p-2 text-center font-mono text-xs nums">{w._count?.withdrawals ?? 0}</td>
                                 <td className="p-2 text-center">
                                     {w.isActive
-                                        ? <span className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700">Aktif</span>
-                                        : <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">Nonaktif</span>
+                                        ? <span className="text-xs px-2 py-0.5 rounded bg-success/15 text-success">Aktif</span>
+                                        : <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">Nonaktif</span>
                                     }
                                 </td>
                                 <td className="p-2">
                                     <div className="flex items-center justify-center gap-1">
-                                        <button onClick={() => startEdit(w)} title="Edit" className="p-1.5 hover:bg-muted rounded">
+                                        <button onClick={() => startEdit(w)} title="Edit" className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors">
                                             <Pencil className="h-3.5 w-3.5" />
                                         </button>
                                         {w.isActive ? (
-                                            <button onClick={() => updateMut.mutate({ id: w.id, data: { isActive: false } })} title="Nonaktifkan" className="p-1.5 hover:bg-muted rounded">
+                                            <button onClick={() => updateMut.mutate({ id: w.id, data: { isActive: false } })} title="Nonaktifkan" className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors">
                                                 <EyeOff className="h-3.5 w-3.5" />
                                             </button>
                                         ) : (
-                                            <button onClick={() => restoreMut.mutate(w.id)} title="Aktifkan" className="p-1.5 hover:bg-muted rounded">
+                                            <button onClick={() => restoreMut.mutate(w.id)} title="Aktifkan" className="p-1.5 hover:bg-muted rounded cursor-pointer transition-colors">
                                                 <Eye className="h-3.5 w-3.5" />
                                             </button>
                                         )}
-                                        <button onClick={() => setDeleteConfirm(w)} title="Hapus" className="p-1.5 hover:bg-red-50 text-red-600 rounded">
+                                        <button onClick={() => setDeleteConfirm(w)} title="Hapus" className="p-1.5 hover:bg-destructive/10 text-destructive rounded cursor-pointer transition-colors">
                                             <Trash2 className="h-3.5 w-3.5" />
                                         </button>
                                     </div>
@@ -201,6 +202,7 @@ export default function WarehousesSettingsPage() {
                         ))}
                     </tbody>
                 </table>
+                </div>
             </div>
 
             {deleteConfirm && (
@@ -211,13 +213,13 @@ export default function WarehousesSettingsPage() {
                             Gudang <b>{deleteConfirm.name}</b> akan {(deleteConfirm._count?.withdrawals ?? 0) > 0 ? "dinonaktifkan karena masih dipakai pengambilan" : "dihapus permanen"}.
                         </p>
                         <div className="flex items-center gap-2 justify-end">
-                            <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1.5 text-sm border rounded hover:bg-muted">
+                            <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1.5 text-sm border rounded hover:bg-muted cursor-pointer transition-colors">
                                 <X className="h-4 w-4 inline -mt-0.5" /> Batal
                             </button>
                             <button
                                 onClick={() => deleteMut.mutate(deleteConfirm.id)}
                                 disabled={deleteMut.isPending}
-                                className="flex items-center gap-1 bg-red-600 text-white px-3 py-1.5 rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                                className="flex items-center gap-1 bg-destructive text-destructive-foreground px-3 py-1.5 rounded text-sm hover:bg-destructive/90 disabled:opacity-50 cursor-pointer transition-colors"
                             >
                                 {deleteMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                                 <Trash2 className="h-3.5 w-3.5" /> Hapus

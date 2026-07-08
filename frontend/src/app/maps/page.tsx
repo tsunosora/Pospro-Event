@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import {
     Plus, Pencil, Trash2, Layers, Search, X, Loader2,
-    Building2, Target, MapPin, TrendingUp, Eye, EyeOff, Info, Menu
+    Building2, Target, MapPin, Eye, EyeOff, Menu
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -25,8 +25,8 @@ const fmtCurrency = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
 const COMPETITOR_TYPES = ["Digital Printing", "Sablon", "Percetakan", "Fotokopi", "Desain Grafis", "Spanduk & Banner", "Toko ATK", "Toko Komputer", "Lainnya"];
 
-const getMarginColor = (m: number) => m > 35 ? "text-emerald-600" : m >= 15 ? "text-amber-600" : "text-red-500";
-const getMarginBg = (m: number) => m > 35 ? "bg-emerald-500/10" : m >= 15 ? "bg-amber-500/10" : "bg-red-500/10";
+const getMarginColor = (m: number) => m > 35 ? "text-success" : m >= 15 ? "text-warning" : "text-destructive";
+const getMarginBg = (m: number) => m > 35 ? "bg-success/15" : m >= 15 ? "bg-warning/15" : "bg-destructive/12";
 
 // Nominatim geocoding
 async function geocodeAddress(address: string): Promise<{ lat: number; lon: number } | null> {
@@ -131,11 +131,11 @@ function FormModal({ mode, initial, pendingLat, pendingLng, onClose, onSave, isP
                         <div className="flex gap-2">
                             <input value={address} onChange={e => setAddress(e.target.value)} placeholder="Jl. ..." className="flex-1 bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                             <button type="button" onClick={handleGeocode} disabled={geocoding || !address} title="Auto-isi koordinat dari alamat"
-                                className="shrink-0 px-3 py-2 rounded-lg border border-input bg-background text-xs font-medium text-primary hover:bg-primary/5 disabled:opacity-50 transition-colors">
-                                {geocoding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "📍 Cari"}
+                                className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-lg border border-input bg-background text-xs font-medium text-primary hover:bg-primary/5 disabled:opacity-50 transition-colors">
+                                {geocoding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><MapPin className="h-3.5 w-3.5" /> Cari</>}
                             </button>
                         </div>
-                        <p className="text-xs text-muted-foreground">Klik "📍 Cari" untuk auto-isi koordinat. Atau klik langsung di peta.</p>
+                        <p className="text-xs text-muted-foreground">Klik tombol <MapPin className="inline h-3 w-3" /> Cari untuk auto-isi koordinat. Atau klik langsung di peta.</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
@@ -312,7 +312,7 @@ export default function MapsPage() {
                 {/* Mobile backdrop */}
                 {mobileSidebarOpen && (
                     <div
-                        className="lg:hidden absolute inset-0 z-[240] bg-background/60 backdrop-blur-sm"
+                        className="lg:hidden absolute inset-0 z-[240] bg-background/60 backdrop-blur-sm cursor-pointer"
                         onClick={() => setMobileSidebarOpen(false)}
                     />
                 )}
@@ -337,9 +337,9 @@ export default function MapsPage() {
                     {/* Add button + adding mode notice */}
                     <div className="px-3 py-2 shrink-0 border-b border-border space-y-2">
                         {addingMode ? (
-                            <div className="flex items-center justify-between bg-purple-500/10 border border-purple-500/30 rounded-lg px-3 py-2">
-                                <p className="text-xs text-purple-600 font-medium">Klik di peta untuk menentukan lokasi</p>
-                                <button onClick={() => setAddingMode(null)} className="text-purple-600 hover:text-purple-800"><X className="h-3.5 w-3.5" /></button>
+                            <div className="flex items-center justify-between bg-info/15 border border-info/30 rounded-lg px-3 py-2">
+                                <p className="text-xs text-info font-medium">Klik di peta untuk menentukan lokasi</p>
+                                <button onClick={() => setAddingMode(null)} className="text-info hover:text-info/70 transition-colors cursor-pointer"><X className="h-3.5 w-3.5" /></button>
                             </div>
                         ) : (
                             <button
@@ -372,8 +372,8 @@ export default function MapsPage() {
                                                 </div>
                                                 {b.address && <p className="text-xs text-muted-foreground truncate pl-3.5">{b.address}</p>}
                                                 <div className="flex items-center gap-2 mt-1.5 pl-3.5">
-                                                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getMarginBg(margin)} ${getMarginColor(margin)}`}>{margin}% margin</span>
-                                                    <span className="text-xs text-muted-foreground">{omset > 0 ? fmtCurrency(omset) : "—"}</span>
+                                                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full nums ${getMarginBg(margin)} ${getMarginColor(margin)}`}>{margin}% margin</span>
+                                                    <span className="text-xs text-muted-foreground nums">{omset > 0 ? fmtCurrency(omset) : "—"}</span>
                                                 </div>
                                             </div>
                                             <div className="flex gap-1 shrink-0">
@@ -395,7 +395,7 @@ export default function MapsPage() {
                                                 <span style={{ width: 8, height: 8, background: "#ef4444", borderRadius: 2, transform: "rotate(45deg)", display: "inline-block", flexShrink: 0 }} />
                                                 <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
                                             </div>
-                                            {c.type && <span className="ml-3.5 text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full">{c.type}</span>}
+                                            {c.type && <span className="ml-3.5 text-xs bg-destructive/12 text-destructive px-1.5 py-0.5 rounded-full">{c.type}</span>}
                                             {c.address && <p className="text-xs text-muted-foreground truncate mt-0.5 pl-3.5">{c.address}</p>}
                                             {c.notes && <p className="text-xs text-muted-foreground italic truncate mt-0.5 pl-3.5">{c.notes}</p>}
                                         </div>
@@ -421,7 +421,7 @@ export default function MapsPage() {
                         </div>
                         {searchResults.length > 0 && (
                             <div className="mt-2 pt-2 border-t border-border">
-                                <p className="text-xs text-blue-600 font-medium">{searchResults.length} hasil ditemukan untuk "{keyword}"</p>
+                                <p className="text-xs text-info font-medium">{searchResults.length} hasil ditemukan untuk "{keyword}"</p>
                                 <button onClick={clearSearch} className="text-xs text-muted-foreground hover:text-foreground underline mt-0.5">Hapus hasil pencarian</button>
                             </div>
                         )}
@@ -431,7 +431,7 @@ export default function MapsPage() {
                 {/* Map */}
                 <div className="flex-1 relative overflow-hidden">
                     {addingMode && (
-                        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[400] bg-purple-600 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2">
+                        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[400] bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2">
                             <MapPin className="h-4 w-4" />
                             Klik di peta untuk menentukan lokasi {addingMode === "branch" ? "cabang" : "kompetitor"}
                         </div>

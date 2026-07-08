@@ -224,11 +224,11 @@ export default function ShiftHistoryPage() {
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-4 mt-1 text-sm">
-                                            <span className="text-emerald-600 font-semibold">
+                                            <span className="text-success font-semibold nums">
                                                 Rp {totalPenerimaan.toLocaleString('id-ID')}
                                             </span>
                                             {Number(shift.expensesTotal) > 0 && (
-                                                <span className="text-orange-500 text-xs">
+                                                <span className="text-warning text-xs nums">
                                                     Pengeluaran: Rp {Number(shift.expensesTotal).toLocaleString('id-ID')}
                                                 </span>
                                             )}
@@ -240,7 +240,7 @@ export default function ShiftHistoryPage() {
                                     {/* Tombol aksi */}
                                     <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
                                         {shift.amendedAt && (
-                                            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                                            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-full bg-warning/15 border border-warning/30 text-warning text-xs font-medium">
                                                 <Pencil className="w-3 h-3" />
                                                 Dikoreksi {dayjs(shift.amendedAt).format('DD/MM/YY')}
                                             </span>
@@ -248,7 +248,7 @@ export default function ShiftHistoryPage() {
                                         <button
                                             onClick={() => openAmendModal(shift)}
                                             title="Koreksi laporan ini"
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-xs font-medium text-amber-700 dark:text-amber-400 transition-colors"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-warning/30 bg-warning/10 hover:bg-warning/15 text-xs font-medium text-warning transition-colors"
                                         >
                                             <Pencil className="w-3.5 h-3.5" />
                                             Koreksi
@@ -261,7 +261,7 @@ export default function ShiftHistoryPage() {
                                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium text-muted-foreground transition-colors"
                                                 >
                                                     {copiedId === shift.id
-                                                        ? <><Check className="w-3.5 h-3.5 text-emerald-500" /> Tersalin</>
+                                                        ? <><Check className="w-3.5 h-3.5 text-success" /> Tersalin</>
                                                         : <><Copy className="w-3.5 h-3.5" /> Salin Pesan</>
                                                     }
                                                 </button>
@@ -283,7 +283,7 @@ export default function ShiftHistoryPage() {
                                             ].map(item => (
                                                 <div key={item.label} className="bg-background rounded-lg border border-border p-3">
                                                     <p className="text-xs text-muted-foreground">{item.label}</p>
-                                                    <p className={`font-bold mt-0.5 ${item.red ? 'text-orange-600' : 'text-foreground'}`}>
+                                                    <p className={`font-bold mt-0.5 nums ${item.red ? 'text-warning' : 'text-foreground'}`}>
                                                         Rp {item.value.toLocaleString('id-ID')}
                                                     </p>
                                                 </div>
@@ -309,13 +309,13 @@ export default function ShiftHistoryPage() {
 
                                         {/* Amend info */}
                                         {shift.amendedAt && (
-                                            <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 space-y-1">
-                                                <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
+                                            <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 space-y-1">
+                                                <div className="flex items-center gap-2 text-xs font-semibold text-warning uppercase tracking-wider">
                                                     <Pencil className="w-3.5 h-3.5" />
                                                     Laporan Dikoreksi — {dayjs(shift.amendedAt).format('DD MMM YYYY, HH:mm')}
                                                 </div>
                                                 {shift.amendNote && (
-                                                    <p className="text-sm text-amber-800 dark:text-amber-300">{shift.amendNote}</p>
+                                                    <p className="text-sm text-warning">{shift.amendNote}</p>
                                                 )}
                                             </div>
                                         )}
@@ -374,9 +374,9 @@ export default function ShiftHistoryPage() {
                             {/* Body */}
                             <div className="flex-1 px-6 py-5 space-y-6 overflow-y-auto">
                                 {/* Warning */}
-                                <div className="flex gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3">
-                                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                                <div className="flex gap-2 rounded-lg bg-warning/10 border border-warning/30 p-3">
+                                    <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                                    <p className="text-xs text-warning">
                                         Koreksi ini mengubah data laporan shift. Data transaksi sistem tidak berubah. Wajib isi alasan koreksi.
                                     </p>
                                 </div>
@@ -390,7 +390,7 @@ export default function ShiftHistoryPage() {
                                     ].map(({ label, val }) => (
                                         <div key={label} className="bg-muted/50 rounded-lg p-2 text-center">
                                             <p className="text-muted-foreground">{label}</p>
-                                            <p className="font-semibold text-foreground mt-0.5">Rp {val.toLocaleString('id-ID')}</p>
+                                            <p className="font-semibold text-foreground mt-0.5 nums">Rp {val.toLocaleString('id-ID')}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -418,9 +418,9 @@ export default function ShiftHistoryPage() {
                                 </section>
 
                                 {/* Panduan skenario */}
-                                <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 space-y-2">
-                                    <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">Panduan Koreksi</p>
-                                    <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1.5">
+                                <div className="rounded-lg border border-info/30 bg-info/10 px-4 py-3 space-y-2">
+                                    <p className="text-xs font-semibold text-info">Panduan Koreksi</p>
+                                    <div className="text-xs text-info space-y-1.5">
                                         <p><span className="font-medium">Tambah keterangan pengeluaran, saldo tetap:</span> Naikkan nilai <em>Kas Tunai</em> sebesar jumlah pengeluaran yang ditambahkan. Contoh: tambah pengeluaran ATK Rp 50.000 → naikkan Kas Tunai +50.000.</p>
                                         <p><span className="font-medium">Ubah saldo saja, keterangan tetap:</span> Cukup ubah nilai <em>Kas Tunai / QRIS</em>, biarkan bagian lain tidak berubah.</p>
                                     </div>
@@ -710,7 +710,7 @@ export default function ShiftHistoryPage() {
                                 <button
                                     onClick={handleAmendSubmit}
                                     disabled={amendMutation.isPending || !amendState.amendNote.trim()}
-                                    className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+                                    className="flex-1 px-4 py-2.5 rounded-xl bg-warning hover:bg-warning/90 disabled:opacity-50 text-warning-foreground text-sm font-semibold transition-colors"
                                 >
                                     {amendMutation.isPending ? 'Menyimpan...' : 'Simpan Koreksi'}
                                 </button>

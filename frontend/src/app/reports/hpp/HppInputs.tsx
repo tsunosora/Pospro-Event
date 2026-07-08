@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Search, Database } from "lucide-react";
+import { Search, Database, Plus, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function CustomNameInput({ value, onChange, onSwitchToStock }: { value: string; onChange: (val: string) => void; onSwitchToStock: () => void }) {
@@ -18,7 +18,7 @@ export function CustomNameInput({ value, onChange, onSwitchToStock }: { value: s
                 autoFocus
                 className="w-full pl-3 pr-8 py-2 bg-background border border-primary rounded-[6px] text-[13px] font-semibold text-foreground outline-none focus:ring-1 focus:ring-primary/20"
             />
-            <button type="button" title="Pilih dari stok" onClick={onSwitchToStock} className="absolute right-2 text-muted-foreground hover:text-green-600 transition-colors">
+            <button type="button" title="Pilih dari stok" onClick={onSwitchToStock} className="absolute right-2 text-muted-foreground hover:text-success transition-colors cursor-pointer">
                 <Database className="w-3.5 h-3.5" />
             </button>
         </div>
@@ -72,7 +72,7 @@ export function VariantCombobox({ rowId, currentVariantId, currentName, dbProduc
     return (
         <div ref={containerRef} className="relative">
             <div
-                className="flex items-center bg-card border border-green-500 rounded-[6px] overflow-hidden cursor-text"
+                className="flex items-center bg-card border border-success rounded-[6px] overflow-hidden cursor-text"
                 onClick={() => { setOpen(true); }}
             >
                 {open ? (
@@ -95,7 +95,7 @@ export function VariantCombobox({ rowId, currentVariantId, currentName, dbProduc
                         {currentName || '— Pilih Bahan dari Stok —'}
                     </span>
                 )}
-                <Search className="w-3.5 h-3.5 text-green-500 mr-2 shrink-0 pointer-events-none" />
+                <Search className="w-3.5 h-3.5 text-success mr-2 shrink-0 pointer-events-none" />
             </div>
             {open && (
                 <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-[6px] shadow-lg max-h-52 overflow-y-auto">
@@ -106,7 +106,7 @@ export function VariantCombobox({ rowId, currentVariantId, currentName, dbProduc
                                 onMouseDown={(e) => { e.preventDefault(); handleUseAsCustom(query); }}
                                 className="w-full text-left px-3 py-2.5 text-[13px] text-primary font-semibold hover:bg-primary/10 transition-colors"
                             >
-                                ➕ Tambah &ldquo;{query}&rdquo; sebagai bahan custom
+                                <Plus className="w-3.5 h-3.5 inline mr-1" /> Tambah &ldquo;{query}&rdquo; sebagai bahan custom
                             </button>
                         ) : (
                             <div className="px-3 py-2 text-[12px] text-muted-foreground">Ketik nama bahan...</div>
@@ -135,9 +135,9 @@ export function VariantCombobox({ rowId, currentVariantId, currentName, dbProduc
                             e.preventDefault();
                             handleUseAsCustom(query);
                         }}
-                        className="w-full text-left px-3 py-2 text-[13px] text-orange-600 font-bold border-t border-border hover:bg-orange-50 transition-colors"
+                        className="w-full text-left px-3 py-2 text-[13px] text-warning font-bold border-t border-border hover:bg-warning/10 transition-colors"
                     >
-                        ✏️ Input Manual (tidak ada di stok)
+                        <Pencil className="w-3.5 h-3.5 inline mr-1" /> Input Manual (tidak ada di stok)
                     </button>
                 </div>
             )}

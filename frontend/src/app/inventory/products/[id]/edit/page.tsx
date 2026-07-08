@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCategories, getUnits, getProduct, updateProduct, uploadProductImages, uploadVariantImage, getSettings, getProducts, getHppWorksheets, createHppWorksheet, updateHppWorksheet, applyHppToVariant } from '@/lib/api';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2, RefreshCw, Calculator, Pencil } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Upload, Image as ImageIcon, FlaskConical, X, Ruler, Package, Link2, RefreshCw, Calculator, Pencil, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -579,8 +579,8 @@ export default function EditProductPage() {
                             <label className="text-sm font-medium">Tipe Produk</label>
                             <div className="grid grid-cols-1 min-[480px]:grid-cols-3 gap-2">
                                 {([
-                                    { value: 'SELLABLE',     label: 'Siap Jual',  desc: 'Produk retail / dagangan langsung.',   cls: 'border-emerald-400 bg-emerald-50',   dot: 'bg-emerald-500' },
-                                    { value: 'RAW_MATERIAL', label: 'Bahan Baku', desc: 'Material untuk produksi / resep.',      cls: 'border-amber-400 bg-amber-50',       dot: 'bg-amber-500' },
+                                    { value: 'SELLABLE',     label: 'Siap Jual',  desc: 'Produk retail / dagangan langsung.',   cls: 'border-success bg-success/10',   dot: 'bg-success' },
+                                    { value: 'RAW_MATERIAL', label: 'Bahan Baku', desc: 'Material untuk produksi / resep.',      cls: 'border-warning bg-warning/10',       dot: 'bg-warning' },
                                     { value: 'SERVICE',      label: 'Jasa',       desc: 'Layanan, tidak ada stok fisik.',        cls: 'border-violet-400 bg-violet-50',     dot: 'bg-violet-500' },
                                 ] as const).map(opt => (
                                     <div
@@ -642,7 +642,7 @@ export default function EditProductPage() {
                                 </div>
                             </label>
                             {requiresProduction && (
-                                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-border hover:border-amber-400/50 transition-colors bg-amber-500/5">
+                                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-border hover:border-warning/50 transition-colors bg-warning/5">
                                     <input type="checkbox" checked={hasAssemblyStage} onChange={e => setHasAssemblyStage(e.target.checked)}
                                         className="w-4 h-4 rounded accent-amber-500" />
                                     <div>
@@ -675,7 +675,7 @@ export default function EditProductPage() {
                         </button>
                     </label>
                     {!trackStock && (
-                        <p className="mt-2 text-xs text-blue-600 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2">
+                        <p className="mt-2 text-xs text-info bg-info/15 border border-info/30 rounded-lg px-3 py-2">
                             Produk ini akan tampil dengan ikon ∞ di POS & inventori. Stok tidak akan dipotong saat checkout.
                         </p>
                     )}
@@ -794,7 +794,7 @@ export default function EditProductPage() {
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                                                     Harga Bertingkat
-                                                    {v.priceTiers.length > 0 && <span className="ml-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded font-semibold">{v.priceTiers.length} tier</span>}
+                                                    {v.priceTiers.length > 0 && <span className="ml-1.5 bg-warning/15 text-warning px-1.5 py-0.5 rounded font-semibold">{v.priceTiers.length} tier</span>}
                                                 </span>
                                                 <button type="button" onClick={() => addTier(index)} className="flex items-center gap-1 text-xs text-primary font-semibold py-1 px-2 bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors">
                                                     <Plus className="w-3.5 h-3.5" /> Tambah Tier
@@ -804,7 +804,7 @@ export default function EditProductPage() {
                                                 <p className="text-[11px] text-muted-foreground">Harga Jual di atas berlaku untuk semua qty.</p>
                                             )}
                                             {v.priceTiers.map((tier, ti) => (
-                                                <div key={ti} className="bg-orange-50/60 dark:bg-orange-950/10 border border-orange-200/60 dark:border-orange-800/30 rounded-lg p-2.5 space-y-2">
+                                                <div key={ti} className="bg-warning/10 border border-warning/30 rounded-lg p-2.5 space-y-2">
                                                     <div className="flex gap-2 items-center">
                                                         <input type="text" value={tier.tierName}
                                                             onChange={e => updateTier(index, ti, 'tierName', e.target.value)}
@@ -885,12 +885,12 @@ export default function EditProductPage() {
                                         <button
                                             type="button"
                                             onClick={() => toggleHppSection(index)}
-                                            className={`flex items-center gap-2 text-sm font-medium transition-colors ${hppOpenVariants.has(index) ? 'text-amber-700' : 'text-muted-foreground hover:text-foreground'}`}
+                                            className={`flex items-center gap-2 text-sm font-medium transition-colors ${hppOpenVariants.has(index) ? 'text-warning' : 'text-muted-foreground hover:text-foreground'}`}
                                         >
                                             <Calculator className="w-4 h-4" />
                                             HPP Worksheet
                                             {(hppByVariantId[v.id!] || []).length > 0 && (
-                                                <span className="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">
+                                                <span className="ml-1 text-xs bg-warning/15 text-warning px-1.5 py-0.5 rounded font-semibold">
                                                     {(hppByVariantId[v.id!] || []).length}
                                                 </span>
                                             )}
@@ -906,12 +906,12 @@ export default function EditProductPage() {
                                                         const hppVal = calcHppPerUnit(ws.variableCosts, ws.fixedCosts, ws.targetVolume);
                                                         const margin = Number(v.price) > 0 ? ((Number(v.price) - hppVal) / Number(v.price)) * 100 : 0;
                                                         return (
-                                                            <div key={ws.id} className="flex items-center justify-between gap-3 bg-amber-50/50 border border-amber-200 rounded-lg px-3 py-2">
+                                                            <div key={ws.id} className="flex items-center justify-between gap-3 bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
                                                                 <div>
                                                                     <p className="text-xs font-semibold text-foreground">{ws.productName}</p>
                                                                     <p className="text-xs text-muted-foreground">
-                                                                        HPP: <span className="font-bold text-foreground">Rp {Math.round(hppVal).toLocaleString('id-ID')}</span>/unit ·{' '}
-                                                                        <span className={`font-semibold ${margin < 0 ? 'text-destructive' : margin < 20 ? 'text-amber-600' : 'text-emerald-600'}`}>{margin.toFixed(1)}% margin</span>
+                                                                        HPP: <span className="font-bold text-foreground nums">Rp {Math.round(hppVal).toLocaleString('id-ID')}</span>/unit ·{' '}
+                                                                        <span className={`font-semibold ${margin < 0 ? 'text-destructive' : margin < 20 ? 'text-warning' : 'text-success'}`}>{margin.toFixed(1)}% margin</span>
                                                                     </p>
                                                                 </div>
                                                                 <button
@@ -928,7 +928,7 @@ export default function EditProductPage() {
                                                 <button
                                                     type="button"
                                                     onClick={() => openHppEditor(index, null)}
-                                                    className="text-xs text-amber-700 border border-dashed border-amber-300 bg-amber-50/50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
+                                                    className="text-xs text-warning border border-dashed border-warning/30 bg-warning/10 px-3 py-1.5 rounded-lg hover:bg-warning/20 transition-colors"
                                                 >
                                                     + Tambah Worksheet HPP
                                                 </button>
@@ -1008,7 +1008,7 @@ export default function EditProductPage() {
                                                     ))}
                                                 </select>
                                                 {ing.rawMaterialVariantId && (
-                                                    <span className="text-xs text-green-600 font-semibold shrink-0 bg-green-50 dark:bg-green-950/20 px-2 py-1 rounded-lg border border-green-200 dark:border-green-800">✓ Link</span>
+                                                    <span className="inline-flex items-center gap-1 text-xs text-success font-semibold shrink-0 bg-success/15 px-2 py-1 rounded-lg border border-success/30"><CheckCircle2 className="w-3 h-3" /> Link</span>
                                                 )}
                                             </div>
                                         </div>
@@ -1054,18 +1054,18 @@ export default function EditProductPage() {
                                         <div className="mt-5 p-4 bg-primary/5 rounded-xl border border-primary/20 space-y-3">
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="text-muted-foreground font-medium">Total HPP Bahan Baku:</span>
-                                                <span className="font-bold text-foreground">Rp {totalHpp.toLocaleString('id-ID')}</span>
+                                                <span className="font-bold text-foreground nums">Rp {totalHpp.toLocaleString('id-ID')}</span>
                                             </div>
 
                                             {hasSingleVariant && variantPrice > 0 && (
                                                 <>
                                                     <div className="flex justify-between items-center text-sm pt-3 border-t border-border/50">
                                                         <span className="text-muted-foreground font-medium">Harga Jual Varian:</span>
-                                                        <span className="font-semibold text-foreground">Rp {variantPrice.toLocaleString('id-ID')}</span>
+                                                        <span className="font-semibold text-foreground nums">Rp {variantPrice.toLocaleString('id-ID')}</span>
                                                     </div>
                                                     <div className="flex justify-between items-center text-sm">
                                                         <span className="text-muted-foreground font-medium">Est. Margin / Keuntungan:</span>
-                                                        <span className={`font-bold ${profit > 0 ? 'text-green-600' : profit < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                                        <span className={`font-bold ${profit > 0 ? 'text-success' : profit < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                                                             {marginPercent}% (Rp {profit.toLocaleString('id-ID')})
                                                         </span>
                                                     </div>
@@ -1175,16 +1175,16 @@ export default function EditProductPage() {
                                     </div>
                                 </div>
 
-                                <div className={`rounded-xl p-4 border ${liveMargin < 0 ? 'bg-destructive/5 border-destructive/20' : liveMargin < 20 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                                <div className={`rounded-xl p-4 border ${liveMargin < 0 ? 'bg-destructive/5 border-destructive/20' : liveMargin < 20 ? 'bg-warning/10 border-warning/30' : 'bg-success/10 border-success/30'}`}>
                                     <div className="flex items-center justify-between flex-wrap gap-3">
                                         <div>
                                             <p className="text-xs text-muted-foreground">HPP per unit</p>
-                                            <p className="text-xl font-bold text-foreground">Rp {Math.round(liveHpp).toLocaleString('id-ID')}</p>
+                                            <p className="text-xl font-bold text-foreground nums">Rp {Math.round(liveHpp).toLocaleString('id-ID')}</p>
                                             <p className="text-xs text-muted-foreground mt-0.5">dari volume {f.targetVolume} unit</p>
                                         </div>
                                         <div className="text-right">
                                             <p className="text-xs text-muted-foreground">Margin vs harga jual</p>
-                                            <p className={`text-2xl font-bold ${liveMargin < 0 ? 'text-destructive' : liveMargin < 20 ? 'text-amber-600' : 'text-emerald-600'}`}>{liveMargin.toFixed(1)}%</p>
+                                            <p className={`text-2xl font-bold nums ${liveMargin < 0 ? 'text-destructive' : liveMargin < 20 ? 'text-warning' : 'text-success'}`}>{liveMargin.toFixed(1)}%</p>
                                             <p className="text-xs text-muted-foreground">target: {f.targetMargin}%</p>
                                         </div>
                                     </div>
@@ -1197,7 +1197,7 @@ export default function EditProductPage() {
                                     <button type="button" onClick={() => handleHppSave(false)} disabled={hppSaving} className="px-4 py-2 border border-border bg-muted/50 text-foreground rounded-lg font-medium hover:bg-muted disabled:opacity-50 text-sm">
                                         {hppSaving ? 'Menyimpan...' : 'Simpan'}
                                     </button>
-                                    <button type="button" onClick={() => handleHppSave(true)} disabled={hppSaving} className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 disabled:opacity-50 text-sm">
+                                    <button type="button" onClick={() => handleHppSave(true)} disabled={hppSaving} className="px-4 py-2 bg-warning text-warning-foreground rounded-lg font-medium hover:bg-warning/90 disabled:opacity-50 text-sm">
                                         {hppSaving ? 'Menyimpan...' : 'Simpan & Terapkan ke Varian'}
                                     </button>
                                 </div>

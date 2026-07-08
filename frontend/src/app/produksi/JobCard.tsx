@@ -1,5 +1,6 @@
 "use client";
 
+import { FileText } from 'lucide-react';
 import { Tab, formatDeadline, getDimLabel, getSambungInfo } from './produksi-utils';
 
 interface JobCardProps {
@@ -37,7 +38,7 @@ export function JobCard({ job, tab, gangMode, selected, onSelect, onProcess, onC
             onClick={gangMode && tab === 'ANTRIAN' ? onSelect : undefined}
             className={`bg-card border rounded-2xl overflow-hidden transition-all ${selected ? 'border-primary ring-2 ring-primary/30' : 'border-border'} ${gangMode && tab === 'ANTRIAN' ? 'cursor-pointer active:scale-[0.99]' : ''}`}>
 
-            <div className={`h-1 ${isExpress ? 'bg-red-500' : 'bg-muted'}`} />
+            <div className={`h-1 ${isExpress ? 'bg-destructive' : 'bg-muted'}`} />
 
             <div className="p-4">
                 <div className="flex items-start justify-between gap-2 mb-2">
@@ -48,17 +49,17 @@ export function JobCard({ job, tab, gangMode, selected, onSelect, onProcess, onC
                             </div>
                         )}
                         {isExpress && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 bg-red-500 text-white rounded-full">EXPRESS</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-destructive text-destructive-foreground rounded-full">EXPRESS</span>
                         )}
                         {sambung.needsSambung && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 bg-orange-500/15 text-orange-600 border border-orange-500/30 rounded-full">SAMBUNG ×{sambung.strips}</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-warning/15 text-warning border border-warning/30 rounded-full">SAMBUNG ×{sambung.strips}</span>
                         )}
                         <span className="text-xs font-mono text-muted-foreground">{job.jobNumber}</span>
                         {job.batch && (
-                            <span className="text-[10px] font-medium px-2 py-0.5 bg-blue-500/15 text-blue-600 rounded-full">{job.batch.batchNumber}</span>
+                            <span className="text-[10px] font-medium px-2 py-0.5 bg-info/15 text-info rounded-full">{job.batch.batchNumber}</span>
                         )}
                     </div>
-                    <span className={`text-xs font-medium shrink-0 ${dl.urgent ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
+                    <span className={`text-xs font-medium shrink-0 ${dl.urgent ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
                         {dl.label}
                     </span>
                 </div>
@@ -72,11 +73,11 @@ export function JobCard({ job, tab, gangMode, selected, onSelect, onProcess, onC
                         <span className="text-xs px-2 py-1 bg-muted/60 rounded-lg text-muted-foreground">{variantName}</span>
                     )}
                     {isUnit ? (
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-lg font-semibold">
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-lg font-semibold nums">
                             {job.transactionItem?.quantity ?? 1} pcs
                         </span>
                     ) : getDimLabel(job) ? (
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-lg font-mono font-medium">{getDimLabel(job)}</span>
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-lg font-mono font-medium nums">{getDimLabel(job)}</span>
                     ) : null}
                 </div>
 
@@ -94,13 +95,11 @@ export function JobCard({ job, tab, gangMode, selected, onSelect, onProcess, onC
                 )}
 
                 {!gangMode && (
-                    <div className="mt-3 flex gap-2 justify-end">
+                    <div className="mt-3 flex flex-wrap gap-2 justify-end">
                         <button onClick={e => { e.stopPropagation(); onDetail(job); }}
-                            className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                            className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                             title="Lihat detail invoice">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                            <FileText className="w-4 h-4" />
                         </button>
                         {tab === 'ANTRIAN' && (
                             <button onClick={e => { e.stopPropagation(); onProcess(); }}
@@ -110,19 +109,19 @@ export function JobCard({ job, tab, gangMode, selected, onSelect, onProcess, onC
                         )}
                         {tab === 'PROSES' && !job.batchId && (
                             <button onClick={() => onComplete(job.id)}
-                                className="px-4 py-2 bg-green-500 text-white rounded-xl text-sm font-bold active:scale-95 transition-transform">
+                                className="px-4 py-2 bg-success text-white rounded-xl text-sm font-bold active:scale-95 transition-transform">
                                 Selesai
                             </button>
                         )}
                         {tab === 'MENUNGGU_PASANG' && (
                             <button onClick={() => onStartAssembly(job)}
-                                className="px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-bold active:scale-95 transition-transform">
+                                className="px-4 py-2 bg-warning text-warning-foreground rounded-xl text-sm font-bold active:scale-95 transition-transform">
                                 Mulai Pasang
                             </button>
                         )}
                         {tab === 'PASANG' && (
                             <button onClick={() => onCompleteAssembly(job.id)}
-                                className="px-4 py-2 bg-green-500 text-white rounded-xl text-sm font-bold active:scale-95 transition-transform">
+                                className="px-4 py-2 bg-success text-white rounded-xl text-sm font-bold active:scale-95 transition-transform">
                                 Selesai Pasang
                             </button>
                         )}

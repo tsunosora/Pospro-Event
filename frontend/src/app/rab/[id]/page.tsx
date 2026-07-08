@@ -39,10 +39,18 @@ import {
     Bookmark,
     BookmarkCheck,
     Calculator,
+    AlertTriangle,
+    Lightbulb,
+    Wallet,
+    FileText,
+    Tag,
+    CheckCircle2,
+    BarChart2,
+    RotateCcw,
+    ClipboardList,
 } from "lucide-react";
 import MultiplierCalculator, { type CalcResult } from "../MultiplierCalculator";
 import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
-import { BrandBadge } from "@/components/BrandBadge";
 import InventoryAcquisitionsSection from "./InventoryAcquisitionsSection";
 import { CustomerPickerModal } from "@/components/CustomerPickerModal";
 import { TagChipInput } from "@/components/TagChipInput";
@@ -483,7 +491,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                         <h1 className="text-xl font-bold">{title || "Untitled RAB"}</h1>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <button
                         onClick={() => saveMut.mutate()}
                         disabled={saveMut.isPending}
@@ -518,17 +526,18 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                     {/* Cashflow status — auto-sync indicator + link */}
                     <Link
                         href={`/cashflow?rabPlanId=${id}`}
-                        className="flex items-center gap-2 border-2 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300 px-3 py-2 rounded-md transition"
+                        className="flex items-center gap-2 border-2 border-success/30 bg-success/10 hover:bg-success/15 text-success px-3 py-2 rounded-md transition"
                         title="Cashflow auto-sync setiap kali Simpan RAB. Klik untuk lihat entries di Cashflow page."
                     >
-                        💸 Cashflow Tersinkron
+                        <Wallet className="h-4 w-4" />
+                        Cashflow Tersinkron
                     </Link>
                 </div>
             </div>
 
             {/* Brand picker — pilih CV mana surat penawaran akan pakai */}
-            <div className="border-2 rounded-lg p-3 bg-slate-50 flex items-center gap-3 flex-wrap">
-                <span className="text-sm font-semibold text-slate-700">Brand:</span>
+            <div className="border-2 rounded-lg p-3 bg-muted flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-semibold text-foreground">Brand:</span>
                 {ACTIVE_BRANDS.map((b) => {
                     const meta = BRAND_META[b];
                     const active = brand === b;
@@ -539,7 +548,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                             onClick={() => setBrand(b)}
                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 text-sm font-semibold transition ${active
                                 ? `${meta.bg} ${meta.text} ${meta.border}`
-                                : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                                : "bg-card text-foreground border-border hover:border-foreground/50"
                                 }`}
                         >
                             <span>{meta.emoji}</span>
@@ -548,8 +557,9 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                     );
                 })}
                 {brand === null && (
-                    <span className="text-xs text-amber-700 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
-                        ⚠ Belum di-tag — pilih agar surat penawaran pakai header benar
+                    <span className="inline-flex items-center gap-1 text-xs text-warning bg-warning/15 border border-warning/30 px-2 py-0.5 rounded-full">
+                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                        Belum di-tag — pilih agar surat penawaran pakai header benar
                     </span>
                 )}
                 <span className="text-[11px] text-muted-foreground ml-auto">
@@ -619,7 +629,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                             <button
                                 type="button"
                                 onClick={() => setCustomerId(null)}
-                                className="p-2 text-muted-foreground hover:text-red-600"
+                                className="p-2 text-muted-foreground hover:text-destructive transition-colors"
                                 title="Lepas"
                             >
                                 <X className="h-3.5 w-3.5" />
@@ -638,9 +648,9 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
             </div>
 
             {/* Tag — full width below header form */}
-            <div className="border rounded-lg p-3 bg-blue-50/30">
+            <div className="border rounded-lg p-3 bg-info/5">
                 <label className="text-xs font-medium text-muted-foreground block mb-1.5 inline-flex items-center gap-1.5">
-                    🏷️ Tag / Kategori RAB
+                    <Tag className="h-3.5 w-3.5" /> Tag / Kategori RAB
                     <span className="text-[10px] font-normal italic">(memudahkan filter & pencarian — mis. "Stand Standar 3x3", "Pengadaan", "Indoor")</span>
                 </label>
                 <TagChipInput
@@ -670,7 +680,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                     )}
                                     {cat.name}
                                     {!cat.isActive && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                                             nonaktif
                                         </span>
                                     )}
@@ -680,13 +690,13 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                 </button>
                                 <div className="flex items-center gap-4 text-xs">
                                     <span>
-                                        RAB: <b className="font-mono">{fmtRp(sub.rab)}</b>
+                                        RAB: <b className="font-mono nums">{fmtRp(sub.rab)}</b>
                                     </span>
                                     <span className="text-muted-foreground">
-                                        COST: <b className="font-mono">{fmtRp(sub.cost)}</b>
+                                        COST: <b className="font-mono nums">{fmtRp(sub.cost)}</b>
                                     </span>
-                                    <span className={sub.selisih >= 0 ? "text-green-600" : "text-red-600"}>
-                                        Selisih: <b className="font-mono">{fmtRp(sub.selisih)}</b>
+                                    <span className={sub.selisih >= 0 ? "text-success" : "text-destructive"}>
+                                        Selisih: <b className="font-mono nums">{fmtRp(sub.selisih)}</b>
                                     </span>
                                     <button
                                         onClick={() => setShowPicker(cat.id)}
@@ -707,7 +717,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                             </div>
 
                             {!isCollapsed && list.length > 0 && (
-                                <div className="p-3 space-y-3 bg-slate-50/50">
+                                <div className="p-3 space-y-3 bg-muted/20">
                                     {list.map((it, idx) => {
                                         const { subRab, subCost, selisih } = calcRow(it);
                                         const hasDesc = !!it.description?.trim();
@@ -719,18 +729,18 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                 className={
                                                     "border-2 rounded-xl overflow-hidden transition " +
                                                     (it.isInventory
-                                                        ? "bg-violet-50/40 border-violet-300 hover:border-violet-400 ring-1 ring-violet-200"
-                                                        : "bg-white border-slate-200 hover:border-slate-300")
+                                                        ? "bg-primary/10 border-primary/40 hover:border-primary/50 ring-1 ring-primary/30"
+                                                        : "bg-card border-border hover:border-foreground/30")
                                                 }
                                             >
                                                 {/* Header: nomor + uraian + hapus */}
-                                                <div className={"flex items-start gap-2 p-3 border-b " + (it.isInventory ? "bg-violet-50/60" : "bg-white")}>
-                                                    <span className={"shrink-0 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center mt-1 " + (it.isInventory ? "bg-violet-200 text-violet-800" : "bg-slate-100 text-slate-600")}>
+                                                <div className={"flex items-start gap-2 p-3 border-b " + (it.isInventory ? "bg-primary/10" : "bg-card")}>
+                                                    <span className={"shrink-0 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center mt-1 " + (it.isInventory ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground")}>
                                                         {idx + 1}
                                                     </span>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between gap-2 mb-1">
-                                                            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                                            <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                                                 Uraian Item
                                                             </label>
                                                             {/* Toggle Inventaris — prominent di header item */}
@@ -738,8 +748,8 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                                 className={
                                                                     "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold border cursor-pointer transition select-none " +
                                                                     (it.isInventory
-                                                                        ? "border-violet-400 bg-violet-200 text-violet-900 hover:bg-violet-300"
-                                                                        : "border-violet-200 bg-white text-violet-700 hover:bg-violet-50")
+                                                                        ? "border-primary/50 bg-primary/20 text-primary hover:bg-primary/30"
+                                                                        : "border-primary/30 bg-card text-primary hover:bg-primary/10")
                                                                 }
                                                                 title={it.isInventory
                                                                     ? "Item ini ditandai sebagai BARANG INVENTARIS (aset perusahaan, tidak dihitung sebagai cost murni event). Klik untuk batal."
@@ -750,9 +760,9 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                                     type="checkbox"
                                                                     checked={!!it.isInventory}
                                                                     onChange={(e) => updateItem(it._key, { isInventory: e.target.checked })}
-                                                                    className="h-3.5 w-3.5 accent-violet-600"
+                                                                    className="h-3.5 w-3.5 accent-primary"
                                                                 />
-                                                                📦 Barang Inventaris
+                                                                <Package className="h-3.5 w-3.5" /> Barang Inventaris
                                                             </label>
                                                         </div>
                                                         <UraianAutocomplete
@@ -786,7 +796,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                         />
                                                         <div className="mt-2 flex flex-wrap items-center gap-2">
                                                             <div className="flex items-center gap-1.5">
-                                                                <span className="text-[11px] text-slate-500">Satuan:</span>
+                                                                <span className="text-xs text-muted-foreground">Satuan:</span>
                                                                 <input
                                                                     type="text"
                                                                     value={it.unit || ""}
@@ -834,7 +844,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                     </div>
                                                     <button
                                                         onClick={() => removeItem(it._key)}
-                                                        className="shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                                                        className="shrink-0 p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                                                         title="Hapus item"
                                                     >
                                                         <Trash2 className="h-4 w-4" />
@@ -842,20 +852,20 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                 </div>
 
                                                 {/* Dua panel: RAB & COST */}
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-200">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-border">
                                                     {/* Panel RAB (Klien) */}
-                                                    <div className="bg-blue-50/40 p-3">
+                                                    <div className="bg-info/10 p-3">
                                                         <div className="flex items-center justify-between mb-2">
                                                             <div className="flex items-center gap-1.5">
-                                                                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                                                <span className="text-xs font-bold text-blue-800 uppercase tracking-wide">
+                                                                <span className="w-2 h-2 rounded-full bg-info" />
+                                                                <span className="text-xs font-bold text-info uppercase tracking-wide">
                                                                     Total Perkiraan Biaya
                                                                 </span>
                                                             </div>
                                                         </div>
                                                         <div className="grid grid-cols-2 gap-2">
                                                             <div>
-                                                                <label className="block text-[11px] text-slate-600 mb-0.5">
+                                                                <label className="block text-xs text-muted-foreground mb-0.5">
                                                                     Jumlah
                                                                 </label>
                                                                 <input
@@ -868,11 +878,11 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                                             quantity: parseFloat(e.target.value) || 0,
                                                                         })
                                                                     }
-                                                                    className="w-full border-2 border-blue-200 focus:border-blue-500 outline-none rounded px-2 py-1.5 text-right text-sm bg-white"
+                                                                    className="w-full border-2 border-info/30 focus:border-info outline-none rounded px-2 py-1.5 text-right text-sm bg-card"
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label className="block text-[11px] text-slate-600 mb-0.5">
+                                                                <label className="block text-xs text-muted-foreground mb-0.5">
                                                                     Harga
                                                                 </label>
                                                                 <input
@@ -885,26 +895,26 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                                             priceRab: parseFloat(e.target.value) || 0,
                                                                         })
                                                                     }
-                                                                    className="w-full border-2 border-blue-200 focus:border-blue-500 outline-none rounded px-2 py-1.5 text-right font-mono text-sm bg-white"
+                                                                    className="w-full border-2 border-info/30 focus:border-info outline-none rounded px-2 py-1.5 text-right font-mono nums text-sm bg-card"
                                                                 />
                                                             </div>
                                                         </div>
                                                         <div className="mt-2 flex items-baseline justify-between">
-                                                            <span className="text-[11px] text-slate-600">
+                                                            <span className="text-xs text-muted-foreground">
                                                                 Subtotal
                                                             </span>
-                                                            <span className="font-mono font-bold text-blue-800">
+                                                            <span className="font-mono nums font-bold text-info">
                                                                 {fmtRp(subRab)}
                                                             </span>
                                                         </div>
                                                     </div>
 
                                                     {/* Panel COST (Internal) */}
-                                                    <div className="bg-amber-50/40 p-3">
+                                                    <div className="bg-warning/10 p-3">
                                                         <div className="flex items-center justify-between mb-2">
                                                             <div className="flex items-center gap-1.5">
-                                                                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                                                                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">
+                                                                <span className="w-2 h-2 rounded-full bg-warning" />
+                                                                <span className="text-xs font-bold text-warning uppercase tracking-wide">
                                                                     Biaya Internal (Cost)
                                                                 </span>
                                                             </div>
@@ -912,7 +922,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                                 type="button"
                                                                 onClick={() => setCalcOpenKey(it._key)}
                                                                 title="Kalkulator: hitung qty dari org × hari × jam × kali"
-                                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-blue-300 bg-white text-blue-700 text-[11px] font-semibold hover:bg-blue-50"
+                                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-info/30 bg-card text-info text-xs font-semibold hover:bg-info/10"
                                                             >
                                                                 <Calculator className="h-3 w-3" />
                                                                 Hitung
@@ -920,7 +930,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                         </div>
                                                         <div className="grid grid-cols-2 gap-2">
                                                             <div>
-                                                                <label className="block text-[11px] text-slate-600 mb-0.5">
+                                                                <label className="block text-xs text-muted-foreground mb-0.5">
                                                                     Jumlah
                                                                 </label>
                                                                 <input
@@ -933,11 +943,11 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                                             quantityCost: parseFloat(e.target.value) || 0,
                                                                         })
                                                                     }
-                                                                    className="w-full border-2 border-amber-200 focus:border-amber-500 outline-none rounded px-2 py-1.5 text-right text-sm bg-white"
+                                                                    className="w-full border-2 border-warning/30 focus:border-warning outline-none rounded px-2 py-1.5 text-right text-sm bg-card"
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label className="block text-[11px] text-slate-600 mb-0.5">
+                                                                <label className="block text-xs text-muted-foreground mb-0.5">
                                                                     Harga
                                                                 </label>
                                                                 <input
@@ -951,24 +961,25 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                                         })
                                                                     }
                                                                     placeholder={Number(it.priceRab) > 0 ? "Belum diisi" : "0"}
-                                                                    className={`w-full border-2 outline-none rounded px-2 py-1.5 text-right font-mono text-sm bg-white ${Number(it.priceCost) === 0 && Number(it.priceRab) > 0
-                                                                        ? "border-amber-400 focus:border-amber-600 ring-1 ring-amber-200"
-                                                                        : "border-amber-200 focus:border-amber-500"
+                                                                    className={`w-full border-2 outline-none rounded px-2 py-1.5 text-right font-mono nums text-sm bg-card ${Number(it.priceCost) === 0 && Number(it.priceRab) > 0
+                                                                        ? "border-warning focus:border-warning/80 ring-1 ring-warning/30"
+                                                                        : "border-warning/30 focus:border-warning"
                                                                         }`}
                                                                 />
                                                             </div>
                                                         </div>
                                                         <div className="mt-2 flex items-baseline justify-between">
-                                                            <span className="text-[11px] text-slate-600">
+                                                            <span className="text-xs text-muted-foreground">
                                                                 Subtotal
                                                             </span>
-                                                            <span className="font-mono font-bold text-amber-800">
+                                                            <span className="font-mono nums font-bold text-warning">
                                                                 {fmtRp(subCost)}
                                                             </span>
                                                         </div>
                                                         {Number(it.priceCost) === 0 && Number(it.priceRab) > 0 && (
-                                                            <div className="mt-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-1 italic">
-                                                                ⚠ Real Cost belum diisi — margin item ini terhitung 100%. Update saat sudah tahu modal aktualnya.
+                                                            <div className="mt-1.5 text-[10px] text-warning bg-warning/10 border border-warning/30 rounded px-1.5 py-1 italic inline-flex items-center gap-1">
+                                                                <AlertTriangle className="h-3 w-3 shrink-0" />
+                                                                Real Cost belum diisi — margin item ini terhitung 100%. Update saat sudah tahu modal aktualnya.
                                                             </div>
                                                         )}
                                                     </div>
@@ -976,10 +987,10 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
 
                                                 {/* Footer: notes (kalau ada) + selisih */}
                                                 {(it.notes || hasDesc) && (
-                                                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-white border-t">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-card border-t">
                                                         {it.notes ? (
-                                                            <div className="text-[11px] text-slate-500 italic flex-1 min-w-0 truncate">
-                                                                📝 {it.notes}
+                                                            <div className="text-xs text-muted-foreground italic flex-1 min-w-0 truncate inline-flex items-center gap-1">
+                                                                <FileText className="h-3 w-3 shrink-0" /> {it.notes}
                                                             </div>
                                                         ) : (
                                                             <span />
@@ -987,12 +998,12 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                         <div
                                                             className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
                                                                 untung
-                                                                    ? "bg-emerald-100 text-emerald-700"
-                                                                    : "bg-red-100 text-red-700"
+                                                                    ? "bg-success/15 text-success"
+                                                                    : "bg-destructive/12 text-destructive"
                                                             }`}
                                                         >
                                                             {untung ? "Untung" : "Rugi"}
-                                                            <span className="font-mono">
+                                                            <span className="font-mono nums">
                                                                 {fmtRp(Math.abs(selisih))}
                                                             </span>
                                                         </div>
@@ -1006,14 +1017,14 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                     <div className="flex flex-wrap gap-2 pt-1">
                                         <button
                                             onClick={() => addItem(cat.id)}
-                                            className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-blue-300 bg-blue-50/40 hover:bg-blue-100/60 text-blue-700 rounded-xl font-semibold text-sm transition"
+                                            className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-primary/30 bg-primary/10 hover:bg-primary/15 text-primary rounded-xl font-semibold text-sm transition"
                                         >
                                             <Plus className="h-5 w-5" />
                                             Tambah Item ke {cat.name}
                                         </button>
                                         <button
                                             onClick={() => setShowPicker(cat.id)}
-                                            className="inline-flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-semibold text-sm transition"
+                                            className="inline-flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-border bg-card hover:bg-muted text-foreground rounded-xl font-semibold text-sm transition"
                                             title="Pilih dari katalog produk"
                                         >
                                             <Package className="h-5 w-5" />
@@ -1087,7 +1098,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                     </Row>
                     <div className="flex items-center justify-between pt-2 border-t font-semibold">
                         <span>Total Pendapatan</span>
-                        <span className="font-mono">{fmtRp(totalIncome)}</span>
+                        <span className="font-mono nums">{fmtRp(totalIncome)}</span>
                     </div>
                 </div>
 
@@ -1097,13 +1108,13 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                     {/* Banner peringatan kalau real cost belum diisi */}
                     {(isMarginFake || missingCostCount > 0) && (
                         <div className={`rounded-md border-2 p-2.5 text-xs ${isMarginFake
-                            ? "bg-amber-50 border-amber-300 text-amber-900"
-                            : "bg-blue-50 border-blue-200 text-blue-900"
+                            ? "bg-warning/15 border-warning/30 text-warning"
+                            : "bg-info/15 border-info/30 text-info"
                             }`}>
                             {isMarginFake ? (
                                 <>
                                     <div className="font-bold inline-flex items-center gap-1.5">
-                                        ⚠️ Real Cost belum diisi sama sekali
+                                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Real Cost belum diisi sama sekali
                                     </div>
                                     <p className="text-[11px] mt-1">
                                         Margin tampil 100% karena <b>Total COST = Rp 0</b>. Ini bukan untung beneran — kamu belum input harga modal item-item. Isi kolom <b>"Harga COST"</b> di tiap item supaya margin akurat.
@@ -1112,7 +1123,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                             ) : (
                                 <>
                                     <div className="font-semibold inline-flex items-center gap-1.5">
-                                        💡 {missingCostCount} dari {items.length} item belum ada Real Cost
+                                        <Lightbulb className="h-3.5 w-3.5 shrink-0" /> {missingCostCount} dari {items.length} item belum ada Real Cost
                                     </div>
                                     <p className="text-[11px] mt-0.5">
                                         Margin sebagian item dihitung 100% karena cost belum diisi. Margin total <b>kemungkinan over-estimate</b> sampai cost lengkap.
@@ -1124,69 +1135,69 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
 
                     <div className="flex items-center justify-between text-sm">
                         <span>Total Perkiraan Biaya</span>
-                        <span className="font-mono">{fmtRp(totalRab)}</span>
+                        <span className="font-mono nums">{fmtRp(totalRab)}</span>
                     </div>
                     {inventoryItemCount > 0 ? (
                         <>
                             <div className="flex items-center justify-between text-sm">
                                 <span className="text-muted-foreground">Cost Operasional</span>
-                                <span className="font-mono text-muted-foreground">{fmtRp(costOperational)}</span>
+                                <span className="font-mono nums text-muted-foreground">{fmtRp(costOperational)}</span>
                             </div>
                             <div className="flex items-center justify-between text-sm">
-                                <span className="text-violet-700 inline-flex items-center gap-1">
-                                    📦 Cost Inventaris
+                                <span className="text-primary inline-flex items-center gap-1">
+                                    <Package className="h-4 w-4" /> Cost Inventaris
                                     <span className="text-[10px] text-muted-foreground">({inventoryItemCount} item)</span>
                                 </span>
-                                <span className="font-mono text-violet-700">{fmtRp(costInventory)}</span>
+                                <span className="font-mono nums text-primary">{fmtRp(costInventory)}</span>
                             </div>
                             <div className="flex items-center justify-between text-sm border-t pt-2">
                                 <span className="text-muted-foreground">Total COST</span>
-                                <span className="font-mono text-muted-foreground">{fmtRp(totalCost)}</span>
+                                <span className="font-mono nums text-muted-foreground">{fmtRp(totalCost)}</span>
                             </div>
                             <div
                                 className={`flex items-center justify-between text-base font-bold border-t pt-2 ${
-                                    operationalProfit >= 0 ? "text-green-700" : "text-red-700"
+                                    operationalProfit >= 0 ? "text-success" : "text-destructive"
                                 }`}
                             >
-                                <span>💰 Untung Operasional</span>
-                                <span className="font-mono">{fmtRp(operationalProfit)}</span>
+                                <span className="inline-flex items-center gap-1.5"><Wallet className="h-4 w-4" /> Untung Operasional</span>
+                                <span className="font-mono nums">{fmtRp(operationalProfit)}</span>
                             </div>
                             <div
                                 className={`flex items-center justify-between text-xs font-medium ${
-                                    totalSelisih >= 0 ? "text-green-600" : "text-red-600"
+                                    totalSelisih >= 0 ? "text-success" : "text-destructive"
                                 }`}
                                 title="Margin total termasuk cost inventaris"
                             >
-                                <span>📊 Margin Bersih (incl inventaris)</span>
-                                <span className="font-mono">{fmtRp(totalSelisih)}</span>
+                                <span className="inline-flex items-center gap-1.5"><BarChart2 className="h-4 w-4" /> Margin Bersih (incl inventaris)</span>
+                                <span className="font-mono nums">{fmtRp(totalSelisih)}</span>
                             </div>
-                            <div className="text-[10px] text-muted-foreground italic bg-violet-50 p-2 rounded border border-violet-100">
-                                💡 Untung Operasional lebih representatif untuk evaluasi event ini, karena cost inventaris jadi aset perusahaan (bisa dipakai event berikutnya).
+                            <div className="text-[10px] text-muted-foreground italic bg-primary/10 p-2 rounded border border-primary/20 inline-flex items-start gap-1">
+                                <Lightbulb className="h-3 w-3 shrink-0 mt-0.5" /> Untung Operasional lebih representatif untuk evaluasi event ini, karena cost inventaris jadi aset perusahaan (bisa dipakai event berikutnya).
                             </div>
                         </>
                     ) : (
                         <>
                             <div className="flex items-center justify-between text-sm">
                                 <span className="text-muted-foreground">Total COST (Biaya Riil)</span>
-                                <span className="font-mono text-muted-foreground">{fmtRp(totalCost)}</span>
+                                <span className="font-mono nums text-muted-foreground">{fmtRp(totalCost)}</span>
                             </div>
                             <div
                                 className={`flex items-center justify-between text-sm font-semibold ${
-                                    totalSelisih >= 0 ? "text-green-600" : "text-red-600"
+                                    totalSelisih >= 0 ? "text-success" : "text-destructive"
                                 }`}
                             >
                                 <span>Selisih (Margin)</span>
-                                <span className="font-mono">{fmtRp(totalSelisih)}</span>
+                                <span className="font-mono nums">{fmtRp(totalSelisih)}</span>
                             </div>
                         </>
                     )}
                     <div
                         className={`flex items-center justify-between pt-2 border-t text-base font-bold ${
-                            saldo >= 0 ? "text-green-600" : "text-red-600"
+                            saldo >= 0 ? "text-success" : "text-destructive"
                         }`}
                     >
                         <span>Saldo (Pendapatan − COST)</span>
-                        <span className="font-mono">{fmtRp(saldo)}</span>
+                        <span className="font-mono nums">{fmtRp(saldo)}</span>
                     </div>
                 </div>
             </div>
@@ -1204,19 +1215,19 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
 
             {/* ─── Status Laporan Project — admin tandai laporan lengkap ─── */}
             <div className={`rounded-xl border-2 p-4 sm:p-5 ${reportCompletedAt
-                ? "border-violet-300 bg-gradient-to-br from-violet-50 to-violet-100/60 dark:from-violet-950/30 dark:to-violet-950/10 dark:border-violet-700"
-                : "border-slate-200 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800/40 dark:border-slate-700"
+                ? "border-primary/40 bg-primary/10"
+                : "border-border bg-card"
                 }`}>
                 <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-start gap-3 min-w-0">
                         <div className={`shrink-0 rounded-full p-2.5 ${reportCompletedAt
-                            ? "bg-violet-200 text-violet-800 dark:bg-violet-800/40 dark:text-violet-200"
-                            : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                            ? "bg-primary/20 text-primary"
+                            : "bg-muted text-muted-foreground"
                             }`}>
                             {reportCompletedAt ? (
-                                <span className="text-xl leading-none">📄</span>
+                                <FileText className="h-5 w-5" />
                             ) : (
-                                <span className="text-xl leading-none">📋</span>
+                                <ClipboardList className="h-5 w-5" />
                             )}
                         </div>
                         <div className="min-w-0">
@@ -1225,17 +1236,17 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                             </div>
                             <h3 className="text-base sm:text-lg font-bold mt-0.5">
                                 {reportCompletedAt ? (
-                                    <span className="text-violet-700 dark:text-violet-300 inline-flex items-center gap-1.5">
-                                        ✅ Laporan Lengkap
+                                    <span className="text-primary inline-flex items-center gap-1.5">
+                                        <CheckCircle2 className="h-4 w-4" /> Laporan Lengkap
                                     </span>
                                 ) : (
-                                    <span className="text-slate-700 dark:text-slate-200">
+                                    <span className="text-foreground">
                                         Laporan Belum Lengkap
                                     </span>
                                 )}
                             </h3>
                             {reportCompletedAt ? (
-                                <p className="text-[11px] sm:text-xs text-violet-700/80 dark:text-violet-300/80 mt-0.5">
+                                <p className="text-[11px] sm:text-xs text-primary/80 mt-0.5">
                                     Ditandai lengkap pada <b>{new Date(reportCompletedAt).toLocaleString("id-ID", {
                                         day: "numeric", month: "long", year: "numeric",
                                         hour: "2-digit", minute: "2-digit",
@@ -1259,10 +1270,10 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                     }
                                 }}
                                 disabled={reportMut.isPending}
-                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-violet-300 bg-white text-violet-700 hover:bg-violet-50 text-sm font-semibold disabled:opacity-50 transition"
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-primary/40 bg-card text-primary hover:bg-primary/10 text-sm font-semibold disabled:opacity-50 transition"
                             >
-                                {reportMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                                ↩️ Batalkan Tanda Lengkap
+                                {reportMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                                Batalkan Tanda Lengkap
                             </button>
                         ) : (
                             <button
@@ -1273,9 +1284,9 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                     }
                                 }}
                                 disabled={reportMut.isPending}
-                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-br from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white text-sm font-bold disabled:opacity-50 shadow-md hover:shadow-lg transition"
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold disabled:opacity-50 shadow-md hover:shadow-lg transition"
                             >
-                                {reportMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>✅</span>}
+                                {reportMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                                 Tandai Laporan Lengkap
                             </button>
                         )}
@@ -1434,7 +1445,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                 <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowGenCashflowModal(false)}>
                     <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-5 border border-border" onClick={(e) => e.stopPropagation()}>
                         <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                            💸 Generate Cashflow dari RAB
+                            <Wallet className="h-5 w-5" /> Generate Cashflow dari RAB
                         </h2>
                         <p className="text-xs text-muted-foreground mb-4">
                             Bikin entry expense di Cashflow secara otomatis dari item-item RAB <strong>{rab.code}</strong>.
@@ -1443,7 +1454,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                         <div className="bg-muted/30 rounded p-3 text-sm mb-4 space-y-1">
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Cost RAB:</span>
-                                <strong className="text-red-600">Rp {summary.totals.totalCost.toLocaleString("id-ID")}</strong>
+                                <strong className="text-destructive nums">Rp {summary.totals.totalCost.toLocaleString("id-ID")}</strong>
                             </div>
                             <div className="flex justify-between text-xs text-muted-foreground">
                                 <span>Jumlah Item:</span>
@@ -1481,8 +1492,9 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                             </label>
                         </div>
 
-                        <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800 mb-4">
-                            ⚠️ Entry akan otomatis ter-tag ke RAB ini + event terkait (kalau ada). Mereka di-flag <code>excludeFromShift</code> supaya tidak masuk laporan kasir POS.
+                        <div className="bg-warning/10 border border-warning/30 rounded p-2 text-xs text-warning mb-4 inline-flex items-start gap-1.5 w-full">
+                            <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                            <span>Entry akan otomatis ter-tag ke RAB ini + event terkait (kalau ada). Mereka di-flag <code>excludeFromShift</code> supaya tidak masuk laporan kasir POS.</span>
                         </div>
 
                         <div className="flex justify-end gap-2 pt-3 border-t">
@@ -1495,7 +1507,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                             <button
                                 onClick={() => genCashflowMut.mutate()}
                                 disabled={genCashflowMut.isPending}
-                                className="px-3 py-1.5 text-sm rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
+                                className="px-3 py-1.5 text-sm rounded-md bg-warning text-warning-foreground hover:bg-warning/90 disabled:opacity-50"
                             >
                                 {genCashflowMut.isPending ? "Generating..." : "Generate"}
                             </button>
@@ -1585,8 +1597,8 @@ function FabAddItem({
             <div className="fixed bottom-5 right-5 z-[90] flex flex-col items-end gap-2">
                 {/* Daftar kategori (muncul saat menu open) */}
                 {open && (
-                    <div className="bg-white border-2 border-slate-200 rounded-xl shadow-2xl p-2 max-h-[60vh] overflow-y-auto w-[260px] animate-in fade-in slide-in-from-bottom-2">
-                        <div className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                    <div className="bg-card border-2 border-border rounded-xl shadow-2xl p-2 max-h-[60vh] overflow-y-auto w-[260px] animate-in fade-in slide-in-from-bottom-2">
+                        <div className="px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                             Pilih Kategori
                         </div>
                         {categories.map((c) => (
@@ -1596,9 +1608,9 @@ function FabAddItem({
                                     onAdd(c.id);
                                     setOpen(false);
                                 }}
-                                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-blue-50 text-sm font-medium text-slate-800 flex items-center gap-2"
+                                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-primary/10 text-sm font-medium text-foreground flex items-center gap-2"
                             >
-                                <Plus className="h-4 w-4 text-blue-600" />
+                                <Plus className="h-4 w-4 text-primary" />
                                 {c.name}
                             </button>
                         ))}
@@ -1613,7 +1625,7 @@ function FabAddItem({
                             disabled={isSaving}
                             title="Simpan RAB (Ctrl+S)"
                             aria-label="Simpan RAB (Ctrl+S)"
-                            className="w-12 h-12 rounded-full shadow-2xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                            className="w-12 h-12 rounded-full shadow-2xl bg-success hover:bg-success/90 active:bg-success/80 text-success-foreground flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                         >
                             {isSaving ? (
                                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -1628,7 +1640,7 @@ function FabAddItem({
                             onClick={() => onAdd(lastCat.id)}
                             title={`Tambah item ke ${lastCat.name}`}
                             aria-label={`Tambah item ke ${lastCat.name}`}
-                            className="flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white"
+                            className="flex items-center justify-center w-12 h-12 bg-primary hover:bg-primary/90 active:bg-primary/80 text-primary-foreground"
                         >
                             <Plus className="h-5 w-5" />
                         </button>
@@ -1636,7 +1648,7 @@ function FabAddItem({
                             onClick={() => setOpen((v) => !v)}
                             title="Pilih kategori lain"
                             aria-label="Pilih kategori lain"
-                            className="px-2 h-12 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white border-l border-blue-500 flex items-center justify-center"
+                            className="px-2 h-12 bg-primary/90 hover:bg-primary/80 active:bg-primary/70 text-primary-foreground border-l border-primary/50 flex items-center justify-center"
                         >
                             <ChevronDown
                                 className={`h-5 w-5 transition-transform ${open ? "rotate-180" : ""}`}
@@ -1646,7 +1658,7 @@ function FabAddItem({
                 </div>
                 {/* Hint kecil di atas tombol — kategori terakhir */}
                 {!open && (
-                    <div className="bg-slate-900/90 text-white text-[10px] px-2 py-0.5 rounded-md hidden md:block">
+                    <div className="bg-foreground/90 text-background text-[10px] px-2 py-0.5 rounded-md hidden md:block">
                         ke: <b>{lastCat.name}</b>
                     </div>
                 )}
@@ -1842,7 +1854,7 @@ function UraianAutocomplete({
                                             {v.variantName ? ` — ${v.variantName}` : ""}
                                         </div>
                                         <div className="text-[10px] text-muted-foreground flex gap-2">
-                                            <span className="px-1 rounded bg-blue-100 text-blue-700">katalog</span>
+                                            <span className="px-1 rounded bg-info/15 text-info">katalog</span>
                                             {v.sku && <span className="font-mono">{v.sku}</span>}
                                             {v.size && <span>· {v.size}</span>}
                                             {v.boothProductType && <span>· {v.boothProductType}</span>}
@@ -1869,7 +1881,7 @@ function UraianAutocomplete({
                                 <div className="min-w-0 flex-1">
                                     <div className="font-medium truncate">{li.description}</div>
                                     <div className="text-[10px] text-muted-foreground flex gap-2">
-                                        <span className="px-1 rounded bg-amber-100 text-amber-700">item lepas</span>
+                                        <span className="px-1 rounded bg-warning/15 text-warning">item lepas</span>
                                         {li.unit && <span>{li.unit}</span>}
                                         <span>· {li.usageCount}× pakai</span>
                                     </div>
@@ -2285,7 +2297,7 @@ function SaveAsProductModal({
                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors rounded-lg flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                                     <label
                                         htmlFor="rab-product-image-input"
-                                        className="flex items-center gap-1 bg-white text-foreground px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer hover:bg-white/90"
+                                        className="flex items-center gap-1 bg-card text-foreground px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer hover:bg-card/90"
                                     >
                                         <ImagePlus className="h-4 w-4" />
                                         Ganti
@@ -2296,7 +2308,7 @@ function SaveAsProductModal({
                                             setImage(null);
                                             setImagePreview(null);
                                         }}
-                                        className="flex items-center gap-1 bg-red-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-red-700"
+                                        className="flex items-center gap-1 bg-destructive text-destructive-foreground px-3 py-1.5 rounded-md text-sm font-medium hover:bg-destructive/90"
                                     >
                                         <Trash2 className="h-4 w-4" />
                                         Hapus

@@ -7,6 +7,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
     ArrowLeft, Save, User, Phone, Building2, Tag,
     Calendar, MapPin, AlignLeft, Layers, Globe, UserCog, Plus, X,
+    Check, AlertTriangle, Lightbulb, AlertCircle,
 } from "lucide-react";
 import { AdditionalEventsEditor, editorToAdditionalEvents, type AdditionalEvent } from "@/components/crm/AdditionalEventsEditor";
 import { PhoneDuplicateBanner } from "@/components/PhoneDuplicateBanner";
@@ -43,10 +44,10 @@ import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
 import { getWorkers, MARKETER_POSITIONS, getPositionMeta } from "@/lib/api/workers";
 
 const LEVELS: { value: LeadLevel; label: string; emoji: string; cls: string }[] = [
-    { value: "HOT", label: "Hot", emoji: "🔥", cls: "bg-red-50 text-red-700 border-red-300 hover:bg-red-100" },
-    { value: "WARM", label: "Warm", emoji: "🟡", cls: "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100" },
-    { value: "COLD", label: "Cold", emoji: "🔵", cls: "bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100" },
-    { value: "UNQUALIFIED", label: "Unqualified", emoji: "⚫", cls: "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100" },
+    { value: "HOT", label: "Hot", emoji: "🔥", cls: "bg-destructive/12 text-destructive border-destructive/30 hover:bg-destructive/20" },
+    { value: "WARM", label: "Warm", emoji: "🟡", cls: "bg-warning/15 text-warning border-warning/30 hover:bg-warning/25" },
+    { value: "COLD", label: "Cold", emoji: "🔵", cls: "bg-info/15 text-info border-info/30 hover:bg-info/25" },
+    { value: "UNQUALIFIED", label: "Unqualified", emoji: "⚫", cls: "bg-muted text-muted-foreground border-border hover:bg-muted/80" },
 ];
 
 const SOURCES: { value: LeadSource; label: string; emoji: string }[] = [
@@ -252,19 +253,19 @@ export default function NewLeadPage() {
                                     key={b}
                                     type="button"
                                     onClick={() => set("brand", b)}
-                                    className={`p-4 rounded-xl border-2 transition flex items-center gap-3 text-left ${active
+                                    className={`p-4 rounded-xl border-2 transition-colors cursor-pointer flex items-center gap-3 text-left ${active
                                         ? `${meta.bg} ${meta.border} shadow-sm`
-                                        : "bg-white border-slate-200 hover:border-slate-300"
+                                        : "bg-card border-border hover:border-border/80"
                                         }`}
                                 >
                                     <span className={`text-3xl`}>{meta.emoji}</span>
                                     <div className="flex-1 min-w-0">
-                                        <div className={`font-bold ${active ? meta.text : "text-slate-800"}`}>
+                                        <div className={`font-bold ${active ? meta.text : "text-foreground"}`}>
                                             {meta.short}
                                         </div>
                                         <div className="text-xs text-muted-foreground truncate">{meta.label}</div>
                                     </div>
-                                    {active && <span className={`${meta.text} font-bold`}>✓</span>}
+                                    {active && <Check className={`h-4 w-4 ${meta.text}`} />}
                                 </button>
                             );
                         })}
@@ -278,9 +279,10 @@ export default function NewLeadPage() {
                     icon={<UserCog className="h-4 w-4" />}
                 >
                     {(marketers ?? []).length === 0 ? (
-                        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                            ⚠️ Belum ada karyawan dengan posisi <b>Marketing</b> atau <b>Sales</b>.
-                            Tambahkan dulu di <Link href="/workers" className="underline font-medium">halaman Karyawan</Link>.
+                        <div className="text-sm text-warning bg-warning/15 border border-warning/30 rounded-lg p-3 flex items-start gap-2">
+                            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                            <span>Belum ada karyawan dengan posisi <b>Marketing</b> atau <b>Sales</b>.{" "}
+                            Tambahkan dulu di <Link href="/workers" className="underline font-medium">halaman Karyawan</Link>.</span>
                         </div>
                     ) : (
                         <Field label="Pilih Marketing" hint="Bisa diisi nanti / dipindah ke marketing lain">
@@ -288,19 +290,19 @@ export default function NewLeadPage() {
                                 <button
                                     type="button"
                                     onClick={() => set("assignedWorkerId", "")}
-                                    className={`flex items-center gap-3 p-2.5 rounded-lg border-2 transition text-left ${form.assignedWorkerId === ""
-                                        ? "border-slate-400 bg-slate-100"
-                                        : "border-slate-200 bg-white hover:border-slate-300"
+                                    className={`flex items-center gap-3 p-2.5 rounded-lg border-2 transition-colors cursor-pointer text-left ${form.assignedWorkerId === ""
+                                        ? "border-muted-foreground/50 bg-muted"
+                                        : "border-border bg-card hover:border-border/80"
                                         }`}
                                 >
-                                    <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+                                    <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground shrink-0">
                                         ?
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-semibold text-slate-700">Belum di-assign</div>
+                                        <div className="text-sm font-semibold text-foreground">Belum di-assign</div>
                                         <div className="text-[11px] text-muted-foreground">Bisa diisi nanti</div>
                                     </div>
-                                    {form.assignedWorkerId === "" && <span className="text-slate-700 font-bold">✓</span>}
+                                    {form.assignedWorkerId === "" && <Check className="h-4 w-4 text-foreground" />}
                                 </button>
                                 {(marketers ?? []).map((w) => {
                                     const active = form.assignedWorkerId === w.id;
@@ -310,9 +312,9 @@ export default function NewLeadPage() {
                                             key={w.id}
                                             type="button"
                                             onClick={() => set("assignedWorkerId", w.id)}
-                                            className={`flex items-center gap-3 p-2.5 rounded-lg border-2 transition text-left ${active
+                                            className={`flex items-center gap-3 p-2.5 rounded-lg border-2 transition-colors cursor-pointer text-left ${active
                                                 ? "border-primary bg-primary/5 shadow-sm"
-                                                : "border-slate-200 bg-white hover:border-slate-300"
+                                                : "border-border bg-card hover:border-border/80"
                                                 }`}
                                         >
                                             <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0 overflow-hidden">
@@ -326,14 +328,14 @@ export default function NewLeadPage() {
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className={`text-sm font-semibold truncate ${active ? "text-primary" : "text-slate-800"}`}>
+                                                <div className={`text-sm font-semibold truncate ${active ? "text-primary" : "text-foreground"}`}>
                                                     {w.name}
                                                 </div>
                                                 <div className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
                                                     {meta?.emoji} {meta?.label ?? w.position ?? "—"}
                                                 </div>
                                             </div>
-                                            {active && <span className="text-primary font-bold">✓</span>}
+                                            {active && <Check className="h-4 w-4 text-primary" />}
                                         </button>
                                     );
                                 })}
@@ -552,7 +554,7 @@ export default function NewLeadPage() {
                                                 if (confirm(`Hapus sumber custom "${c.name}"?`)) removeCustomSource(c.name);
                                             }}
                                             title="Hapus sumber custom ini"
-                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
                                         >
                                             <X className="h-3 w-3" />
                                         </button>
@@ -674,8 +676,9 @@ export default function NewLeadPage() {
                             </InputWithIcon>
                         </Field>
                     </div>
-                    <p className="text-[10px] text-muted-foreground -mt-2">
-                        💡 Untuk event multi-hari (mis. 1-3 Mei 2026), isi keduanya. Kalau 1 hari saja, cukup tanggal mulai.
+                    <p className="text-[10px] text-muted-foreground -mt-2 flex items-start gap-1">
+                        <Lightbulb className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                        Untuk event multi-hari (mis. 1-3 Mei 2026), isi keduanya. Kalau 1 hari saja, cukup tanggal mulai.
                     </p>
                     <Field label="Lokasi Event">
                         <InputWithIcon icon={<MapPin className="h-4 w-4" />}>
@@ -687,10 +690,11 @@ export default function NewLeadPage() {
                             />
                         </InputWithIcon>
                     </Field>
-                    <Field label="🎪 Event Tambahan (kalau klien punya event di kota/tanggal lain)">
+                    <Field label="Event Tambahan (kalau klien punya event di kota/tanggal lain)">
                         <AdditionalEventsEditor value={additionalEvents} onChange={setAdditionalEvents} />
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                            💡 Mis. klien butuh booth di Jakarta tgl 1-3 Mei DAN Surabaya tgl 10-12 Mei.
+                        <p className="text-[10px] text-muted-foreground mt-1 flex items-start gap-1">
+                            <Lightbulb className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                            Mis. klien butuh booth di Jakarta tgl 1-3 Mei DAN Surabaya tgl 10-12 Mei.
                             Isi di sini → saat convert ke Penawaran, semua event ter-copy otomatis.
                         </p>
                     </Field>
@@ -721,14 +725,14 @@ export default function NewLeadPage() {
                                             key={l.id}
                                             type="button"
                                             onClick={() => toggleLabel(l.id)}
-                                            className="px-3 py-1.5 rounded-md text-sm font-medium border-2 transition-all"
+                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium border-2 transition-all"
                                             style={{
                                                 backgroundColor: on ? l.color : "transparent",
                                                 borderColor: l.color,
                                                 color: on ? "#fff" : l.color,
                                             }}
                                         >
-                                            {on ? "✓ " : ""}{l.name}
+                                            {on && <Check className="h-3.5 w-3.5" />}{l.name}
                                         </button>
                                     );
                                 })}
@@ -738,8 +742,9 @@ export default function NewLeadPage() {
                 </Section>
 
                 {mut.isError && (
-                    <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-                        ❌ {(mut.error as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message ?? (mut.error as Error)?.message}
+                    <div className="rounded-md border border-destructive/30 bg-destructive/12 p-3 text-sm text-destructive flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <span>{(mut.error as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message ?? (mut.error as Error)?.message}</span>
                     </div>
                 )}
             </form>
@@ -768,8 +773,9 @@ export default function NewLeadPage() {
                     </button>
                 </div>
                 {!phoneValid && form.phone && (
-                    <p className="text-xs text-amber-600 mt-2 text-center sm:text-left max-w-3xl mx-auto">
-                        ⚠️ Nomor HP minimal 8 digit
+                    <p className="text-xs text-warning mt-2 text-center sm:text-left max-w-3xl mx-auto flex items-center justify-center sm:justify-start gap-1">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Nomor HP minimal 8 digit
                     </p>
                 )}
             </div>
@@ -778,32 +784,25 @@ export default function NewLeadPage() {
             <style jsx>{`
                 :global(.form-input) {
                     width: 100%;
-                    border: 1px solid rgb(229 231 235);
-                    background: white;
+                    border: 1px solid hsl(var(--border));
+                    background: hsl(var(--background));
+                    color: hsl(var(--foreground));
                     border-radius: 0.5rem;
                     padding: 0.625rem 0.875rem;
                     font-size: 0.9375rem;
                     line-height: 1.5;
                     transition: border-color 0.15s, box-shadow 0.15s;
                 }
-                :global(.dark .form-input) {
-                    background: rgb(31 41 55);
-                    border-color: rgb(75 85 99);
-                    color: white;
-                }
                 :global(.form-input:focus) {
                     outline: none;
-                    border-color: rgb(99 102 241);
-                    box-shadow: 0 0 0 3px rgb(99 102 241 / 0.15);
+                    border-color: hsl(var(--primary));
+                    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
                 }
                 :global(.form-input:hover:not(:focus):not(:disabled)) {
-                    border-color: rgb(156 163 175);
+                    border-color: hsl(var(--border));
                 }
                 :global(.form-input::placeholder) {
-                    color: rgb(156 163 175);
-                }
-                :global(.dark .form-input::placeholder) {
-                    color: rgb(107 114 128);
+                    color: hsl(var(--muted-foreground));
                 }
             `}</style>
         </div>
@@ -848,7 +847,7 @@ function Field({
             <label className="flex items-baseline gap-2">
                 <span className="text-sm font-medium text-foreground">
                     {label}
-                    {required && <span className="text-red-500 ml-0.5">*</span>}
+                    {required && <span className="text-destructive ml-0.5">*</span>}
                 </span>
                 {hint && !error && (
                     <span className="text-xs text-muted-foreground font-normal">— {hint}</span>
@@ -856,8 +855,8 @@ function Field({
             </label>
             {children}
             {error && (
-                <p className="text-xs text-red-600 flex items-center gap-1">
-                    <span>⚠️</span>
+                <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5" />
                     {error}
                 </p>
             )}

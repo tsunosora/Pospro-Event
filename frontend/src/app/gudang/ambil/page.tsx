@@ -84,7 +84,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
                 </div>
 
                 {status?.isSet === false && (
-                    <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                    <div className="text-xs text-warning bg-warning/15 border border-warning/30 rounded p-2">
                         PIN belum diatur oleh admin. Minta admin mengatur PIN di <b>Pengaturan → PIN Gudang Kiosk</b>.
                     </div>
                 )}
@@ -103,7 +103,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
                         placeholder="••••"
                     />
                 </div>
-                {err && <p className="text-xs text-red-600">{err}</p>}
+                {err && <p className="text-xs text-destructive">{err}</p>}
                 <button
                     type="submit"
                     disabled={loading}
@@ -114,7 +114,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
                 </button>
                 <a
                     href="/"
-                    className="w-full border rounded py-2 text-sm text-red-600 hover:bg-red-50 border-red-200 flex items-center justify-center gap-2"
+                    className="w-full border rounded py-2 text-sm text-destructive hover:bg-destructive/10 border-destructive/30 flex items-center justify-center gap-2"
                 >
                     <LogOut className="h-4 w-4" /> Keluar
                 </a>
@@ -209,7 +209,7 @@ function ModePickModal({
                     <a
                         href="/"
                         onClick={() => clearPin()}
-                        className="text-xs text-red-600 hover:text-red-700 inline-flex items-center gap-1 pt-3"
+                        className="text-xs text-destructive hover:text-destructive/80 inline-flex items-center gap-1 pt-3"
                     >
                         <LogOut className="h-3 w-3" /> Keluar
                     </a>
@@ -501,7 +501,7 @@ function KioskContent({ onLock }: { onLock: () => void }) {
                 <a
                     href="/"
                     onClick={() => clearPin()}
-                    className="flex items-center gap-1 border rounded px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 border-red-200"
+                    className="flex items-center gap-1 border rounded px-2 py-1.5 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
                     title="Keluar dari mode kiosk gudang"
                 >
                     <LogOut className="h-3.5 w-3.5" /> Keluar
@@ -684,7 +684,7 @@ function AmbilMode({ bootstrap }: { bootstrap: Bootstrap | undefined }) {
         return (
             <div className="flex items-center justify-center h-full p-4">
                 <div className="bg-card border rounded-2xl shadow-lg max-w-md w-full p-8 text-center space-y-4">
-                    <div className="rounded-full bg-green-100 text-green-600 p-4 inline-flex">
+                    <div className="rounded-full bg-success/15 text-success p-4 inline-flex">
                         <CheckCircle2 className="h-10 w-10" />
                     </div>
                     <h2 className="text-xl font-bold">Berhasil!</h2>
@@ -759,7 +759,7 @@ function AmbilMode({ bootstrap }: { bootstrap: Bootstrap | undefined }) {
                                         )}
                                         <div className="flex items-center justify-between mt-1">
                                             <span className="text-[10px] font-mono text-muted-foreground">{r.sku}</span>
-                                            <span className={`text-xs font-bold ${empty ? "text-red-500" : "text-green-600"}`}>{r.stock}</span>
+                                            <span className={`text-xs font-bold nums ${empty ? "text-destructive" : "text-success"}`}>{r.stock}</span>
                                         </div>
                                     </button>
                                 );
@@ -775,7 +775,7 @@ function AmbilMode({ bootstrap }: { bootstrap: Bootstrap | undefined }) {
                     <ShoppingCart className="h-4 w-4 text-primary" />
                     <span className="font-semibold text-sm">Keranjang ({cart.length})</span>
                     {cart.length > 0 && (
-                        <button onClick={() => setCart([])} className="ml-auto text-xs text-red-600 hover:underline">Kosongkan</button>
+                        <button onClick={() => setCart([])} className="ml-auto text-xs text-destructive hover:underline">Kosongkan</button>
                     )}
                 </div>
                 <div className="flex-1 overflow-y-auto">
@@ -801,10 +801,10 @@ function AmbilMode({ bootstrap }: { bootstrap: Bootstrap | undefined }) {
                                         <button onClick={() => updateQty(c.variantId, c.qty + 1)} disabled={c.qty >= c.available} className="p-0.5 hover:bg-muted rounded disabled:opacity-30">
                                             <Plus className="h-3 w-3" />
                                         </button>
-                                        <span className="text-[10px] text-muted-foreground ml-1">/ {c.available}</span>
+                                        <span className="text-[10px] text-muted-foreground ml-1 nums">/ {c.available}</span>
                                     </div>
                                 </div>
-                                <button onClick={() => removeFromCart(c.variantId)} className="p-1 hover:bg-red-50 text-red-600 rounded">
+                                <button onClick={() => removeFromCart(c.variantId)} className="p-1 hover:bg-destructive/10 text-destructive rounded transition-colors">
                                     <Trash2 className="h-3 w-3" />
                                 </button>
                             </div>
@@ -895,7 +895,7 @@ function AmbilMode({ bootstrap }: { bootstrap: Bootstrap | undefined }) {
                         />
                     </div>
                     {error && (
-                        <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2 flex items-start gap-1">
+                        <div className="text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded p-2 flex items-start gap-1">
                             <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" /> {error}
                         </div>
                     )}
@@ -996,7 +996,7 @@ function KembaliMode({ bootstrap }: { bootstrap: Bootstrap | undefined }) {
         return (
             <div className="flex items-center justify-center h-full p-4">
                 <div className="bg-card border rounded-2xl shadow-lg max-w-md w-full p-8 text-center space-y-4">
-                    <div className="rounded-full bg-green-100 text-green-600 p-4 inline-flex">
+                    <div className="rounded-full bg-success/15 text-success p-4 inline-flex">
                         <CheckCircle2 className="h-10 w-10" />
                     </div>
                     <h2 className="text-xl font-bold">Barang Dikembalikan!</h2>
@@ -1049,7 +1049,7 @@ function KembaliMode({ bootstrap }: { bootstrap: Bootstrap | undefined }) {
                     const totalQty = w.items.reduce((s, it) => s + Number(it.quantity), 0);
                     const returnedQty = w.items.reduce((s, it) => s + Number(it.returnedQty), 0);
                     return (
-                        <div key={w.id} className={`border rounded-lg bg-card ${overdue ? "border-red-300" : ""}`}>
+                        <div key={w.id} className={`border rounded-lg bg-card ${overdue ? "border-destructive/40" : ""}`}>
                             <button
                                 onClick={() => { setExpandedId(isOpen ? null : w.id); setError(null); }}
                                 className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/30 rounded-lg"
@@ -1060,7 +1060,7 @@ function KembaliMode({ bootstrap }: { bootstrap: Bootstrap | undefined }) {
                                     <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
                                         <span className="flex items-center gap-0.5"><Calendar className="h-3 w-3" /> {w.scheduledReturnAt ? new Date(w.scheduledReturnAt).toLocaleDateString("id-ID") : "—"}</span>
                                         <span>{returnedQty}/{totalQty} sudah kembali</span>
-                                        {overdue && <span className="text-red-600 font-semibold">TERLAMBAT</span>}
+                                        {overdue && <span className="text-destructive font-semibold">TERLAMBAT</span>}
                                     </div>
                                 </div>
                                 {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -1108,7 +1108,7 @@ function KembaliMode({ bootstrap }: { bootstrap: Bootstrap | undefined }) {
                                         />
                                     </div>
                                     {error && activeWithdrawalId === null && expandedId === w.id && (
-                                        <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2 flex items-start gap-1">
+                                        <div className="text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded p-2 flex items-start gap-1">
                                             <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" /> {error}
                                         </div>
                                     )}

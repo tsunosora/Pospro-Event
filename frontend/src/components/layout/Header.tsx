@@ -20,23 +20,23 @@ function relativeTime(timestamp: number): string {
 function NotifIcon({ type }: { type: AppNotification['type'] }) {
     const base = "w-4 h-4";
     switch (type) {
-        case 'transaction': return <ShoppingCart className={`${base} text-emerald-600`} />;
-        case 'stock': return <Package className={`${base} text-amber-600`} />;
-        case 'sync': return <RefreshCw className={`${base} text-blue-600`} />;
-        case 'shift': return <FileText className={`${base} text-indigo-600`} />;
-        case 'update': return <GitCommit className={`${base} text-violet-600`} />;
-        default: return <Info className={`${base} text-slate-500`} />;
+        case 'transaction': return <ShoppingCart className={`${base} text-success`} />;
+        case 'stock': return <Package className={`${base} text-warning`} />;
+        case 'sync': return <RefreshCw className={`${base} text-info`} />;
+        case 'shift': return <FileText className={`${base} text-info`} />;
+        case 'update': return <GitCommit className={`${base} text-primary`} />;
+        default: return <Info className={`${base} text-muted-foreground`} />;
     }
 }
 
 function notifBg(type: AppNotification['type']): string {
     switch (type) {
-        case 'transaction': return 'bg-emerald-100';
-        case 'stock': return 'bg-amber-100';
-        case 'sync': return 'bg-blue-100';
-        case 'shift': return 'bg-indigo-100';
-        case 'update': return 'bg-violet-100';
-        default: return 'bg-slate-100';
+        case 'transaction': return 'bg-success/15';
+        case 'stock': return 'bg-warning/15';
+        case 'sync': return 'bg-info/15';
+        case 'shift': return 'bg-info/15';
+        case 'update': return 'bg-primary/15';
+        default: return 'bg-muted';
     }
 }
 
@@ -120,7 +120,7 @@ export function Header() {
                     <button
                         type="button"
                         onClick={() => router.push('/pos/close-shift')}
-                        className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-2.5 sm:px-3 py-1.5 rounded-full text-sm font-semibold transition-colors border border-indigo-200"
+                        className="flex items-center gap-1.5 bg-info/15 text-info hover:bg-info/25 px-2.5 sm:px-3 py-1.5 rounded-full text-sm font-semibold transition-colors border border-info/30"
                     >
                         <FileText className="h-4 w-4 shrink-0" />
                         <span className="hidden sm:inline">Laporan Shift</span>
@@ -136,7 +136,7 @@ export function Header() {
                         >
                             <Bell className="h-5 w-5" />
                             {unreadCount > 0 && (
-                                <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-background">
+                                <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground ring-2 ring-background nums">
                                     {unreadCount > 9 ? '9+' : unreadCount}
                                 </span>
                             )}
@@ -150,7 +150,7 @@ export function Header() {
                                         <Bell className="w-4 h-4 text-muted-foreground" />
                                         <p className="font-semibold text-sm">Notifikasi</p>
                                         {unreadCount > 0 && (
-                                            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                            <span className="bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full nums">
                                                 {unreadCount}
                                             </span>
                                         )}
@@ -169,7 +169,7 @@ export function Header() {
                                         {notifications.length > 0 && (
                                             <button
                                                 onClick={clearAll}
-                                                className="flex items-center gap-1 text-xs text-red-500 hover:underline px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                                className="flex items-center gap-1 text-xs text-destructive hover:underline px-2 py-1 rounded hover:bg-destructive/12 transition-colors"
                                                 title="Hapus semua"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
@@ -290,7 +290,7 @@ export function Header() {
                                 <div className="border-t py-1">
                                     <button
                                         onClick={handleLogout}
-                                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/12 transition-colors"
                                     >
                                         <LogOut className="h-4 w-4" />
                                         Keluar (Logout)

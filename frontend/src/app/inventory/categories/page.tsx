@@ -115,14 +115,14 @@ export default function CategoriesPage() {
             <div>
                 <h1 className="text-2xl font-bold text-foreground">Manajemen Kategori</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    {totalCount} kategori ({parentCount} utama, {subCount} sub-kategori)
+                    <span className="nums">{totalCount}</span> kategori (<span className="nums">{parentCount}</span> utama, <span className="nums">{subCount}</span> sub-kategori)
                 </p>
             </div>
 
             {/* Form Tambah Kategori */}
             <form onSubmit={handleCreate} className="glass rounded-xl border border-border p-4 space-y-3">
                 <p className="text-sm font-semibold text-foreground">Tambah Kategori</p>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                     <div className="flex-1 space-y-2">
                         <input
                             type="text"
@@ -217,7 +217,7 @@ export default function CategoriesPage() {
                                             {isEditing ? (
                                                 <>
                                                     <button onClick={saveEdit} disabled={updateMutation.isPending}
-                                                        className="p-1.5 rounded-md bg-green-500/10 text-green-600 hover:bg-green-500/20 transition-colors" title="Simpan">
+                                                        className="p-1.5 rounded-md bg-success/15 text-success hover:bg-success/20 transition-colors" title="Simpan">
                                                         <Check className="w-4 h-4" />
                                                     </button>
                                                     <button onClick={() => setEditingId(null)}
@@ -310,7 +310,7 @@ export default function CategoriesPage() {
                                                             {isEditingChild ? (
                                                                 <>
                                                                     <button onClick={saveEdit} disabled={updateMutation.isPending}
-                                                                        className="p-1.5 rounded-md bg-green-500/10 text-green-600 hover:bg-green-500/20 transition-colors">
+                                                                        className="p-1.5 rounded-md bg-success/15 text-success hover:bg-success/20 transition-colors">
                                                                         <Check className="w-3.5 h-3.5" />
                                                                     </button>
                                                                     <button onClick={() => setEditingId(null)}

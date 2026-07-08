@@ -5,13 +5,13 @@ import {
     getCustomersWithStats, getCustomersExportData,
     createCustomer, updateCustomer, deleteCustomer,
 } from "@/lib/api";
-import { exportToExcel, exportToPDF } from "@/lib/export";
+import { exportToPDF } from "@/lib/export";
 import { useState } from "react";
 import Link from "next/link";
 import {
     Plus, Edit2, Trash2, Search, X, Users, TrendingUp, Wallet,
     Phone, MapPin, FileSpreadsheet, FileText, Loader2, MessageCircle, BarChart2,
-    ShoppingBag, ChevronRight, Package,
+    ChevronRight,
 } from "lucide-react";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
@@ -182,7 +182,7 @@ export default function CustomersPage() {
                     >
                         {exportingExcel
                             ? <Loader2 className="w-4 h-4 animate-spin" />
-                            : <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                            : <FileSpreadsheet className="w-4 h-4 text-success" />
                         }
                         {exportingExcel ? "Mengekspor..." : "Excel"}
                     </button>
@@ -194,7 +194,7 @@ export default function CustomersPage() {
                     >
                         {exportingPDF
                             ? <Loader2 className="w-4 h-4 animate-spin" />
-                            : <FileText className="w-4 h-4 text-rose-500" />
+                            : <FileText className="w-4 h-4 text-destructive" />
                         }
                         {exportingPDF ? "Mengekspor..." : "PDF"}
                     </button>
@@ -215,25 +215,25 @@ export default function CustomersPage() {
                     </div>
                     <div>
                         <p className="text-xs text-muted-foreground">Total Pelanggan</p>
-                        <p className="text-2xl font-bold">{totalCustomers}</p>
+                        <p className="text-2xl font-bold nums">{totalCustomers}</p>
                     </div>
                 </div>
                 <div className="glass rounded-xl p-4 border border-border flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                        <TrendingUp className="w-5 h-5 text-emerald-600" />
+                    <div className="w-10 h-10 rounded-lg bg-success/15 flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-success" />
                     </div>
                     <div>
                         <p className="text-xs text-muted-foreground">Pernah Bertransaksi</p>
-                        <p className="text-2xl font-bold">{activeCustomers}</p>
+                        <p className="text-2xl font-bold nums">{activeCustomers}</p>
                     </div>
                 </div>
                 <div className="glass rounded-xl p-4 border border-border flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                        <Wallet className="w-5 h-5 text-amber-600" />
+                    <div className="w-10 h-10 rounded-lg bg-warning/15 flex items-center justify-center">
+                        <Wallet className="w-5 h-5 text-warning" />
                     </div>
                     <div>
                         <p className="text-xs text-muted-foreground">Total Pendapatan dari Pelanggan</p>
-                        <p className="text-xl font-bold">Rp {totalRevenue.toLocaleString("id-ID")}</p>
+                        <p className="text-xl font-bold nums">Rp {totalRevenue.toLocaleString("id-ID")}</p>
                     </div>
                 </div>
             </div>
@@ -297,7 +297,7 @@ export default function CustomersPage() {
                                                 href={`https://wa.me/${c.phone.replace(/\D/g, "")}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="p-1 rounded text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                                className="p-1 rounded text-success hover:bg-success/10 transition-colors"
                                                 title="Buka WhatsApp"
                                             >
                                                 <MessageCircle className="w-3.5 h-3.5" />
@@ -309,7 +309,7 @@ export default function CustomersPage() {
                                 </div>
                                 <div className="text-right">
                                     {c.totalRevenue > 0 ? (
-                                        <p className="font-semibold text-emerald-600 text-sm">Rp {c.totalRevenue.toLocaleString("id-ID")}</p>
+                                        <p className="font-semibold text-success text-sm nums">Rp {c.totalRevenue.toLocaleString("id-ID")}</p>
                                     ) : (
                                         <p className="text-muted-foreground text-xs">Belum ada transaksi</p>
                                     )}
@@ -412,7 +412,7 @@ export default function CustomersPage() {
                                                         href={`https://wa.me/${c.phone.replace(/\D/g, "")}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="p-1 rounded text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                                        className="p-1 rounded text-success hover:bg-success/10 transition-colors"
                                                         title="Buka WhatsApp"
                                                     >
                                                         <MessageCircle className="w-3.5 h-3.5" />
@@ -431,7 +431,7 @@ export default function CustomersPage() {
                                         {/* Revenue */}
                                         <td className="px-5 py-3.5 text-right font-semibold">
                                             {c.totalRevenue > 0 ? (
-                                                <span className="text-emerald-600">Rp {c.totalRevenue.toLocaleString("id-ID")}</span>
+                                                <span className="text-success nums">Rp {c.totalRevenue.toLocaleString("id-ID")}</span>
                                             ) : (
                                                 <span className="text-muted-foreground">—</span>
                                             )}

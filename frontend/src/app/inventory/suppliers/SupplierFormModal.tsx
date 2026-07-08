@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Supplier } from "./types";
 
 interface SupplierFormModalProps {
@@ -35,12 +36,12 @@ export function SupplierFormModal({ supplier, onClose, onSave, isSaving }: Suppl
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-lg">
+      <div className="glass-strong rounded-xl w-full max-w-lg">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">
             {supplier ? "Edit Supplier" : "Tambah Supplier"}
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={onClose} className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -71,7 +72,7 @@ export function SupplierFormModal({ supplier, onClose, onSave, isSaving }: Suppl
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">No. Telp</label>
               <input
@@ -117,20 +118,26 @@ export function SupplierFormModal({ supplier, onClose, onSave, isSaving }: Suppl
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              className="flex-1"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
             >
               Batal
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isSaving}
-              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
+              className="flex-1"
             >
-              {isSaving ? "Menyimpan..." : "Simpan"}
-            </button>
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : "Simpan"}
+            </Button>
           </div>
         </form>
       </div>

@@ -8,6 +8,7 @@ import {
     ArrowLeft, Pencil, Trash2, MessageCircle, Phone, Mail, MapPin, Building2,
     User as UserIcon, Loader2, X, Check, Calendar, FileText, Calculator,
     MapPinned, ShoppingBag, ArrowUpRight, ArrowDownRight, TrendingUp,
+    Target, CheckCircle2, XCircle, Clock, Package, Wrench, CalendarDays, BarChart2,
 } from "lucide-react";
 import {
     getCustomer, updateCustomer, deleteCustomer,
@@ -26,28 +27,28 @@ const fmtShort = (n: number) => {
 };
 
 function marginColor(pct: number) {
-    if (pct >= 30) return "text-emerald-600";
-    if (pct >= 15) return "text-amber-600";
-    if (pct < 0) return "text-red-600";
-    return "text-red-500";
+    if (pct >= 30) return "text-success";
+    if (pct >= 15) return "text-warning";
+    if (pct < 0) return "text-destructive";
+    return "text-destructive";
 }
 
 const EVENT_STATUS: Record<string, { label: string; cls: string }> = {
-    DRAFT: { label: "Draft", cls: "bg-gray-100 text-gray-700" },
-    SCHEDULED: { label: "Terjadwal", cls: "bg-blue-100 text-blue-700" },
-    IN_PROGRESS: { label: "Berlangsung", cls: "bg-amber-100 text-amber-800" },
-    COMPLETED: { label: "Selesai", cls: "bg-green-100 text-green-700" },
-    CANCELLED: { label: "Batal", cls: "bg-red-100 text-red-700" },
+    DRAFT: { label: "Draft", cls: "bg-muted text-muted-foreground" },
+    SCHEDULED: { label: "Terjadwal", cls: "bg-info/15 text-info" },
+    IN_PROGRESS: { label: "Berlangsung", cls: "bg-warning/15 text-warning" },
+    COMPLETED: { label: "Selesai", cls: "bg-success/15 text-success" },
+    CANCELLED: { label: "Batal", cls: "bg-destructive/12 text-destructive" },
 };
 
 const INV_STATUS_CLS: Record<string, string> = {
-    DRAFT: "bg-gray-100 text-gray-700",
-    SENT: "bg-blue-100 text-blue-700",
-    ACCEPTED: "bg-emerald-100 text-emerald-700",
-    REJECTED: "bg-red-100 text-red-700",
-    EXPIRED: "bg-yellow-100 text-yellow-800",
-    PAID: "bg-emerald-100 text-emerald-700",
-    CANCELLED: "bg-red-100 text-red-700",
+    DRAFT: "bg-muted text-muted-foreground",
+    SENT: "bg-info/15 text-info",
+    ACCEPTED: "bg-success/15 text-success",
+    REJECTED: "bg-destructive/12 text-destructive",
+    EXPIRED: "bg-warning/15 text-warning",
+    PAID: "bg-success/15 text-success",
+    CANCELLED: "bg-destructive/12 text-destructive",
 };
 
 type TimelineEvent = {
@@ -97,7 +98,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 subtitle: inv.projectName || `${isQuotation ? "Quotation" : "Invoice"} dibuat`,
                 badge: { text: inv.status, cls: INV_STATUS_CLS[inv.status] ?? "" },
                 href: isQuotation ? `/penawaran/${inv.id}` : `/invoices/${inv.id}`,
-                color: isQuotation ? "bg-purple-100 text-purple-600" : "bg-emerald-100 text-emerald-600",
+                color: isQuotation ? "bg-primary/15 text-primary" : "bg-success/15 text-success",
             });
         });
 
@@ -110,7 +111,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 title: `${r.code} — ${r.title}`,
                 subtitle: r.projectName ? `${r.projectName} · ${r.itemCount} item` : `${r.itemCount} item`,
                 href: `/rab/${r.id}`,
-                color: "bg-indigo-100 text-indigo-600",
+                color: "bg-info/15 text-info",
             });
         });
 
@@ -125,7 +126,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 subtitle: `${ev.code}${ev.venue ? ` · ${ev.venue}` : ""}`,
                 badge: { text: status.label, cls: status.cls },
                 href: `/events/${ev.id}`,
-                color: "bg-blue-100 text-blue-600",
+                color: "bg-info/15 text-info",
             });
         });
 
@@ -137,8 +138,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 icon: <ShoppingBag className="h-4 w-4" />,
                 title: `POS ${t.invoiceNumber}`,
                 subtitle: `${fmt(t.downPayment)} · ${t.itemCount} item`,
-                badge: { text: t.status, cls: INV_STATUS_CLS[t.status] ?? "bg-gray-100 text-gray-700" },
-                color: "bg-amber-100 text-amber-600",
+                badge: { text: t.status, cls: INV_STATUS_CLS[t.status] ?? "bg-muted text-muted-foreground" },
+                color: "bg-warning/15 text-warning",
             });
         });
 
@@ -185,7 +186,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             </div>
 
             {/* Profile card */}
-            <div className="bg-background border rounded-xl p-5 shadow-sm">
+            <div className="glass rounded-xl p-5">
                 <div className="flex items-start justify-between flex-wrap gap-3">
                     <div className="flex items-start gap-3">
                         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -225,20 +226,20 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                                 href={waLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500 text-white text-sm hover:bg-emerald-600"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-success text-white text-sm hover:bg-success/90 transition-colors"
                             >
                                 <MessageCircle className="h-3.5 w-3.5" /> WA
                             </a>
                         )}
                         <button
                             onClick={() => setEditMode(true)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-sm hover:bg-muted transition-colors cursor-pointer"
                         >
                             <Pencil className="h-3.5 w-3.5" /> Edit
                         </button>
                         <button
                             onClick={() => setShowDelete(true)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-200 bg-red-50 text-red-600 text-sm hover:bg-red-100"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-destructive/30 bg-destructive/12 text-destructive text-sm hover:bg-destructive/20 transition-colors cursor-pointer"
                         >
                             <Trash2 className="h-3.5 w-3.5" /> Hapus
                         </button>
@@ -249,7 +250,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 {ea && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4 pt-4 border-t">
                         <QuickStat label="Penawaran ACC" value={String(ea.quotationCount)} sub={fmtShort(ea.totalQuotationValue)} />
-                        <QuickStat label="Invoice PAID" value={String(ea.invoiceCount)} sub={fmtShort(ea.totalInvoicePaid)} valueClass="text-emerald-600" />
+                        <QuickStat label="Invoice PAID" value={String(ea.invoiceCount)} sub={fmtShort(ea.totalInvoicePaid)} valueClass="text-success" />
                         <QuickStat label="RAB Plan" value={String(ea.rabCount)} sub={`Margin ${ea.rabMarginPct.toFixed(1)}%`} subClass={marginColor(ea.rabMarginPct)} />
                         <QuickStat label="Event" value={String(ea.eventCount)} sub={`Profit ${fmtShort(ea.eventGrossProfit)}`} subClass={marginColor(ea.eventMarginPct)} />
                     </div>
@@ -260,19 +261,19 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <div className="mt-4 pt-4 border-t">
                         <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
                             <h3 className="text-sm font-semibold inline-flex items-center gap-1.5">
-                                🎯 Riwayat Closing Penawaran
+                                <Target className="h-4 w-4 text-primary" /> Riwayat Closing Penawaran
                             </h3>
                             <div className="text-xs text-muted-foreground">
                                 Total <b>{ea.quotationsTotal}</b> penawaran ke klien ini
                             </div>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            <ClosingStat label="✅ Closing (ACC)" value={ea.quotationsAccepted} total={ea.quotationsTotal} cls="bg-emerald-50 border-emerald-200 text-emerald-700" />
-                            <ClosingStat label="❌ Tidak Closing" value={ea.quotationsRejected} total={ea.quotationsTotal} cls="bg-red-50 border-red-200 text-red-700" hint="Rejected/Expired/Cancelled" />
-                            <ClosingStat label="⏳ Belum Diputus" value={ea.quotationsPending} total={ea.quotationsTotal} cls="bg-amber-50 border-amber-200 text-amber-700" hint="Sent/Draft" />
+                            <ClosingStat label="Closing (ACC)" icon={<CheckCircle2 className="h-3 w-3" />} value={ea.quotationsAccepted} total={ea.quotationsTotal} cls="bg-success/15 border-success/30 text-success" />
+                            <ClosingStat label="Tidak Closing" icon={<XCircle className="h-3 w-3" />} value={ea.quotationsRejected} total={ea.quotationsTotal} cls="bg-destructive/12 border-destructive/30 text-destructive" hint="Rejected/Expired/Cancelled" />
+                            <ClosingStat label="Belum Diputus" icon={<Clock className="h-3 w-3" />} value={ea.quotationsPending} total={ea.quotationsTotal} cls="bg-warning/15 border-warning/30 text-warning" hint="Sent/Draft" />
                             <div className="border rounded-lg p-2 bg-primary/5 border-primary/20">
                                 <div className="text-[10px] uppercase text-muted-foreground">Conversion Rate</div>
-                                <div className={`text-2xl font-bold ${(ea.conversionRatePct ?? 0) >= 50 ? "text-emerald-600" : (ea.conversionRatePct ?? 0) >= 25 ? "text-amber-600" : "text-red-600"}`}>
+                                <div className={`text-2xl font-bold nums ${(ea.conversionRatePct ?? 0) >= 50 ? "text-success" : (ea.conversionRatePct ?? 0) >= 25 ? "text-warning" : "text-destructive"}`}>
                                     {(ea.conversionRatePct ?? 0).toFixed(0)}%
                                 </div>
                                 <div className="text-[10px] text-muted-foreground">ACC ÷ (ACC + Ditolak)</div>
@@ -285,17 +286,19 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                                 {(["SEWA", "PENGADAAN_BOOTH"] as const).map((t) => {
                                     const b = ea.boothTypeBreakdown[t];
                                     if (!b || b.total === 0) return null;
-                                    const label = t === "SEWA" ? "🏗️ Sewa Perlengkapan" : "🎪 Pengadaan Booth";
+                                    const label = t === "SEWA"
+                                        ? <span className="flex items-center gap-1.5"><Wrench className="h-3.5 w-3.5" /> Sewa Perlengkapan</span>
+                                        : <span className="flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> Pengadaan Booth</span>;
                                     return (
-                                        <div key={t} className="border rounded-lg p-2.5 bg-background">
+                                        <div key={t} className="glass rounded-lg p-2.5">
                                             <div className="flex items-center justify-between gap-2">
                                                 <div className="text-sm font-semibold">{label}</div>
                                                 <div className="text-xs text-muted-foreground">{b.total} penawaran</div>
                                             </div>
                                             <div className="mt-1.5 flex items-center gap-3 text-xs">
-                                                <span className="text-emerald-700">✅ {b.accepted} ACC</span>
-                                                <span className="text-red-600">❌ {b.rejected} ditolak</span>
-                                                <span className="ml-auto font-mono text-muted-foreground">{fmtShort(b.value)}</span>
+                                                <span className="text-success flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> {b.accepted} ACC</span>
+                                                <span className="text-destructive flex items-center gap-1"><XCircle className="h-3 w-3" /> {b.rejected} ditolak</span>
+                                                <span className="ml-auto font-mono nums text-muted-foreground">{fmtShort(b.value)}</span>
                                             </div>
                                         </div>
                                     );
@@ -310,15 +313,18 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <div className="inline-flex border rounded overflow-hidden text-sm flex-wrap">
                 {([
                     { k: "info", label: "Info Lengkap" },
-                    { k: "documents", label: `📄 Penawaran & Invoice${ea?.allInvoices ? ` (${ea.allInvoices.length})` : ""}` },
-                    { k: "timeline", label: "📅 Timeline" },
-                    { k: "analytics", label: "📊 Analytics" },
+                    { k: "documents", label: `Penawaran & Invoice${ea?.allInvoices ? ` (${ea.allInvoices.length})` : ""}` },
+                    { k: "timeline", label: "Timeline" },
+                    { k: "analytics", label: "Analytics" },
                 ] as const).map((t) => (
                     <button
                         key={t.k}
                         onClick={() => setTab(t.k)}
-                        className={`px-3 py-1.5 ${tab === t.k ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                        className={`px-3 py-1.5 flex items-center gap-1.5 transition-colors ${tab === t.k ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
                     >
+                        {t.k === "documents" && <FileText className="h-3.5 w-3.5" />}
+                        {t.k === "timeline" && <CalendarDays className="h-3.5 w-3.5" />}
+                        {t.k === "analytics" && <BarChart2 className="h-3.5 w-3.5" />}
                         {t.label}
                     </button>
                 ))}
@@ -359,8 +365,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowDelete(false)}>
                     <div className="bg-background rounded-lg shadow-xl w-full max-w-sm p-5 border" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-start gap-3">
-                            <div className="bg-red-100 p-2 rounded-full">
-                                <Trash2 className="h-5 w-5 text-red-600" />
+                            <div className="bg-destructive/12 p-2 rounded-full">
+                                <Trash2 className="h-5 w-5 text-destructive" />
                             </div>
                             <div>
                                 <h3 className="font-semibold">Hapus Customer?</h3>
@@ -374,7 +380,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                             <button
                                 onClick={() => deleteMut.mutate()}
                                 disabled={deleteMut.isPending}
-                                className="px-3 py-1.5 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 inline-flex items-center gap-1.5"
+                                className="px-3 py-1.5 text-sm rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 inline-flex items-center gap-1.5 transition-colors"
                             >
                                 <Trash2 className="h-3.5 w-3.5" />
                                 {deleteMut.isPending ? "Menghapus..." : "Hapus"}
@@ -391,19 +397,19 @@ function QuickStat({ label, value, sub, valueClass, subClass }: { label: string;
     return (
         <div className="text-center md:text-left">
             <div className="text-[10px] text-muted-foreground uppercase">{label}</div>
-            <div className={`text-xl font-bold ${valueClass ?? ""}`}>{value}</div>
-            <div className={`text-[10px] ${subClass ?? "text-muted-foreground"}`}>{sub}</div>
+            <div className={`text-xl font-bold nums ${valueClass ?? ""}`}>{value}</div>
+            <div className={`text-[10px] nums ${subClass ?? "text-muted-foreground"}`}>{sub}</div>
         </div>
     );
 }
 
-function ClosingStat({ label, value, total, cls, hint }: { label: string; value: number; total: number; cls: string; hint?: string }) {
+function ClosingStat({ label, icon, value, total, cls, hint }: { label: string; icon?: React.ReactNode; value: number; total: number; cls: string; hint?: string }) {
     const pct = total > 0 ? (value / total) * 100 : 0;
     return (
         <div className={`border rounded-lg p-2 ${cls}`}>
-            <div className="text-[10px] uppercase opacity-80">{label}</div>
-            <div className="text-2xl font-bold">{value}</div>
-            <div className="text-[10px] opacity-80">{pct.toFixed(0)}% dari total{hint ? ` · ${hint}` : ""}</div>
+            <div className="text-[10px] uppercase opacity-80 flex items-center gap-1">{icon}{label}</div>
+            <div className="text-2xl font-bold nums">{value}</div>
+            <div className="text-[10px] nums opacity-80">{pct.toFixed(0)}% dari total{hint ? ` · ${hint}` : ""}</div>
         </div>
     );
 }
@@ -411,14 +417,14 @@ function ClosingStat({ label, value, total, cls, hint }: { label: string; value:
 function InfoTab({ customer }: { customer: Customer }) {
     return (
         <div className="grid md:grid-cols-2 gap-3">
-            <div className="bg-background border rounded-lg p-4 space-y-2 text-sm">
+            <div className="glass rounded-xl p-4 space-y-2 text-sm">
                 <div className="font-semibold text-xs text-muted-foreground uppercase mb-2">Kontak</div>
                 <InfoRow label="Nama" value={customer.name} />
                 <InfoRow label="Phone" value={customer.phone ?? "—"} />
                 <InfoRow label="Email" value={customer.email ?? "—"} />
                 <InfoRow label="Alamat" value={customer.address ?? "—"} />
             </div>
-            <div className="bg-background border rounded-lg p-4 space-y-2 text-sm">
+            <div className="glass rounded-xl p-4 space-y-2 text-sm">
                 <div className="font-semibold text-xs text-muted-foreground uppercase mb-2">Perusahaan / Instansi</div>
                 <InfoRow label="Perusahaan" value={customer.companyName ?? "—"} />
                 <InfoRow label="PIC Perusahaan" value={customer.companyPIC ?? "—"} />
@@ -444,8 +450,8 @@ function DocumentsTab({ invoices }: { invoices: any[] }) {
 
     if (invoices.length === 0) {
         return (
-            <div className="bg-background border rounded-xl p-8 text-center">
-                <div className="text-4xl mb-2">📄</div>
+            <div className="glass rounded-xl p-8 text-center">
+                <FileText className="h-10 w-10 mx-auto mb-2 text-muted-foreground/40" />
                 <h3 className="font-semibold mb-1">Belum ada penawaran/invoice</h3>
                 <p className="text-sm text-muted-foreground">
                     Customer ini belum punya dokumen apa pun. Buat penawaran baru via tombol di atas.
@@ -458,7 +464,8 @@ function DocumentsTab({ invoices }: { invoices: any[] }) {
         <div className="space-y-4">
             {quotations.length > 0 && (
                 <DocSection
-                    title="📄 Penawaran"
+                    title="Penawaran"
+                    icon={<FileText className="h-4 w-4" />}
                     docs={quotations}
                     hrefPrefix="/penawaran"
                     emptyText="Belum ada penawaran"
@@ -466,7 +473,8 @@ function DocumentsTab({ invoices }: { invoices: any[] }) {
             )}
             {realInvoices.length > 0 && (
                 <DocSection
-                    title="🧾 Invoice"
+                    title="Invoice"
+                    icon={<FileText className="h-4 w-4" />}
                     docs={realInvoices}
                     hrefPrefix="/invoices"
                     emptyText="Belum ada invoice"
@@ -477,17 +485,18 @@ function DocumentsTab({ invoices }: { invoices: any[] }) {
 }
 
 function DocSection({
-    title, docs, hrefPrefix,
+    title, icon, docs, hrefPrefix,
 }: {
     title: string;
+    icon?: React.ReactNode;
     docs: any[];
     hrefPrefix: string;
     emptyText: string;
 }) {
     return (
-        <div className="bg-background border rounded-xl overflow-hidden">
+        <div className="glass rounded-xl overflow-hidden">
             <div className="px-4 py-2.5 border-b bg-muted/30 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">{title}</h3>
+                <h3 className="text-sm font-semibold flex items-center gap-1.5">{icon}{title}</h3>
                 <span className="text-xs text-muted-foreground">{docs.length} dokumen</span>
             </div>
             <div className="overflow-x-auto">
@@ -520,7 +529,7 @@ function DocSection({
                                         {d.status}
                                     </span>
                                 </td>
-                                <td className="px-3 py-2 text-right font-mono text-xs">
+                                <td className="px-3 py-2 text-right font-mono nums text-xs">
                                     {fmt(Number(d.total) || 0)}
                                 </td>
                             </tr>
@@ -535,14 +544,14 @@ function DocSection({
 function TimelineTab({ events }: { events: TimelineEvent[] }) {
     if (events.length === 0) {
         return (
-            <div className="p-8 border rounded-lg text-center text-sm text-muted-foreground">
+            <div className="glass rounded-xl p-8 text-center text-sm text-muted-foreground">
                 <Calendar className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
                 Belum ada aktivitas tercatat untuk customer ini.
             </div>
         );
     }
     return (
-        <div className="bg-background border rounded-lg overflow-hidden">
+        <div className="glass rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b bg-muted/30">
                 <h3 className="text-sm font-semibold">Timeline Aktivitas ({events.length})</h3>
                 <p className="text-xs text-muted-foreground">Penawaran · Invoice · RAB · Event · POS — sorted by tanggal</p>
@@ -584,16 +593,16 @@ function AnalyticsTab({ analytics, ea }: { analytics: any; ea: any }) {
         <div className="space-y-4">
             {/* POS section */}
             {analytics.totalOrders > 0 && (
-                <div className="bg-background border rounded-lg p-4">
-                    <div className="font-semibold text-sm mb-2">📦 POS / Lini Printing</div>
+                <div className="glass rounded-xl p-4">
+                    <div className="font-semibold text-sm mb-2 flex items-center gap-1.5"><Package className="h-4 w-4" /> POS / Lini Printing</div>
                     <div className="grid grid-cols-3 gap-2 text-center">
                         <div>
                             <div className="text-xs text-muted-foreground">Total Order</div>
-                            <div className="text-lg font-bold">{analytics.totalOrders}</div>
+                            <div className="text-lg font-bold nums">{analytics.totalOrders}</div>
                         </div>
                         <div>
                             <div className="text-xs text-muted-foreground">Revenue</div>
-                            <div className="text-lg font-bold">{fmtShort(analytics.totalRevenue)}</div>
+                            <div className="text-lg font-bold nums">{fmtShort(analytics.totalRevenue)}</div>
                         </div>
                         <div>
                             <div className="text-xs text-muted-foreground">Last Order</div>
@@ -607,36 +616,36 @@ function AnalyticsTab({ analytics, ea }: { analytics: any; ea: any }) {
 
             {/* Event/Project section */}
             {ea && ea.eventCount > 0 && (
-                <div className="bg-background border rounded-lg p-4 space-y-3">
+                <div className="glass rounded-xl p-4 space-y-3">
                     <div className="font-semibold text-sm flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-indigo-600" /> Event / Project (Booth/Event B2B)
+                        <Calendar className="h-4 w-4 text-info" /> Event / Project (Booth/Event B2B)
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">
                         <div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1 justify-center">
-                                <ArrowUpRight className="h-3 w-3 text-emerald-500" /> Income
+                                <ArrowUpRight className="h-3 w-3 text-success" /> Income
                             </div>
-                            <div className="text-lg font-bold text-emerald-600">{fmtShort(ea.totalEventIncome)}</div>
+                            <div className="text-lg font-bold nums text-success">{fmtShort(ea.totalEventIncome)}</div>
                         </div>
                         <div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1 justify-center">
-                                <ArrowDownRight className="h-3 w-3 text-red-500" /> Expense
+                                <ArrowDownRight className="h-3 w-3 text-destructive" /> Expense
                             </div>
-                            <div className="text-lg font-bold text-red-600">{fmtShort(ea.totalEventExpense)}</div>
+                            <div className="text-lg font-bold nums text-destructive">{fmtShort(ea.totalEventExpense)}</div>
                         </div>
                         <div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1 justify-center">
                                 <TrendingUp className="h-3 w-3" /> Profit
                             </div>
-                            <div className={`text-lg font-bold ${marginColor(ea.eventMarginPct)}`}>{fmtShort(ea.eventGrossProfit)}</div>
-                            <div className={`text-[10px] ${marginColor(ea.eventMarginPct)}`}>({ea.eventMarginPct.toFixed(1)}%)</div>
+                            <div className={`text-lg font-bold nums ${marginColor(ea.eventMarginPct)}`}>{fmtShort(ea.eventGrossProfit)}</div>
+                            <div className={`text-[10px] nums ${marginColor(ea.eventMarginPct)}`}>({ea.eventMarginPct.toFixed(1)}%)</div>
                         </div>
                     </div>
                 </div>
             )}
 
             {(!ea || (ea.eventCount === 0 && analytics.totalOrders === 0)) && (
-                <div className="p-8 border rounded-lg text-center text-sm text-muted-foreground">
+                <div className="glass rounded-xl p-8 text-center text-sm text-muted-foreground">
                     Belum ada aktivitas project / order untuk customer ini.
                 </div>
             )}
