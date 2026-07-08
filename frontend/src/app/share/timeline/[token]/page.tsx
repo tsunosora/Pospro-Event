@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, MapPin, User as UserIcon, Package, Loader2, ChevronLeft, ChevronRight, Lock } from "lucide-react";
@@ -39,6 +39,14 @@ function getPhaseRanges(ev: PublicTimelineEvent): Array<{ phase: Phase; start: D
 }
 
 export default function PublicTimelinePage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen w-full flex items-center justify-center text-lg text-muted-foreground"><Loader2 className="h-7 w-7 animate-spin mr-2" /> Memuat…</div>}>
+            <PublicTimelineInner />
+        </Suspense>
+    );
+}
+
+function PublicTimelineInner() {
     const params = useParams<{ token: string }>();
     const token = params.token;
     const searchParams = useSearchParams();
