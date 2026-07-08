@@ -6,8 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Plus, FileText, FileDown, Pencil, Trash2, Loader2, GitBranch, Hash, Eye, X, Download, Users, Search, ScrollText, Copy,
-    Wrench, Send, CheckCircle2, XCircle, Receipt, AlertTriangle, Wallet, Lightbulb,
+    Wrench, Send, CheckCircle2, XCircle, Receipt, AlertTriangle, Wallet, Lightbulb, MoreVertical, ChevronLeft, ChevronRight,
 } from "lucide-react";
+import {
+    DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+    DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 import {
@@ -68,6 +72,9 @@ function PenawaranListPageInner() {
     const [typeFilter, setTypeFilter] = useState<'QUOTATION' | 'INVOICE' | 'ALL'>('QUOTATION');
     const [dateRange, setDateRange] = useState<DateRange>({ preset: "ALL" });
     const [search, setSearch] = useState("");
+    // Pagination client-side — batasi scroll vertikal pada list yang panjang.
+    const PAGE_SIZE = 20;
+    const [page, setPage] = useState(1);
     const [showCreate, setShowCreate] = useState(false);
     const [previewQ, setPreviewQ] = useState<Quotation | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -337,6 +344,14 @@ function PenawaranListPageInner() {
         return list;
     })();
 
+    // Reset ke halaman 1 saat filter/pencarian berubah supaya tak "nyangkut" di halaman kosong
+    useEffect(() => { setPage(1); }, [variantFilter, typeFilter, search, dateRange]);
+
+    const totalItems = quotations.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    const currentPage = Math.min(page, totalPages);
+    const pagedQuotations = quotations.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
     return (
         <div className="p-6 max-w-7xl mx-auto">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
@@ -498,7 +513,7 @@ function PenawaranListPageInner() {
                             </tr>
                         </thead>
                         <tbody>
-                            {quotations.map((q) => {
+                            {pagedQuotations.map((q) => {
                                 const bm = q.brand ? BRAND_META[q.brand] : null;
                                 // Prioritas warna: themeColor dari pengaturan brand → fallback BRAND_META.color → slate-400.
                                 const settingsColor = q.brand ? brandColorMap.get(q.brand) : null;
@@ -641,84 +656,6 @@ function PenawaranListPageInner() {
                                     </td>
                                     <td className="px-3 py-2">
                                         <div className="flex items-center justify-end gap-1">
-                                            {q.invoiceNumber.startsWith("DRAFT-") && (
-                                                <button
-                                                    onClick={() => assignMut.mutate(q.id)}
-                                                    disabled={assignMut.isPending}
-                                                    title="Assign Nomor"
-                                                    className="p-1.5 text-success hover:bg-success/10 rounded transition-colors cursor-pointer"
-                                                >
-                                                    <Hash className="w-4 h-4" />
-                                                </button>
-                                            )}
-                                            {!q.invoiceNumber.startsWith("DRAFT-") && q.type !== "INVOICE" && (
-                                                <button
-                                                    onClick={() => reviseMut.mutate(q.id)}
-                                                    disabled={reviseMut.isPending}
-                                                    title="Buat Revisi (linked ke penawaran ini)"
-                                                    className="p-1.5 text-warning hover:bg-warning/10 rounded transition-colors cursor-pointer"
-                                                >
-                                                    <GitBranch className="w-4 h-4" />
-                                                </button>
-                                            )}
-                                            {/* Duplicate — buat penawaran baru standalone berdasarkan ini (template) */}
-                                            {q.type !== "INVOICE" && (
-                                                <button
-                                                    onClick={() => {
-                                                        if (confirm(`Duplicate Penawaran ${q.invoiceNumber}?\n\nAkan dibuat Penawaran BARU (terpisah) dengan data yang sama. Cocok untuk klien lain dengan kebutuhan serupa.`)) {
-                                                            duplicateMut.mutate(q.id);
-                                                        }
-                                                    }}
-                                                    disabled={duplicateMut.isPending}
-                                                    title="Duplicate Penawaran (jadi template, standalone)"
-                                                    className="p-1.5 text-info hover:bg-info/10 rounded transition-colors cursor-pointer"
-                                                >
-                                                    <Copy className="w-4 h-4" />
-                                                </button>
-                                            )}
-                                            {/* Payment action buttons — cuma untuk INVOICE, non-DRAFT, non-CANCELLED, non-PAID */}
-                                            {q.type === "INVOICE" && !q.invoiceNumber.startsWith("DRAFT-") && q.status !== "CANCELLED" && q.status !== "PAID" && (
-                                                <>
-                                                    {q.status === "DRAFT" && (
-                                                        <button
-                                                            onClick={() => handleMarkSent(q)}
-                                                            disabled={markSentMut.isPending}
-                                                            title="Tandai Sent (sudah dikirim ke klien)"
-                                                            className="p-1.5 text-info hover:bg-info/10 rounded transition-colors cursor-pointer"
-                                                        >
-                                                            <Send className="w-4 h-4" />
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => setMarkPaidTarget(q)}
-                                                        title="Tandai Pembayaran Masuk"
-                                                        className="p-1.5 text-success hover:bg-success/10 rounded transition-colors cursor-pointer"
-                                                    >
-                                                        <CheckCircle2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleCancelInvoice(q)}
-                                                        disabled={cancelInvoiceMut.isPending}
-                                                        title="Cancel Invoice"
-                                                        className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
-                                                    >
-                                                        <XCircle className="w-4 h-4" />
-                                                    </button>
-                                                </>
-                                            )}
-                                            {/* View Payment Detail — kalau invoice ada record pembayaran (PAID/PARTIAL atau ada paidAmount) */}
-                                            {q.type === "INVOICE" && (q.status === "PAID" || q.status === "PARTIALLY_PAID" || Number((q as any).paidAmount ?? 0) > 0) && (
-                                                <button
-                                                    onClick={() => setPaymentDetailTarget(q)}
-                                                    title={`Lihat Detail Pembayaran${q.paymentProofUrl ? " (ada bukti)" : ""}`}
-                                                    className="p-1.5 text-success hover:bg-success/10 rounded relative transition-colors cursor-pointer"
-                                                >
-                                                    <Receipt className="w-4 h-4" />
-                                                    {q.paymentProofUrl && (
-                                                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-info rounded-full border border-white" title="Bukti tersedia" />
-                                                    )}
-                                                </button>
-                                            )}
                                             <button
                                                 onClick={() => handlePreview(q)}
                                                 title="Preview surat penawaran"
@@ -726,44 +663,91 @@ function PenawaranListPageInner() {
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </button>
-                                            <button
-                                                onClick={() => handleExport(q.id, "pdf", q.invoiceNumber)}
-                                                title="Export PDF Penawaran"
-                                                className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
-                                            >
-                                                <FileDown className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleExport(q.id, "spk-pdf", q.invoiceNumber)}
-                                                title="Export SPK (Surat Perintah Kerja)"
-                                                className="p-1.5 text-success hover:bg-success/10 rounded transition-colors cursor-pointer"
-                                            >
-                                                <ScrollText className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleExport(q.id, "docx", q.invoiceNumber)}
-                                                title="Export DOCX"
-                                                className="p-1.5 text-info hover:bg-info/10 rounded transition-colors cursor-pointer"
-                                            >
-                                                <FileText className="w-4 h-4" />
-                                            </button>
-                                            <Link
-                                                href={`/penawaran/${q.id}`}
-                                                className="p-1.5 text-muted-foreground hover:bg-muted rounded transition-colors"
-                                                title="Detail / Edit"
-                                            >
-                                                <Pencil className="w-4 h-4" />
-                                            </Link>
-                                            <button
-                                                onClick={() => {
-                                                    if (confirm(`Hapus penawaran ${q.invoiceNumber}?`)) deleteMut.mutate(q.id);
-                                                }}
-                                                disabled={deleteMut.isPending}
-                                                title="Hapus"
-                                                className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors cursor-pointer"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        title="Aksi lainnya"
+                                                        aria-label="Aksi lainnya"
+                                                        className="p-1.5 text-muted-foreground hover:bg-muted rounded transition-colors cursor-pointer data-[state=open]:bg-muted"
+                                                    >
+                                                        <MoreVertical className="w-4 h-4" />
+                                                    </button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem asChild>
+                                                        <Link href={`/penawaran/${q.id}`}>
+                                                            <Pencil /> Detail / Edit
+                                                        </Link>
+                                                    </DropdownMenuItem>
+
+                                                    {q.invoiceNumber.startsWith("DRAFT-") && (
+                                                        <DropdownMenuItem onSelect={() => assignMut.mutate(q.id)}>
+                                                            <Hash /> Assign Nomor
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    {!q.invoiceNumber.startsWith("DRAFT-") && q.type !== "INVOICE" && (
+                                                        <DropdownMenuItem onSelect={() => reviseMut.mutate(q.id)}>
+                                                            <GitBranch /> Buat Revisi
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    {q.type !== "INVOICE" && (
+                                                        <DropdownMenuItem
+                                                            onSelect={() => {
+                                                                if (confirm(`Duplicate Penawaran ${q.invoiceNumber}?\n\nAkan dibuat Penawaran BARU (terpisah) dengan data yang sama. Cocok untuk klien lain dengan kebutuhan serupa.`)) {
+                                                                    duplicateMut.mutate(q.id);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Copy /> Duplicate
+                                                        </DropdownMenuItem>
+                                                    )}
+
+                                                    {q.type === "INVOICE" && !q.invoiceNumber.startsWith("DRAFT-") && q.status !== "CANCELLED" && q.status !== "PAID" && (
+                                                        <>
+                                                            <DropdownMenuSeparator />
+                                                            {q.status === "DRAFT" && (
+                                                                <DropdownMenuItem onSelect={() => handleMarkSent(q)}>
+                                                                    <Send /> Tandai Sent
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                            <DropdownMenuItem onSelect={() => setMarkPaidTarget(q)}>
+                                                                <CheckCircle2 /> Tandai Pembayaran Masuk
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem variant="destructive" onSelect={() => handleCancelInvoice(q)}>
+                                                                <XCircle /> Cancel Invoice
+                                                            </DropdownMenuItem>
+                                                        </>
+                                                    )}
+                                                    {q.type === "INVOICE" && (q.status === "PAID" || q.status === "PARTIALLY_PAID" || Number((q as any).paidAmount ?? 0) > 0) && (
+                                                        <DropdownMenuItem onSelect={() => setPaymentDetailTarget(q)}>
+                                                            <Receipt /> Detail Pembayaran
+                                                        </DropdownMenuItem>
+                                                    )}
+
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuLabel>Export</DropdownMenuLabel>
+                                                    <DropdownMenuItem onSelect={() => handleExport(q.id, "pdf", q.invoiceNumber)}>
+                                                        <FileDown /> Export PDF
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => handleExport(q.id, "spk-pdf", q.invoiceNumber)}>
+                                                        <ScrollText /> Export SPK
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => handleExport(q.id, "docx", q.invoiceNumber)}>
+                                                        <FileText /> Export DOCX
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        variant="destructive"
+                                                        onSelect={() => {
+                                                            if (confirm(`Hapus penawaran ${q.invoiceNumber}?`)) deleteMut.mutate(q.id);
+                                                        }}
+                                                    >
+                                                        <Trash2 /> Hapus
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
                                         </div>
                                     </td>
                                 </tr>
@@ -772,6 +756,30 @@ function PenawaranListPageInner() {
                         </tbody>
                     </table>
                     </div>
+                    {totalItems > PAGE_SIZE && (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 py-2.5 border-t border-border">
+                            <span className="text-xs text-muted-foreground">
+                                Menampilkan <b className="text-foreground nums">{(currentPage - 1) * PAGE_SIZE + 1}</b>–<b className="text-foreground nums">{Math.min(currentPage * PAGE_SIZE, totalItems)}</b> dari <b className="text-foreground nums">{totalItems}</b> dokumen
+                            </span>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    disabled={currentPage <= 1}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-border text-sm hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                >
+                                    <ChevronLeft className="w-4 h-4" /> Sebelumnya
+                                </button>
+                                <span className="px-2 text-xs text-muted-foreground nums">Hal. {currentPage}/{totalPages}</span>
+                                <button
+                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage >= totalPages}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-border text-sm hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                >
+                                    Berikutnya <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
