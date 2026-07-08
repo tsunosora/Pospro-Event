@@ -32,6 +32,8 @@ export interface CreateLeadInput {
     notes?: string;
     leadCameAt?: string;
     lastContactedAt?: string | null;
+    // Tanggal closing/deal custom — untuk backdate saat user telat pindah status ke CLOSED_DEAL
+    closedDealAt?: string | null;
     labelIds?: number[];
 }
 
@@ -280,10 +282,15 @@ export class LeadsService {
         if (input.greetingTemplate !== undefined) data.greetingTemplate = input.greetingTemplate?.trim() || null;
         if (input.status !== undefined) {
             data.status = input.status;
-            // Stempel tanggal closing saat lead BARU jadi CLOSED_DEAL (biar leaderboard hitung di bulan closing)
+            // Stempel tanggal closing saat lead BARU jadi CLOSED_DEAL (biar leaderboard hitung di bulan closing).
+            // Kalau user kirim closedDealAt custom (backdate karena telat pindah status), pakai itu; jika tidak, waktu sekarang.
             if (input.status === 'CLOSED_DEAL' && existing.status !== 'CLOSED_DEAL') {
-                (data as any).closedDealAt = new Date();
+                (data as any).closedDealAt = this.toDate(input.closedDealAt) ?? new Date();
             }
+        }
+        // Koreksi tanggal closing kapan saja (field editable di tab Detail), selama tidak sudah di-set oleh transisi status di atas.
+        if (input.closedDealAt !== undefined && (data as any).closedDealAt === undefined) {
+            (data as any).closedDealAt = this.toDate(input.closedDealAt);
         }
 
         // Detect transfer: assigned worker berubah & sebelumnya sudah ada owner

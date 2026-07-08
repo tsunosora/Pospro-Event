@@ -77,7 +77,8 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
     const labels = lead.labels ?? [];
 
     // Inline edit state — popover open per field
-    const [editing, setEditing] = useState<"marketing" | "brand" | null>(null);
+    const [editing, setEditing] = useState<"marketing" | "brand" | "closing" | null>(null);
+    const [closingDraft, setClosingDraft] = useState("");
     const popoverRef = useRef<HTMLDivElement>(null);
 
     // Click outside → close popover
@@ -353,6 +354,47 @@ export function LeadCard({ lead, onClick, density = "comfortable" }: { lead: Lea
                             </span>
                         );
                     })()}
+                    {lead.status === "CLOSED_DEAL" && (
+                        <div className="relative inline-flex">
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (editing === "closing") { setEditing(null); return; }
+                                    setClosingDraft(dayjs(lead.closedDealAt ?? undefined).format("YYYY-MM-DD"));
+                                    setEditing("closing");
+                                }}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-success/15 text-success border border-success/30 hover:bg-success/25 cursor-pointer transition-colors"
+                                title={lead.closedDealAt ? `Closing (Deal): ${dayjs(lead.closedDealAt).format("DD MMM YYYY")} — klik untuk ubah` : "Klik untuk set tanggal closing"}
+                            >
+                                <PartyPopper className="h-2.5 w-2.5" />
+                                {lead.closedDealAt ? `Closing: ${formatShortDate(lead.closedDealAt)}` : "Set tgl closing"}
+                                <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                            </button>
+                            {editing === "closing" && (
+                                <div ref={popoverRef} className="absolute z-30 top-full left-0 mt-1 w-52 bg-card border-2 border-border rounded-lg shadow-xl p-2.5 space-y-1.5"
+                                    onClick={(e) => e.stopPropagation()}>
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Tanggal Closing (Deal)</div>
+                                    <input
+                                        type="date"
+                                        value={closingDraft}
+                                        max={dayjs().format("YYYY-MM-DD")}
+                                        onChange={(e) => setClosingDraft(e.target.value)}
+                                        className="w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background"
+                                    />
+                                    <p className="text-[9px] text-muted-foreground">Backdate kalau telat pindah status ke closing.</p>
+                                    <button
+                                        type="button"
+                                        disabled={updateMut.isPending || !closingDraft}
+                                        onClick={() => updateMut.mutate({ closedDealAt: closingDraft ? new Date(closingDraft).toISOString() : null })}
+                                        className="w-full px-2 py-1 rounded-md bg-success text-white text-[11px] font-semibold disabled:opacity-50 cursor-pointer"
+                                    >
+                                        {updateMut.isPending ? <Loader2 className="h-3 w-3 animate-spin inline" /> : "Simpan"}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 

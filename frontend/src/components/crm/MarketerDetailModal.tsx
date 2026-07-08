@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { X, Loader2, ChevronRight, MapPin, Building2, Trophy, XCircle } from "lucide-react";
+import { X, Loader2, ChevronRight, MapPin, Building2, Trophy, XCircle, CalendarCheck, CalendarX } from "lucide-react";
 import { getMarketerOutcomes, type OutcomeLead } from "@/lib/api/crm";
 
 interface Props {
@@ -16,6 +16,11 @@ interface Props {
 function fmtRp(v: number) {
     if (!isFinite(v) || v === 0) return "Rp 0";
     return `Rp ${Math.round(v).toLocaleString("id-ID")}`;
+}
+
+function fmtDate(iso: string | null): string {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 // Kelas literal (bukan interpolasi) supaya tidak ter-purge Tailwind.
@@ -73,6 +78,7 @@ export function MarketerDetailModal({ open, onClose, workerId, workerName, perio
                                 count={data.closed.count}
                                 total={data.closed.totalValue}
                                 leads={data.closed.leads}
+                                dateKind="closing"
                                 onLead={openLead}
                             />
                             <OutcomeSection
@@ -82,6 +88,7 @@ export function MarketerDetailModal({ open, onClose, workerId, workerName, perio
                                 count={data.lost.count}
                                 total={data.lost.totalValue}
                                 leads={data.lost.leads}
+                                dateKind="lost"
                                 onLead={openLead}
                             />
                         </>
@@ -99,6 +106,7 @@ function OutcomeSection({
     count,
     total,
     leads,
+    dateKind,
     onLead,
 }: {
     title: string;
@@ -107,6 +115,7 @@ function OutcomeSection({
     count: number;
     total: number;
     leads: OutcomeLead[];
+    dateKind: "closing" | "lost";
     onLead: (id: number) => void;
 }) {
     const c = ACCENT[accent];
@@ -152,6 +161,15 @@ function OutcomeSection({
                                             style={{ backgroundColor: `${l.stage.color}20`, color: l.stage.color }}
                                         >
                                             {l.stage.name}
+                                        </span>
+                                    )}
+                                    {dateKind === "closing" ? (
+                                        <span className={`inline-flex items-center gap-0.5 font-semibold ${c.text}`}>
+                                            <CalendarCheck className="h-2.5 w-2.5" /> Closing: {fmtDate(l.closedDealAt ?? l.updatedAt)}
+                                        </span>
+                                    ) : (
+                                        <span className={`inline-flex items-center gap-0.5 font-semibold ${c.text}`}>
+                                            <CalendarX className="h-2.5 w-2.5" /> Lost: {fmtDate(l.updatedAt)}
                                         </span>
                                     )}
                                 </div>

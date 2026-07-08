@@ -116,6 +116,8 @@ export interface Lead {
     imageUrl: string | null;
     leadCameAt: string;
     lastContactedAt: string | null;
+    /** Tanggal closing/deal — bisa di-backdate saat user telat pindah status ke CLOSED_DEAL. */
+    closedDealAt: string | null;
     convertedCustomerId: number | null;
     convertedAt: string | null;
     createdAt: string;

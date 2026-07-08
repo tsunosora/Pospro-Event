@@ -94,17 +94,23 @@ export function LeadDrawer({
         projectValueEst: string;
         greetingTemplate: string;
         notes: string;
+        closedDealAt: string;
     }>({
         name: "", phone: "", organization: "", productCategory: "", city: "",
         level: "", status: "NEW", source: "OTHER", sourceDetail: "",
         followUpDate: "", eventDateStart: "", eventDateEnd: "", eventLocation: "",
         orderDescription: "", projectValueEst: "", greetingTemplate: "", notes: "",
+        closedDealAt: "",
     });
+
+    // Tanggal closing yang dipilih saat set status → CLOSED_DEAL via dropdown (null = tidak sedang closing)
+    const [pendingClosingDate, setPendingClosingDate] = useState<string | null>(null);
 
     useEffect(() => {
         if (open) {
             setTab("detail");
             setEditMode(false);
+            setPendingClosingDate(null);
         }
     }, [open, leadId]);
 
@@ -153,6 +159,7 @@ export function LeadDrawer({
             projectValueEst: lead.projectValueEst ?? "",
             greetingTemplate: lead.greetingTemplate ?? "",
             notes: lead.notes ?? "",
+            closedDealAt: toDateInput(lead.closedDealAt),
         });
         setEditAdditionalEvents(additionalEventsToEditor(lead.additionalEvents));
         setEditMode(true);
@@ -179,6 +186,10 @@ export function LeadDrawer({
             greetingTemplate: editForm.greetingTemplate.trim() || null,
             notes: editForm.notes.trim() || null,
         };
+        // Tanggal closing hanya relevan saat status CLOSED_DEAL — backdate kalau user telat pindah status.
+        if (editForm.status === "CLOSED_DEAL") {
+            payload.closedDealAt = editForm.closedDealAt ? new Date(editForm.closedDealAt).toISOString() : null;
+        }
         updateMut.mutate(payload);
     }
 
@@ -451,6 +462,9 @@ export function LeadDrawer({
                                 <Field label="Notes" value={lead.notes} multiline />
                                 <Field label="Lead Came At" value={new Date(lead.leadCameAt).toLocaleString("id-ID")} />
                                 <Field label="Last Contacted" value={lead.lastContactedAt ? new Date(lead.lastContactedAt).toLocaleString("id-ID") : null} />
+                                {lead.closedDealAt && (
+                                    <Field label="Tanggal Closing (Deal)" value={new Date(lead.closedDealAt).toLocaleString("id-ID")} />
+                                )}
                             </>
                         ) : (
                             <div className="space-y-2.5">
@@ -472,6 +486,19 @@ export function LeadDrawer({
                                         })}
                                     </select>
                                 </div>
+                                {editForm.status === "CLOSED_DEAL" && (
+                                    <div className="space-y-1 rounded-md border border-success/40 bg-success/5 p-2">
+                                        <label className="text-[10px] font-semibold text-success uppercase tracking-wide">Tanggal Closing (Deal)</label>
+                                        <input
+                                            type="date"
+                                            value={editForm.closedDealAt}
+                                            max={new Date().toISOString().slice(0, 10)}
+                                            onChange={(e) => setEditForm(f => ({ ...f, closedDealAt: e.target.value }))}
+                                            className="w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background"
+                                        />
+                                        <p className="text-[9px] text-muted-foreground inline-flex items-center gap-1"><Lightbulb className="h-3 w-3 shrink-0" /> Isi tanggal deal sebenarnya kalau telat memindahkan status. Dipakai leaderboard untuk hitung closing di periode yang benar.</p>
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-medium text-muted-foreground">Level</label>
@@ -698,7 +725,11 @@ export function LeadDrawer({
                                         value=""
                                         onChange={(e) => {
                                             const newStatus = e.target.value as LeadStatus;
-                                            if (newStatus && newStatus !== lead.status) {
+                                            if (!newStatus || newStatus === lead.status) return;
+                                            if (newStatus === "CLOSED_DEAL") {
+                                                // Minta tanggal closing dulu — biar bisa di-backdate kalau telat pindah status
+                                                setPendingClosingDate(new Date().toISOString().slice(0, 10));
+                                            } else {
                                                 updateMut.mutate({ status: newStatus });
                                             }
                                         }}
@@ -711,6 +742,40 @@ export function LeadDrawer({
                                         })}
                                     </select>
                                 </div>
+                                {pendingClosingDate !== null && (
+                                    <div className="mt-2 space-y-1.5 rounded-md border border-success/40 bg-success/5 p-2.5">
+                                        <label className="text-[10px] font-semibold text-success uppercase tracking-wide">Tanggal Closing (Deal)</label>
+                                        <input
+                                            type="date"
+                                            value={pendingClosingDate}
+                                            max={new Date().toISOString().slice(0, 10)}
+                                            onChange={(e) => setPendingClosingDate(e.target.value)}
+                                            className="w-full px-2 py-1.5 text-xs border border-input rounded-md bg-background"
+                                        />
+                                        <p className="text-[9px] text-muted-foreground">Isi tanggal deal sebenarnya kalau kamu telat memindahkan status ke closing.</p>
+                                        <div className="flex gap-2">
+                                            <button
+                                                disabled={updateMut.isPending}
+                                                onClick={() => {
+                                                    updateMut.mutate({
+                                                        status: "CLOSED_DEAL",
+                                                        closedDealAt: pendingClosingDate ? new Date(pendingClosingDate).toISOString() : null,
+                                                    });
+                                                    setPendingClosingDate(null);
+                                                }}
+                                                className="flex-1 px-3 py-1.5 rounded-md bg-success text-white text-xs font-semibold disabled:opacity-50"
+                                            >
+                                                Konfirmasi Closing
+                                            </button>
+                                            <button
+                                                onClick={() => setPendingClosingDate(null)}
+                                                className="px-3 py-1.5 rounded-md border border-border text-xs"
+                                            >
+                                                Batal
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
