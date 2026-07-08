@@ -1750,6 +1750,8 @@ enum LeadStatus {
   IN_PROGRESS        // sedang dikerjakan
   ON_HOLD            // di-pause sementara (klien minta tunggu, dll)
   CLOSED_DEAL
+  REORDER            // pelanggan order ulang (reorder) dari deal sebelumnya
+  REPEAT_ORDER       // pelanggan langganan / order berulang
   CLOSED_LOST
 }
 

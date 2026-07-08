@@ -29,7 +29,7 @@ export type LeadStatus =
     | 'NEW' | 'CONTACTED' | 'RESPONDED' | 'NO_RESPONSE'
     | 'WAITING' | 'WAITING_DECISION' | 'PROPOSAL_SENT' | 'NEGOTIATION'
     | 'IN_PROGRESS' | 'ON_HOLD'
-    | 'CLOSED_DEAL' | 'CLOSED_LOST';
+    | 'CLOSED_DEAL' | 'REORDER' | 'REPEAT_ORDER' | 'CLOSED_LOST';
 
 /** Metadata visual untuk LeadStatus — emoji, label Indonesia, dan warna badge. */
 export const LEAD_STATUS_META: Record<LeadStatus, { emoji: string; label: string; bg: string; text: string; border: string }> = {
@@ -44,6 +44,8 @@ export const LEAD_STATUS_META: Record<LeadStatus, { emoji: string; label: string
     IN_PROGRESS:       { emoji: "⚙️", label: "Sedang Dikerjakan",   bg: "bg-orange-50",  text: "text-orange-700",  border: "border-orange-200" },
     ON_HOLD:           { emoji: "⏸️", label: "Di-Pause",            bg: "bg-stone-100",  text: "text-stone-700",   border: "border-stone-300" },
     CLOSED_DEAL:       { emoji: "🏆", label: "Deal",                bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-300" },
+    REORDER:           { emoji: "🔁", label: "Reorder",             bg: "bg-teal-50",    text: "text-teal-700",    border: "border-teal-200" },
+    REPEAT_ORDER:      { emoji: "🔄", label: "Repeat Order",        bg: "bg-lime-50",    text: "text-lime-700",    border: "border-lime-300" },
     CLOSED_LOST:       { emoji: "❌", label: "Lost",                bg: "bg-red-50",     text: "text-red-700",     border: "border-red-200" },
 };
 
@@ -52,7 +54,7 @@ export const LEAD_STATUS_ORDER: LeadStatus[] = [
     "NEW", "CONTACTED", "RESPONDED", "NO_RESPONSE",
     "PROPOSAL_SENT", "WAITING_DECISION", "NEGOTIATION", "WAITING",
     "IN_PROGRESS", "ON_HOLD",
-    "CLOSED_DEAL", "CLOSED_LOST",
+    "CLOSED_DEAL", "REORDER", "REPEAT_ORDER", "CLOSED_LOST",
 ];
 
 export interface LeadStage {
