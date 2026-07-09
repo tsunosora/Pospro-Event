@@ -821,6 +821,16 @@ export class LeadsService {
             if (params.to) closedRange.lte = new Date(params.to);
             closedWhereBase.closedDealAt = closedRange;
         }
+        // Filter "lost di periode ini" — CLOSED_LOST tidak punya kolom tanggal khusus,
+        // jadi pakai updatedAt (konsisten dgn detail outcomes per marketing / leadOutcomesByWorker).
+        const lostWhereBase: Prisma.LeadWhereInput = { status: 'CLOSED_LOST' };
+        if (params.brand) lostWhereBase.brand = params.brand;
+        if (params.from || params.to) {
+            const lostRange: Prisma.DateTimeFilter = {};
+            if (params.from) lostRange.gte = new Date(params.from);
+            if (params.to) lostRange.lte = new Date(params.to);
+            lostWhereBase.updatedAt = lostRange;
+        }
 
         // Hanya hitung performa untuk role yang menangani lead di CRM
         const workers = await this.prisma.worker.findMany({
@@ -844,7 +854,7 @@ export class LeadsService {
             workers.map(async (w) => {
                 const baseWhere: Prisma.LeadWhereInput = { ...where, assignedWorkerId: w.id };
 
-                const [total, won, valueAgg, respLeads, stuck] = await this.prisma.$transaction([
+                const [total, won, valueAgg, respLeads, stuck, lostCount, lostValueAgg] = await this.prisma.$transaction([
                     this.prisma.lead.count({ where: baseWhere }),
                     this.prisma.lead.count({
                         where: { ...closedWhereBase, assignedWorkerId: w.id },
@@ -867,6 +877,13 @@ export class LeadsService {
                                 { lastContactedAt: { lt: stuckThreshold } },
                             ],
                         },
+                    }),
+                    this.prisma.lead.count({
+                        where: { ...lostWhereBase, assignedWorkerId: w.id },
+                    }),
+                    this.prisma.lead.aggregate({
+                        where: { ...lostWhereBase, assignedWorkerId: w.id },
+                        _sum: { projectValueEst: true },
                     }),
                 ]);
 
@@ -892,6 +909,8 @@ export class LeadsService {
                     totalValueClosed: Number(valueAgg._sum.projectValueEst ?? 0),
                     avgResponseHours: avgRespHours,
                     stuckLeads: stuck,
+                    lostLeads: lostCount,
+                    totalValueLost: Number(lostValueAgg._sum.projectValueEst ?? 0),
                 };
             }),
         );

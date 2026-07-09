@@ -12,6 +12,7 @@ import {
     AlertTriangle,
     DollarSign,
     Target,
+    XCircle,
 } from "lucide-react";
 import { getMarketerPerformance, type MarketerPerformance } from "@/lib/api/crm";
 import { StuckLeadsModal } from "@/components/crm/StuckLeadsModal";
@@ -67,7 +68,10 @@ export default function CrmPerformancePage() {
     const totalConverted = rows.reduce((a, r) => a + r.convertedLeads, 0);
     const totalValue = rows.reduce((a, r) => a + r.totalValueClosed, 0);
     const totalStuck = rows.reduce((a, r) => a + r.stuckLeads, 0);
+    const totalLost = rows.reduce((a, r) => a + r.lostLeads, 0);
     const avgConvRate = totalLeads > 0 ? Math.round((totalConverted / totalLeads) * 1000) / 10 : 0;
+    // Win-rate = menang dibanding total keputusan (menang + kalah), bukan dari seluruh lead.
+    const winRate = totalConverted + totalLost > 0 ? Math.round((totalConverted / (totalConverted + totalLost)) * 1000) / 10 : 0;
 
     const top = rows.length > 0 ? rows[0] : null;
 
@@ -134,9 +138,17 @@ export default function CrmPerformancePage() {
                 <SummaryCard
                     icon={<Target className="h-5 w-5" />}
                     color="emerald"
-                    label="Closing"
-                    value={String(totalConverted)}
-                    sub={`${avgConvRate}% conversion`}
+                    label="Menang / Kalah"
+                    value={`${totalConverted} menang`}
+                    sub={
+                        <span>
+                            <span className="font-semibold text-success">{winRate}% win</span>
+                            <span className="mx-1">·</span>
+                            <span className="font-semibold text-destructive">{totalLost} lost</span>
+                            <span className="mx-1 text-muted-foreground/60">|</span>
+                            {avgConvRate}% conv
+                        </span>
+                    }
                 />
                 <SummaryCard
                     icon={<DollarSign className="h-5 w-5" />}
@@ -171,19 +183,23 @@ export default function CrmPerformancePage() {
                                 <th className="px-3 py-3 text-right">
                                     <span className="inline-flex items-center justify-end gap-1"><AlertTriangle className="h-3.5 w-3.5" />Stuck &gt; 7 hari</span>
                                 </th>
+                                <th className="px-3 py-3 text-right">
+                                    <span className="inline-flex items-center justify-end gap-1"><XCircle className="h-3.5 w-3.5" />Lost</span>
+                                </th>
+                                <th className="px-3 py-3 text-right">Nominal Lost (Rp)</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading && (
                                 <tr>
-                                    <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
+                                    <td colSpan={10} className="px-3 py-8 text-center text-muted-foreground">
                                         Memuat data...
                                     </td>
                                 </tr>
                             )}
                             {!isLoading && rows.length === 0 && (
                                 <tr>
-                                    <td colSpan={8} className="px-3 py-10 text-center text-muted-foreground">
+                                    <td colSpan={10} className="px-3 py-10 text-center text-muted-foreground">
                                         Belum ada data marketing aktif.
                                     </td>
                                 </tr>
@@ -216,6 +232,10 @@ export default function CrmPerformancePage() {
                     <TrendingUp className="h-3.5 w-3.5" />
                     Conversion rate = closing dibagi total lead masuk pada periode terpilih.
                 </p>
+                <p className="flex items-center gap-1.5">
+                    <XCircle className="h-3.5 w-3.5" />
+                    <b>Lost</b>: lead berstatus gagal (CLOSED_LOST) pada periode terpilih beserta total nilai estimasinya. Klik angka untuk lihat detailnya.
+                </p>
             </div>
 
             <StuckLeadsModal
@@ -239,6 +259,23 @@ export default function CrmPerformancePage() {
 
 function PerformanceRow({ rank, row, onStuckClick, onRowClick }: { rank: number; row: MarketerPerformance; onStuckClick: () => void; onRowClick: () => void }) {
     const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
+    const medalTitle =
+        rank === 1
+            ? "🏆 Sang Juara — Top Closer periode ini"
+            : rank === 2
+                ? "🥈 Runner-up — tinggal selangkah ke puncak"
+                : rank === 3
+                    ? "🥉 Peringkat 3 — masuk podium!"
+                    : `Peringkat #${rank}`;
+    // Gelar singkat yang tampil di atas nama untuk peringkat podium (1-3).
+    const medalLabel =
+        rank === 1
+            ? { text: "🏆 Top Closer", cls: "text-warning bg-warning/15" }
+            : rank === 2
+                ? { text: "🥈 Runner-up", cls: "text-muted-foreground bg-muted" }
+                : rank === 3
+                    ? { text: "🥉 Podium", cls: "text-warning/80 bg-warning/10" }
+                    : null;
     const convCls =
         row.conversionRate >= 30
             ? "text-success bg-success/15"
@@ -250,7 +287,9 @@ function PerformanceRow({ rank, row, onStuckClick, onRowClick }: { rank: number;
 
     return (
         <tr className="border-t border-border hover:bg-muted/50 transition-colors">
-            <td className="px-3 py-3 font-bold text-lg">{medal}</td>
+            <td className="px-3 py-3 font-bold text-lg">
+                <span title={medalTitle} className="cursor-default">{medal}</span>
+            </td>
             <td className="px-3 py-3 cursor-pointer" onClick={onRowClick} title="Klik untuk lihat detail closing & gagal">
                 <div className="flex items-center gap-2">
                     {row.photoUrl ? (
@@ -266,6 +305,11 @@ function PerformanceRow({ rank, row, onStuckClick, onRowClick }: { rank: number;
                         </div>
                     )}
                     <div>
+                        {medalLabel && (
+                            <div className={`mb-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${medalLabel.cls}`}>
+                                {medalLabel.text}
+                            </div>
+                        )}
                         <div className="font-semibold text-foreground">{row.name}</div>
                         {row.position && (
                             <div className="text-[11px] text-muted-foreground">{row.position}</div>
@@ -304,6 +348,23 @@ function PerformanceRow({ rank, row, onStuckClick, onRowClick }: { rank: number;
                     <span className="text-muted-foreground nums">0</span>
                 )}
             </td>
+            <td className="px-3 py-3 text-right">
+                {row.lostLeads > 0 ? (
+                    <button
+                        onClick={onRowClick}
+                        title="Klik untuk lihat daftar lead gagal (lost)"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-destructive/12 text-destructive nums text-xs font-bold hover:bg-destructive/20 transition-colors cursor-pointer"
+                    >
+                        <XCircle className="h-3 w-3" />
+                        {row.lostLeads}
+                    </button>
+                ) : (
+                    <span className="text-muted-foreground nums">0</span>
+                )}
+            </td>
+            <td className="px-3 py-3 text-right nums font-semibold text-destructive">
+                {row.totalValueLost > 0 ? fmtRp(row.totalValueLost) : <span className="text-muted-foreground font-normal">—</span>}
+            </td>
         </tr>
     );
 }
@@ -326,7 +387,7 @@ function SummaryCard({
     color: keyof typeof colorMap;
     label: string;
     value: string;
-    sub?: string;
+    sub?: React.ReactNode;
 }) {
     const c = colorMap[color];
     return (

@@ -148,6 +148,8 @@ export interface MarketerPerformance {
     totalValueClosed: number;
     avgResponseHours: number | null;
     stuckLeads: number;
+    lostLeads: number;
+    totalValueLost: number;
 }
 
 export interface BoardData {
