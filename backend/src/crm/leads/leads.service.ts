@@ -89,6 +89,22 @@ export class LeadsService {
         return isNaN(d.getTime()) ? null : d;
     }
 
+    /**
+     * Tanggal closing = kejadian yang SUDAH terjadi, jadi tidak boleh di masa depan.
+     * Backdate (telat pindah status) tetap boleh; forward-date ditolak supaya
+     * leaderboard closing tidak menghitung bulan yang belum dilalui (mis. Agustus
+     * padahal masih Juli). Ceiling = akhir hari ini, jadi pilihan "hari ini" jam
+     * berapa pun tetap lolos.
+     */
+    private assertClosedDealNotFuture(d: Date | null | undefined): void {
+        if (!d) return;
+        const endOfToday = new Date();
+        endOfToday.setHours(23, 59, 59, 999);
+        if (d.getTime() > endOfToday.getTime()) {
+            throw new BadRequestException('Tanggal closing tidak boleh di masa depan');
+        }
+    }
+
     private decOrNull(v: number | string | null | undefined): Prisma.Decimal | null | undefined {
         if (v === undefined) return undefined;
         if (v === null || v === '') return null;
@@ -285,12 +301,16 @@ export class LeadsService {
             // Stempel tanggal closing saat lead BARU jadi CLOSED_DEAL (biar leaderboard hitung di bulan closing).
             // Kalau user kirim closedDealAt custom (backdate karena telat pindah status), pakai itu; jika tidak, waktu sekarang.
             if (input.status === 'CLOSED_DEAL' && existing.status !== 'CLOSED_DEAL') {
-                (data as any).closedDealAt = this.toDate(input.closedDealAt) ?? new Date();
+                const closed = this.toDate(input.closedDealAt) ?? new Date();
+                this.assertClosedDealNotFuture(closed);
+                (data as any).closedDealAt = closed;
             }
         }
         // Koreksi tanggal closing kapan saja (field editable di tab Detail), selama tidak sudah di-set oleh transisi status di atas.
         if (input.closedDealAt !== undefined && (data as any).closedDealAt === undefined) {
-            (data as any).closedDealAt = this.toDate(input.closedDealAt);
+            const closed = this.toDate(input.closedDealAt);
+            this.assertClosedDealNotFuture(closed);
+            (data as any).closedDealAt = closed;
         }
 
         // Detect transfer: assigned worker berubah & sebelumnya sudah ada owner
