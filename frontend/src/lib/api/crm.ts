@@ -64,6 +64,7 @@ export interface LeadStage {
     orderIndex: number;
     isTerminal: boolean;
     isWinStage: boolean;
+    isLostStage: boolean;
 }
 
 export interface LeadLabel {
@@ -338,10 +339,10 @@ export const importLeadsXlsx = async (file: File, dryRun = false): Promise<any> 
 export const listStages = async (): Promise<LeadStage[]> =>
     (await api.get('/crm/stages')).data;
 
-export const createStage = async (data: { name: string; color?: string; isTerminal?: boolean; isWinStage?: boolean }): Promise<LeadStage> =>
+export const createStage = async (data: { name: string; color?: string; isTerminal?: boolean; isWinStage?: boolean; isLostStage?: boolean }): Promise<LeadStage> =>
     (await api.post('/crm/stages', data)).data;
 
-export const updateStage = async (id: number, data: Partial<{ name: string; color: string; isTerminal: boolean; isWinStage: boolean }>): Promise<LeadStage> =>
+export const updateStage = async (id: number, data: Partial<{ name: string; color: string; isTerminal: boolean; isWinStage: boolean; isLostStage: boolean }>): Promise<LeadStage> =>
     (await api.patch(`/crm/stages/${id}`, data)).data;
 
 export const deleteStage = async (id: number): Promise<{ ok: true }> =>

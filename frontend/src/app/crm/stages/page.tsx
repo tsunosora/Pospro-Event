@@ -155,11 +155,13 @@ function StageRow({
     const [color, setColor] = useState(stage.color);
     const [isTerminal, setIsTerminal] = useState(stage.isTerminal);
     const [isWinStage, setIsWinStage] = useState(stage.isWinStage);
+    const [isLostStage, setIsLostStage] = useState(stage.isLostStage);
     const dirty =
         name !== stage.name ||
         color !== stage.color ||
         isTerminal !== stage.isTerminal ||
-        isWinStage !== stage.isWinStage;
+        isWinStage !== stage.isWinStage ||
+        isLostStage !== stage.isLostStage;
 
     return (
         <div className="flex items-center gap-2 p-2.5 border-b border-border last:border-b-0">
@@ -215,9 +217,17 @@ function StageRow({
                 />
                 Win
             </label>
+            <label className="flex items-center gap-1 text-xs text-muted-foreground" title="Lead di stage ini dianggap kalah (CLOSED_LOST) & tidak dihitung stuck, tapi tetap tampil di papan">
+                <input
+                    type="checkbox"
+                    checked={isLostStage}
+                    onChange={(e) => setIsLostStage(e.target.checked)}
+                />
+                Lost
+            </label>
 
             <button
-                onClick={() => onSave({ name: name.trim(), color, isTerminal, isWinStage })}
+                onClick={() => onSave({ name: name.trim(), color, isTerminal, isWinStage, isLostStage })}
                 disabled={!dirty || !name.trim()}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border bg-background text-xs hover:bg-muted disabled:opacity-40"
             >

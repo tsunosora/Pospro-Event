@@ -6,6 +6,7 @@ export interface UpsertStageInput {
     color?: string;
     isTerminal?: boolean;
     isWinStage?: boolean;
+    isLostStage?: boolean;
 }
 
 @Injectable()
@@ -25,6 +26,7 @@ export class StagesService {
                 color: input.color || '#94a3b8',
                 isTerminal: !!input.isTerminal,
                 isWinStage: !!input.isWinStage,
+                isLostStage: !!input.isLostStage,
                 orderIndex: (max._max.orderIndex ?? -1) + 1,
             },
         });
@@ -40,6 +42,7 @@ export class StagesService {
                 color: input.color ?? stage.color,
                 isTerminal: input.isTerminal ?? stage.isTerminal,
                 isWinStage: input.isWinStage ?? stage.isWinStage,
+                isLostStage: input.isLostStage ?? stage.isLostStage,
             },
         });
     }

@@ -1762,6 +1762,9 @@ model LeadStage {
   orderIndex Int     @default(0) @map("order_index")
   isTerminal Boolean @default(false) @map("is_terminal")
   isWinStage Boolean @default(false) @map("is_win_stage")
+  /// Stage "kalah" (mis. Lost / Invalid Lead): lead di sini dianggap CLOSED_LOST,
+  /// tetap tampil di papan pipeline (beda dgn isTerminal yg menyembunyikan dari board).
+  isLostStage Boolean @default(false) @map("is_lost_stage")
 
   leads Lead[]
 

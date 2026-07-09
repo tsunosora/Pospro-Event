@@ -420,7 +420,7 @@ export class LeadsService {
                 // Status auto-sync (kasar) — tetap bisa dioverride lewat update biasa
                 const newStatus = targetStage.isWinStage
                     ? 'CLOSED_DEAL'
-                    : targetStage.isTerminal
+                    : targetStage.isTerminal || targetStage.isLostStage
                         ? 'CLOSED_LOST'
                         : lead.status === 'NEW' && newOrderIndex >= 0
                             ? 'IN_PROGRESS'
@@ -872,6 +872,9 @@ export class LeadsService {
                         where: {
                             ...baseWhere,
                             status: { in: openStatuses },
+                            // Lead di stage "kalah"/"menang" tidak pernah stuck, walau status enum-nya
+                            // masih open (divergence status vs stage). Stage = sumber kebenaran.
+                            stage: { isWinStage: false, isTerminal: false, isLostStage: false },
                             OR: [
                                 { lastContactedAt: null, leadCameAt: { lt: stuckThreshold } },
                                 { lastContactedAt: { lt: stuckThreshold } },
@@ -945,6 +948,8 @@ export class LeadsService {
             where: {
                 ...where,
                 status: { in: openStatuses },
+                // Sinkron dgn stuck count: lead di stage kalah/menang tak dianggap stuck.
+                stage: { isWinStage: false, isTerminal: false, isLostStage: false },
                 OR: [
                     { lastContactedAt: null, leadCameAt: { lt: stuckThreshold } },
                     { lastContactedAt: { lt: stuckThreshold } },
