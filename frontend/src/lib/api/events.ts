@@ -33,6 +33,13 @@ export interface EventRecord {
     // PIC khusus rate (untuk worker = picWorkerId). Null = ikut member rate.
     dailyWageRatePic: string | null;
     overtimeRatePerHourPic: string | null;
+    // BAST (Berita Acara Serah Terima) — override opsional
+    bastNumber: string | null;
+    bastDate: string | null;
+    bastReceiverName: string | null;
+    bastReceiverPosition: string | null;
+    bastNotes: string | null;
+    bastSignedByWorkerId: number | null;
     createdAt: string;
     updatedAt: string;
     customer?: { id: number; name: string; companyName: string | null } | null;
@@ -114,6 +121,13 @@ export interface EventFormInput {
     overtimeRatePerHour?: number | string | null;
     dailyWageRatePic?: number | string | null;
     overtimeRatePerHourPic?: number | string | null;
+    // BAST (Berita Acara Serah Terima) — override opsional
+    bastNumber?: string | null;
+    bastDate?: string | null;
+    bastReceiverName?: string | null;
+    bastReceiverPosition?: string | null;
+    bastNotes?: string | null;
+    bastSignedByWorkerId?: number | null;
 }
 
 export interface EventListFilter {
@@ -245,6 +259,65 @@ export const downloadProjectReportPdf = async (id: number, fallbackName = `proje
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+};
+
+export interface BastItem {
+    id: number;
+    eventId: number;
+    orderIndex: number;
+    description: string;
+    quantity: string | null;
+    condition: string | null;
+}
+
+export interface BastItemInput {
+    description: string;
+    quantity?: string | null;
+    condition?: string | null;
+}
+
+export const getBastItems = async (id: number) =>
+    (await api.get<BastItem[]>(`/events/${id}/bast-items`)).data;
+
+export const getBastItemSuggestions = async (
+    id: number,
+    source: 'rab' | 'quotation' = 'rab',
+    refId?: number,
+) =>
+    (await api.get<BastItemInput[]>(`/events/${id}/bast-items/suggestions`, {
+        params: { source, ...(refId ? { refId } : {}) },
+    })).data;
+
+export const replaceBastItems = async (id: number, items: BastItemInput[]) =>
+    (await api.put<BastItem[]>(`/events/${id}/bast-items`, { items })).data;
+
+export const exportBastPdfUrl = (id: number) => {
+    const base = process.env.NEXT_PUBLIC_API_URL ?? '';
+    return `${base}/events/${id}/bast.pdf`;
+};
+
+export const downloadBastPdf = async (id: number, fallbackName = `BAST-${id}.pdf`) => {
+    const res = await api.get(`/events/${id}/bast.pdf`, { responseType: 'blob' });
+    const blob = new Blob([res.data], { type: 'application/pdf' });
+    const cd = (res.headers as Record<string, string>)['content-disposition'] ?? '';
+    const match = /filename="([^"]+)"/.exec(cd);
+    const filename = match ? match[1] : fallbackName;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+/** Fetch BAST PDF (terautentikasi) → object URL untuk dipakai di <iframe> preview. Ingat revoke setelah dipakai. */
+export const getBastPdfObjectUrl = async (id: number) => {
+    const res = await api.get(`/events/${id}/bast.pdf`, { responseType: 'blob' });
+    const blob = new Blob([res.data], { type: 'application/pdf' });
+    return URL.createObjectURL(blob);
 };
 
 export const downloadEventCashflowCsv = async (eventId: number) => {

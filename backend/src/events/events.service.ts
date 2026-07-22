@@ -35,9 +35,22 @@ export interface CreateEventInput extends EventPhaseInput {
     // Wage khusus PIC (dipakai untuk worker yang = event.picWorkerId). Null = ikut member rate.
     dailyWageRatePic?: number | string | null;
     overtimeRatePerHourPic?: number | string | null;
+    // BAST (Berita Acara Serah Terima) — override opsional
+    bastNumber?: string | null;
+    bastDate?: string | Date | null;
+    bastReceiverName?: string | null;
+    bastReceiverPosition?: string | null;
+    bastNotes?: string | null;
+    bastSignedByWorkerId?: number | null;
 }
 
 export interface UpdateEventInput extends Partial<CreateEventInput> { }
+
+export interface BastItemInput {
+    description: string;
+    quantity?: string | null;
+    condition?: string | null;
+}
 
 export interface ListEventsFilter {
     status?: EventStatus;
@@ -396,11 +409,147 @@ export class EventsService {
             if ((input as any)[k] !== undefined) data[k] = toDate((input as any)[k]);
         }
 
+        // BAST fields
+        if (input.bastNumber !== undefined) data.bastNumber = input.bastNumber?.trim() || null;
+        if (input.bastDate !== undefined) data.bastDate = input.bastDate ? toDate(input.bastDate) : null;
+        if (input.bastReceiverName !== undefined) data.bastReceiverName = input.bastReceiverName?.trim() || null;
+        if (input.bastReceiverPosition !== undefined) data.bastReceiverPosition = input.bastReceiverPosition?.trim() || null;
+        if (input.bastNotes !== undefined) data.bastNotes = input.bastNotes?.trim() || null;
+        if (input.bastSignedByWorkerId !== undefined) data.bastSignedByWorkerId = input.bastSignedByWorkerId ?? null;
+
         const updated = await this.prisma.event.update({ where: { id }, data });
         if (input.status !== undefined && input.status !== (existing as any).status) {
             this.notifyEventStatus(updated, (existing as any).status).catch(() => { });
         }
         return updated;
+    }
+
+    // ───────────────────────── BAST items (editable) ─────────────────────────
+
+    /** Daftar item BAST manual milik event, urut orderIndex. */
+    async listBastItems(eventId: number) {
+        await this.findOne(eventId);
+        return this.prisma.bastItem.findMany({
+            where: { eventId },
+            orderBy: { orderIndex: 'asc' },
+        });
+    }
+
+    /** Replace-all item BAST manual untuk event (bulk save dari tabel editable). */
+    async replaceBastItems(eventId: number, items: BastItemInput[]) {
+        await this.findOne(eventId);
+        const clean = (items ?? [])
+            .map((it) => ({
+                description: (it.description ?? '').trim(),
+                quantity: it.quantity?.trim() || null,
+                condition: it.condition?.trim() || null,
+            }))
+            .filter((it) => it.description.length > 0);
+        await this.prisma.$transaction([
+            this.prisma.bastItem.deleteMany({ where: { eventId } }),
+            ...(clean.length
+                ? [this.prisma.bastItem.createMany({
+                    data: clean.map((it, i) => ({ ...it, eventId, orderIndex: i })),
+                })]
+                : []),
+        ]);
+        return this.listBastItems(eventId);
+    }
+
+    /**
+     * Saran item BAST (tidak dipersist). Sumber:
+     *   - 'rab' (default): RAB event → fallback packing list.
+     *   - 'quotation': penawaran (QUOTATION) terbaru yang tertaut ke RAB event.
+     * Dipakai tombol "Isi dari RAB" / "Isi dari Penawaran" di UI: user boleh edit lalu simpan.
+     */
+    async suggestBastItems(
+        eventId: number,
+        source: 'rab' | 'quotation' = 'rab',
+        refId?: number,
+    ): Promise<BastItemInput[]> {
+        const fmtQty = (q: unknown) => {
+            const n = Number(q ?? 0);
+            return Number.isFinite(n) ? String(Number(n.toFixed(4))) : String(q ?? '');
+        };
+
+        if (source === 'quotation') {
+            // refId → penawaran spesifik yang dipilih user. Else → penawaran terbaru tertaut RAB event.
+            const quotation = refId
+                ? await this.prisma.invoice.findFirst({
+                    where: { id: refId, type: 'QUOTATION' },
+                    include: { items: { orderBy: { orderIndex: 'asc' } } },
+                })
+                : await (async () => {
+                    const event = await this.findOne(eventId);
+                    if (!event.rabPlanId) return null;
+                    return this.prisma.invoice.findFirst({
+                        where: { type: 'QUOTATION', rabPlanId: event.rabPlanId },
+                        orderBy: [{ revisionNumber: 'desc' }, { createdAt: 'desc' }],
+                        include: { items: { orderBy: { orderIndex: 'asc' } } },
+                    });
+                })();
+            if (!quotation) return [];
+            return quotation.items.map((it) => ({
+                description: it.description,
+                quantity: `${fmtQty(it.quantity)}${it.unit ? ' ' + it.unit : ''}`.trim(),
+                condition: null,
+            }));
+        }
+
+        // source === 'rab'
+        // refId → RAB spesifik yang dipilih user. Else → RAB event → fallback packing.
+        if (refId) {
+            const rab = await this.prisma.rabPlan.findUnique({
+                where: { id: refId },
+                include: { items: { include: { category: true } } },
+            });
+            if (!rab) return [];
+            const order = [...rab.items].sort((a, b) => {
+                const ca = a.category?.orderIndex ?? 0;
+                const cb = b.category?.orderIndex ?? 0;
+                if (ca !== cb) return ca - cb;
+                if (a.categoryId !== b.categoryId) return a.categoryId - b.categoryId;
+                return a.orderIndex - b.orderIndex;
+            });
+            return order.map((it) => ({
+                description: it.description,
+                quantity: `${fmtQty(it.quantity)}${it.unit ? ' ' + it.unit : ''}`.trim(),
+                condition: null,
+            }));
+        }
+
+        const event = await this.prisma.event.findUnique({
+            where: { id: eventId },
+            include: {
+                rabPlan: { include: { items: { include: { category: true } } } },
+                packingItems: { include: { productVariant: { include: { product: true } } }, orderBy: { orderIndex: 'asc' } },
+            },
+        });
+        if (!event) throw new NotFoundException('Event tidak ditemukan');
+
+        const rabItems = event.rabPlan?.items ?? [];
+        if (rabItems.length) {
+            const order = [...rabItems].sort((a, b) => {
+                const ca = a.category?.orderIndex ?? 0;
+                const cb = b.category?.orderIndex ?? 0;
+                if (ca !== cb) return ca - cb;
+                if (a.categoryId !== b.categoryId) return a.categoryId - b.categoryId;
+                return a.orderIndex - b.orderIndex;
+            });
+            return order.map((it) => ({
+                description: it.description,
+                quantity: `${fmtQty(it.quantity)}${it.unit ? ' ' + it.unit : ''}`.trim(),
+                condition: null,
+            }));
+        }
+        return event.packingItems.map((p) => {
+            const v = p.productVariant;
+            const suffix = [v?.variantName, v?.size, v?.color].filter(Boolean).join(' ');
+            const name = v?.product?.name
+                ? `${v.product.name}${suffix ? ' — ' + suffix : ''}`
+                : `Item #${p.productVariantId}`;
+            return { description: name, quantity: fmtQty(p.quantity), condition: null };
+        });
     }
 
     /** Notif Discord: event/pipeline baru dibuat. */

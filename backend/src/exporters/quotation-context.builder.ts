@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
  * Convert public upload URL (mis. "/uploads/abc.png") jadi data URI base64
  * agar Puppeteer bisa embed image ke PDF tanpa server lookup.
  */
-function imageToDataUri(url: string | null | undefined): string | null {
+export function imageToDataUri(url: string | null | undefined): string | null {
     if (!url) return null;
     if (url.startsWith('data:')) return url;
     if (!url.startsWith('/uploads/')) return url; // assume external URL
@@ -693,7 +693,7 @@ export const I18N: Record<'id' | 'en', Record<string, string>> = {
 };
 
 /** Default theme color per brand. Dipakai kalau BrandSettings.themeColor null. */
-const DEFAULT_BRAND_COLOR: Record<string, string> = {
+export const DEFAULT_BRAND_COLOR: Record<string, string> = {
     EXINDO: '#1e40af',  // blue-800
     XPOSER: '#0d9488',  // teal-600
     OTHER: '#64748b',   // slate-500

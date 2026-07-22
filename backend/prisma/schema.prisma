@@ -1586,6 +1586,13 @@ model Event {
   // Kalau null → PIC pakai member rate.
   dailyWageRatePic      Decimal? @map("daily_wage_rate_pic") @db.Decimal(12, 2)
   overtimeRatePerHourPic Decimal? @map("overtime_rate_per_hour_pic") @db.Decimal(12, 2)
+  // --- BAST (Berita Acara Serah Terima) — override opsional, semua nullable ---
+  bastNumber           String?   @map("bast_number") @db.VarChar(80)
+  bastDate             DateTime? @map("bast_date")
+  bastReceiverName     String?   @map("bast_receiver_name") @db.VarChar(150)
+  bastReceiverPosition String?   @map("bast_receiver_position") @db.VarChar(120)
+  bastNotes            String?   @map("bast_notes") @db.Text
+  bastSignedByWorkerId Int?      @map("bast_signed_by_worker_id")
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at")
 
@@ -1598,11 +1605,30 @@ model Event {
   cashflows        Cashflow[]
   attendances      Attendance[]            @relation("EventAttendance")
   wageTiers        EventWageTier[]
+  bastItems        BastItem[]
 
   @@index([status])
   @@index([eventStart])
   @@index([brand])
   @@map("events")
+}
+
+/// Item BAST (Berita Acara Serah Terima) yang diserahterimakan — editable manual per event.
+/// Kalau event punya baris di sini, PDF BAST pakai daftar ini (bukan auto dari RAB/packing).
+model BastItem {
+  id          Int      @id @default(autoincrement())
+  eventId     Int      @map("event_id")
+  orderIndex  Int      @default(0) @map("order_index")
+  description String   @db.VarChar(255)
+  quantity    String?  @db.VarChar(60)  // teks bebas: "2 unit", "4 titik"
+  condition   String?  @db.VarChar(255) // kondisi / keterangan per item
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, orderIndex])
+  @@map("bast_items")
 }
 
 // Tarif gaji (tier) per event — didefinisikan sekali (mis. PIC, Member, Crew Baru)

@@ -16,6 +16,7 @@ import {
 import PackingListTab from "./PackingListTab";
 import CrewTab from "./CrewTab";
 import ProfitTab from "./ProfitTab";
+import BastTab from "./BastTab";
 
 const STATUS_CFG: Record<EventStatus, { label: string; cls: string }> = {
     DRAFT: { label: "Draft", cls: "bg-muted text-muted-foreground" },
@@ -47,7 +48,7 @@ function fmtDate(d: string | null | undefined) {
 export default function EventDetailPage() {
     const params = useParams<{ id: string }>();
     const id = Number(params.id);
-    const [tab, setTab] = useState<"info" | "packing" | "crew" | "profit" | "items" | "withdrawals">("info");
+    const [tab, setTab] = useState<"info" | "packing" | "crew" | "profit" | "items" | "withdrawals" | "bast">("info");
     const [shareUrl, setShareUrl] = useState<string | null>(null);
     const [shareOpen, setShareOpen] = useState(false);
     const [waStatus, setWaStatus] = useState<string | null>(null);
@@ -209,6 +210,7 @@ export default function EventDetailPage() {
                     { k: "profit", label: "Profit" },
                     { k: "items", label: "Ringkasan Barang" },
                     { k: "withdrawals", label: `Pengeluaran (${ev.withdrawals.length})` },
+                    { k: "bast", label: "BAST" },
                 ] as const).map((t) => (
                     <button
                         key={t.k}
@@ -257,6 +259,8 @@ export default function EventDetailPage() {
             {tab === "crew" && <CrewTab eventId={id} />}
 
             {tab === "profit" && <ProfitTab eventId={id} />}
+
+            {tab === "bast" && <BastTab eventId={id} />}
 
             {tab === "items" && (
                 <div className="border rounded-lg overflow-hidden">

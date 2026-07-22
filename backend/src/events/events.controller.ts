@@ -8,6 +8,7 @@ import {
     ParseIntPipe,
     Patch,
     Post,
+    Put,
     Query,
     Res,
     UseGuards,
@@ -17,12 +18,14 @@ import { EventBrand, EventStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { EventsService } from './events.service';
 import type {
+    BastItemInput,
     CreateEventInput,
     ListEventsFilter,
     UpdateEventInput,
 } from './events.service';
 import { EventPdfExportService } from '../exporters/event-pdf-export.service';
 import { ProjectReportPdfService } from '../exporters/project-report-pdf.service';
+import { BastPdfExportService } from '../exporters/bast-pdf-export.service';
 import { CashflowService } from '../cashflow/cashflow.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -34,6 +37,7 @@ export class EventsController {
         private svc: EventsService,
         private pdf: EventPdfExportService,
         private projectReportPdf: ProjectReportPdfService,
+        private bastPdf: BastPdfExportService,
         private cashflowService: CashflowService,
         private notifications: NotificationsService,
         private prisma: PrismaService,
@@ -131,6 +135,44 @@ export class EventsController {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
         res.send(buffer);
+    }
+
+    @Get(':id/bast.pdf')
+    async exportBast(
+        @Param('id', ParseIntPipe) id: number,
+        @Res() res: Response,
+    ) {
+        const { buffer, filename } = await this.bastPdf.render(id);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        res.send(buffer);
+    }
+
+    @Get(':id/bast-items')
+    listBastItems(@Param('id', ParseIntPipe) id: number) {
+        return this.svc.listBastItems(id);
+    }
+
+    @Get(':id/bast-items/suggestions')
+    suggestBastItems(
+        @Param('id', ParseIntPipe) id: number,
+        @Query('source') source?: string,
+        @Query('refId') refId?: string,
+    ) {
+        const ref = refId ? Number(refId) : undefined;
+        return this.svc.suggestBastItems(
+            id,
+            source === 'quotation' ? 'quotation' : 'rab',
+            Number.isFinite(ref) ? ref : undefined,
+        );
+    }
+
+    @Put(':id/bast-items')
+    replaceBastItems(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { items: BastItemInput[] },
+    ) {
+        return this.svc.replaceBastItems(id, body?.items ?? []);
     }
 
     @Get(':id/cashflow.csv')
