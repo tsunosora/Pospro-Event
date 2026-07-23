@@ -382,6 +382,17 @@ export class QuotationsController {
         res.end(pdf);
     }
 
+    @Get(':id/export/rincian-pekerjaan-pdf')
+    @Header('Content-Type', 'application/pdf')
+    async exportRincianPekerjaanPdf(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+        const inv = await this.service.findOne(id);
+        const pdf = await this.pdfExport.renderRincianPekerjaanPdf(id);
+        const baseName = buildExportFilename(inv);
+        res.setHeader('Content-Disposition', buildContentDisposition('inline', `Rincian-Pekerjaan-${baseName}`, 'pdf'));
+        res.setHeader('Content-Length', pdf.length.toString());
+        res.end(pdf);
+    }
+
     @Get(':id/export/docx')
     async exportDocx(
         @Param('id', ParseIntPipe) id: number,

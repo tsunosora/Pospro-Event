@@ -65,6 +65,23 @@ function sanitizeSpecifications(
     return cleaned as unknown as Prisma.InputJsonValue;
 }
 
+/** Sanitize rincianPekerjaanItems: trim tiap field, drop baris tanpa description. */
+export function sanitizeRincianPekerjaanItems(
+    input: Array<{ description: string; volume?: string | null; unit?: string | null; note?: string | null }> | null | undefined,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+    if (!input || !Array.isArray(input) || input.length === 0) return Prisma.JsonNull;
+    const cleaned = input
+        .map((r) => ({
+            description: (r?.description ?? '').toString().trim(),
+            volume: (r?.volume ?? '').toString().trim() || null,
+            unit: (r?.unit ?? '').toString().trim() || null,
+            note: (r?.note ?? '').toString().trim() || null,
+        }))
+        .filter((r) => r.description.length > 0);
+    if (cleaned.length === 0) return Prisma.JsonNull;
+    return cleaned as unknown as Prisma.InputJsonValue;
+}
+
 /** Normalize additional events sebelum disimpan ke kolom JSON. Tanggal jadi ISO string, field kosong jadi null. */
 function sanitizeAdditionalEvents(
     input: CreateQuotationDto['additionalEvents'] | undefined | null,
@@ -382,6 +399,9 @@ export class QuotationsService {
                 customSubject: dto.customSubject?.trim() || null,
                 paymentSchedule: sanitizePaymentSchedule(dto.paymentSchedule),
                 specifications: sanitizeSpecifications(dto.specifications),
+                rincianPekerjaanItems: sanitizeRincianPekerjaanItems(dto.rincianPekerjaanItems),
+                rincianInstallDate: dto.rincianInstallDate ? new Date(dto.rincianInstallDate) : null,
+                rincianDismantleDate: dto.rincianDismantleDate ? new Date(dto.rincianDismantleDate) : null,
                 packagePrice: dto.packagePrice ? toDecimal(dto.packagePrice) : null,
                 showGrandTotal: dto.showGrandTotal === false ? false : true,
 
@@ -660,6 +680,15 @@ export class QuotationsService {
                     ...(dto.specifications !== undefined
                         ? { specifications: sanitizeSpecifications(dto.specifications) }
                         : {}),
+                    ...(dto.rincianPekerjaanItems !== undefined
+                        ? { rincianPekerjaanItems: sanitizeRincianPekerjaanItems(dto.rincianPekerjaanItems) }
+                        : {}),
+                    ...(dto.rincianInstallDate !== undefined
+                        ? { rincianInstallDate: dto.rincianInstallDate ? new Date(dto.rincianInstallDate) : null }
+                        : {}),
+                    ...(dto.rincianDismantleDate !== undefined
+                        ? { rincianDismantleDate: dto.rincianDismantleDate ? new Date(dto.rincianDismantleDate) : null }
+                        : {}),
                     ...(dto.packagePrice !== undefined
                         ? { packagePrice: dto.packagePrice ? toDecimal(dto.packagePrice) : null }
                         : {}),
@@ -864,6 +893,9 @@ export class QuotationsService {
                 customSubject: quotation.customSubject,
                 paymentSchedule: (quotation.paymentSchedule ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 specifications: (quotation.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                rincianPekerjaanItems: (quotation.rincianPekerjaanItems ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                rincianInstallDate: quotation.rincianInstallDate,
+                rincianDismantleDate: quotation.rincianDismantleDate,
                 packagePrice: quotation.packagePrice,
                 showGrandTotal: quotation.showGrandTotal,
                 ...(({
@@ -1909,6 +1941,9 @@ export class QuotationsService {
                 customSubject: source.customSubject,
                 paymentSchedule: (source.paymentSchedule ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 specifications: (source.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                rincianPekerjaanItems: (source.rincianPekerjaanItems ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                rincianInstallDate: source.rincianInstallDate,
+                rincianDismantleDate: source.rincianDismantleDate,
                 packagePrice: source.packagePrice,
                 showGrandTotal: source.showGrandTotal,
                 // Carry forward semua custom text (Penawaran, SPK, Invoice) ke revisi
@@ -2026,6 +2061,9 @@ export class QuotationsService {
                 customSubject: source.customSubject,
                 paymentSchedule: (source.paymentSchedule ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 specifications: (source.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                rincianPekerjaanItems: (source.rincianPekerjaanItems ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                rincianInstallDate: source.rincianInstallDate,
+                rincianDismantleDate: source.rincianDismantleDate,
                 packagePrice: source.packagePrice,
                 showGrandTotal: source.showGrandTotal,
                 // Carry forward semua custom text

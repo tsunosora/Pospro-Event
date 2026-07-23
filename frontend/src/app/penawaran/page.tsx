@@ -12,6 +12,8 @@ import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
     DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatCard } from "@/components/ui/stat-card";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 import {
@@ -352,6 +354,27 @@ function PenawaranListPageInner() {
     const currentPage = Math.min(page, totalPages);
     const pagedQuotations = quotations.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+    // Ringkasan KPI — dihitung dari set yang sedang tampil (mengikuti filter aktif).
+    const summary = (() => {
+        let totalValue = 0;
+        let waiting = 0; // DRAFT / SENT / PARTIALLY_PAID
+        let done = 0;    // PAID / ACCEPTED
+        for (const q of quotations) {
+            // Nilai per dokumen — samakan dengan logika kolom "Total" di tabel.
+            let val: number;
+            if (q.type === "INVOICE") {
+                const dpPaid = q.dpPaidMode === "custom" ? Number(q.dpPaidCustom ?? 0) : 0;
+                val = dpPaid > 0 ? Math.max(0, Number(q.total) - dpPaid) : Number(q.amountToPay ?? q.total);
+            } else {
+                val = Number(q.total || 0);
+            }
+            totalValue += val;
+            if (q.status === "PAID" || q.status === "ACCEPTED") done++;
+            else if (q.status === "DRAFT" || q.status === "SENT" || q.status === "PARTIALLY_PAID") waiting++;
+        }
+        return { count: quotations.length, totalValue, waiting, done };
+    })();
+
     return (
         <div className="p-6 max-w-7xl mx-auto">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
@@ -363,153 +386,215 @@ function PenawaranListPageInner() {
                         Kelola dokumen Penawaran Sewa Perlengkapan Event &amp; Pengadaan Booth Special Design
                     </p>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                        onClick={handleBackfillStatus}
-                        disabled={backfillStatusMut.isPending}
-                        title="Fix data lama: penawaran yang sudah punya nomor resmi tapi status masih DRAFT → ubah ke SENT"
-                        className="flex items-center gap-2 px-3 py-2 border-2 border-warning/30 bg-warning/15 hover:bg-warning/20 text-warning rounded-lg text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                    >
-                        {backfillStatusMut.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Memproses...</> : <><Wrench className="w-4 h-4" /> Fix Status Lama</>}
-                    </button>
+                <div className="flex items-center gap-2">
                     <button
                         onClick={() => setShowCreate(true)}
-                        className={`flex items-center gap-2 px-4 py-2 ${typeFilter === 'INVOICE' ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'} text-white rounded-lg font-medium transition-colors cursor-pointer`}
+                        className={`inline-flex items-center gap-2 px-4 py-2 ${typeFilter === 'INVOICE' ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'} text-white rounded-lg font-medium shadow-sm transition-colors cursor-pointer`}
                     >
                         <Plus className="w-4 h-4" /> {typeFilter === 'INVOICE' ? 'Buat Invoice Langsung' : 'Buat Penawaran'}
                     </button>
+                    {/* Utilitas admin dipindah ke overflow menu supaya area aksi utama tetap bersih */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button
+                                type="button"
+                                title="Menu admin"
+                                aria-label="Menu admin"
+                                className="inline-flex items-center justify-center p-2.5 rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer data-[state=open]:bg-muted"
+                            >
+                                {backfillStatusMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreVertical className="w-4 h-4" />}
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Utilitas Admin</DropdownMenuLabel>
+                            <DropdownMenuItem onSelect={handleBackfillStatus} disabled={backfillStatusMut.isPending}>
+                                <Wrench /> Fix Status Lama
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
 
-            {/* Search bar */}
-            <div className="mb-4 flex items-center gap-3 flex-wrap">
-                <div className="relative flex-1 min-w-[260px] max-w-2xl">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <input
-                        type="search"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Cari nomor, klien, perusahaan, project, lokasi, catatan…"
-                        className="w-full pl-10 pr-10 py-2.5 text-sm rounded-lg border-2 border-border bg-background focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
-                    />
-                    {search && (
+            {/* Toolbar filter — pencarian, tab tipe dokumen, varian, & tanggal disatukan
+                dalam satu panel supaya rapi dan tidak tercerai-berai jadi banyak baris. */}
+            <div className="glass rounded-xl p-3 sm:p-4 mb-6 space-y-3">
+                {/* Baris 1: Pencarian + tab tipe dokumen */}
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                    <div className="relative flex-1 min-w-[220px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        <input
+                            type="search"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Cari nomor, klien, perusahaan, project, lokasi, catatan…"
+                            className="w-full pl-10 pr-10 py-2.5 text-sm rounded-lg border border-border bg-background focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+                        />
+                        {search && (
+                            <button
+                                onClick={() => setSearch("")}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+                                aria-label="Bersihkan pencarian"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
+                    {/* Tab tipe dokumen: Penawaran / Invoice / Semua */}
+                    <div className="inline-flex gap-1 bg-muted p-1 rounded-lg border border-border shrink-0 self-start lg:self-auto">
                         <button
-                            onClick={() => setSearch("")}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-muted"
-                            aria-label="Bersihkan pencarian"
+                            onClick={() => setTypeFilter('QUOTATION')}
+                            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-bold transition cursor-pointer ${typeFilter === 'QUOTATION'
+                                ? 'bg-card text-primary shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
                         >
-                            <X className="h-4 w-4 text-muted-foreground" />
+                            <FileText className="w-4 h-4" /> Penawaran
                         </button>
-                    )}
+                        <button
+                            onClick={() => setTypeFilter('INVOICE')}
+                            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-bold transition cursor-pointer ${typeFilter === 'INVOICE'
+                                ? 'bg-card text-destructive shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            <ScrollText className="w-4 h-4" /> Invoice
+                        </button>
+                        <button
+                            onClick={() => setTypeFilter('ALL')}
+                            className={`px-4 py-1.5 rounded-md text-sm font-bold transition cursor-pointer ${typeFilter === 'ALL'
+                                ? 'bg-card text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            Semua
+                        </button>
+                    </div>
                 </div>
-                {search && (
-                    <span className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full">
-                        <strong>{quotations.length}</strong>/{allQuotations.length} cocok
-                    </span>
-                )}
-            </div>
 
-            {/* Tab tipe dokumen: Penawaran / Invoice / Semua */}
-            <div className="mb-3 inline-flex gap-1 bg-muted p-1 rounded-lg border border-border">
-                <button
-                    onClick={() => setTypeFilter('QUOTATION')}
-                    className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-bold transition cursor-pointer ${typeFilter === 'QUOTATION'
-                        ? 'bg-card text-primary shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                >
-                    <FileText className="w-4 h-4" /> Penawaran
-                </button>
-                <button
-                    onClick={() => setTypeFilter('INVOICE')}
-                    className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-bold transition cursor-pointer ${typeFilter === 'INVOICE'
-                        ? 'bg-card text-destructive shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                >
-                    <ScrollText className="w-4 h-4" /> Invoice
-                </button>
-                <button
-                    onClick={() => setTypeFilter('ALL')}
-                    className={`px-4 py-1.5 rounded-md text-sm font-bold transition cursor-pointer ${typeFilter === 'ALL'
-                        ? 'bg-card text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                >
-                    Semua
-                </button>
-            </div>
+                {/* Baris 2: Filter varian — baris penuh sendiri */}
+                <div className="flex gap-2 flex-wrap items-center border-t border-border/60 pt-3">
+                    <span className="text-xs font-semibold text-muted-foreground mr-0.5 shrink-0">Varian</span>
+                    <button
+                        onClick={() => setVariantFilter("")}
+                        className={`px-3 py-1.5 rounded-md text-sm font-semibold transition cursor-pointer ${variantFilter === ""
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                            }`}
+                    >
+                        Semua
+                    </button>
+                    {variantConfigs.filter((v) => v.isActive).map((v) => {
+                        const active = variantFilter === v.code;
+                        const color = v.color || "#6366f1";
+                        return (
+                            <button
+                                key={v.code}
+                                onClick={() => setVariantFilter(v.code)}
+                                className="px-3 py-1.5 rounded-md text-sm font-semibold transition border cursor-pointer"
+                                style={active
+                                    ? { backgroundColor: color, color: "#fff", borderColor: color }
+                                    : { backgroundColor: `${color}15`, color, borderColor: `${color}40` }
+                                }
+                            >
+                                {v.label}
+                            </button>
+                        );
+                    })}
+                    <Link
+                        href="/settings/quotation-variants"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs text-primary border border-dashed border-primary/30 hover:bg-primary/10 transition-colors"
+                        title="Kelola daftar varian penawaran"
+                    >
+                        <Plus className="h-3.5 w-3.5" /> Tambah Varian
+                    </Link>
+                </div>
 
-            {/* Filter varian — dinamis dari /settings/quotation-variants */}
-            <div className="flex gap-2 mb-4 flex-wrap items-center">
-                <button
-                    onClick={() => setVariantFilter("")}
-                    className={`px-3 py-1.5 rounded-md text-sm font-semibold transition cursor-pointer ${variantFilter === ""
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                        }`}
-                >
-                    Semua
-                </button>
-                {variantConfigs.filter((v) => v.isActive).map((v) => {
-                    const active = variantFilter === v.code;
-                    const color = v.color || "#6366f1";
-                    return (
-                        <button
-                            key={v.code}
-                            onClick={() => setVariantFilter(v.code)}
-                            className="px-3 py-1.5 rounded-md text-sm font-semibold transition border-2"
-                            style={active
-                                ? { backgroundColor: color, color: "#fff", borderColor: color }
-                                : { backgroundColor: `${color}15`, color, borderColor: `${color}40` }
-                            }
-                        >
-                            {v.label}
-                        </button>
-                    );
-                })}
-                <Link
-                    href="/settings/quotation-variants"
-                    className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs text-primary border border-dashed border-primary/30 hover:bg-primary/10 transition-colors"
-                    title="Kelola daftar varian penawaran"
-                >
-                    <Plus className="h-3.5 w-3.5" /> Tambah Varian
-                </Link>
-            </div>
+                {/* Baris 3: Filter tanggal — baris penuh sendiri (punya layout chip preset sendiri) */}
+                <div className="border-t border-border/60 pt-3">
+                    <DateRangeFilter value={dateRange} onChange={setDateRange} label="Tanggal Dokumen" />
+                </div>
 
-            {/* Filter Tanggal — preset (Hari Ini, Kemarin, Minggu Ini, dll) + custom range */}
-            <div className="mb-4">
-                <DateRangeFilter value={dateRange} onChange={setDateRange} label="Tanggal Dokumen" />
-                {dateRange.preset !== "ALL" && (
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                        Menampilkan <b>{quotations.length}</b> dari {allQuotations.length} dokumen
+                {/* Info hasil filter — satu baris ringkas, muncul saat search/tanggal aktif */}
+                {(search || dateRange.preset !== "ALL") && (
+                    <p className="text-[11px] text-muted-foreground border-t border-border/60 pt-2.5">
+                        Menampilkan <b className="text-foreground nums">{quotations.length}</b> dari <b className="text-foreground nums">{allQuotations.length}</b> dokumen
                     </p>
                 )}
             </div>
+
+            {/* Ringkasan KPI — 4 kartu ringkas mengikuti filter aktif */}
+            {!isLoading && quotations.length > 0 && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                    <StatCard
+                        icon={FileText}
+                        tone="primary"
+                        label={typeFilter === 'INVOICE' ? 'Total Invoice' : 'Total Dokumen'}
+                        value={summary.count.toLocaleString('id-ID')}
+                        subtext={quotations.length !== allQuotations.length ? `dari ${allQuotations.length} total` : undefined}
+                    />
+                    <StatCard
+                        icon={Wallet}
+                        tone="info"
+                        label="Total Nilai"
+                        value={rp(summary.totalValue)}
+                    />
+                    <StatCard
+                        icon={Send}
+                        tone="warning"
+                        label="Menunggu"
+                        value={summary.waiting.toLocaleString('id-ID')}
+                        subtext="Draft / Terkirim"
+                    />
+                    <StatCard
+                        icon={CheckCircle2}
+                        tone="success"
+                        label="Selesai"
+                        value={summary.done.toLocaleString('id-ID')}
+                        subtext="Lunas / Diterima"
+                    />
+                </div>
+            )}
 
             {isLoading ? (
                 <div className="flex items-center justify-center py-16 text-muted-foreground">
                     <Loader2 className="w-6 h-6 animate-spin mr-2" /> Memuat...
                 </div>
             ) : quotations.length === 0 ? (
-                <div className="glass rounded-xl p-12 text-center text-muted-foreground">
-                    Belum ada penawaran. Klik "Buat Penawaran" untuk mulai.
-                </div>
+                (() => {
+                    const isFiltered = !!search || dateRange.preset !== "ALL" || !!variantFilter;
+                    return (
+                        <EmptyState
+                            icon={FileText}
+                            title={isFiltered ? "Tidak ada dokumen yang cocok" : "Belum ada penawaran"}
+                            description={isFiltered
+                                ? "Coba ubah kata kunci pencarian, varian, atau filter tanggal."
+                                : "Mulai dengan membuat dokumen penawaran pertama Anda."}
+                            action={!isFiltered ? (
+                                <button
+                                    onClick={() => setShowCreate(true)}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors cursor-pointer"
+                                >
+                                    <Plus className="w-4 h-4" /> {typeFilter === 'INVOICE' ? 'Buat Invoice' : 'Buat Penawaran'}
+                                </button>
+                            ) : undefined}
+                        />
+                    );
+                })()
             ) : (
                 <div className="glass rounded-xl overflow-hidden">
                     <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-muted text-muted-foreground text-left">
+                        <thead className="bg-muted/70 text-muted-foreground text-left text-[11px] uppercase tracking-wide border-b border-border">
                             <tr>
-                                <th className="px-3 py-2">No. Penawaran</th>
-                                <th className="px-3 py-2">Brand</th>
-                                <th className="px-3 py-2">Varian</th>
-                                <th className="px-3 py-2">Klien / Proyek</th>
-                                <th className="px-3 py-2">Marketing</th>
-                                <th className="px-3 py-2">Tanggal</th>
-                                <th className="px-3 py-2 text-right">Total</th>
-                                <th className="px-3 py-2">Status</th>
-                                <th className="px-3 py-2 text-right">Aksi</th>
+                                <th className="px-3 py-2.5 font-semibold">No. Penawaran</th>
+                                <th className="px-3 py-2.5 font-semibold">Brand</th>
+                                <th className="px-3 py-2.5 font-semibold">Varian</th>
+                                <th className="px-3 py-2.5 font-semibold">Klien / Proyek</th>
+                                <th className="px-3 py-2.5 font-semibold">Marketing</th>
+                                <th className="px-3 py-2.5 font-semibold">Tanggal</th>
+                                <th className="px-3 py-2.5 font-semibold text-right">Total</th>
+                                <th className="px-3 py-2.5 font-semibold">Status</th>
+                                <th className="px-3 py-2.5 font-semibold text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -521,17 +606,8 @@ function PenawaranListPageInner() {
                                 return (
                                 <tr
                                     key={q.id}
-                                    className="border-t transition-colors"
-                                    style={{
-                                        borderLeft: `4px solid ${accentColor}`,
-                                        backgroundColor: bm ? `${accentColor}06` : undefined, // sangat tipis (~3% opacity hex)
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = bm ? `${accentColor}15` : "#f9fafb";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = bm ? `${accentColor}06` : "transparent";
-                                    }}
+                                    className="border-t border-border transition-colors hover:bg-muted/50"
+                                    style={{ borderLeft: `4px solid ${accentColor}` }}
                                 >
                                     <td className="px-3 py-2 font-mono"
                                         style={{ borderLeft: `2px solid ${accentColor}40` }}>
@@ -849,14 +925,14 @@ function PenawaranListPageInner() {
                             </div>
                             <button
                                 onClick={() => handleExport(previewQ.id, previewType, previewQ.invoiceNumber)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${previewType === 'spk-pdf' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'} text-white rounded-md text-sm font-semibold transition-colors`}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${previewType === 'spk-pdf' ? 'bg-success hover:bg-success/90 text-success-foreground' : 'bg-primary hover:bg-primary/90 text-white'} rounded-md text-sm font-semibold shadow-sm transition-colors cursor-pointer`}
                             >
                                 <Download className="h-4 w-4" /> Download {previewType === 'spk-pdf' ? 'SPK' : 'PDF'}
                             </button>
                             {previewType === "pdf" && (
                                 <button
                                     onClick={() => handleExport(previewQ.id, "docx", previewQ.invoiceNumber)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition-colors"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-info hover:bg-info/90 text-info-foreground rounded-md text-sm font-semibold shadow-sm transition-colors cursor-pointer"
                                 >
                                     <FileText className="h-4 w-4" /> DOCX
                                 </button>

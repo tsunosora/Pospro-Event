@@ -1,6 +1,21 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma, InvoiceType } from '@prisma/client';
-import { QuotationsService } from './quotations.service';
+import { QuotationsService, sanitizeRincianPekerjaanItems } from './quotations.service';
+
+describe('sanitizeRincianPekerjaanItems', () => {
+    it('drop baris tanpa description & trim tiap field', () => {
+        const out = sanitizeRincianPekerjaanItems([
+            { description: '  Pasang booth  ', volume: ' 2 ', unit: 'unit', note: '' },
+            { description: '   ', volume: '1' },
+        ]) as any[];
+        expect(out).toEqual([{ description: 'Pasang booth', volume: '2', unit: 'unit', note: null }]);
+    });
+    it('array kosong / null → JsonNull', () => {
+        expect(sanitizeRincianPekerjaanItems([])).toBe(Prisma.JsonNull);
+        expect(sanitizeRincianPekerjaanItems(null)).toBe(Prisma.JsonNull);
+        expect(sanitizeRincianPekerjaanItems(undefined)).toBe(Prisma.JsonNull);
+    });
+});
 
 /**
  * Regression test untuk bug double-count DP invoice PELUNASAN.

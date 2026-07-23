@@ -46,6 +46,9 @@ export interface QuotationRenderContext {
     language: 'id' | 'en';
     // i18n labels — dipakai di template untuk static UI text
     i18n: Record<string, string>;
+    // Brand mentah dari Invoice.brand — dipakai PdfExportService untuk memilih template per-brand.
+    // null / 'OTHER' → pakai base template.
+    brand: string | null;
     // Identitas perusahaan
     company: {
         name: string;
@@ -1222,6 +1225,7 @@ export class QuotationContextBuilder {
         return {
             language: lang,
             i18n: I18N[lang],
+            brand: quotation.brand ?? null,
             company: {
                 name: brandSettings?.companyName ?? settings?.storeName ?? '',
                 address: brandSettings?.address ?? settings?.storeAddress ?? '',

@@ -35,6 +35,14 @@ export interface PaymentSummary {
     }>;
 }
 
+/** Baris pekerjaan pada dokumen Rincian Pekerjaan (snapshot editable, terpisah dari item penawaran). */
+export interface RincianPekerjaanItem {
+    description: string;
+    volume?: string | null;
+    unit?: string | null;
+    note?: string | null;
+}
+
 export interface QuotationItem {
     id?: number;
     description: string;
@@ -126,6 +134,9 @@ export interface Quotation {
     customSubject?: string | null;                            // Override "Hal:" auto-derive
     paymentSchedule?: Array<{ label: string; percent: number }> | null;
     specifications?: Array<{ title?: string | null; items: string[] }> | null;
+    rincianPekerjaanItems?: RincianPekerjaanItem[] | null;
+    rincianInstallDate?: string | null;
+    rincianDismantleDate?: string | null;
     packagePrice?: number | string | null;
     showGrandTotal?: boolean;
     customOpeningText?: string | null;
@@ -210,6 +221,9 @@ export interface CreateQuotationInput {
     customSubject?: string | null;
     paymentSchedule?: Array<{ label: string; percent: number }> | null;
     specifications?: Array<{ title?: string | null; items: string[] }> | null;
+    rincianPekerjaanItems?: RincianPekerjaanItem[] | null;
+    rincianInstallDate?: string | null;
+    rincianDismantleDate?: string | null;
     packagePrice?: number | string | null;
     showGrandTotal?: boolean;
 }
@@ -479,15 +493,16 @@ function parseFilenameFromDisposition(disposition: string | undefined | null): s
 // dpPaid: DP yang sudah dibayar — dikurangkan dari grand total di PDF/DOCX (bukan SPK).
 export const downloadQuotationExport = async (
     id: number,
-    format: 'pdf' | 'docx' | 'spk-pdf',
+    format: 'pdf' | 'docx' | 'spk-pdf' | 'rincian-pekerjaan-pdf',
     dpPaid?: number,
 ): Promise<{ blob: Blob; filename: string }> => {
-    const params = dpPaid && dpPaid > 0 && format !== 'spk-pdf' ? { dpPaid } : undefined;
+    const isPdfDoc = format === 'spk-pdf' || format === 'rincian-pekerjaan-pdf';
+    const params = dpPaid && dpPaid > 0 && !isPdfDoc ? { dpPaid } : undefined;
     const res = await api.get(`/quotations/${id}/export/${format}`, { responseType: 'blob', params });
     const disposition =
         res.headers['content-disposition'] ?? res.headers['Content-Disposition'];
     const filename =
         parseFilenameFromDisposition(disposition as string | undefined) ??
-        `penawaran-${id}.${format === 'spk-pdf' ? 'pdf' : format}`;
+        `penawaran-${id}.${isPdfDoc ? 'pdf' : format}`;
     return { blob: res.data as Blob, filename };
 };

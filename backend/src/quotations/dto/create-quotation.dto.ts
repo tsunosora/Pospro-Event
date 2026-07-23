@@ -100,6 +100,20 @@ export interface CreateQuotationDto {
         items: string[];
         packageGroup?: string | null;
     }> | null;
+    /**
+     * Rincian Pekerjaan — daftar item pekerjaan custom (override item penawaran).
+     * Null/empty = PDF derive dari items penawaran.
+     */
+    rincianPekerjaanItems?: Array<{
+        description: string;
+        volume?: string | null;
+        unit?: string | null;
+        note?: string | null;
+    }> | null;
+    /** Tanggal pasang (instalasi) untuk dokumen Rincian Pekerjaan. ISO string / null. */
+    rincianInstallDate?: string | null;
+    /** Tanggal bongkar (pembongkaran) untuk dokumen Rincian Pekerjaan. ISO string / null. */
+    rincianDismantleDate?: string | null;
     /** Harga paket — alternatif diskon dengan label "Harga Paket". */
     packagePrice?: number | string | null;
     /** Tampilkan grand total di footer. Default true. False untuk mode 'package'. */

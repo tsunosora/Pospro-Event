@@ -1,0 +1,87 @@
+{{#if company.letterheadUrl}}
+<img class="letterhead-bg" src="{{company.letterheadUrl}}" alt="" />
+{{/if}}
+
+<table class="page-layout">
+  <thead><tr><td class="page-header-spacer"></td></tr></thead>
+  <tfoot><tr><td class="page-footer-spacer"></td></tr></tfoot>
+  <tbody>
+    <tr><td class="page-content">
+
+<div class="content">
+
+  {{#unless company.letterheadUrl}}
+  <div class="fallback-header">
+    {{#if company.logoUrl}}<img class="logo" src="{{company.logoUrl}}" />{{/if}}
+    <div>
+      <div class="company-name">{{company.name}}</div>
+      <div class="company-addr">
+        {{company.address}}<br/>
+        {{#if company.phone}}{{i18n.telp}} {{company.phone}}{{/if}}{{#if company.email}} &bull; {{company.email}}{{/if}}
+      </div>
+    </div>
+  </div>
+  {{/unless}}
+
+  <div class="doc-title">Rincian Pekerjaan</div>
+
+  <table class="meta">
+    <tr><td class="k">{{i18n.no}}</td><td class="s">:</td><td>{{doc.number}}</td></tr>
+    {{#if project.name}}<tr><td class="k">Proyek</td><td class="s">:</td><td>{{project.name}}</td></tr>{{/if}}
+    <tr><td class="k">Klien</td><td class="s">:</td><td>{{client.name}}{{#if client.company}} &mdash; {{client.company}}{{/if}}</td></tr>
+    {{#if project.location}}<tr><td class="k">Lokasi</td><td class="s">:</td><td>{{project.location}}</td></tr>{{/if}}
+    {{#if project.dateRange}}<tr><td class="k">Tanggal Event</td><td class="s">:</td><td>{{project.dateRange}}</td></tr>{{/if}}
+    {{#if rincian.installDateFormatted}}<tr><td class="k">Tanggal Pasang</td><td class="s">:</td><td>{{rincian.installDateFormatted}}</td></tr>{{/if}}
+    {{#if rincian.dismantleDateFormatted}}<tr><td class="k">Tanggal Bongkar</td><td class="s">:</td><td>{{rincian.dismantleDateFormatted}}</td></tr>{{/if}}
+  </table>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:6%">No</th>
+        <th>Uraian Pekerjaan</th>
+        <th style="width:12%">Volume</th>
+        <th style="width:12%">Satuan</th>
+        <th style="width:24%">Keterangan</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rincian.rows}}
+      <tr>
+        <td class="c">{{addOne @index}}</td>
+        <td>{{this.description}}</td>
+        <td class="c">{{this.volume}}</td>
+        <td class="c">{{this.unit}}</td>
+        <td>{{this.note}}</td>
+      </tr>
+      {{else}}
+      <tr><td class="c" colspan="5" style="color:#888; padding:10pt;">Belum ada rincian pekerjaan.</td></tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <div class="sign-date">{{doc.dateFormatted}}</div>
+
+  <div class="signature-row">
+    <div class="block">
+      <div class="role">&nbsp;</div>
+      <div class="sign-area">
+        {{#if signedBy.stampUrl}}<img class="stamp-image" src="{{signedBy.stampUrl}}" alt="Stempel" />{{/if}}
+        {{#if signedBy.signatureUrl}}<img class="sign-image" src="{{signedBy.signatureUrl}}" alt="Tanda Tangan" />{{/if}}
+      </div>
+      <div class="name">{{signedBy.name}}</div>
+    </div>
+    <div class="block">
+      <div class="role">{{#if client.company}}{{client.company}}{{else}}{{client.name}}{{/if}}</div>
+      <div class="sign-area"></div>
+      <div class="name">{{client.name}}</div>
+    </div>
+  </div>
+
+  <div class="end-spacer"></div>
+
+</div>
+
+    </td></tr>
+  </tbody>
+</table>

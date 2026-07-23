@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="{{language}}">
+<head>
+<meta charset="utf-8" />
+<title>SPK {{doc.number}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 11pt;
+    color: #111;
+    line-height: 1.5;
+  }
+
+  {{#if company.letterheadUrl}}
+  .letterhead-bg {
+    position: fixed; top: 0; left: 0;
+    width: 210mm; height: 297mm;
+    z-index: -1; pointer-events: none; user-select: none;
+  }
+  {{/if}}
+
+  table.page-layout { width: 100%; border-collapse: collapse; }
+  table.page-layout > thead > tr > td.page-header-spacer {
+    height: {{#if company.letterheadUrl}}38mm{{else}}18mm{{/if}};
+    padding: 0; border: 0;
+  }
+  table.page-layout > tfoot > tr > td.page-footer-spacer {
+    height: {{#if company.letterheadUrl}}45mm{{else}}22mm{{/if}};
+    padding: 0; border: 0;
+  }
+  table.page-layout > tbody > tr > td.page-content {
+    padding: 0 22mm;
+    vertical-align: top;
+  }
+
+  .fallback-header {
+    display: flex; align-items: flex-start; gap: 12pt;
+    border-bottom: 2pt solid {{theme.primary}};
+    padding-bottom: 8pt; margin-bottom: 14pt;
+  }
+  .fallback-header .logo { width: 60pt; height: 60pt; object-fit: contain; }
+  .fallback-header .company-name { font-weight: 700; font-size: 16pt; color: {{theme.primary}}; letter-spacing: .5pt; }
+  .fallback-header .company-addr { font-size: 9.5pt; color: #333; margin-top: 2pt; line-height: 1.35; }
+
+  /* Title SPK */
+  .spk-title {
+    text-align: center;
+    font-size: 14pt;
+    font-weight: 800;
+    text-decoration: underline;
+    letter-spacing: 1.5pt;
+    margin: 6pt 0 14pt 0;
+    text-transform: uppercase;
+  }
+
+  /* Header table — "No : ..." style */
+  table.spk-header { font-size: 11pt; line-height: 1.55; margin-bottom: 12pt; }
+  table.spk-header td { padding: 1pt 0; vertical-align: top; }
+  table.spk-header td.k { width: 130pt; font-weight: 600; }
+  table.spk-header td.s { width: 12pt; }
+
+  /* Paragraf utama */
+  .main-paragraph {
+    text-align: justify;
+    line-height: 1.55;
+    margin: 8pt 0 6pt 0;
+  }
+
+  /* Tabel item — struktur sama dengan preview Penawaran (table.items di sewa.hbs /
+     pengadaan-booth.hbs). Beda SPK: tidak ada kolom harga/jumlah & tidak ada grand totals. */
+  table.items {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0 12pt 0;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+  table.items th, table.items td { border: 0.75pt solid #999; padding: 4pt 6pt; }
+  table.items thead { background: {{theme.primary}}; color: #fff; }
+  table.items th { font-weight: 600; text-align: center; }
+  table.items td.num { text-align: center; width: 28pt; }
+  table.items td.qty { text-align: right; white-space: nowrap; }
+  /* Header kategori — full-width row, bold, kontras (sama style dengan penawaran) */
+  table.items tr.cat-header td {
+    background: {{theme.primaryLight}};
+    color: {{theme.primaryDark}};
+    font-weight: 700;
+    font-size: 10.5pt;
+    text-transform: uppercase;
+    letter-spacing: .3pt;
+    padding: 5pt 8pt;
+  }
+
+  /* Catatan dengan prefix "#" */
+  .hash-notes {
+    margin: 8pt 0;
+    line-height: 1.55;
+  }
+  .hash-notes .hash-line {
+    margin-bottom: 2pt;
+  }
+
+  /* Bullet pembayaran "•" */
+  .bullet-list {
+    margin: 8pt 0;
+    padding-left: 18pt;
+    line-height: 1.55;
+  }
+  .bullet-list li {
+    margin-bottom: 4pt;
+    text-align: justify;
+  }
+
+  /* Bank list */
+  .bank-block {
+    margin: 8pt 0;
+    line-height: 1.55;
+  }
+  .bank-block .bank-line {
+    margin-left: 24pt;
+    margin-bottom: 2pt;
+  }
+
+  /* Closing & signature */
+  .closing-line { margin-top: 10pt; line-height: 1.55; }
+  .sign-date { margin-top: 14pt; font-weight: 600; }
+
+  .signature-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 30pt;
+    margin-top: 18pt;
+    page-break-inside: avoid;
+  }
+  .signature-row .block {
+    flex: 1;
+    text-align: center;
+    min-width: 200pt;
+  }
+  .signature-row .role {
+    font-weight: 700;
+    margin-bottom: 4pt;
+  }
+  .signature-row .sign-area {
+    position: relative;
+    height: 80pt;
+    margin: 4pt 0;
+  }
+  .signature-row .sign-image {
+    position: absolute; top: 0; left: 50%;
+    transform: translateX(-50%);
+    max-height: 80pt; max-width: 180pt; z-index: 2;
+  }
+  .signature-row .stamp-image {
+    position: absolute; top: 8pt; left: 50%;
+    transform: translateX(-72%);
+    max-height: 80pt; max-width: 110pt;
+    opacity: 0.85; z-index: 1;
+    mix-blend-mode: multiply;
+  }
+  .signature-row .materai {
+    font-size: 10pt;
+    font-style: italic;
+    color: #555;
+    padding: 26pt 0;
+  }
+  .signature-row .name {
+    font-weight: 700;
+    text-decoration: underline;
+    margin-top: 4pt;
+  }
+
+  .end-spacer { height: 36pt; }
+
+  /* ===== XPOSER OVERRIDES — SPK ===== */
+  html, body { font-family:'Poppins','Arial',sans-serif; }
+  .company-name, .spk-title { font-family:'Poppins','Arial',sans-serif; }
+  .fallback-header { align-items:center; gap:14pt; background:{{theme.primary}}; color:#fff; border-bottom:0; margin:0 -22mm 16pt; padding:12pt 22mm; }
+  .fallback-header .logo { width:54pt; height:54pt; background:#fff; border-radius:8px; padding:4px; }
+  .fallback-header .company-name { color:#fff; }
+  .fallback-header .company-addr { color:#fff; opacity:.92; }
+  table.items th, table.items td { border:0; border-bottom:0.75pt solid #e5e7eb; }
+  table.items thead th:first-child { border-top-left-radius:8px; }
+  table.items thead th:last-child { border-top-right-radius:8px; }
+  table.items tr.cat-header td { background:{{theme.primary}}; color:#fff; border-radius:6px; }
+  .brand-footer { background:{{theme.primary}}; color:#fff; margin:16pt -22mm 0; padding:8pt 22mm; font-size:8.5pt; text-align:center; }
+</style>
+</head>
+<body>
+{{> spk-body}}
+</body>
+</html>

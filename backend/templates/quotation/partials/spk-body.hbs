@@ -1,0 +1,196 @@
+{{#if company.letterheadUrl}}
+<img class="letterhead-bg" src="{{company.letterheadUrl}}" alt="" />
+{{/if}}
+
+<table class="page-layout">
+  <thead><tr><td class="page-header-spacer"></td></tr></thead>
+  <tfoot><tr><td class="page-footer-spacer"></td></tr></tfoot>
+  <tbody>
+    <tr><td class="page-content">
+
+<div class="content">
+
+  {{#unless company.letterheadUrl}}
+  <div class="fallback-header">
+    {{#if company.logoUrl}}<img class="logo" src="{{company.logoUrl}}" />{{/if}}
+    <div>
+      <div class="company-name">{{company.name}}</div>
+      <div class="company-addr">
+        {{company.address}}<br/>
+        {{#if company.phone}}{{i18n.telp}} {{company.phone}}{{/if}}{{#if company.email}} &bull; {{company.email}}{{/if}}
+      </div>
+    </div>
+  </div>
+  {{/unless}}
+
+  <div class="spk-title">{{i18n.spkTitle}}</div>
+
+  {{!-- Header info: No, Hal, Nama Perusahaan, Penanggung Jawab, dst --}}
+  <table class="spk-header">
+    <tr><td class="k">{{i18n.no}}</td><td class="s">:</td><td>{{doc.number}}</td></tr>
+    <tr><td class="k">{{i18n.perihal}}</td><td class="s">:</td><td>{{doc.variantLabel}}</td></tr>
+    {{#if client.company}}<tr><td class="k">{{i18n.spkCompanyName}}</td><td class="s">:</td><td>{{client.company}}</td></tr>{{/if}}
+    <tr><td class="k">{{i18n.spkPic}}</td><td class="s">:</td><td>{{client.name}}</td></tr>
+    {{#if client.position}}<tr><td class="k">{{i18n.spkPosition}}</td><td class="s">:</td><td>{{client.position}}</td></tr>{{/if}}
+    {{#if client.phone}}<tr><td class="k">{{i18n.spkOfficePhone}}</td><td class="s">:</td><td>{{client.phone}}</td></tr>{{/if}}
+    {{#if client.address}}<tr><td class="k">{{i18n.spkAddress}}</td><td class="s">:</td><td>{{client.address}}</td></tr>{{/if}}
+    {{#if project.name}}<tr><td class="k">{{i18n.spkEvent}}</td><td class="s">:</td><td>{{project.name}}</td></tr>{{/if}}
+    {{#if project.location}}<tr><td class="k">{{i18n.spkPlace}}</td><td class="s">:</td><td>{{project.location}}</td></tr>{{/if}}
+    {{#if project.dateRange}}<tr><td class="k">{{i18n.spkEventDate}}</td><td class="s">:</td><td>{{project.dateRange}}</td></tr>{{/if}}
+  </table>
+
+  {{!-- Paragraf utama: "Dengan ini memberikan pekerjaan kepada..." --}}
+  <p class="main-paragraph">
+    {{i18n.spkAssign1}} <strong>{{company.name}}</strong> {{i18n.spkInstall}} {{lowercase doc.variantLabel}}{{#if project.name}} {{i18n.spkOnEvent}} <strong>{{project.name}}</strong>{{/if}}{{#if project.dateRange}} {{i18n.spkDate}} <strong>{{project.dateRange}}</strong>{{/if}}{{#if project.location}} {{i18n.spkAt}} <strong>{{project.location}}</strong>{{/if}}, {{i18n.spkAmountOf}} <strong>{{totals.total}}</strong>{{#if spk.exclTax}} {{i18n.spkExclTax}}{{else}} {{i18n.spkInclTax}} {{totals.taxRate}}%{{/if}}, {{i18n.spkWithSpecs}}
+  </p>
+
+  {{!-- Standalone Terbilang line — lebih mencolok daripada inline parentheses --}}
+  {{#if totals.totalTerbilang}}
+  <div class="terbilang-block" style="margin: 4pt 0 8pt 0; font-style: italic; font-size: 11pt; padding: 4pt 8pt; border-left: 3pt solid {{theme.primary}}; background: {{theme.primarySubtle}};">
+    <strong>{{i18n.terbilang}}:</strong> <strong style="color: {{theme.primaryDark}};">{{totals.totalTerbilang}}</strong>
+  </div>
+  {{/if}}
+
+  {{!-- Tabel item — struktur sama dengan preview Penawaran (lihat sewa.hbs / pengadaan-booth.hbs).
+       2 mode (sinkron dengan toggle Detail/Ringkas di UI):
+         - DETAIL (default): 3 kolom (No, Uraian, Qty) — kolom Qty terpisah
+         - RINGKAS: 2 kolom (No, Uraian) — qty inline di Uraian
+       SPK TIDAK menampilkan kolom harga, subtotal kategori, atau grand total
+       (sesuai konvensi SPK: lingkup pekerjaan only, harga di-summary di paragraf pembayaran). --}}
+  {{#if spk.isCategorySummary}}
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:28pt">{{i18n.no}}</th>
+        <th>{{i18n.uraian}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each itemGroups}}
+        {{#if this.categoryName}}
+        <tr class="cat-header">
+          <td colspan="2">{{this.categoryName}}</td>
+        </tr>
+        {{/if}}
+        {{#each this.items}}
+        <tr>
+          <td class="num">{{this.no}}</td>
+          <td>
+            {{this.description}}
+            {{#if this.unit}}<span style="color:#666; font-size:9.5pt;"> · {{this.quantity}}</span>{{/if}}
+          </td>
+        </tr>
+        {{/each}}
+      {{/each}}
+    </tbody>
+  </table>
+  {{else}}
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:28pt">{{i18n.no}}</th>
+        <th>{{i18n.uraian}}</th>
+        <th style="width:90pt">{{i18n.qty}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each itemGroups}}
+        {{#if this.categoryName}}
+        <tr class="cat-header">
+          <td colspan="3">{{this.categoryName}}</td>
+        </tr>
+        {{/if}}
+        {{#each this.items}}
+        <tr>
+          <td class="num">{{this.no}}</td>
+          <td>{{this.description}}</td>
+          <td class="qty">{{this.quantity}}</td>
+        </tr>
+        {{/each}}
+      {{/each}}
+    </tbody>
+  </table>
+  {{/if}}
+
+  {{!-- Specifications section — render kalau di-set di Quotation (PDF Nukahiji style).
+       Group dengan judul (Booth/Stage/Totem) + bullet checkmarks. --}}
+  {{#if specifications}}
+  <div style="margin: 8pt 0 10pt 0;">
+    <div style="font-weight: 700; color: {{theme.primary}}; margin-bottom: 4pt; font-size: 11pt; border-bottom: 0.5pt solid {{theme.primary}}; padding-bottom: 2pt;">
+      {{i18n.spesifikasi}}
+    </div>
+    {{#each specifications}}
+    <div style="margin-top: 4pt;">
+      {{#if this.title}}
+      <div style="font-weight: 700; color: {{../theme.primaryDark}}; margin-bottom: 2pt; font-size: 10.5pt;">▪ {{this.title}}</div>
+      {{/if}}
+      <ul style="margin: 0 0 6pt 24pt; padding: 0; line-height: 1.6; font-size: 10.5pt;">
+        {{#each this.items}}<li>✓ {{this}}</li>{{/each}}
+      </ul>
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  {{!-- Catatan dengan prefix "#" — dari brand disclaimer (split per baris) --}}
+  {{#if brandTexts.disclaimer}}
+  <div class="hash-notes" style="white-space: pre-line;">{{spk.disclaimerHashed}}</div>
+  {{/if}}
+
+  {{!-- Bullet pembayaran — kalau ada paymentSchedule custom, pakai itu. Else fallback ke DP+Pelunasan default. --}}
+  <ul class="bullet-list">
+    {{#if paymentSchedule}}
+      {{#each paymentSchedule}}
+      <li>
+        <strong>{{this.label}} {{this.percent}}%</strong> {{../i18n.spkSchedOfContract}} <strong>{{this.amountFormatted}}</strong> ({{this.amountTerbilang}}){{#if @first}} {{../i18n.spkPaidOnSign}}{{else}}{{#if @last}} {{../i18n.spkFinalSettle}}{{else}} {{../i18n.spkInInstallments}}{{/if}}{{/if}}.
+      </li>
+      {{/each}}
+    {{else}}
+      <li>{{i18n.spkDpLabel}} {{payment.dpPercent}}% {{i18n.spkDpOfContract}} <strong>{{payment.dpAmount}}</strong> ({{payment.dpAmountTerbilang}}) {{i18n.spkPaidOnSign}}.</li>
+      <li>{{i18n.spkPelunasanOf}} <strong>{{payment.pelunasan}}</strong> ({{payment.pelunasanTerbilang}}) {{i18n.spkPaidOnBooth}}{{#if spk.paymentDeadlineFormatted}} {{i18n.spkOrNoLater}} <strong>{{spk.paymentDeadlineFormatted}}</strong>{{/if}}.</li>
+    {{/if}}
+    <li>{{i18n.spkCancel1}}</li>
+    <li>{{i18n.spkCancel2}}</li>
+  </ul>
+
+  {{#if payment.banks.length}}
+  <div class="bank-block">
+    {{i18n.spkBankIntro}}
+    {{#each payment.banks}}
+    <div class="bank-line">{{this.bankName}} <strong>{{this.accountNumber}}</strong> {{../i18n.accHolderShort}} {{this.accountOwner}}</div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  <div class="closing-line">
+    {{i18n.spkClosing}}
+  </div>
+
+  <div class="sign-date">{{doc.dateFormatted}}</div>
+
+  {{!-- TTD: Vendor (kiri) | Klien (kanan) --}}
+  <div class="signature-row">
+    <div class="block">
+      <div class="role">&nbsp;</div>
+      <div class="sign-area">
+        {{#if signedBy.stampUrl}}<img class="stamp-image" src="{{signedBy.stampUrl}}" alt="Stempel" />{{/if}}
+        {{#if signedBy.signatureUrl}}<img class="sign-image" src="{{signedBy.signatureUrl}}" alt="Tanda Tangan" />{{/if}}
+      </div>
+      <div class="name">{{signedBy.name}}</div>
+    </div>
+    <div class="block">
+      <div class="role">{{#if client.company}}{{client.company}}{{else}}{{client.name}}{{/if}}</div>
+      <div class="sign-area">
+        <div class="materai">{{i18n.materai}}</div>
+      </div>
+      <div class="name">{{client.name}}</div>
+    </div>
+  </div>
+
+  <div class="end-spacer"></div>
+
+</div>
+
+    </td></tr>
+  </tbody>
+</table>

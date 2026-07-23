@@ -587,6 +587,15 @@ model Invoice {
   // Specifications terpisah dari item table — list group dengan judul.
   // Format: `[{title?: string, items: string[]}]`. Render sebagai section setelah item table.
   specifications     Json?             @map("specifications")
+  // Rincian Pekerjaan — snapshot daftar item pekerjaan (dikelola di halaman /penawaran/[id]/rincian).
+  // Format: `[{description: string, volume?: string, unit?: string, note?: string}]`.
+  // Di-seed dari item penawaran saat pertama dibuat, lalu jadi daftar editable yang berdiri sendiri
+  // (tidak menyentuh item penawaran). Null/empty = belum dibuat → PDF fallback ke item penawaran.
+  rincianPekerjaanItems Json?          @map("rincian_pekerjaan_items")
+  // Jadwal khusus dokumen Rincian Pekerjaan — tanggal pasang (instalasi) & bongkar (pembongkaran).
+  // Terpisah dari eventDateStart/End; tidak memengaruhi penawaran. Null = tidak ditampilkan.
+  rincianInstallDate    DateTime?      @map("rincian_install_date")
+  rincianDismantleDate  DateTime?      @map("rincian_dismantle_date")
   // Harga paket — alternatif untuk diskon dengan label lebih jelas.
   // Kalau di-set & > 0 → tampil "Total Penawaran / Harga Paket" di footer (PDF Nukahiji style).
   packagePrice       Decimal?          @map("package_price") @db.Decimal(15, 2)

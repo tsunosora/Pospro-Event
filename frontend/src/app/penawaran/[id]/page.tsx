@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { use, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,7 +8,8 @@ import {
     Eye, X, Download, Calculator, Copy, GripVertical, Pencil,
     CalendarDays, AlertTriangle, CheckCircle2, Wallet, Minimize2, SlidersHorizontal,
     Percent, TrendingDown, FileCheck, Globe, User, Paperclip, Zap, List, BarChart2,
-    Bot, ArrowUp, ArrowDown, Clock, CalendarRange, History, Pin, Package,
+    Bot, ArrowUp, ArrowDown, Clock, CalendarRange, History, Pin, Package, ChevronDown,
+    Lightbulb, CreditCard, Mail, MessageSquare,
 } from "lucide-react";
 import {
     DndContext, PointerSensor, useSensor, useSensors,
@@ -70,6 +71,62 @@ function normalizeItem(it: QuotationItem): QuotationItem {
 
 function keyed(items: QuotationItem[]): ItemRow[] {
     return items.map((it, idx) => ({ ...normalizeItem(it), _key: `${it.id ?? "new"}-${idx}-${Math.random()}` }));
+}
+
+// Lebar default kolom tabel Rincian Item (px) — dipakai sebagai fallback & tombol reset.
+const DEFAULT_ITEM_COL_WIDTHS: Record<string, number> = {
+    kategori: 160, event: 130, paket: 90, uraian: 280, qty: 90, satuan: 110, harga: 130, subtotal: 130,
+};
+
+/** Textarea yang tingginya otomatis mengikuti isi (teks turun ke baris berikutnya
+ *  saat panjang), dipakai di sel tabel item agar Uraian panjang tidak kepotong. */
+function AutoGrowTextarea({ value, onChange, placeholder, className }: {
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+    className?: string;
+}) {
+    const ref = useRef<HTMLTextAreaElement>(null);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const resize = () => {
+            el.style.height = "auto";
+            el.style.height = `${el.scrollHeight}px`;
+        };
+        resize();
+        // Recompute juga saat lebar kolom berubah (resize kolom) → teks re-wrap, tinggi ikut.
+        const parent = el.parentElement;
+        if (!parent) return;
+        const ro = new ResizeObserver(resize);
+        ro.observe(parent);
+        return () => ro.disconnect();
+    }, [value]);
+    return (
+        <textarea
+            ref={ref}
+            rows={1}
+            value={value}
+            placeholder={placeholder}
+            onChange={(e) => onChange(e.target.value)}
+            className={`w-full resize-none overflow-hidden leading-snug align-top ${className ?? ""}`}
+        />
+    );
+}
+
+/** Handle drag di batas kanan header untuk resize kolom.
+ *  Zona grab lebar (12px) yang menstraddle batas kolom, dengan garis pembatas
+ *  yang SELALU terlihat (bg-border) dan menyorot primary saat hover/drag. */
+function ColResizeHandle({ onPointerDown }: { onPointerDown: (e: ReactPointerEvent) => void }) {
+    return (
+        <span
+            onPointerDown={onPointerDown}
+            className="group absolute -right-1.5 top-0 z-20 flex h-full w-3 justify-center cursor-col-resize select-none touch-none"
+            title="Geser untuk ubah lebar kolom"
+        >
+            <span className="h-full w-0.5 bg-muted-foreground/30 group-hover:bg-primary group-hover:w-1 group-active:bg-primary group-active:w-1 transition-all" />
+        </span>
+    );
 }
 
 export default function PenawaranDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -175,6 +232,46 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     /** Collapsible state per section — default collapse semua advanced. */
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
     const toggleSection = (key: string) => setOpenSections((s) => ({ ...s, [key]: !s[key] }));
+
+    // ── Lebar kolom tabel Rincian Item — bisa di-resize (drag batas kanan header),
+    //    disimpan per browser supaya konsisten antar dokumen.
+    const [itemColWidths, setItemColWidths] = useState<Record<string, number>>(() => {
+        if (typeof window === 'undefined') return { ...DEFAULT_ITEM_COL_WIDTHS };
+        try {
+            const s = localStorage.getItem('pospro:quotation:itemColWidths');
+            if (s) return { ...DEFAULT_ITEM_COL_WIDTHS, ...JSON.parse(s) };
+        } catch { /* ignore */ }
+        return { ...DEFAULT_ITEM_COL_WIDTHS };
+    });
+    const resetItemColWidths = () => {
+        setItemColWidths({ ...DEFAULT_ITEM_COL_WIDTHS });
+        try { localStorage.removeItem('pospro:quotation:itemColWidths'); } catch { /* ignore */ }
+    };
+    /** Mulai drag-resize kolom dari handle di header; update live, persist saat lepas. */
+    const startColResize = (key: string, e: ReactPointerEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startX = e.clientX;
+        const startW = itemColWidths[key] ?? 120;
+        const onMove = (ev: PointerEvent) => {
+            const next = Math.max(56, startW + (ev.clientX - startX));
+            setItemColWidths((prev) => ({ ...prev, [key]: next }));
+        };
+        const onUp = () => {
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            setItemColWidths((prev) => {
+                try { localStorage.setItem('pospro:quotation:itemColWidths', JSON.stringify(prev)); } catch { /* ignore */ }
+                return prev;
+            });
+        };
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+    };
     // Append/prepend per section — combine dengan brand default
     const [disclaimerPrepend, setDisclaimerPrepend] = useState<string>("");
     const [disclaimerAppend, setDisclaimerAppend] = useState<string>("");
@@ -200,6 +297,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         items: string[];
         packageGroup?: string;
     }>>([]);
+    // Rincian Pekerjaan dikelola di halaman khusus /penawaran/[id]/rincian (bukan di sini).
     /** Harga paket — alternatif diskon dengan label "Harga Paket". 0 = pakai total normal. */
     const [packagePrice, setPackagePrice] = useState<number>(0);
     /** Tampilkan grand total di footer? Default true. False untuk mode 'package'. */
@@ -246,7 +344,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     /** Type dokumen yang sedang di-preview: penawaran/invoice (pdf) atau SPK. */
-    const [previewType, setPreviewType] = useState<"pdf" | "spk-pdf">("pdf");
+    const [previewType, setPreviewType] = useState<"pdf" | "spk-pdf" | "rincian-pekerjaan-pdf">("pdf");
 
     // Calculator state — modal multiplier per row
     const [calcOpenKey, setCalcOpenKey] = useState<string | null>(null);
@@ -753,6 +851,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     packageGroup: (g.packageGroup ?? '').trim() || null,
                 }))
                 .filter((g) => g.items.length > 0),
+            // rincianPekerjaanItems + tanggal pasang/bongkar dikelola di halaman /penawaran/[id]/rincian
             packagePrice: packagePrice > 0 ? packagePrice : null,
             showGrandTotal,
             showDiscount,
@@ -774,7 +873,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         });
     };
 
-    const handlePreview = async (type: "pdf" | "spk-pdf" = "pdf") => {
+    const handlePreview = async (type: "pdf" | "spk-pdf" | "rincian-pekerjaan-pdf" = "pdf") => {
         setPreviewType(type);
         setPreviewLoading(true);
         setPreviewOpen(true);
@@ -792,7 +891,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     };
 
     /** Switch antara preview Penawaran/Invoice dan SPK dalam modal yang sama. */
-    const switchPreviewType = async (type: "pdf" | "spk-pdf") => {
+    const switchPreviewType = async (type: "pdf" | "spk-pdf" | "rincian-pekerjaan-pdf") => {
         if (type === previewType) return;
         setPreviewType(type);
         setPreviewLoading(true);
@@ -845,7 +944,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleExport = async (format: "pdf" | "docx" | "spk-pdf") => {
+    const handleExport = async (format: "pdf" | "docx" | "spk-pdf" | "rincian-pekerjaan-pdf") => {
         try {
             const { blob, filename } = await downloadQuotationExport(id, format, effectiveDpPaid);
             const url = URL.createObjectURL(blob);
@@ -854,7 +953,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             const a = document.createElement("a");
             a.href = url;
             a.download = filename;
-            if (format === "pdf" || format === "spk-pdf") a.target = "_blank"; // PDF buka di tab baru
+            if (format === "pdf" || format === "spk-pdf" || format === "rincian-pekerjaan-pdf") a.target = "_blank"; // PDF buka di tab baru
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -1019,6 +1118,26 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             <span className="hidden md:inline">SPK</span>
                         </button>
                     </div>
+
+                    {/* Rincian Pekerjaan group — terpisah, warna amber/warning */}
+                    <div className="inline-flex rounded-md border border-warning/30 overflow-hidden shadow-sm">
+                        <button
+                            onClick={() => handlePreview("rincian-pekerjaan-pdf")}
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-warning/10 hover:bg-warning/20 text-warning text-sm font-medium border-r border-warning/30"
+                            title="Preview Rincian Pekerjaan"
+                        >
+                            <Eye className="w-4 h-4" />
+                            <span className="hidden md:inline">Preview</span>
+                        </button>
+                        <button
+                            onClick={() => handleExport("rincian-pekerjaan-pdf")}
+                            className="inline-flex items-center gap-1 px-2.5 py-2 bg-warning hover:bg-warning/90 text-white text-sm font-medium"
+                            title="Download Rincian Pekerjaan"
+                        >
+                            <List className="w-4 h-4" />
+                            <span className="hidden md:inline">Rincian</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1098,7 +1217,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             )}
 
             {/* Brand picker — pilih brand untuk header surat & nomor seri */}
-            <div className="mb-4 bg-card border-2 border-border rounded-xl p-3 flex items-center gap-3 flex-wrap">
+            <div className="mb-4 bg-card border border-border rounded-xl p-3 flex items-center gap-3 flex-wrap">
                 <span className="text-sm font-semibold text-foreground">Brand:</span>
                 {ACTIVE_BRANDS.map((b) => {
                     const meta = BRAND_META[b];
@@ -1129,7 +1248,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             </div>
 
             {/* Varian Penawaran picker — dropdown dari config CRUD */}
-            <div className="mb-4 bg-card border-2 border-border rounded-xl p-3 flex items-center gap-3 flex-wrap">
+            <div className="mb-4 bg-card border border-border rounded-xl p-3 flex items-center gap-3 flex-wrap">
                 <span className="text-sm font-semibold text-foreground">Varian:</span>
                 <select
                     value={variantCode ?? ""}
@@ -1165,7 +1284,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             </div>
 
             {/* Penandatangan Surat — context-aware: marketing untuk penawaran, admin untuk invoice */}
-            <div className="mb-4 bg-card border-2 border-border rounded-xl p-3">
+            <div className="mb-4 bg-card border border-border rounded-xl p-3">
                 <div className="flex items-center gap-3 flex-wrap">
                     <span className="text-sm font-semibold text-foreground">
                         Penandatangan:
@@ -1228,61 +1347,84 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 })()}
                 {!signedByWorkerId && (
                     <p className="text-[11px] text-muted-foreground mt-1">
-                        💡 Kalau dikosongkan, surat pakai nama direktur dari pengaturan brand.
+                        <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Kalau dikosongkan, surat pakai nama direktur dari pengaturan brand.
                     </p>
                 )}
             </div>
 
             {/* Bank picker — pilih rekening yang muncul di surat */}
-            <div className="mb-4 bg-card border-2 border-border rounded-xl p-3">
-                <div className="flex items-start gap-3 flex-wrap">
-                    <span className="text-sm font-semibold text-foreground mt-1">Rekening Bank:</span>
-                    <div className="flex-1 min-w-[280px]">
-                        {allBanks.length === 0 ? (
-                            <div className="text-xs bg-warning/10 border border-warning/30 rounded-md p-2 text-warning inline-flex items-start gap-1.5">
-                                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> Belum ada bank account terdaftar.
-                                <Link href="/settings/bank-accounts" className="ml-1 text-warning font-semibold hover:underline">
-                                    Tambah dulu di /settings/bank-accounts →
+            <div className="mb-4 bg-card border border-border rounded-xl p-3">
+                {(() => {
+                    const selectedIds = bankAccountIds.split(",").map((s) => s.trim()).filter(Boolean);
+                    return (
+                        <>
+                            {/* Header: label + jumlah terpilih (kiri) · kelola (kanan) */}
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                                <span className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5">
+                                    <Wallet className="w-4 h-4 text-primary shrink-0" /> Rekening Bank
+                                    {allBanks.length > 0 && (
+                                        <span className="text-[11px] font-normal text-muted-foreground">
+                                            ({selectedIds.length}/{allBanks.length} dipilih)
+                                        </span>
+                                    )}
+                                </span>
+                                <Link href="/settings/bank-accounts" className="text-[11px] text-info hover:underline shrink-0">
+                                    Kelola Bank →
                                 </Link>
                             </div>
-                        ) : (
-                            <div className="space-y-1.5">
-                                {allBanks.map((b) => {
-                                    const ids = bankAccountIds.split(",").map((s) => s.trim()).filter(Boolean);
-                                    const checked = ids.includes(String(b.id));
-                                    return (
-                                        <label key={b.id} className="flex items-center gap-2 text-sm cursor-pointer p-1.5 rounded hover:bg-muted transition-colors">
-                                            <input
-                                                type="checkbox"
-                                                checked={checked}
-                                                onChange={(e) => {
-                                                    const newIds = e.target.checked
-                                                        ? [...ids, String(b.id)]
-                                                        : ids.filter((x) => x !== String(b.id));
-                                                    setBankAccountIds(newIds.join(","));
-                                                }}
-                                            />
-                                            <span className="font-bold">{b.bankName}</span>
-                                            <span className="font-mono text-xs">{b.accountNumber}</span>
-                                            <span className="text-xs text-muted-foreground">a.n. {b.accountOwner}</span>
-                                        </label>
-                                    );
-                                })}
-                            </div>
-                        )}
-                        <p className="text-[11px] text-muted-foreground mt-2">
-                            💡 Pilih rekening yang ditampilkan di surat. Default: dari Brand Settings. Setting ini menimpa default per dokumen.
-                        </p>
-                    </div>
-                    <Link href="/settings/bank-accounts" className="text-[11px] text-info hover:underline">
-                        Kelola Bank →
-                    </Link>
-                </div>
+
+                            {allBanks.length === 0 ? (
+                                <div className="text-xs bg-warning/10 border border-warning/30 rounded-md p-2 text-warning inline-flex items-start gap-1.5">
+                                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> Belum ada bank account terdaftar.
+                                    <Link href="/settings/bank-accounts" className="ml-1 text-warning font-semibold hover:underline">
+                                        Tambah dulu di /settings/bank-accounts →
+                                    </Link>
+                                </div>
+                            ) : (
+                                // Grid responsif — memenuhi lebar & rapi saat banyak rekening.
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                                    {allBanks.map((b) => {
+                                        const checked = selectedIds.includes(String(b.id));
+                                        return (
+                                            <label
+                                                key={b.id}
+                                                className={`flex items-start gap-2 text-sm cursor-pointer rounded-lg border p-2.5 transition-colors ${checked
+                                                    ? "border-primary/50 bg-primary/10"
+                                                    : "border-border bg-card hover:bg-muted/60"
+                                                    }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={(e) => {
+                                                        const newIds = e.target.checked
+                                                            ? [...selectedIds, String(b.id)]
+                                                            : selectedIds.filter((x) => x !== String(b.id));
+                                                        setBankAccountIds(newIds.join(","));
+                                                    }}
+                                                    className="mt-0.5 shrink-0 accent-primary"
+                                                />
+                                                <div className="min-w-0">
+                                                    <div className="font-bold truncate">{b.bankName}</div>
+                                                    <div className="font-mono text-xs truncate nums">{b.accountNumber}</div>
+                                                    <div className="text-xs text-muted-foreground truncate">a.n. {b.accountOwner}</div>
+                                                </div>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            <p className="text-[11px] text-muted-foreground mt-2">
+                                <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Pilih rekening yang ditampilkan di surat. Default: dari Brand Settings. Setting ini menimpa default per dokumen.
+                            </p>
+                        </>
+                    );
+                })()}
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
                 <section className="bg-card rounded-xl border border-border p-4 space-y-3">
-                    <h3 className="font-semibold mb-2">Data Klien</h3>
+                    <h3 className="font-semibold mb-2 flex items-center gap-2"><User className="w-4 h-4 text-primary shrink-0" /> Data Klien</h3>
 
                     {/* Tautkan ke Customer Database — supaya muncul di tab Penawaran customer */}
                     {linkedCustomer ? (
@@ -1356,7 +1498,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 </section>
 
                 <section className="bg-card rounded-xl border border-border p-4 space-y-3">
-                    <h3 className="font-semibold mb-2">Event / Proyek</h3>
+                    <h3 className="font-semibold mb-2 flex items-center gap-2"><CalendarDays className="w-4 h-4 text-primary shrink-0" /> Event / Proyek</h3>
                     <Field label="Nama Proyek" value={projectName} onChange={setProjectName} />
                     <Field label="Lokasi" value={eventLocation} onChange={setEventLocation} />
                     <div className="grid grid-cols-2 gap-2">
@@ -1492,9 +1634,9 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             {/* Header Surat — tanggal saja (kota opsional, ditambahkan via field di bawah kalau perlu) */}
             <section className="bg-card rounded-xl border border-border p-4 mt-6">
                 <div className="mb-3">
-                    <h3 className="font-semibold">Header Surat (Tanggal Dibuat)</h3>
+                    <h3 className="font-semibold flex items-center gap-2"><FileText className="w-4 h-4 text-primary shrink-0" /> Header Surat (Tanggal Dibuat)</h3>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                        💡 Format di surat: <code className="bg-muted px-1 rounded">Tanggal : {signCity ? `${signCity}, ` : ""}{docDate ? new Date(docDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "—"}</code>
+                        <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Format di surat: <code className="bg-muted px-1 rounded">Tanggal : {signCity ? `${signCity}, ` : ""}{docDate ? new Date(docDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "—"}</code>
                     </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1512,16 +1654,16 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     />
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-2">
-                    💡 <b>Lokasi/Kota</b> opsional — kosongkan kalau tidak diperlukan. Yang muncul cuma tanggal saja.
+                    <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> <b>Lokasi/Kota</b> opsional — kosongkan kalau tidak diperlukan. Yang muncul cuma tanggal saja.
                 </p>
             </section>
 
             <section className="bg-card rounded-xl border border-border p-4 mt-6">
                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <div>
-                        <h3 className="font-semibold">Rincian Item</h3>
+                        <h3 className="font-semibold flex items-center gap-2"><List className="w-4 h-4 text-primary shrink-0" /> Rincian Item</h3>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
-                            💡 Item dengan <b>Kategori</b> sama otomatis dikelompokkan. Item tanpa kategori akan ikut grup atasnya. Klik <Calculator className="inline h-3 w-3" /> untuk hitung qty otomatis.
+                            <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Item dengan <b>Kategori</b> sama otomatis dikelompokkan. Item tanpa kategori akan ikut grup atasnya. Klik <Calculator className="inline h-3 w-3" /> untuk hitung qty otomatis.
                         </p>
                     </div>
                     <button
@@ -1589,25 +1731,61 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         : [];
                     const showPackageCol = formMode === 'advanced';
                     const colCount = 8 + (eventOptions.length > 0 ? 1 : 0) + (showPackageCol ? 1 : 0);
+                    // Total lebar tabel = jumlah lebar kolom yang bisa di-resize + kolom tetap (drag & aksi).
+                    const cw = itemColWidths;
+                    const totalW = 32 + 100 + cw.kategori
+                        + (eventOptions.length > 0 ? cw.event : 0)
+                        + (showPackageCol ? cw.paket : 0)
+                        + cw.uraian + cw.qty + cw.satuan + cw.harga + cw.subtotal;
                     return (
+                <>
+                <div className="flex items-center gap-2 mb-1">
+                    <p className="lg:hidden text-[10px] text-muted-foreground">
+                        Geser tabel ke samping untuk melihat semua kolom →
+                    </p>
+                    <p className="hidden lg:block text-[10px] text-muted-foreground">
+                        Tarik garis pembatas di header untuk ubah lebar kolom.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={resetItemColWidths}
+                        className="hidden lg:inline-flex ml-auto items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                        title="Kembalikan lebar semua kolom ke default"
+                    >
+                        <History className="w-3 h-3" /> Reset lebar kolom
+                    </button>
+                </div>
                 <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                {/* table-fixed + colgroup: lebar kolom dikontrol state → bisa di-resize via handle header */}
+                <table className="text-sm table-fixed" style={{ width: totalW }}>
+                    <colgroup>
+                        <col style={{ width: 32 }} />
+                        <col style={{ width: cw.kategori }} />
+                        {eventOptions.length > 0 && <col style={{ width: cw.event }} />}
+                        {showPackageCol && <col style={{ width: cw.paket }} />}
+                        <col style={{ width: cw.uraian }} />
+                        <col style={{ width: cw.qty }} />
+                        <col style={{ width: cw.satuan }} />
+                        <col style={{ width: cw.harga }} />
+                        <col style={{ width: cw.subtotal }} />
+                        <col style={{ width: 100 }} />
+                    </colgroup>
                     <thead className="bg-muted text-left text-foreground">
                         <tr>
-                            <th className="w-6 px-1"></th>
-                            <th className="px-2 py-1.5 w-40">Kategori</th>
+                            <th className="px-1"></th>
+                            <th className="px-2 py-1.5 relative select-none">Kategori<ColResizeHandle onPointerDown={(e) => startColResize('kategori', e)} /></th>
                             {eventOptions.length > 0 && (
-                                <th className="px-2 py-1.5 w-32" title="Link ke event lokasi">Event</th>
+                                <th className="px-2 py-1.5 relative select-none" title="Link ke event lokasi">Event<ColResizeHandle onPointerDown={(e) => startColResize('event', e)} /></th>
                             )}
                             {showPackageCol && (
-                                <th className="px-2 py-1.5 w-20" title="Nama paket (mode package)">Paket</th>
+                                <th className="px-2 py-1.5 relative select-none" title="Nama paket (mode package)">Paket<ColResizeHandle onPointerDown={(e) => startColResize('paket', e)} /></th>
                             )}
-                            <th className="px-2 py-1.5">Uraian</th>
-                            <th className="px-2 py-1.5 w-24">Qty</th>
-                            <th className="px-2 py-1.5 w-24">Satuan</th>
-                            <th className="px-2 py-1.5 w-32">Harga Satuan</th>
-                            <th className="px-2 py-1.5 w-32 text-right">Subtotal</th>
-                            <th className="w-12 text-center text-[10px]">Aksi</th>
+                            <th className="px-2 py-1.5 relative select-none">Uraian<ColResizeHandle onPointerDown={(e) => startColResize('uraian', e)} /></th>
+                            <th className="px-2 py-1.5 relative select-none">Qty<ColResizeHandle onPointerDown={(e) => startColResize('qty', e)} /></th>
+                            <th className="px-2 py-1.5 relative select-none">Satuan<ColResizeHandle onPointerDown={(e) => startColResize('satuan', e)} /></th>
+                            <th className="px-2 py-1.5 relative select-none">Harga Satuan<ColResizeHandle onPointerDown={(e) => startColResize('harga', e)} /></th>
+                            <th className="px-2 py-1.5 relative select-none">Subtotal<ColResizeHandle onPointerDown={(e) => startColResize('subtotal', e)} /></th>
+                            <th className="px-1 text-center text-[10px]">Aksi</th>
                         </tr>
                     </thead>
                     <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -1642,11 +1820,16 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     </DndContext>
                 </table>
                 </div>
+                </>
                     );
                 })()}
             </section>
 
-            <div className="grid md:grid-cols-2 gap-6 mt-6 auto-rows-min items-start">
+            {/* Layout 2 kolom masonry-manual: tiap kolom stack independen → hemat tempat
+                tanpa celah kosong antar-baris (beda dengan grid biasa yang menyamakan tinggi baris). */}
+            <div className="mt-6 grid md:grid-cols-2 gap-4 items-start">
+                {/* ── Kolom kiri ── */}
+                <div className="space-y-4">
                 <section className="bg-card rounded-xl border border-border p-3 space-y-2">
                     <h3 className="font-semibold text-sm flex items-center gap-1.5"><Wallet className="w-4 h-4" /> Pajak &amp; Pembayaran</h3>
                     <div className="grid grid-cols-2 gap-2">
@@ -1758,10 +1941,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     <Package className="w-3 h-3 inline" /> Harga sudah termasuk PPN
                                 </button>
                             </div>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-[10px] text-muted-foreground flex items-start gap-1">
                                 {priceIncludesTax
-                                    ? "📦 Harga item adalah GROSS (sudah include PPN). DPP & PPN di-back-calc dari gross."
-                                    : "➕ Harga item adalah NET (belum include PPN). PPN ditambah di atas subtotal."}
+                                    ? <><Package className="w-3 h-3 shrink-0 mt-0.5" /> <span>Harga item adalah GROSS (sudah include PPN). DPP &amp; PPN di-back-calc dari gross.</span></>
+                                    : <><Plus className="w-3 h-3 shrink-0 mt-0.5" /> <span>Harga item adalah NET (belum include PPN). PPN ditambah di atas subtotal.</span></>}
                             </p>
                         </div>
                         {taxMode === "percent" ? (
@@ -1890,7 +2073,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         )}
                         {(pphRate > 0 || pphAmount > 0) && (
                             <div className="text-[10px] text-destructive bg-card border border-destructive/30 rounded p-1.5">
-                                💡 PPh ini akan <b>dipotong klien</b> dari pembayaran.
+                                <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> PPh ini akan <b>dipotong klien</b> dari pembayaran.
                                 Net diterima = Total − Rp {Math.round(computedPphAmount).toLocaleString("id-ID")}
                                 <br />
                                 Preset: <b>0.5%</b> UMKM Final · <b>1.5%</b> PPh 4(2) sewa/konstruksi · <b>2%</b> PPh 23 jasa
@@ -1957,7 +2140,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 <p className="text-[10px] text-primary">Subject • Harga paket • Show total</p>
                             </div>
                         </div>
-                        <span className="text-primary text-xs">{openSections.format ? '▲' : '▼'}</span>
+                        <ChevronDown className={`w-4 h-4 text-primary shrink-0 transition-transform ${openSections.format ? 'rotate-180' : ''}`} />
                     </button>
                     {openSections.format && (
                     <div className="p-3 space-y-2 border-t border-primary/30">
@@ -2006,7 +2189,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 <p className="text-[10px] text-success">List spec per item (Booth/Stage/Totem)</p>
                             </div>
                         </div>
-                        <span className="text-success text-xs">{openSections.spec ? '▲' : '▼'}</span>
+                        <ChevronDown className={`w-4 h-4 text-success shrink-0 transition-transform ${openSections.spec ? 'rotate-180' : ''}`} />
                     </button>
                     {openSections.spec && (
                     <div className="p-3 space-y-2 border-t border-success/30">
@@ -2137,6 +2320,33 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 </section>
                 )}
 
+                {/* === Section: Rincian Pekerjaan (dokumen terpisah — dikelola di halaman khusus) === */}
+                {formMode === 'advanced' && (
+                <section className="bg-card rounded-xl border border-warning/30 overflow-hidden">
+                    <Link
+                        href={`/penawaran/${id}/rincian`}
+                        className="w-full flex items-center justify-between px-3 py-2.5 bg-warning/10 hover:bg-warning/20 transition text-left"
+                    >
+                        <div className="flex items-center gap-2">
+                            <List className="w-4 h-4 text-warning" />
+                            <div>
+                                <h3 className="font-semibold text-sm text-warning flex items-center gap-1.5">
+                                    Rincian Pekerjaan
+                                    {Array.isArray((data as any).rincianPekerjaanItems) && (data as any).rincianPekerjaanItems.length > 0 && (
+                                        <span className="px-1.5 py-0.5 bg-warning/20 rounded text-[10px] font-bold">{(data as any).rincianPekerjaanItems.length} item</span>
+                                    )}
+                                </h3>
+                                <p className="text-[10px] text-warning">Dokumen kerja untuk tim produksi — buka halaman khusus untuk edit item, tanggal pasang &amp; bongkar. Tidak mengubah penawaran.</p>
+                            </div>
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-warning text-xs font-medium whitespace-nowrap">Buka <ArrowUp className="w-3 h-3 rotate-90" /></span>
+                    </Link>
+                </section>
+                )}
+                </div>
+
+                {/* ── Kolom kanan ── */}
+                <div className="space-y-4">
                 {/* === Section: Payment Schedule (Multi-step) === */}
                 {formMode === 'advanced' && (
                 <section className="bg-card rounded-xl border border-info/30 overflow-hidden">
@@ -2155,7 +2365,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 <p className="text-[10px] text-info">Multi-step DP — override DP {dpPercent}%</p>
                             </div>
                         </div>
-                        <span className="text-info text-xs">{openSections.payment ? '▲' : '▼'}</span>
+                        <ChevronDown className={`w-4 h-4 text-info shrink-0 transition-transform ${openSections.payment ? 'rotate-180' : ''}`} />
                     </button>
                     {openSections.payment && (
                     <div className="p-3 space-y-2 border-t border-info/30">
@@ -2300,14 +2510,19 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 : "bg-card text-muted-foreground border-border hover:border-border"
                                 }`}
                         >
-                            {useUsdCurrency ? "💵 USD ✓" : "💴 Rp (default)"}
+                            <span className="inline-flex items-center gap-1">
+                                <Wallet className="w-3 h-3" /> {useUsdCurrency ? "USD" : "Rp (default)"}
+                            </span>
                         </button>
                     </div>
-                    <p className="text-[10px] text-muted-foreground">
-                        {language === 'en' && "📖 Label header auto-translate (Nomor→Number, dll). "}
-                        {useUsdCurrency
-                            ? "💡 Input nilai harga langsung dalam USD (tanpa konversi kurs)."
-                            : "💡 Default pakai Rp. Aktifkan USD untuk klien internasional."}
+                    <p className="text-[10px] text-muted-foreground flex items-start gap-1">
+                        <Lightbulb className="w-3 h-3 shrink-0 mt-0.5 text-warning" />
+                        <span>
+                            {language === 'en' && "Label header auto-translate (Nomor→Number, dll). "}
+                            {useUsdCurrency
+                                ? "Input nilai harga langsung dalam USD (tanpa konversi kurs)."
+                                : "Default pakai Rp. Aktifkan USD untuk klien internasional."}
+                        </span>
                     </p>
                     </div>
                 </section>
@@ -2327,7 +2542,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 <p className="text-[10px] text-warning">Override Lampiran, Pembuka, Disclaimer, dst</p>
                             </div>
                         </div>
-                        <span className="text-warning text-xs">{openSections.customText ? '▲' : '▼'}</span>
+                        <ChevronDown className={`w-4 h-4 text-warning shrink-0 transition-transform ${openSections.customText ? 'rotate-180' : ''}`} />
                     </button>
                     {openSections.customText && (
                     <div className="p-3 space-y-2 border-t border-warning/30">
@@ -2363,7 +2578,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                     onClick={() => setCustomAttachmentText("")}
                                     className="px-1.5 py-0.5 rounded border text-[10px] bg-warning/10 hover:bg-warning/20 text-warning border-warning/30"
                                 >
-                                    ✕ Reset
+                                    <X className="inline align-[-2px] w-3 h-3 mr-0.5" /> Reset
                                 </button>
                             )}
                         </div>
@@ -2439,7 +2654,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
                     {/* Catatan Harga — custom override + append/prepend */}
                     <PrependAppendField
-                        title={language === 'en' ? "📝 Price Notes / Disclaimer" : "📝 Catatan Harga / Disclaimer"}
+                        title={<span className="inline-flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> {language === 'en' ? "Price Notes / Disclaimer" : "Catatan Harga / Disclaimer"}</span>}
                         prepend={disclaimerPrepend}
                         append={disclaimerAppend}
                         onPrepend={setDisclaimerPrepend}
@@ -2453,7 +2668,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
                     {/* Sistem Pembayaran — custom override + append/prepend */}
                     <PrependAppendField
-                        title={language === 'en' ? "💳 Payment Terms" : "💳 Sistem Pembayaran"}
+                        title={<span className="inline-flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> {language === 'en' ? "Payment Terms" : "Sistem Pembayaran"}</span>}
                         prepend={paymentTermsPrepend}
                         append={paymentTermsAppend}
                         onPrepend={setPaymentTermsPrepend}
@@ -2467,7 +2682,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
                     {/* Penutup Surat — custom override + append/prepend */}
                     <PrependAppendField
-                        title={language === 'en' ? "✉️ Closing" : "✉️ Penutup Surat"}
+                        title={<span className="inline-flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> {language === 'en' ? "Closing" : "Penutup Surat"}</span>}
                         prepend={closingPrepend}
                         append={closingAppend}
                         onPrepend={setClosingPrepend}
@@ -2531,7 +2746,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 className={`w-full border rounded px-2 py-1.5 text-sm ${spkPicPhone.trim() ? 'border-success/50 bg-card' : ''}`}
                             />
                             <p className="text-[10px] text-muted-foreground mt-1">
-                                💡 Akan tampil di baris &quot;No. Telp kantor&quot; di header SPK. Kosongkan untuk pakai No. Telp dari Penawaran.
+                                <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Akan tampil di baris &quot;No. Telp kantor&quot; di header SPK. Kosongkan untuk pakai No. Telp dari Penawaran.
                             </p>
                         </div>
                     </div>
@@ -2554,12 +2769,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             className={`w-full border rounded px-2 py-1.5 text-sm ${spkPaymentDeadline.trim() ? 'border-success/50 bg-card' : ''}`}
                         />
                         <p className="text-[10px] text-muted-foreground">
-                            💡 Contoh hasil di SPK: <em>&quot;Pelunasan... dibayarkan pada saat booth berdiri atau selambat-lambatnya pada tanggal <strong>{spkPaymentDeadline ? new Date(spkPaymentDeadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : validUntil ? new Date(validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + ' (fallback dari Berlaku Sampai)' : '—'}</strong>.&quot;</em>
+                            <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Contoh hasil di SPK: <em>&quot;Pelunasan... dibayarkan pada saat booth berdiri atau selambat-lambatnya pada tanggal <strong>{spkPaymentDeadline ? new Date(spkPaymentDeadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : validUntil ? new Date(validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + ' (fallback dari Berlaku Sampai)' : '—'}</strong>.&quot;</em>
                         </p>
                     </div>
 
                     <SimpleCustomField
-                        title="📝 Pembuka SPK (Opsional)"
+                        title={<span className="inline-flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Pembuka SPK (Opsional)</span>}
                         value={customOpeningSpk}
                         onChange={setCustomOpeningSpk}
                         placeholder="Kosongkan untuk pakai default. Mis: 'Dengan hormat, Bersama Surat Perintah Kerja ini...'"
@@ -2576,7 +2791,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         placeholder="Kosong = fallback ke disclaimer Penawaran. Mis: '# Estimasi produksi 14 hari\n# Harga belum termasuk: management fee, deposit, dll'"
                     />
                     <SimpleCustomField
-                        title="💳 Sistem Pembayaran SPK"
+                        title={<span className="inline-flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Sistem Pembayaran SPK</span>}
                         value={customPaymentTermsSpk}
                         onChange={setCustomPaymentTermsSpk}
                         fallbackLabel="Penawaran"
@@ -2584,7 +2799,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         brandDefault={brandSettings?.quotationPaymentTerms ?? null}
                     />
                     <SimpleCustomField
-                        title="✉️ Penutup SPK"
+                        title={<span className="inline-flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> Penutup SPK</span>}
                         value={customClosingSpk}
                         onChange={setCustomClosingSpk}
                         fallbackLabel="Penawaran"
@@ -2644,13 +2859,13 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 className={`w-full border rounded px-2 py-1.5 text-sm ${invoicePicPhone.trim() ? 'border-destructive/50 bg-card' : ''}`}
                             />
                             <p className="text-[10px] text-muted-foreground mt-1">
-                                💡 Kalau diisi, akan muncul di Invoice PDF di section &quot;Kepada Yth&quot;. Kosongkan untuk pakai data dari Penawaran.
+                                <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Kalau diisi, akan muncul di Invoice PDF di section &quot;Kepada Yth&quot;. Kosongkan untuk pakai data dari Penawaran.
                             </p>
                         </div>
                     </div>
 
                     <SimpleCustomField
-                        title="📝 Pembuka Invoice (Opsional)"
+                        title={<span className="inline-flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Pembuka Invoice (Opsional)</span>}
                         value={customOpeningInvoice}
                         onChange={setCustomOpeningInvoice}
                         placeholder="Kosongkan untuk pakai default. Mis: 'Dengan hormat, Bersama invoice ini kami menagihkan...'"
@@ -2658,7 +2873,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         helpText="Override paragraf pembuka khusus Invoice. Kosong = pakai pembuka default Invoice (auto-generate)."
                     />
                     <SimpleCustomField
-                        title="📝 Catatan Harga / Disclaimer Invoice"
+                        title={<span className="inline-flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Catatan Harga / Disclaimer Invoice</span>}
                         value={customDisclaimerInvoice}
                         onChange={setCustomDisclaimerInvoice}
                         fallbackLabel="Penawaran"
@@ -2666,7 +2881,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         brandDefault={brandSettings?.quotationDisclaimer ?? null}
                     />
                     <SimpleCustomField
-                        title="💳 Sistem Pembayaran Invoice"
+                        title={<span className="inline-flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Sistem Pembayaran Invoice</span>}
                         value={customPaymentTermsInvoice}
                         onChange={setCustomPaymentTermsInvoice}
                         fallbackLabel="Penawaran"
@@ -2674,7 +2889,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         brandDefault={brandSettings?.quotationPaymentTerms ?? null}
                     />
                     <SimpleCustomField
-                        title="✉️ Penutup / Nb Invoice"
+                        title={<span className="inline-flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> Penutup / Nb Invoice</span>}
                         value={customClosingInvoice}
                         onChange={setCustomClosingInvoice}
                         fallbackLabel="Penawaran"
@@ -2689,7 +2904,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 )}
 
                 <section className="bg-card rounded-xl border border-border p-4">
-                    <h3 className="font-semibold mb-2">Ringkasan</h3>
+                    <h3 className="font-semibold mb-2 flex items-center gap-2"><BarChart2 className="w-4 h-4 text-primary shrink-0" /> Ringkasan</h3>
                     {isInvoiceMode && (
                         <div className="flex flex-wrap gap-3 mb-3 p-2 bg-muted rounded text-xs">
                             <label className="flex items-center gap-1.5 cursor-pointer">
@@ -2779,6 +2994,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     </table>
                     </div>
                 </section>
+                </div>
             </div>
 
             {/* Spacer supaya konten terakhir tidak ketutup floating button */}
@@ -2851,6 +3067,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         <div className="flex items-center gap-2">
                             {previewType === "spk-pdf" ? (
                                 <ScrollText className="h-5 w-5 text-success" />
+                            ) : previewType === "rincian-pekerjaan-pdf" ? (
+                                <List className="h-5 w-5 text-warning" />
                             ) : (
                                 <Eye className="h-5 w-5 text-primary" />
                             )}
@@ -2858,9 +3076,11 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 <h2 className="font-bold text-foreground">
                                     {previewType === "spk-pdf"
                                         ? "Preview SPK"
-                                        : data.type === 'INVOICE'
-                                            ? "Preview Invoice"
-                                            : "Preview Penawaran"}
+                                        : previewType === "rincian-pekerjaan-pdf"
+                                            ? "Preview Rincian Pekerjaan"
+                                            : data.type === 'INVOICE'
+                                                ? "Preview Invoice"
+                                                : "Preview Penawaran"}
                                 </h2>
                                 <p className="text-xs text-muted-foreground">
                                     {data.invoiceNumber}
@@ -2893,6 +3113,17 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 >
                                     <ScrollText className="w-3.5 h-3.5" />SPK
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={() => switchPreviewType("rincian-pekerjaan-pdf")}
+                                    disabled={previewLoading}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50 ${previewType === 'rincian-pekerjaan-pdf'
+                                        ? 'bg-card text-warning shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                >
+                                    <List className="w-3.5 h-3.5" />Rincian
+                                </button>
                             </div>
 
                             {/* Live toggle Tampilan Item — berlaku untuk Penawaran/Invoice & SPK.
@@ -2923,10 +3154,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             </div>
                             <button
                                 onClick={() => handleExport(previewType)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${previewType === 'spk-pdf' ? 'bg-success hover:bg-success/90' : 'bg-destructive hover:bg-destructive/90'} text-white rounded-md text-sm font-semibold`}
-                                title={`Download ${previewType === 'spk-pdf' ? 'SPK' : 'PDF'}`}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${previewType === 'spk-pdf' ? 'bg-success hover:bg-success/90' : previewType === 'rincian-pekerjaan-pdf' ? 'bg-warning hover:bg-warning/90' : 'bg-destructive hover:bg-destructive/90'} text-white rounded-md text-sm font-semibold`}
+                                title={`Download ${previewType === 'spk-pdf' ? 'SPK' : previewType === 'rincian-pekerjaan-pdf' ? 'Rincian Pekerjaan' : 'PDF'}`}
                             >
-                                <Download className="h-4 w-4" /> Download {previewType === 'spk-pdf' ? 'SPK' : 'PDF'}
+                                <Download className="h-4 w-4" /> Download {previewType === 'spk-pdf' ? 'SPK' : previewType === 'rincian-pekerjaan-pdf' ? 'Rincian' : 'PDF'}
                             </button>
                             {previewType === "pdf" && (
                                 <button
@@ -3171,7 +3402,7 @@ function GenerateInvoiceModal({
                 <div>
                     <label className="block text-sm font-semibold mb-1.5">Cara Tentukan Jumlah</label>
                     <div className="inline-flex gap-1 bg-muted p-1 rounded-md w-full">
-                        <ModeBtn active={mode === 'preset'} onClick={() => setMode('preset')} label="⚡ Default" />
+                        <ModeBtn active={mode === 'preset'} onClick={() => setMode('preset')} label="Default" />
                         <ModeBtn active={mode === 'percent'} onClick={() => setMode('percent')} label="% Persen" />
                         <ModeBtn active={mode === 'amount'} onClick={() => setMode('amount')} label="Rp Custom" />
                     </div>
@@ -3180,7 +3411,7 @@ function GenerateInvoiceModal({
                 {/* Mode: Preset (default) */}
                 {mode === 'preset' && (
                     <div className="rounded-lg bg-muted border p-3 text-xs text-foreground">
-                        ⚡ Pakai default sesuai tipe:
+                        <Zap className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Pakai default sesuai tipe:
                         {part === "DP" && <> DP <b>{dpPercent}%</b> dari total</>}
                         {part === "PELUNASAN" && (
                             <> {effectiveDpPaid > 0
@@ -3270,7 +3501,7 @@ function GenerateInvoiceModal({
                             />
                         </div>
                         <p className="text-[11px] text-muted-foreground">
-                            💡 Ketik nominal langsung (mis. <code>5000000</code> untuk Rp 5 juta). Bisa untuk termin custom yang tidak persis persentase.
+                            <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Ketik nominal langsung (mis. <code>5000000</code> untuk Rp 5 juta). Bisa untuk termin custom yang tidak persis persentase.
                         </p>
                     </div>
                 )}
@@ -3446,14 +3677,14 @@ function AssignNumberModal({
                             autoFocus
                         />
                         <p className="text-[11px] text-muted-foreground">
-                            💡 Pakai format mirip auto biar konsisten. Sistem cek unique — kalau sudah dipakai, ditolak.
+                            <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Pakai format mirip auto biar konsisten. Sistem cek unique — kalau sudah dipakai, ditolak.
                         </p>
                     </div>
                 )}
 
                 {mode === "auto" && (
                     <div className="bg-success/10 border border-success/30 rounded-md p-3 text-xs text-success">
-                        ⚡ Sistem akan ambil nomor berikutnya dari counter (mis. <code className="bg-card px-1 rounded">42/Ep/Pnwr/IV/26</code> kalau sudah ada 41 quotation Exindo bulan ini).
+                        <Zap className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Sistem akan ambil nomor berikutnya dari counter (mis. <code className="bg-card px-1 rounded">42/Ep/Pnwr/IV/26</code> kalau sudah ada 41 quotation Exindo bulan ini).
                     </div>
                 )}
 
@@ -3515,7 +3746,7 @@ function SortableItemRow({
         background: isDragging ? "rgb(239 246 255)" : undefined,
     };
     return (
-        <tr ref={setNodeRef} style={style} className="border-t">
+        <tr ref={setNodeRef} style={style} className="border-t [&>td]:align-top">
             <td className="px-1 py-1 text-center">
                 <button
                     type="button"
@@ -3575,10 +3806,10 @@ function SortableItemRow({
                 </td>
             )}
             <td className="px-2 py-1">
-                <input
+                <AutoGrowTextarea
                     value={it.description}
-                    onChange={(e) => updateItem(it._key, { description: e.target.value })}
-                    className="w-full border rounded px-2 py-1"
+                    onChange={(v) => updateItem(it._key, { description: v })}
+                    className="border rounded px-2 py-1"
                 />
             </td>
             <td className="px-2 py-1">
@@ -3591,11 +3822,11 @@ function SortableItemRow({
                 />
             </td>
             <td className="px-2 py-1">
-                <input
+                <AutoGrowTextarea
                     value={it.unit ?? ""}
-                    onChange={(e) => updateItem(it._key, { unit: e.target.value })}
+                    onChange={(v) => updateItem(it._key, { unit: v })}
                     placeholder="unit/hari"
-                    className="w-full border rounded px-2 py-1"
+                    className="border rounded px-2 py-1"
                 />
             </td>
             <td className="px-2 py-1">
@@ -3606,8 +3837,8 @@ function SortableItemRow({
                     className="w-full border rounded px-2 py-1 text-right"
                 />
             </td>
-            <td className="px-2 py-1 text-right font-mono">{rp(sub)}</td>
-            <td className="px-2 py-1 text-center">
+            <td className="px-2 py-1 text-right font-mono truncate">{rp(sub)}</td>
+            <td className="px-1 py-1 text-center">
                 <div className="flex items-center justify-center gap-0.5">
                     <button
                         onClick={() => setCalcOpenKey(it._key)}
@@ -3643,7 +3874,7 @@ function SortableItemRow({
 function SimpleCustomField({
     title, value, onChange, placeholder, rows, helpText, fallbackLabel, fallbackValue, brandDefault,
 }: {
-    title: string;
+    title: ReactNode;
     value: string;
     onChange: (v: string) => void;
     placeholder?: string;
@@ -3686,7 +3917,7 @@ function SimpleCustomField({
                             onClick={() => onChange("")}
                             className="text-[10px] text-warning hover:underline"
                         >
-                            ✕ Reset
+                            <X className="inline align-[-2px] w-3 h-3 mr-0.5" /> Reset
                         </button>
                     )}
                 </div>
@@ -3704,10 +3935,11 @@ function SimpleCustomField({
             )}
             {!helpText && fallbackLabel && (
                 <p className="text-[10px] text-muted-foreground">
-                    {isActive
-                        ? `✅ Custom aktif — override ${fallbackLabel}.`
-                        : `⏭️ Kosong → pakai dari ${fallbackLabel}${hasFallback ? "" : " (juga kosong → pakai default brand)"}.`
-                    }
+                    {isActive ? (
+                        <><CheckCircle2 className="inline align-[-2px] w-3 h-3 text-success mr-0.5" />Custom aktif — override {fallbackLabel}.</>
+                    ) : (
+                        <>Kosong → pakai dari {fallbackLabel}{hasFallback ? "" : " (juga kosong → pakai default brand)"}.</>
+                    )}
                 </p>
             )}
         </div>
@@ -3719,7 +3951,7 @@ function PrependAppendField({
     title, prepend, append, onPrepend, onAppend, brandDefault,
     custom, onCustom,
 }: {
-    title: string;
+    title: ReactNode;
     prepend: string;
     append: string;
     onPrepend: (v: string) => void;
@@ -3743,9 +3975,10 @@ function PrependAppendField({
                         <button
                             type="button"
                             onClick={() => setShowDefault((v) => !v)}
-                            className="text-[10px] text-info hover:underline"
+                            className="text-[10px] text-info hover:underline inline-flex items-center gap-1"
                         >
-                            {showDefault ? "▲ Sembunyikan" : "▼ Lihat default brand"}
+                            <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${showDefault ? 'rotate-180' : ''}`} />
+                            {showDefault ? "Sembunyikan" : "Lihat default brand"}
                         </button>
                     )}
                 </div>
@@ -3783,7 +4016,7 @@ function PrependAppendField({
                                 className="text-[10px] text-warning hover:underline"
                                 title="Kosongkan untuk pakai default brand lagi"
                             >
-                                ✕ Reset
+                                <X className="inline align-[-2px] w-3 h-3 mr-0.5" /> Reset
                             </button>
                         )}
                     </div>
@@ -3834,7 +4067,7 @@ function PrependAppendField({
                             className="text-[10px] text-muted-foreground hover:text-destructive hover:underline"
                             title="Sembunyikan & kosongkan kedua field"
                         >
-                            ✕ Sembunyikan
+                            <X className="inline align-[-2px] w-3 h-3 mr-0.5" /> Sembunyikan
                         </button>
                     </div>
 
@@ -3907,7 +4140,7 @@ function GrossUpHelper({ effectivePphRate }: { effectivePphRate: number }) {
                 className="w-full px-2 py-1.5 text-left text-[11px] font-semibold text-destructive hover:bg-destructive/12 flex items-center justify-between rounded"
             >
                 <span className="inline-flex items-center gap-1"><Calculator className="w-3.5 h-3.5" /> Helper Gross-Up dari Target Net</span>
-                <span className="text-destructive">{open ? "▲" : "▼"}</span>
+                <ChevronDown className={`w-4 h-4 text-destructive shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
                 <div className="px-2 py-2 border-t border-destructive/30 space-y-2 text-[11px]">
@@ -3951,7 +4184,7 @@ function GrossUpHelper({ effectivePphRate }: { effectivePphRate: number }) {
                                 </span>
                             </div>
                             <p className="text-[9px] text-muted-foreground italic mt-1">
-                                💡 Pasang harga item total = <b>Rp {Math.round(grossUp).toLocaleString("id-ID")}</b> di tabel items
+                                <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Pasang harga item total = <b>Rp {Math.round(grossUp).toLocaleString("id-ID")}</b> di tabel items
                                 (boleh dipecah per-item, asal sum = nilai ini). Otomatis setelah PPh dipotong klien, vendor terima <b>Rp {Math.round(targetNum).toLocaleString("id-ID")}</b>.
                             </p>
                         </div>
@@ -4066,7 +4299,7 @@ function DueDateEditor({
                         className="w-full px-2 py-1.5 text-xs border border-destructive/30 rounded bg-card resize-y"
                     />
                     <p className="text-[10px] text-destructive">
-                        💡 Owner akan lihat alasan ini di history audit — untuk tracking kenapa pembayaran tertunda.
+                        <Lightbulb className="inline align-[-2px] w-3.5 h-3.5 text-warning mr-0.5" /> Owner akan lihat alasan ini di history audit — untuk tracking kenapa pembayaran tertunda.
                     </p>
                 </div>
             )}
@@ -4086,7 +4319,7 @@ function DueDateEditor({
                 className="w-full text-left text-[11px] font-semibold text-warning hover:text-warning flex items-center justify-between bg-card border border-warning/30 rounded px-2 py-1.5"
             >
                 <span className="inline-flex items-center gap-1"><History className="w-3.5 h-3.5" /> History Perubahan Jatuh Tempo ({history.length})</span>
-                <span className="text-warning">{showHistory ? "▲" : "▼"}</span>
+                <ChevronDown className={`w-4 h-4 text-warning shrink-0 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
             </button>
 
             {showHistory && (
@@ -4112,7 +4345,7 @@ function DueDateEditor({
                             </div>
                             {h.reason && (
                                 <div className="mt-1 bg-card border border-warning/30 rounded px-1.5 py-1 italic text-foreground text-[10px]">
-                                    💬 &ldquo;{h.reason}&rdquo;
+                                    <MessageSquare className="inline align-[-2px] w-3.5 h-3.5 text-muted-foreground mr-0.5" /> &ldquo;{h.reason}&rdquo;
                                 </div>
                             )}
                         </div>

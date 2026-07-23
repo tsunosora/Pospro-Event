@@ -5,7 +5,17 @@ import * as Handlebars from 'handlebars';
 import type { Browser } from 'puppeteer';
 import { QuotationContextBuilder, rupiahInWords } from './quotation-context.builder';
 
-type TemplateKey = 'sewa' | 'pengadaan-booth' | 'spk';
+type TemplateKey = 'sewa' | 'pengadaan-booth' | 'spk' | 'rincian-pekerjaan';
+
+/**
+ * Slug brand untuk template per-brand. EXINDO→'exindo', XPOSER→'xposer'.
+ * Brand lain / null → null (pakai base template `${key}.hbs`).
+ */
+function brandSlug(brand: string | null | undefined): string | null {
+    if (brand === 'EXINDO') return 'exindo';
+    if (brand === 'XPOSER') return 'xposer';
+    return null;
+}
 
 // Register Handlebars helper "eq" — untuk {{#eq a b}}...{{/eq}} string equality check
 Handlebars.registerHelper('eq', function (this: any, a: any, b: any, options: any) {
@@ -22,7 +32,8 @@ Handlebars.registerHelper('addOne', function (n: any) {
 
 @Injectable()
 export class PdfExportService implements OnModuleDestroy {
-    private compiledTemplates: Partial<Record<TemplateKey, Handlebars.TemplateDelegate>> = {};
+    private compiledTemplates: Record<string, Handlebars.TemplateDelegate> = {};
+    private partialsRegistered = false;
     private browser: Browser | null = null;
 
     constructor(private contextBuilder: QuotationContextBuilder) { }
@@ -46,12 +57,44 @@ export class PdfExportService implements OnModuleDestroy {
         throw new Error(`Templates folder tidak ditemukan. Sudah coba: ${candidates.join(', ')}`);
     }
 
-    private loadTemplate(key: TemplateKey): Handlebars.TemplateDelegate {
-        if (this.compiledTemplates[key]) return this.compiledTemplates[key]!;
-        const file = path.join(this.getTemplatesDir(), `${key}.hbs`);
+    /**
+     * Registrasi Handlebars partials (items-table, totals, bank-list, text-sections) sekali saja.
+     * Partials dipakai bersama oleh template per-brand supaya logika data (numbering per-kategori,
+     * totals, terbilang, bank) single-source. Aman kalau folder `partials/` belum ada.
+     */
+    private ensurePartials(): void {
+        if (this.partialsRegistered) return;
+        const partialsDir = path.join(this.getTemplatesDir(), 'partials');
+        if (fs.existsSync(partialsDir)) {
+            for (const f of fs.readdirSync(partialsDir)) {
+                if (!f.endsWith('.hbs')) continue;
+                const name = f.replace(/\.hbs$/, '');
+                const src = fs.readFileSync(path.join(partialsDir, f), 'utf-8');
+                Handlebars.registerPartial(name, src);
+            }
+        }
+        this.partialsRegistered = true;
+    }
+
+    private loadTemplate(key: TemplateKey, brand?: string | null): Handlebars.TemplateDelegate {
+        this.ensurePartials();
+        const slug = brandSlug(brand);
+        const cacheKey = slug ? `${key}-${slug}` : key;
+        const cached = this.compiledTemplates[cacheKey];
+        if (cached) return cached;
+
+        const dir = this.getTemplatesDir();
+        // Coba template brand-specific dulu, lalu fallback ke base `${key}.hbs`.
+        const candidates = slug
+            ? [path.join(dir, `${key}-${slug}.hbs`), path.join(dir, `${key}.hbs`)]
+            : [path.join(dir, `${key}.hbs`)];
+        const file = candidates.find((c) => fs.existsSync(c));
+        if (!file) {
+            throw new Error(`Template tidak ditemukan (key=${key}, brand=${brand ?? 'null'}). Dicoba: ${candidates.join(', ')}`);
+        }
         const source = fs.readFileSync(file, 'utf-8');
         const compiled = Handlebars.compile(source);
-        this.compiledTemplates[key] = compiled;
+        this.compiledTemplates[cacheKey] = compiled;
         return compiled;
     }
 
@@ -68,7 +111,7 @@ export class PdfExportService implements OnModuleDestroy {
     async renderQuotationPdf(quotationId: number, dpPaid?: number): Promise<Buffer> {
         const ctx = await this.contextBuilder.build(quotationId, { dpPaid });
         const key: TemplateKey = ctx.doc.templateKey;
-        const template = this.loadTemplate(key);
+        const template = this.loadTemplate(key, ctx.brand);
         return this.renderHtmlToPdf(template(ctx));
     }
 
@@ -169,8 +212,53 @@ export class PdfExportService implements OnModuleDestroy {
                 paymentDeadlineFormatted: spkPaymentDeadlineFormatted,
             },
         };
-        const template = this.loadTemplate('spk');
+        const template = this.loadTemplate('spk', ctx.brand);
         return this.renderHtmlToPdf(template(spkCtx));
+    }
+
+    /**
+     * Render dokumen "Rincian Pekerjaan" — daftar item pekerjaan (No, Uraian, Volume, Satuan, Keterangan).
+     * Model SNAPSHOT EDITABLE (dikelola di halaman khusus /penawaran/[id]/rincian):
+     *   - kalau `rincianPekerjaanItems` sudah diisi → pakai daftar itu (snapshot yang diedit user);
+     *   - kalau masih kosong/null → derive dari item penawaran (belum pernah dibuat).
+     * Daftar rincian terpisah total dari item penawaran — mengeditnya tidak menyentuh penawaran.
+     */
+    async renderRincianPekerjaanPdf(quotationId: number): Promise<Buffer> {
+        const ctx = await this.contextBuilder.build(quotationId);
+        const raw = await this.contextBuilder.fetchRaw(quotationId);
+
+        const stored = Array.isArray(raw?.rincianPekerjaanItems)
+            ? (raw!.rincianPekerjaanItems as Array<{ description?: string; volume?: string; unit?: string; note?: string }>)
+            : null;
+
+        const rows = (stored && stored.length > 0)
+            ? stored.map((r) => ({
+                description: (r?.description ?? '').toString(),
+                volume: (r?.volume ?? '').toString(),
+                unit: (r?.unit ?? '').toString(),
+                note: (r?.note ?? '').toString(),
+            }))
+            : ctx.items.map((it) => ({
+                description: it.description,
+                volume: it.quantity,   // sudah ter-format di builder
+                unit: it.unit,
+                note: '',
+            }));
+
+        // Jadwal pasang/bongkar khusus dokumen Rincian Pekerjaan (tidak memengaruhi penawaran).
+        const installDateFormatted = raw?.rincianInstallDate
+            ? formatDateLocal(raw.rincianInstallDate, ctx.language)
+            : null;
+        const dismantleDateFormatted = raw?.rincianDismantleDate
+            ? formatDateLocal(raw.rincianDismantleDate, ctx.language)
+            : null;
+
+        const template = this.loadTemplate('rincian-pekerjaan', ctx.brand);
+        return this.renderHtmlToPdf(template({
+            ...ctx,
+            doc: { ...ctx.doc, subject: 'Rincian Pekerjaan' },
+            rincian: { rows, installDateFormatted, dismantleDateFormatted },
+        }));
     }
 
     private async renderHtmlToPdf(html: string): Promise<Buffer> {

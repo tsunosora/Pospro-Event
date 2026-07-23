@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>Rincian Pekerjaan {{doc.number}}</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 11pt;
+    color: #111;
+    line-height: 1.5;
+  }
+
+  {{#if company.letterheadUrl}}
+  .letterhead-bg {
+    position: fixed; top: 0; left: 0;
+    width: 210mm; height: 297mm;
+    z-index: -1; pointer-events: none; user-select: none;
+  }
+  {{/if}}
+
+  table.page-layout { width: 100%; border-collapse: collapse; }
+  table.page-layout > thead > tr > td.page-header-spacer {
+    height: {{#if company.letterheadUrl}}38mm{{else}}18mm{{/if}};
+    padding: 0; border: 0;
+  }
+  table.page-layout > tfoot > tr > td.page-footer-spacer {
+    height: {{#if company.letterheadUrl}}45mm{{else}}22mm{{/if}};
+    padding: 0; border: 0;
+  }
+  table.page-layout > tbody > tr > td.page-content {
+    padding: 0 22mm;
+    vertical-align: top;
+  }
+
+  .fallback-header {
+    display: flex; align-items: flex-start; gap: 12pt;
+    border-bottom: 2pt solid {{theme.primary}};
+    padding-bottom: 8pt; margin-bottom: 14pt;
+  }
+  .fallback-header .logo { width: 60pt; height: 60pt; object-fit: contain; }
+  .fallback-header .company-name { font-weight: 700; font-size: 16pt; color: {{theme.primary}}; letter-spacing: .5pt; }
+  .fallback-header .company-addr { font-size: 9.5pt; color: #333; margin-top: 2pt; line-height: 1.35; }
+
+  /* Title */
+  .doc-title {
+    text-align: center;
+    font-size: 14pt;
+    font-weight: 800;
+    text-decoration: underline;
+    letter-spacing: 1.5pt;
+    margin: 6pt 0 14pt 0;
+    text-transform: uppercase;
+  }
+
+  /* Header info "No : ..." style */
+  table.meta { font-size: 11pt; line-height: 1.55; margin-bottom: 12pt; }
+  table.meta td { padding: 1pt 0; vertical-align: top; }
+  table.meta td.k { width: 110pt; font-weight: 600; }
+  table.meta td.s { width: 12pt; }
+
+  /* Tabel item rincian pekerjaan */
+  table.items {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0 12pt 0;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+  table.items th, table.items td { border: 0.75pt solid #999; padding: 4pt 6pt; vertical-align: top; }
+  table.items thead { background: {{theme.primary}}; color: #fff; }
+  table.items th { font-weight: 600; text-align: center; }
+  table.items td.c { text-align: center; }
+
+  /* Signature */
+  .sign-date { margin-top: 16pt; font-weight: 600; }
+  .signature-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 30pt;
+    margin-top: 18pt;
+    page-break-inside: avoid;
+  }
+  .signature-row .block { flex: 1; text-align: center; min-width: 200pt; }
+  .signature-row .role { font-weight: 700; margin-bottom: 4pt; }
+  .signature-row .sign-area { position: relative; height: 80pt; margin: 4pt 0; }
+  .signature-row .sign-image {
+    position: absolute; top: 0; left: 50%;
+    transform: translateX(-50%);
+    max-height: 80pt; max-width: 180pt; z-index: 2;
+  }
+  .signature-row .stamp-image {
+    position: absolute; top: 8pt; left: 50%;
+    transform: translateX(-72%);
+    max-height: 80pt; max-width: 110pt;
+    opacity: 0.85; z-index: 1;
+    mix-blend-mode: multiply;
+  }
+  .signature-row .name { font-weight: 700; text-decoration: underline; margin-top: 4pt; }
+  .end-spacer { height: 36pt; }
+</style>
+</head>
+<body>
+
+{{#if company.letterheadUrl}}
+<img class="letterhead-bg" src="{{company.letterheadUrl}}" alt="" />
+{{/if}}
+
+<table class="page-layout">
+  <thead><tr><td class="page-header-spacer"></td></tr></thead>
+  <tfoot><tr><td class="page-footer-spacer"></td></tr></tfoot>
+  <tbody>
+    <tr><td class="page-content">
+
+<div class="content">
+
+  {{#unless company.letterheadUrl}}
+  <div class="fallback-header">
+    {{#if company.logoUrl}}<img class="logo" src="{{company.logoUrl}}" />{{/if}}
+    <div>
+      <div class="company-name">{{company.name}}</div>
+      <div class="company-addr">
+        {{company.address}}<br/>
+        {{#if company.phone}}{{i18n.telp}} {{company.phone}}{{/if}}{{#if company.email}} &bull; {{company.email}}{{/if}}
+      </div>
+    </div>
+  </div>
+  {{/unless}}
+
+  <div class="doc-title">Rincian Pekerjaan</div>
+
+  <table class="meta">
+    <tr><td class="k">{{i18n.no}}</td><td class="s">:</td><td>{{doc.number}}</td></tr>
+    {{#if project.name}}<tr><td class="k">Proyek</td><td class="s">:</td><td>{{project.name}}</td></tr>{{/if}}
+    <tr><td class="k">Klien</td><td class="s">:</td><td>{{client.name}}{{#if client.company}} &mdash; {{client.company}}{{/if}}</td></tr>
+    {{#if project.location}}<tr><td class="k">Lokasi</td><td class="s">:</td><td>{{project.location}}</td></tr>{{/if}}
+    {{#if project.dateRange}}<tr><td class="k">Tanggal Event</td><td class="s">:</td><td>{{project.dateRange}}</td></tr>{{/if}}
+    {{#if rincian.installDateFormatted}}<tr><td class="k">Tanggal Pasang</td><td class="s">:</td><td>{{rincian.installDateFormatted}}</td></tr>{{/if}}
+    {{#if rincian.dismantleDateFormatted}}<tr><td class="k">Tanggal Bongkar</td><td class="s">:</td><td>{{rincian.dismantleDateFormatted}}</td></tr>{{/if}}
+  </table>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:6%">No</th>
+        <th>Uraian Pekerjaan</th>
+        <th style="width:12%">Volume</th>
+        <th style="width:12%">Satuan</th>
+        <th style="width:24%">Keterangan</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rincian.rows}}
+      <tr>
+        <td class="c">{{addOne @index}}</td>
+        <td>{{this.description}}</td>
+        <td class="c">{{this.volume}}</td>
+        <td class="c">{{this.unit}}</td>
+        <td>{{this.note}}</td>
+      </tr>
+      {{else}}
+      <tr><td class="c" colspan="5" style="color:#888; padding:10pt;">Belum ada rincian pekerjaan.</td></tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <div class="sign-date">{{doc.dateFormatted}}</div>
+
+  <div class="signature-row">
+    <div class="block">
+      <div class="role">{{company.name}}</div>
+      <div class="sign-area">
+        {{#if signedBy.stampUrl}}<img class="stamp-image" src="{{signedBy.stampUrl}}" alt="Stempel" />{{/if}}
+        {{#if signedBy.signatureUrl}}<img class="sign-image" src="{{signedBy.signatureUrl}}" alt="Tanda Tangan" />{{/if}}
+      </div>
+      <div class="name">{{signedBy.name}}</div>
+    </div>
+    <div class="block">
+      <div class="role">{{#if client.company}}{{client.company}}{{else}}{{client.name}}{{/if}}</div>
+      <div class="sign-area"></div>
+      <div class="name">{{client.name}}</div>
+    </div>
+  </div>
+
+  <div class="end-spacer"></div>
+
+</div>
+
+    </td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>

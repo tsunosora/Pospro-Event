@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="{{language}}">
+<head>
+<meta charset="utf-8" />
+<title>Penawaran {{doc.number}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  /* STRATEGI:
+     - @page { margin: 0 } → paper full bleed, image fixed bisa full 210×297mm tanpa clip
+     - <table class="page-layout"> dengan <thead>/<tfoot> spacer → memberi margin atas/bawah PER PAGE
+       (CSS Paged Media: <thead> dan <tfoot> tabel otomatis ter-repeat saat tabel split antar halaman)
+     - .letterhead-bg position:fixed full A4 → repeat di setiap halaman saat print Chromium */
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 11pt;
+    color: #111;
+    line-height: 1.45;
+  }
+
+  /* Letterhead — full A4 paper, posisi 0,0 (karena @page margin = 0). Repeat di setiap page. */
+  {{#if company.letterheadUrl}}
+  .letterhead-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 210mm;
+    height: 297mm;
+    z-index: -1;
+    pointer-events: none;
+    user-select: none;
+  }
+  {{/if}}
+
+  /* Table layout untuk per-page header/footer spacer.
+     <thead> & <tfoot> di tabel akan AUTO-REPEAT di setiap halaman saat content overflow. */
+  table.page-layout {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table.page-layout > thead > tr > td.page-header-spacer {
+    height: {{#if company.letterheadUrl}}38mm{{else}}18mm{{/if}};
+    padding: 0;
+    border: 0;
+  }
+  table.page-layout > tfoot > tr > td.page-footer-spacer {
+    height: {{#if company.letterheadUrl}}45mm{{else}}22mm{{/if}};
+    padding: 0;
+    border: 0;
+  }
+  table.page-layout > tbody > tr > td.page-content {
+    padding: 0 22mm;
+    vertical-align: top;
+  }
+
+  /* Fallback header (kalau tidak ada letterhead) */
+  .fallback-header {
+    display: flex; align-items: flex-start; gap: 12pt;
+    border-bottom: 2pt solid {{theme.primary}};
+    padding-bottom: 8pt;
+    margin-bottom: 14pt;
+  }
+  .fallback-header .logo { width: 60pt; height: 60pt; object-fit: contain; }
+  .fallback-header .company-name { font-weight: 700; font-size: 16pt; color: {{theme.primary}}; letter-spacing: .5pt; }
+  .fallback-header .company-addr { font-size: 9.5pt; color: #333; margin-top: 2pt; line-height: 1.35; }
+
+  .doc-meta { margin-bottom: 10pt; }
+  .doc-meta .nomor { font-size: 11pt; line-height: 1.55; }
+  .doc-meta .nomor strong { display: inline-block; min-width: 65pt; }
+  .kota-tgl-top { font-size: 11pt; margin-bottom: 6pt; line-height: 1.55; }
+  .kota-tgl-top strong { display: inline-block; min-width: 65pt; }
+
+  .kepada { margin-bottom: 8pt; line-height: 1.45; }
+  .kepada .label { font-weight: 600; }
+
+  .opening { margin-top: 10pt; text-align: justify; line-height: 1.5; }
+
+  table.items {
+    width: 100%; border-collapse: collapse;
+    margin-top: 12pt; font-size: 10.5pt;
+  }
+  table.items th, table.items td { border: 0.75pt solid #999; padding: 4pt 6pt; }
+  table.items thead { background: {{theme.primary}}; color: #fff; }
+  table.items th { font-weight: 600; text-align: center; }
+  table.items td.num { text-align: center; width: 28pt; }
+  table.items td.qty { text-align: right; white-space: nowrap; }
+  table.items td.rp { text-align: right; white-space: nowrap; }
+  /* Header kategori — baris tebal warna untuk grouping */
+  table.items tr.cat-header td {
+    background: {{theme.primaryLight}};
+    font-weight: 700;
+    color: {{theme.primaryDark}};
+    text-transform: uppercase;
+    font-size: 10pt;
+    letter-spacing: .3pt;
+  }
+  table.items tr.cat-subtotal td {
+    background: {{theme.primarySubtle}};
+    font-weight: 600;
+    font-style: italic;
+    font-size: 10pt;
+  }
+  table.items tfoot td { font-weight: 600; }
+  table.items tfoot td.label { text-align: right; }
+  /* Grand total block — tampil sekali di akhir tabel (BUKAN tfoot supaya tidak ter-repeat per halaman) */
+  table.items tbody.grand-totals td { font-weight: 600; }
+  table.items tbody.grand-totals td.label { text-align: right; }
+  table.items tbody.grand-totals { page-break-inside: avoid; }
+  .grand-total td { background: #f1f5fb; }
+
+  .terbilang { margin-top: 8pt; font-style: italic; font-size: 10.5pt; }
+
+  /* Custom text section — rapikan dengan section header & spacing konsisten */
+  .text-section { margin-top: 12pt; }
+  .text-section .section-title {
+    font-weight: 700;
+    font-size: 11pt;
+    color: {{theme.primary}};
+    margin-bottom: 4pt;
+    border-bottom: 0.5pt solid {{theme.primary}};
+    padding-bottom: 2pt;
+  }
+  .text-body {
+    line-height: 1.55;
+    text-align: justify;
+    font-size: 10.5pt;
+    white-space: pre-line;
+    margin: 0;
+  }
+  .text-body.disclaimer { font-size: 10pt; color: #333; }
+
+  .bank-list { margin-top: 4pt; font-size: 10pt; padding-left: 18pt; }
+  .bank-list li { margin-bottom: 2pt; }
+
+  .closing-section { margin-top: 12pt; }
+  .closing-text {
+    line-height: 1.55;
+    text-align: justify;
+    font-size: 10.5pt;
+    white-space: pre-line;
+  }
+
+  .signature { margin-top: 22pt; display: flex; justify-content: flex-end; page-break-inside: avoid; }
+  .signature .block {
+    text-align: center;
+    min-width: 220pt;
+    position: relative;
+  }
+  .signature .role { line-height: 1.4; margin-bottom: 4pt; }
+  .signature .sign-area {
+    position: relative;
+    height: 80pt;
+    margin-top: 4pt;
+    margin-bottom: 4pt;
+  }
+  .signature .sign-image {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    max-height: 80pt;
+    max-width: 180pt;
+    z-index: 2;
+  }
+  .signature .stamp-image {
+    position: absolute;
+    top: 8pt;
+    left: 50%;
+    transform: translateX(-72%);
+    max-height: 80pt;
+    max-width: 110pt;
+    opacity: 0.85;          /* stempel sedikit transparan biar nama tetap kebaca */
+    z-index: 1;
+    mix-blend-mode: multiply; /* warna stempel menyatu dengan kertas */
+  }
+  .signature .director {
+    font-weight: 700;
+    text-decoration: underline;
+  }
+  .signature .position-label {
+    font-size: 10pt;
+    color: #444;
+    margin-top: 2pt;
+  }
+
+  /* Jaga jarak bawah agar text tidak mepet ke footer kop surat */
+  .closing-section { margin-top: 16pt; margin-bottom: 16pt; }
+  .end-spacer { height: 36pt; }
+  .text-section { margin-bottom: 8pt; }
+  .signature { padding-bottom: 12pt; }
+
+  /* Hindari pemotongan section di antara halaman */
+  .text-section, table.items thead, table.items tbody.grand-totals { page-break-inside: avoid; }
+
+  .badge-rev { display: inline-block; background: #d93737; color: #fff; padding: 1pt 6pt; border-radius: 3pt; font-size: 9pt; margin-left: 6pt; }
+
+  /* ===== EXINDO OVERRIDES — Korporat Klasik / Biru ===== */
+  .company-name, .section-title { font-family:'Playfair Display', Georgia, serif; }
+  .fallback-header { border-bottom:3pt double {{theme.primary}}; }
+  .fallback-header .company-name { font-size:18pt; letter-spacing:.5pt; }
+  .section-title { text-transform:uppercase; letter-spacing:.4pt; }
+  .brand-footer { border-top:0.5pt solid #bbb; margin-top:14pt; padding-top:6pt; font-size:8.5pt; color:#666; text-align:center; }
+</style>
+</head>
+<body>
+{{> quotation-body}}
+</body>
+</html>
