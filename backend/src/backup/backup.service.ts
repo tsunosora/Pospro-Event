@@ -13,7 +13,13 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.21 (current) — Nama file backup pakai nama toko + audit cakupan:
+// v2.22 (current) — Perbaikan cakupan: tabel BastItem yang terlewat kini di-backup.
+//   - FIX: NEW TABLE BastItem (bast_items) — item Berita Acara Serah Terima per event
+//     (deskripsi/qty/kondisi override manual). Ditambahkan sejak fitur BAST tapi TIDAK
+//     terdaftar di BACKUP_GROUPS/RESTORE_ORDER, sehingga item BAST hilang dari backup &
+//     tidak ter-restore. Kini terdaftar di grup 'events' + urutan restore setelah 'event'
+//     (FK eventId, onDelete Cascade). Total tabel schema kini 70, semua terdaftar.
+// v2.21 — Nama file backup pakai nama toko + audit cakupan:
 //   - Nama file backup kini prefix slug nama toko (StoreSettings.storeName), mis.
 //     "event-organizer-backup-full-2026-06-19.zip". Berlaku di export manual & rclone.
 //     Frontend baca nama dari Content-Disposition (server = satu sumber kebenaran).
@@ -220,7 +226,9 @@ export const BACKUP_GROUPS = {
     },
     events: {
         label: 'Event & Packing',
-        tables: ['event', 'eventPackingItem', 'withdrawal', 'withdrawalItem'],
+        // bastItem: item Berita Acara Serah Terima (BAST) per event — deskripsi/qty/kondisi
+        //   yang di-override manual admin (di luar auto-generate dari RAB). FK eventId → Event.
+        tables: ['event', 'bastItem', 'eventPackingItem', 'withdrawal', 'withdrawalItem'],
     },
     eventCrew: {
         label: 'Crew Lapangan & Team',
@@ -275,6 +283,7 @@ const RESTORE_ORDER = [
     'invoicePayment',                           // → setelah invoice, bankAccount, cashflow, user (FK ke semuanya)
     'invoiceDueDateHistory',                    // → setelah invoice & user (FK invoiceId + changedById)
     'event',                                    // → setelah customer & rabPlan
+    'bastItem',                                 // → setelah event (FK eventId, onDelete Cascade)
     'crewTeam',                                 // → setelah worker (FK leaderWorkerId optional)
     'eventWageTier',                            // → setelah event (FK eventId); sebelum eventCrewAssignment (FK wageTierId)
     'eventCrewAssignment',                      // → setelah event, worker, crewTeam, eventWageTier
