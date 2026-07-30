@@ -827,10 +827,11 @@ function buildInvoiceOpeningHtml(opts: {
         return override || INVOICE_OPENING_DEFAULTS[key];
     };
 
-    // Prefix berdasarkan invoicePart
+    // Prefix berdasarkan invoicePart.
+    // DP sengaja TIDAK diberi prefix — label "INVOICE — DOWN PAYMENT" sudah tampil
+    // besar di atas judul (lihat sewa.hbs), jadi prefix di pembuka hanya duplikasi.
     let prefix = '';
-    if (opts.invoicePart === 'DP') prefix = `<strong>${escapeHtml(L('dp'))}</strong> `;
-    else if (opts.invoicePart === 'PELUNASAN') prefix = `<strong>${escapeHtml(L('pelunasan'))}</strong> `;
+    if (opts.invoicePart === 'PELUNASAN') prefix = `<strong>${escapeHtml(L('pelunasan'))}</strong> `;
     else if (opts.invoicePart === 'FULL') prefix = `<strong>${escapeHtml(L('full'))}</strong> `;
 
     // Verb per template
