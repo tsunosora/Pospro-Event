@@ -704,6 +704,16 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         : dpp + computedTaxAmount;
     const netReceived = total - computedPphAmount; // info: jumlah diterima setelah klien potong PPh
     const dpAmount = (total * dpPercent) / 100;
+    // Baris "Subtotal" hanya ditampilkan kalau ada penyesuaian yang membuat grand total
+    // berbeda dari subtotal (diskon / PPN / PPh / DP / harga paket). Tanpa penyesuaian,
+    // subtotal === grand total → sembunyikan supaya tidak muncul dua baris kembar (bikin bingung).
+    const showSubtotalRow =
+        (discount || 0) > 0 ||
+        computedTaxAmount > 0 ||
+        computedPphAmount > 0 ||
+        effectiveDpPaid > 0 ||
+        (showPackagePrice && packagePrice > 0) ||
+        Math.round(subtotal) !== Math.round(total - effectiveDpPaid);
 
     const addItem = () =>
         setItems([
@@ -2940,10 +2950,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <tbody>
+                            {showSubtotalRow && (
                             <Row
                                 label={grossUpPph ? "Target Net (sum items)" : priceIncludesTax ? "Subtotal (gross, termasuk PPN)" : "Subtotal"}
                                 value={rp(subtotal)}
                             />
+                            )}
                             {discount > 0 && <Row label="Diskon" value={`- ${rp(discount)}`} />}
                             {grossUpPph && (
                                 <tr className="text-success">

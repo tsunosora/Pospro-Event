@@ -449,7 +449,7 @@ export function FormModal({
 
                         {/* Totals preview */}
                         <div className="bg-muted/30 rounded-lg p-4 text-sm space-y-1.5">
-                            <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span className="nums">{fmt(subtotal)}</span></div>
+                            {(discountNum > 0 || taxRateNum > 0 || taxAmount > 0 || Math.round(subtotal) !== Math.round(total)) && <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span className="nums">{fmt(subtotal)}</span></div>}
                             {discountNum > 0 && <div className="flex justify-between text-destructive"><span>Diskon</span><span className="nums">− {fmt(discountNum)}</span></div>}
                             {taxRateNum > 0 && <div className="flex justify-between text-muted-foreground"><span>PPN {taxRateNum}%</span><span className="nums">{fmt(taxAmount)}</span></div>}
                             <div className="flex justify-between font-bold text-foreground text-base pt-2 border-t border-border"><span>Total</span><span className="text-primary nums">{fmt(total)}</span></div>

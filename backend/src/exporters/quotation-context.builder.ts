@@ -184,6 +184,9 @@ export interface QuotationRenderContext {
     items: QuotationRenderItem[];
     totals: {
         subtotal: string;
+        /** True kalau baris "Subtotal / Total Harga Penawaran" perlu ditampilkan.
+         *  False saat tidak ada penyesuaian (diskon/PPN/DP/harga paket) sehingga subtotal === grand total. */
+        showSubtotalRow: boolean;
         /** DPP (Dasar Pengenaan Pajak) — di mode inclusive, ini back-calc dari subtotal/(1+rate). */
         dpp: string;
         /** True = harga item sudah termasuk PPN (mode inclusive, back-calc DPP & PPN dari gross). */
@@ -1457,13 +1460,26 @@ export class QuotationContextBuilder {
                 const effTaxRate = rate > 0 ? rate : (dppNum > 0 && tax > 0 ? (tax / dppNum) * 100 : 0);
                 const effPphRate = pphRateRaw > 0 ? pphRateRaw : (dppNum > 0 && pphAmt > 0 ? (pphAmt / dppNum) * 100 : 0);
                 const fmtRate = (r: number) => (r > 0 ? (Number.isInteger(r) ? String(r) : r.toFixed(2)) : '');
+                // Baris penyesuaian yang muncul ANTARA subtotal dan grand total.
+                const displayDiscountRowVal = discountNum > 0 && (!isInvoice || showDiscountFlag);
+                const hasPpnVal = rate > 0 || tax > 0;
+                const displayDpPaidRowVal = dpPaidNum > 0;
+                // Tampilkan baris "Subtotal / Total Harga Penawaran" HANYA kalau ada penyesuaian
+                // yang membuat grand total berbeda dari subtotal (diskon / PPN / DP / harga paket),
+                // ATAU kalau nominal subtotal dan grand total memang berbeda (mis. mode gross-up PPh
+                // yang menaikkan DPP). Tanpa penyesuaian & saat nominalnya identik, subtotal === grand
+                // total → sembunyikan baris subtotal supaya tidak muncul dua baris kembar (bikin bingung).
+                const subtotalDiffersFromTotal = Math.round(subtotalDisplayNum) !== Math.round(displayTotalNum);
+                const showSubtotalRow = displayDiscountRowVal || hasPpnVal || displayDpPaidRowVal
+                    || !!packagePriceFormatted || subtotalDiffersFromTotal;
                 return {
                     subtotal: formatRp(subtotalDisplayNum, useUsd),
+                    showSubtotalRow,
                     dpp: formatRp(dppNum, useUsd),
                     priceIncludesTax: inclusive,
                     taxRate: fmtRate(effTaxRate),
                     taxAmount: formatRp(tax, useUsd),
-                    hasPpn: rate > 0 || tax > 0,
+                    hasPpn: hasPpnVal,
                     pphRate: fmtRate(effPphRate),
                     pphAmount: formatRp(Number((quotation as any).pphAmount ?? 0), useUsd),
                     hasPph,
@@ -1473,11 +1489,11 @@ export class QuotationContextBuilder {
                     totalTerbilang: rupiahInWords(displayTotalNum, lang, useUsd),
                     netReceived: formatRp(displayTotalNum - Number((quotation as any).pphAmount ?? 0), useUsd),
                     dpPaid: formatRp(dpPaidNum, useUsd),
-                    displayDpPaidRow: dpPaidNum > 0,
+                    displayDpPaidRow: displayDpPaidRowVal,
                     showPph: showPphFlag,
                     showDiscount: showDiscountFlag,
                     // Display flags — gabungan toggle + isInvoice. Template pakai ini.
-                    displayDiscountRow: discountNum > 0 && (!isInvoice || showDiscountFlag),
+                    displayDiscountRow: displayDiscountRowVal,
                     displayPphRow: hasPph && (!isInvoice || showPphFlag),
                     // Jumlah Diterima: hanya di penawaran (tidak pernah di invoice).
                     displayNetReceivedRow: hasPph && !isInvoice,

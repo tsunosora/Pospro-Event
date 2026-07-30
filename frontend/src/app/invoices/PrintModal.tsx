@@ -21,6 +21,11 @@ export function PrintModal({ doc, settings, onClose }: { doc: Invoice; settings:
     const discount = parseFloat(doc.discount);
     const total = parseFloat(doc.total);
     const taxRate = parseFloat(doc.taxRate);
+    // Tampilkan baris Subtotal hanya kalau ada penyesuaian (diskon/PPN) atau nominalnya
+    // beda dari TOTAL. Tanpa itu subtotal === total → sembunyikan supaya tidak dua baris kembar.
+    const showSubtotalRow =
+        discount > 0 || taxRate > 0 || taxAmount > 0 ||
+        Math.round(subtotal) !== Math.round(total);
 
     const handlePrint = () => {
         const content = printRef.current?.innerHTML ?? "";
@@ -131,7 +136,7 @@ export function PrintModal({ doc, settings, onClose }: { doc: Invoice; settings:
                         {/* Totals */}
                         <div className="flex justify-end mb-6">
                             <div className="w-64 text-sm space-y-1.5">
-                                <div className="flex justify-between text-gray-600"><span>Subtotal</span><span className="font-medium">{fmt(subtotal)}</span></div>
+                                {showSubtotalRow && <div className="flex justify-between text-gray-600"><span>Subtotal</span><span className="font-medium">{fmt(subtotal)}</span></div>}
                                 {discount > 0 && <div className="flex justify-between text-red-600"><span>Diskon</span><span>− {fmt(discount)}</span></div>}
                                 {taxRate > 0 && <div className="flex justify-between text-gray-600"><span>PPN {taxRate}%</span><span className="font-medium">{fmt(taxAmount)}</span></div>}
                                 <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t-2 border-gray-300"><span>TOTAL</span><span>{fmt(total)}</span></div>

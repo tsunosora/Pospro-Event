@@ -108,10 +108,12 @@
       </tbody>
       <tbody class="grand-totals">
         {{#if showGrandTotal}}
+        {{#if totals.showSubtotalRow}}
         <tr>
           <td colspan="4" class="label">{{i18n.totalHargaPenawaran}}</td>
           <td class="rp">{{totals.subtotal}}</td>
         </tr>
+        {{/if}}
         {{#if totals.displayDiscountRow}}
         <tr>
           <td colspan="4" class="label">{{i18n.diskon}}</td>
@@ -241,10 +243,12 @@
         {{/each}}
       </tbody>
       <tbody class="grand-totals">
+        {{#if totals.showSubtotalRow}}
         <tr>
           <td colspan="2" class="label">{{i18n.subtotalKeseluruhan}}</td>
           <td class="rp">{{totals.subtotal}}</td>
         </tr>
+        {{/if}}
         {{#if totals.displayDiscountRow}}
         <tr>
           <td colspan="2" class="label">{{i18n.diskon}}</td>
@@ -320,10 +324,12 @@
         {{/each}}
       </tbody>
       <tbody class="grand-totals">
+        {{#if totals.showSubtotalRow}}
         <tr>
           <td colspan="4" class="label">{{i18n.subtotal}}</td>
           <td class="rp">{{totals.subtotal}}</td>
         </tr>
+        {{/if}}
         {{#if totals.displayDiscountRow}}
         <tr>
           <td colspan="4" class="label">{{i18n.diskon}}</td>

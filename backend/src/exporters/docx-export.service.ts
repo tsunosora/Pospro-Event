@@ -227,7 +227,7 @@ function buildDetailedTable(ctx: QuotationRenderContext, theme: DocxTheme): Tabl
         for (const it of group.items) rows.push(itemRow5(it));
         if (group.categoryName) rows.push(subtotalRow(`${t.subtotal} ${group.categoryName}`, group.subtotalFormatted, theme, 4));
     }
-    rows.push(totalRow(t.subtotal, ctx.totals.subtotal, 4, { bold: true }));
+    if (ctx.totals.showSubtotalRow) rows.push(totalRow(t.subtotal, ctx.totals.subtotal, 4, { bold: true }));
     if (ctx.totals.displayDiscountRow) rows.push(totalRow(t.diskon, `(${ctx.totals.discount})`, 4, { bold: true }));
     if (ctx.totals.hasPpn) rows.push(totalRow(ppnLabel(ctx), ctx.totals.taxAmount, 4, { bold: true }));
     if (ctx.packagePriceFormatted) {
@@ -269,7 +269,7 @@ function buildCategorySummaryTable(ctx: QuotationRenderContext, theme: DocxTheme
         const subLabel = group.categoryName ? `${t.subtotal} ${group.categoryName}` : t.subtotal;
         rows.push(subtotalRow(subLabel, group.subtotalFormatted, theme, 2));
     }
-    rows.push(totalRow(t.subtotalKeseluruhan, ctx.totals.subtotal, 2, { bold: true }));
+    if (ctx.totals.showSubtotalRow) rows.push(totalRow(t.subtotalKeseluruhan, ctx.totals.subtotal, 2, { bold: true }));
     if (ctx.totals.displayDiscountRow) rows.push(totalRow(t.diskon, `(${ctx.totals.discount})`, 2, { bold: true }));
     if (ctx.totals.hasPpn) rows.push(totalRow(ppnLabel(ctx), ctx.totals.taxAmount, 2, { bold: true }));
     rows.push(...dpPaidRows(ctx, 2));
@@ -289,7 +289,7 @@ function buildEventGroupedTable(ctx: QuotationRenderContext, theme: DocxTheme): 
         rows.push(subtotalRow(`${t.subtotal} ${ev.eventName}`, ev.subtotalFormatted, theme, 4));
     }
     if (ctx.showGrandTotal) {
-        rows.push(totalRow(t.totalHargaPenawaran, ctx.totals.subtotal, 4, { bold: true }));
+        if (ctx.totals.showSubtotalRow) rows.push(totalRow(t.totalHargaPenawaran, ctx.totals.subtotal, 4, { bold: true }));
         if (ctx.totals.displayDiscountRow) rows.push(totalRow(t.diskon, `(${ctx.totals.discount})`, 4, { bold: true }));
         if (ctx.totals.hasPpn) rows.push(totalRow(ppnLabel(ctx), ctx.totals.taxAmount, 4, { bold: true }));
         if (ctx.packagePriceFormatted) rows.push(totalRow(t.hargaPaket, ctx.packagePriceFormatted, 4, { bold: true, bg: theme.subtle }));
