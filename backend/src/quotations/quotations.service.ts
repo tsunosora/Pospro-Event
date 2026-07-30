@@ -217,9 +217,15 @@ export class QuotationsService {
     }
 
     /**
-     * DP yang sudah/akan dibayar atas sebuah dokumen.
-     * - Kalau dpPaidMode = "custom" dan dpPaidCustom terisi → pakai nominal custom apa adanya.
-     * - Selain itu → DP proporsional = total × dpPercent / 100.
+     * DP yang sudah/akan dibayar atas sebuah dokumen. Prioritas:
+     *  1. dpPaidMode = "custom" + dpPaidCustom terisi → pakai nominal custom apa adanya.
+     *  2. Ada invoice DP anak yang sudah terbit (childDpBilled > 0) → pakai nominal aktual itu.
+     *     Ini source-of-truth: DP yang sudah diterbitkan TIDAK ikut berubah kalau total
+     *     quotation naik belakangan (mis. ongkir ditambahkan saat pelunasan). Tanpa ini,
+     *     sisa pelunasan salah dihitung `total − proporsional` → mis. total 1900 dpPercent 50
+     *     memberi DP 950 (padahal DP asli 900) sehingga pelunasan jadi 950, bukan 1000.
+     *  3. Fallback → DP proporsional = total × dpPercent / 100 (dipakai saat DP & pelunasan
+     *     digenerate bareng dari total yang sama, belum ada invoice DP anak).
      *
      * Dipakai untuk menghitung sisa tagih invoice PELUNASAN (= total − DP yang sudah dibayar),
      * supaya DP tidak ikut tertagih (dan tercatat) dua kali. Lihat brief double-count DP.
@@ -229,11 +235,34 @@ export class QuotationsService {
         dpPercent: number,
         dpPaidMode: string | null | undefined,
         dpPaidCustom: number | null | undefined,
+        childDpBilled?: number | null,
     ): number {
         if (dpPaidMode === 'custom' && dpPaidCustom != null) {
             return Number(dpPaidCustom);
         }
+        if (childDpBilled != null && childDpBilled > 0) {
+            return Number(childDpBilled);
+        }
         return (total * dpPercent) / 100;
+    }
+
+    /**
+     * Total nominal DP yang sudah diterbitkan sebagai invoice anak (invoicePart='DP',
+     * type INVOICE, non-cancel) di bawah satu penawaran induk. Dipakai sebagai
+     * source-of-truth DP saat menghitung sisa pelunasan — lihat computeDpAlreadyPaid.
+     */
+    private async sumChildDpBilled(parentQuotationId: number | null | undefined): Promise<number> {
+        if (parentQuotationId == null) return 0;
+        const children = await this.prisma.invoice.findMany({
+            where: {
+                parentQuotationId,
+                type: InvoiceType.INVOICE,
+                invoicePart: 'DP',
+                status: { not: InvoiceStatus.CANCELLED },
+            },
+            select: { amountToPay: true },
+        });
+        return children.reduce((s, c) => s + Number(c.amountToPay ?? 0), 0);
     }
 
     async create(dto: CreateQuotationDto): Promise<InvoiceWithItems> {
@@ -549,8 +578,12 @@ export class QuotationsService {
             if (totalChanged || dpChanged || dpPaidChanged) {
                 const part = (existing as any).invoicePart as string | null;
                 const dpAmount = (newTotal * newDpPercent) / 100;
-                // DP yang sudah dibayar — hormati dpPaidCustom (mode custom), bukan cuma dpPercent.
-                const dpAlreadyPaid = this.computeDpAlreadyPaid(newTotal, newDpPercent, newDpPaidMode, newDpPaidCustom);
+                // DP yang sudah dibayar — hormati dpPaidCustom (mode custom), lalu nominal invoice
+                // DP anak yang sudah terbit, baru fallback proporsional. Tanpa anchor ke DP anak,
+                // menambah item (mis. ongkir) di pelunasan menaikkan total → DP ikut dihitung ulang
+                // proporsional → sisa pelunasan salah (1900 − 950 = 950, seharusnya 1900 − 900 = 1000).
+                const childDpBilled = await this.sumChildDpBilled((existing as any).parentQuotationId);
+                const dpAlreadyPaid = this.computeDpAlreadyPaid(newTotal, newDpPercent, newDpPaidMode, newDpPaidCustom, childDpBilled);
                 let newAmountToPay: number;
                 if (part === 'DP') newAmountToPay = dpAmount;
                 else if (part === 'PELUNASAN') newAmountToPay = newTotal - dpAlreadyPaid;
@@ -761,13 +794,17 @@ export class QuotationsService {
         const totalNum = Number(quotation.total ?? 0);
         const dpPercentNum = Number(quotation.dpPercent ?? 50);
         const dpAmount = (totalNum * dpPercentNum) / 100;
-        // Sisa PELUNASAN = total − DP yang sudah dibayar (hormati dpPaidCustom bila mode custom),
-        // bukan total − dpAmount proporsional. Mencegah DP tertagih ulang → dobel di cashflow.
+        // Sisa PELUNASAN = total − DP yang sudah dibayar (hormati dpPaidCustom bila mode custom,
+        // lalu nominal invoice DP anak yang sudah terbit), bukan total − dpAmount proporsional.
+        // Mencegah DP tertagih ulang → dobel di cashflow, DAN mencegah pelunasan salah hitung
+        // saat total quotation naik setelah DP terbit (mis. ongkir ditambahkan).
+        const childDpBilled = await this.sumChildDpBilled(quotation.id);
         const dpAlreadyPaid = this.computeDpAlreadyPaid(
             totalNum,
             dpPercentNum,
             (quotation as any).dpPaidMode,
             (quotation as any).dpPaidCustom != null ? Number((quotation as any).dpPaidCustom) : null,
+            childDpBilled,
         );
         const sisa = totalNum - dpAlreadyPaid;
 

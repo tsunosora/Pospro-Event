@@ -36,6 +36,7 @@ describe('QuotationsService — fix double-count DP PELUNASAN', () => {
         prisma = {
             invoice: {
                 findUnique: jest.fn(),
+                findMany: jest.fn().mockResolvedValue([]),
                 create: jest.fn((args: any) => {
                     captured.data = args.data;
                     return Promise.resolve({ id: 999, ...args.data, items: [] });
@@ -94,6 +95,32 @@ describe('QuotationsService — fix double-count DP PELUNASAN', () => {
             await service.generateInvoiceFromQuotation(1, { part: 'PELUNASAN' });
 
             expect(Number(captured.data.amountToPay)).toBe(9_000_000);
+        });
+
+        // ── Regresi bug: total naik SETELAH DP terbit (mis. ongkir ditambah saat pelunasan).
+        // DP asli = 900 (50% × 1800). Total quotation lalu jadi 1900 (ongkir +100).
+        // Pelunasan yang BENAR = 1900 − 900 (DP aktual yang sudah diterbitkan) = 1000.
+        // Bug lama: 1900 − (1900 × 50%) = 950, karena DP dihitung ulang proporsional
+        // pada total BARU, bukan pakai nominal DP anak yang sudah terbit.
+        it('PELUNASAN saat total naik setelah DP terbit → sisa = total − DP anak aktual (bukan proporsional)', async () => {
+            prisma.invoice.findUnique.mockResolvedValue(
+                baseQuotation({
+                    id: 1,
+                    total: dec('1900'),
+                    dpPercent: dec('50'),
+                    dpPaidMode: null,
+                    dpPaidCustom: null,
+                }),
+            );
+            // Invoice DP anak yang sudah terbit senilai 900 (dari total lama 1800).
+            prisma.invoice.findMany.mockResolvedValue([
+                { amountToPay: dec('900') },
+            ]);
+
+            await service.generateInvoiceFromQuotation(1, { part: 'PELUNASAN' });
+
+            expect(Number(captured.data.amountToPay)).toBe(1000);
+            expect(Number(captured.data.amountToPay)).not.toBe(950);
         });
 
         it('DP part tetap = total × dpPercent% (tidak berubah)', async () => {
