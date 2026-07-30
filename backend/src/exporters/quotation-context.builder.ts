@@ -1449,14 +1449,22 @@ export class QuotationContextBuilder {
                 // (klien tidak tahu ada diskon, cuma lihat 1 angka utuh). Quotation/penawaran tetap apa adanya.
                 const hideDiscount = isInvoice && !showDiscountFlag && discountNum > 0;
                 const subtotalDisplayNum = hideDiscount ? subtotalNum - discountNum : subtotalNum;
+                // Mode nominal ("custom" Rp langsung): rate mentah tersimpan 0 tapi amount > 0.
+                // Back-calc % efektif dari amount ÷ DPP supaya dokumen tidak menampilkan "PPN/PPh 0%".
+                // Kalau benar-benar tanpa pajak (amount 0), kirim "" agar {{#if}} menyembunyikan tanda %.
+                const pphRateRaw = Number((quotation as any).pphRate ?? 0);
+                const pphAmt = Number((quotation as any).pphAmount ?? 0);
+                const effTaxRate = rate > 0 ? rate : (dppNum > 0 && tax > 0 ? (tax / dppNum) * 100 : 0);
+                const effPphRate = pphRateRaw > 0 ? pphRateRaw : (dppNum > 0 && pphAmt > 0 ? (pphAmt / dppNum) * 100 : 0);
+                const fmtRate = (r: number) => (r > 0 ? (Number.isInteger(r) ? String(r) : r.toFixed(2)) : '');
                 return {
                     subtotal: formatRp(subtotalDisplayNum, useUsd),
                     dpp: formatRp(dppNum, useUsd),
                     priceIncludesTax: inclusive,
-                    taxRate: rate.toString(),
+                    taxRate: fmtRate(effTaxRate),
                     taxAmount: formatRp(tax, useUsd),
                     hasPpn: rate > 0 || tax > 0,
-                    pphRate: Number((quotation as any).pphRate ?? 0).toString(),
+                    pphRate: fmtRate(effPphRate),
                     pphAmount: formatRp(Number((quotation as any).pphAmount ?? 0), useUsd),
                     hasPph,
                     discount: formatRp(discountNum, useUsd),
