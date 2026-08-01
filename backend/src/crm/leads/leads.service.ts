@@ -269,6 +269,8 @@ export class LeadsService {
                 notes: input.notes?.trim() || null,
                 leadCameAt: this.toDate(input.leadCameAt) || new Date(),
                 lastContactedAt: this.toDate(input.lastContactedAt) ?? null,
+                // Sentuhan terakhir awal = saat lead masuk (biar timer stuck mulai dari sini)
+                lastActivityAt: this.toDate(input.leadCameAt) || new Date(),
                 labels: labelIds.length
                     ? { create: labelIds.map((labelId) => ({ labelId })) }
                     : undefined,
@@ -361,6 +363,8 @@ export class LeadsService {
                     meta: { fromWorkerId: transferLog.from, toWorkerId: transferLog.to },
                 },
             });
+            // Transfer = sentuhan → reset timer stuck
+            await this.prisma.lead.update({ where: { id }, data: { lastActivityAt: new Date() } });
         }
 
         if (input.labelIds !== undefined) {
@@ -414,7 +418,8 @@ export class LeadsService {
                 });
                 await tx.lead.update({
                     where: { id: leadId },
-                    data: { stageId: newStageId, stageOrderIndex: newOrderIndex },
+                    // Pindah kartu ke stage lain = follow-up → reset timer stuck.
+                    data: { stageId: newStageId, stageOrderIndex: newOrderIndex, lastActivityAt: new Date() },
                 });
 
                 // Status auto-sync (kasar) — tetap bisa dioverride lewat update biasa
@@ -488,13 +493,16 @@ export class LeadsService {
             },
         });
 
-        // Auto-bump lastContactedAt untuk activity yang relevan
-        if (['GREETING_SENT', 'COMPRO_SENT', 'RESPONSE', 'CALL', 'WHATSAPP'].includes(activity.kind)) {
-            await this.prisma.lead.update({
-                where: { id: leadId },
-                data: { lastContactedAt: new Date() },
-            });
-        }
+        // Setiap activity = sentuhan → reset timer stuck (lastActivityAt).
+        // lastContactedAt hanya untuk kind kontak ke customer (dipakai avgResponseHours).
+        const isContact = ['GREETING_SENT', 'COMPRO_SENT', 'RESPONSE', 'CALL', 'WHATSAPP'].includes(activity.kind);
+        await this.prisma.lead.update({
+            where: { id: leadId },
+            data: {
+                lastActivityAt: new Date(),
+                ...(isContact ? { lastContactedAt: new Date() } : {}),
+            },
+        });
 
         return activity;
     }
@@ -536,7 +544,7 @@ export class LeadsService {
 
             await tx.lead.update({
                 where: { id: leadId },
-                data: { convertedCustomerId: customer.id, convertedAt: new Date() },
+                data: { convertedCustomerId: customer.id, convertedAt: new Date(), lastActivityAt: new Date() },
             });
 
             await tx.leadActivity.create({
@@ -875,9 +883,13 @@ export class LeadsService {
                             // Lead di stage "kalah"/"menang" tidak pernah stuck, walau status enum-nya
                             // masih open (divergence status vs stage). Stage = sumber kebenaran.
                             stage: { isWinStage: false, isTerminal: false, isLostStage: false },
+                            // Lead yang sudah di-convert ke customer keluar dari pipeline aktif.
+                            convertedAt: null,
+                            // Stuck = tak ada SENTUHAN apa pun >7 hari. lastActivityAt di-bump saat pindah
+                            // stage / catatan / kontak / transfer, jadi follow-up via pindah kartu ikut reset.
                             OR: [
-                                { lastContactedAt: null, leadCameAt: { lt: stuckThreshold } },
-                                { lastContactedAt: { lt: stuckThreshold } },
+                                { lastActivityAt: null, leadCameAt: { lt: stuckThreshold } },
+                                { lastActivityAt: { lt: stuckThreshold } },
                             ],
                         },
                     }),
@@ -950,9 +962,12 @@ export class LeadsService {
                 status: { in: openStatuses },
                 // Sinkron dgn stuck count: lead di stage kalah/menang tak dianggap stuck.
                 stage: { isWinStage: false, isTerminal: false, isLostStage: false },
+                // Lead yang sudah di-convert ke customer keluar dari pipeline aktif.
+                convertedAt: null,
+                // Stuck = tak ada sentuhan apa pun >7 hari (pindah stage jg dihitung sentuhan).
                 OR: [
-                    { lastContactedAt: null, leadCameAt: { lt: stuckThreshold } },
-                    { lastContactedAt: { lt: stuckThreshold } },
+                    { lastActivityAt: null, leadCameAt: { lt: stuckThreshold } },
+                    { lastActivityAt: { lt: stuckThreshold } },
                 ],
             },
             select: {
@@ -966,18 +981,19 @@ export class LeadsService {
                 stageId: true,
                 leadCameAt: true,
                 lastContactedAt: true,
+                lastActivityAt: true,
                 stage: { select: { id: true, name: true, color: true } },
                 assignedWorker: { select: { id: true, name: true } },
             },
-            orderBy: [{ lastContactedAt: 'asc' }, { leadCameAt: 'asc' }],
+            orderBy: [{ lastActivityAt: 'asc' }, { leadCameAt: 'asc' }],
         });
 
         const now = Date.now();
         return leads.map((l) => {
-            const ref = l.lastContactedAt ?? l.leadCameAt;
+            const ref = l.lastActivityAt ?? l.leadCameAt;
             return {
                 ...l,
-                // Berapa hari sejak kontak terakhir (atau sejak lead masuk kalau belum pernah dikontak)
+                // Berapa hari sejak sentuhan terakhir (pindah stage/kontak/catatan), atau sejak lead masuk
                 daysStuck: Math.floor((now - ref.getTime()) / (24 * 60 * 60 * 1000)),
             };
         });

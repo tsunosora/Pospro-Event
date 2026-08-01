@@ -208,6 +208,7 @@ export interface StuckLead {
     stageId: number;
     leadCameAt: string;
     lastContactedAt: string | null;
+    lastActivityAt: string | null;
     stage: { id: number; name: string; color: string } | null;
     assignedWorker: { id: number; name: string } | null;
     daysStuck: number;

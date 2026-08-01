@@ -1847,6 +1847,10 @@ model Lead {
   imageUrl            String?    @map("image_url") @db.Text  // Foto referensi/sketsa project lead (single image)
   leadCameAt          DateTime   @default(now()) @map("lead_came_at")
   lastContactedAt     DateTime?  @map("last_contacted_at")
+  /// Waktu sentuhan terakhir apa pun (pindah stage, catatan, kontak, transfer, convert).
+  /// Dipakai untuk deteksi "stuck": follow-up berupa pindah kartu ke pipeline juga me-reset timer.
+  /// Beda dg lastContactedAt yg khusus kontak ke customer (dipakai avgResponseHours).
+  lastActivityAt      DateTime?  @map("last_activity_at")
   convertedCustomerId Int?       @unique @map("converted_customer_id")
   convertedAt         DateTime?  @map("converted_at")
   closedDealAt        DateTime?  @map("closed_deal_at")
@@ -1865,6 +1869,7 @@ model Lead {
   @@index([assignedWorkerId, status])
   @@index([assignedWorkerId, status, closedDealAt])
   @@index([leadCameAt])
+  @@index([lastActivityAt])
   @@index([city])
   @@index([productCategory])
   @@index([brand])
