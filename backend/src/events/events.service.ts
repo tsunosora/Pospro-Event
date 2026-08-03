@@ -220,7 +220,11 @@ export class EventsService {
                 customer: { select: { id: true, name: true, companyName: true } },
                 picWorker: { select: { id: true, name: true, position: true } },
                 crewAssignments: {
-                    select: { team: { select: { id: true, name: true, color: true } } },
+                    select: {
+                        role: true,
+                        team: { select: { id: true, name: true, color: true } },
+                        worker: { select: { id: true, name: true, position: true } },
+                    },
                 },
             },
         });
@@ -234,11 +238,22 @@ export class EventsService {
             for (const a of ev.crewAssignments ?? []) {
                 if (a.team) teamMap.set(a.team.id, a.team);
             }
+            // Daftar orang yang ditugaskan (PIC + crew) untuk kartu di halaman publik.
+            const crew = (ev.crewAssignments ?? [])
+                .filter((a) => a.worker)
+                .map((a) => ({
+                    id: a.worker!.id,
+                    name: a.worker!.name,
+                    position: a.worker!.position ?? null,
+                    role: a.role ?? null,
+                    team: a.team ? { id: a.team.id, name: a.team.name, color: a.team.color } : null,
+                }));
             const { crewAssignments, ...rest } = ev;
             const info = ev.customerId != null ? leadByCustomer.get(ev.customerId) : undefined;
             return {
                 ...rest,
                 teams: Array.from(teamMap.values()),
+                crew,
                 orderDescription: info?.orderDescription ?? null,
                 productCategory: info?.productCategory ?? null,
             };

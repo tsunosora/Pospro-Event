@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { MapPin, User as UserIcon, Package, Tag, CalendarDays } from "lucide-react";
 import type { PublicTimelineEvent } from "@/lib/api/publicTimeline";
 import { LiveBadge } from "./LiveBadge";
+import { CrewCards } from "./CrewCards";
 
 const DOW_ID = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 type Phase = "departure" | "setup" | "event" | "dismantle";
@@ -147,6 +148,7 @@ function EventRow({ ev, dayCells, rangeStart, rangeDays, rowIndex }: {
                         ))}
                     </div>
                 )}
+                <CrewCards ev={ev} variant="compact" />
                 {ev.orderDescription ? (
                     <div className="mt-1.5 flex items-start gap-1.5 text-sm bg-primary/5 border border-primary/20 rounded-lg px-2 py-1.5 leading-relaxed">
                         <Package className="h-4 w-4 shrink-0 mt-0.5 text-primary" />

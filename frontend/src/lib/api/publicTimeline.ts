@@ -18,6 +18,13 @@ export type PublicTimelineEvent = {
     customer: { id: number; name: string; companyName: string | null } | null;
     picWorker: { id: number; name: string; position: string | null } | null;
     teams: Array<{ id: number; name: string; color: string }>;
+    crew: Array<{
+        id: number;
+        name: string;
+        position: string | null;
+        role: string | null;
+        team: { id: number; name: string; color: string } | null;
+    }>;
     orderDescription: string | null;
     productCategory: string | null;
 };

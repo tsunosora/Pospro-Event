@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { MapPin, User as UserIcon, Package, CalendarDays } from "lucide-react";
 import type { PublicTimelineEvent } from "@/lib/api/publicTimeline";
 import { LiveBadge } from "./LiveBadge";
+import { CrewCards } from "./CrewCards";
 
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 function fmt(d?: string | null) {
@@ -73,6 +74,7 @@ export function ScheduleList({ events }: { events: PublicTimelineEvent[] }) {
                                 <span className="whitespace-pre-line">{ev.orderDescription}</span>
                             </div>
                         )}
+                        <CrewCards ev={ev} />
                     </div>
                 );
             })}
