@@ -161,8 +161,8 @@ function EventRow({ ev, dayCells, rangeStart, rangeDays }: {
                     >
                         {phase && (
                             <div
-                                className={`${PHASE_COLOR[phase].solid} h-[60%] my-[20%] mx-0.5 rounded animate-grow`}
-                                style={{ animationDelay: `${Math.min(d.idx, 20) * 20}ms` }}
+                                className={`${PHASE_COLOR[phase].solid} h-[60%] my-[20%] mx-0.5 rounded animate-bar`}
+                                style={{ animationDelay: `${(d.idx % 14) * 90}ms` }}
                                 title={`${PHASE_COLOR[phase].label} — ${ev.name}`}
                             />
                         )}

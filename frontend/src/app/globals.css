@@ -261,6 +261,12 @@
     animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     transform-origin: left center;
   }
+  /* Bar gantt: tumbuh saat muncul + kilau brightness terus-menerus (standby). */
+  .animate-bar {
+    animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both,
+               bar-shine 2.6s ease-in-out infinite;
+    transform-origin: left center;
+  }
   /* Cincin denyut lembut di belakang ikon. */
   .animate-pulse-ring {
     animation: pulse-ring 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
@@ -328,6 +334,10 @@
   0%, 100% { opacity: 0.6; }
   50%      { opacity: 1; }
 }
+@keyframes bar-shine {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.45); }
+}
 
 /* ── Hormati preferensi reduce-motion: matikan animasi & transisi non-esensial
    untuk aksesibilitas (WCAG 2.3.3 / prefers-reduced-motion). */
@@ -349,6 +359,7 @@
   .jadwal-motion .animate-pop        { animation: pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
   .jadwal-motion .animate-float      { animation: float-soft 3s ease-in-out infinite !important; }
   .jadwal-motion .animate-grow       { animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
+  .jadwal-motion .animate-bar        { animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both, bar-shine 2.6s ease-in-out infinite !important; }
   .jadwal-motion .animate-pulse-ring { animation: pulse-ring 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite !important; }
   .jadwal-motion .animate-drift      { animation: drift 20s ease-in-out infinite !important; }
   .jadwal-motion .animate-drift-rev  { animation: drift 26s ease-in-out infinite reverse !important; }
