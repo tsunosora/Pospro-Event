@@ -66,20 +66,23 @@ export function CrewCards({ ev, variant = "full" }: { ev: PublicTimelineEvent; v
     if (people.length === 0) return null;
 
     if (variant === "compact") {
-        const shown = people.slice(0, 5);
-        const extra = people.length - shown.length;
+        // Chip nama LENGKAP (jangan disingkat) — titik warna tim + nama utuh.
         return (
-            <div className="flex items-center mt-1.5 -space-x-2">
-                {shown.map((p, i) => (
-                    <span key={p.id} className="animate-in" style={{ animationDelay: `${i * 60}ms` }} title={`${p.name} — ${p.sub}`}>
-                        <Avatar p={p} size="sm" />
+            <div className="flex flex-wrap gap-1 mt-1.5">
+                {people.map((p, i) => (
+                    <span
+                        key={p.id}
+                        className="animate-in inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border border-border bg-background/60"
+                        style={{ animationDelay: `${Math.min(i, 14) * 55}ms` }}
+                    >
+                        <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${p.isPic ? "animate-breathe" : ""} ${p.color ? "" : "bg-primary"}`}
+                            style={p.color ? { backgroundColor: p.color } : undefined}
+                        />
+                        <span>{p.name}</span>
+                        {p.isPic && <span className="text-primary font-semibold">· PIC</span>}
                     </span>
                 ))}
-                {extra > 0 && (
-                    <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-full ring-2 ring-background bg-muted text-[10px] font-bold text-muted-foreground">
-                        +{extra}
-                    </span>
-                )}
             </div>
         );
     }
