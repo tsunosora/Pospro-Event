@@ -5,7 +5,7 @@ import {
     Store, CreditCard, Users, Settings, Building2, Paintbrush,
     HardDrive, Bell, Palette, Tags, Warehouse, HardHat, KeyRound, MapPin,
     Boxes, Building, FileText, Hash, Search, ChevronRight, ChevronLeft,
-    Wallet, Package,
+    Wallet, Package, CalendarDays,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -64,6 +64,7 @@ const NAV_GROUPS: Array<{
                 { href: "/settings/warehouses", icon: Warehouse, label: "Gudang", desc: "Daftar gudang fisik" },
                 { href: "/settings/storage-locations", icon: MapPin, label: "Lokasi Barang", desc: "Rak/shelf di gudang" },
                 { href: "/settings/warehouse-pin", icon: KeyRound, label: "PIN Gudang Kiosk", desc: "PIN untuk akses tukang" },
+                { href: "/settings/schedule-pin", icon: CalendarDays, label: "PIN Jadwal Event", desc: "PIN halaman /jadwal publik" },
             ],
         },
         {

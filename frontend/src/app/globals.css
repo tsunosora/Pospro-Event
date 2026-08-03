@@ -252,6 +252,38 @@
   .animate-pop {
     animation: pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
+  /* Ikon melayang halus (loop) — menarik perhatian tanpa mengganggu. */
+  .animate-float {
+    animation: float-soft 3s ease-in-out infinite;
+  }
+  /* Bar gantt tumbuh dari kiri saat pertama muncul. */
+  .animate-grow {
+    animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transform-origin: left center;
+  }
+  /* Cincin denyut lembut di belakang ikon. */
+  .animate-pulse-ring {
+    animation: pulse-ring 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+  /* Blob latar melayang pelan (ambient, terus-menerus). */
+  .animate-drift {
+    animation: drift 20s ease-in-out infinite;
+  }
+  .animate-drift-rev {
+    animation: drift 26s ease-in-out infinite reverse;
+  }
+  /* Kilau menyapu (tombol / kartu). */
+  .animate-shimmer {
+    animation: shimmer 2.8s ease-in-out infinite;
+  }
+  /* Ping melebar untuk titik "live". */
+  .animate-ping-slow {
+    animation: ping-slow 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  /* Denyut latar lembut (kolom hari ini). */
+  .animate-breathe {
+    animation: breathe 3s ease-in-out infinite;
+  }
 }
 
 @keyframes fade-in {
@@ -266,6 +298,36 @@
   from { opacity: 0; transform: scale(0.96); }
   to   { opacity: 1; transform: scale(1); }
 }
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes grow-bar {
+  from { opacity: 0; transform: scaleX(0); }
+  to   { opacity: 1; transform: scaleX(1); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(0.9); opacity: 0.5; }
+  70%  { transform: scale(1.4); opacity: 0; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(28px, -22px) scale(1.12); }
+  66%      { transform: translate(-22px, 20px) scale(0.94); }
+}
+@keyframes shimmer {
+  0%   { transform: translateX(-160%); }
+  60%  { transform: translateX(160%); }
+  100% { transform: translateX(160%); }
+}
+@keyframes ping-slow {
+  75%, 100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
 
 /* ── Hormati preferensi reduce-motion: matikan animasi & transisi non-esensial
    untuk aksesibilitas (WCAG 2.3.3 / prefers-reduced-motion). */
@@ -278,7 +340,24 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  /* Pengecualian KHUSUS halaman /jadwal (wrapper .jadwal-motion): halaman ini
+     adalah tampilan publik/standby (mis. layar kantor), animasi dekoratif tetap
+     hidup walau perangkat mengaktifkan Reduce Motion. Halaman lain tetap tenang. */
+  .jadwal-motion .animate-in         { animation: fade-in-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
+  .jadwal-motion .animate-fade       { animation: fade-in 0.2s ease-out both !important; }
+  .jadwal-motion .animate-pop        { animation: pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
+  .jadwal-motion .animate-float      { animation: float-soft 3s ease-in-out infinite !important; }
+  .jadwal-motion .animate-grow       { animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
+  .jadwal-motion .animate-pulse-ring { animation: pulse-ring 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite !important; }
+  .jadwal-motion .animate-drift      { animation: drift 20s ease-in-out infinite !important; }
+  .jadwal-motion .animate-drift-rev  { animation: drift 26s ease-in-out infinite reverse !important; }
+  .jadwal-motion .animate-shimmer    { animation: shimmer 2.8s ease-in-out infinite !important; }
+  .jadwal-motion .animate-ping-slow  { animation: ping-slow 1.6s cubic-bezier(0, 0, 0.2, 1) infinite !important; }
+  .jadwal-motion .animate-breathe    { animation: breathe 3s ease-in-out infinite !important; }
+  .jadwal-motion .animate-spin       { animation: spin 1s linear infinite !important; }
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ─── Print: struk thermal 80mm ─── */
 @media print {

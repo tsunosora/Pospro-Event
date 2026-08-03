@@ -812,6 +812,8 @@ model StoreSettings {
   loginTaglines         String?   @map("login_taglines") @db.Text
   operatorPin           String?   @map("operator_pin") @db.VarChar(10)
   warehousePinHash      String?   @map("warehouse_pin_hash") @db.VarChar(255)
+  // PIN publik halaman Jadwal Event (/jadwal) — terpisah dari PIN gudang.
+  schedulePinHash       String?   @map("schedule_pin_hash") @db.VarChar(255)
   // Token rahasia link publik Event Timeline (kiosk tukang). Regenerate = cabut akses link lama.
   timelineShareToken    String?   @unique @map("timeline_share_token") @db.VarChar(64)
   notifyNewTransaction  Boolean   @default(true) @map("notify_new_transaction")

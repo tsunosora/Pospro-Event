@@ -38,8 +38,9 @@ export function MainLayout({ children }: MainLayoutProps) {
     const isSharePage = pathname.startsWith("/share/");
     const isPublicPage = pathname.startsWith("/public/");
     const isPicAttendancePage = pathname.startsWith("/pic/");
+    const isJadwalPage = pathname.startsWith("/jadwal");
 
-    if (isLoginPage || isOpnamePage || isProduksiPage || isCetakPage || isPublicProductPage || isDesignerPortal || isKioskPage || isSharePage || isPublicPage || isPicAttendancePage) {
+    if (isLoginPage || isOpnamePage || isProduksiPage || isCetakPage || isPublicProductPage || isDesignerPortal || isKioskPage || isSharePage || isPublicPage || isPicAttendancePage || isJadwalPage) {
         return <>{children}</>;
     }
 

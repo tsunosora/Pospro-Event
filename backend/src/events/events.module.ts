@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { EventsController } from './events.controller';
 import { PublicEventsController } from './public-events.controller';
+import { PublicScheduleController } from './public-schedule.controller';
 import { PublicPackingController } from './public-packing.controller';
 import { EventCrewController } from './event-crew.controller';
 import { PublicEventCrewController } from './public-event-crew.controller';
@@ -11,15 +12,17 @@ import { CrewTeamsService } from './crew-teams.service';
 import { ExportersModule } from '../exporters/exporters.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { WarehousePinModule } from '../warehouse-pin/warehouse-pin.module';
+import { SchedulePinModule } from '../schedule-pin/schedule-pin.module';
 import { PackingModule } from '../packing/packing.module';
 import { CashflowModule } from '../cashflow/cashflow.module';
 import { ProjectReportPdfService } from '../exporters/project-report-pdf.service';
 
 @Module({
-    imports: [ExportersModule, NotificationsModule, WarehousePinModule, PackingModule, CashflowModule],
+    imports: [ExportersModule, NotificationsModule, WarehousePinModule, SchedulePinModule, PackingModule, CashflowModule],
     controllers: [
         EventsController,
         PublicEventsController,
+        PublicScheduleController,
         PublicPackingController,
         EventCrewController,
         PublicEventCrewController,
