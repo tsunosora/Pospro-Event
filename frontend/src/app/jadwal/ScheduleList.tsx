@@ -28,7 +28,12 @@ const BRAND_LABEL: Record<string, string> = { EXINDO: "Exindo", XPOSER: "Xposer"
 export function ScheduleList({ events }: { events: PublicTimelineEvent[] }) {
     const sorted = useMemo(() => [...events].sort((a, b) => sortKey(a) - sortKey(b)), [events]);
     if (sorted.length === 0) {
-        return <div className="py-20 text-center text-lg text-muted-foreground">Tidak ada event di bulan ini.</div>;
+        return (
+            <div className="py-20 text-center text-muted-foreground animate-fade">
+                <CalendarDays className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50 animate-float" />
+                <p className="text-lg">Tidak ada event di bulan ini.</p>
+            </div>
+        );
     }
 
     return (
@@ -57,7 +62,7 @@ export function ScheduleList({ events }: { events: PublicTimelineEvent[] }) {
                             <div className="flex flex-wrap gap-1 mt-2">
                                 {ev.teams.map((t) => (
                                     <span key={t.id} className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: t.color + "22", color: t.color }}>
-                                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />{t.name}
+                                        <span className="w-2 h-2 rounded-full animate-breathe" style={{ backgroundColor: t.color }} />{t.name}
                                     </span>
                                 ))}
                             </div>

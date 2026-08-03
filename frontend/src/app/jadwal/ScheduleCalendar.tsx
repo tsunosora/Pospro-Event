@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { MapPin, User as UserIcon, Package, Tag } from "lucide-react";
+import { MapPin, User as UserIcon, Package, Tag, CalendarDays } from "lucide-react";
 import type { PublicTimelineEvent } from "@/lib/api/publicTimeline";
 import { LiveBadge } from "./LiveBadge";
 
@@ -54,7 +54,12 @@ export function ScheduleCalendar({ events, year, month }: { events: PublicTimeli
     );
 
     if (filtered.length === 0) {
-        return <div className="py-20 text-center text-lg text-muted-foreground">Tidak ada event di bulan ini.</div>;
+        return (
+            <div className="py-20 text-center text-muted-foreground animate-fade">
+                <CalendarDays className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50 animate-float" />
+                <p className="text-lg">Tidak ada event di bulan ini.</p>
+            </div>
+        );
     }
 
     return (
@@ -78,17 +83,17 @@ export function ScheduleCalendar({ events, year, month }: { events: PublicTimeli
                     </tr>
                 </thead>
                 <tbody>
-                    {filtered.map((ev) => (
-                        <EventRow key={ev.id} ev={ev} dayCells={dayCells} rangeStart={range.start} rangeDays={range.days} />
+                    {filtered.map((ev, i) => (
+                        <EventRow key={ev.id} ev={ev} dayCells={dayCells} rangeStart={range.start} rangeDays={range.days} rowIndex={i} />
                     ))}
                 </tbody>
             </table>
             {/* Legend fase */}
-            <div className="w-full px-4 md:px-6 py-3 border-t-2 border-border bg-muted/20 flex flex-wrap items-center gap-x-5 gap-y-2 text-base">
+            <div className="w-full px-4 md:px-6 py-3 border-t-2 border-border bg-muted/20 flex flex-wrap items-center gap-x-5 gap-y-2 text-base animate-fade">
                 <span className="font-semibold text-muted-foreground">Warna:</span>
                 {(Object.keys(PHASE_COLOR) as Phase[]).map((p) => (
                     <span key={p} className="flex items-center gap-2">
-                        <span className={`inline-block w-4 h-4 rounded ${PHASE_COLOR[p].solid}`} />
+                        <span className={`inline-block w-4 h-4 rounded animate-breathe ${PHASE_COLOR[p].solid}`} />
                         {PHASE_COLOR[p].label}
                     </span>
                 ))}
@@ -97,10 +102,10 @@ export function ScheduleCalendar({ events, year, month }: { events: PublicTimeli
     );
 }
 
-function EventRow({ ev, dayCells, rangeStart, rangeDays }: {
+function EventRow({ ev, dayCells, rangeStart, rangeDays, rowIndex }: {
     ev: PublicTimelineEvent;
     dayCells: Array<{ idx: number; isToday: boolean; isWeekend: boolean }>;
-    rangeStart: Date; rangeDays: number;
+    rangeStart: Date; rangeDays: number; rowIndex: number;
 }) {
     const dayPhase = new Map<number, Phase>();
     const order: Record<Phase, number> = { event: 4, setup: 3, dismantle: 2, departure: 1 };
@@ -116,7 +121,7 @@ function EventRow({ ev, dayCells, rangeStart, rangeDays }: {
     const pic = ev.picWorker?.name ?? ev.picName;
 
     return (
-        <tr className="border-b-2 border-border/60 align-top">
+        <tr className="border-b-2 border-border/60 align-top animate-fade" style={{ animationDelay: `${Math.min(rowIndex, 12) * 60}ms` }}>
             <td className="px-3 py-2.5 sticky left-0 bg-card border-r-2 border-border" style={{ width: LEFT_W, minWidth: LEFT_W, height: ROW_H }}>
                 <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-base md:text-lg leading-snug">{ev.name}</span>
@@ -137,7 +142,7 @@ function EventRow({ ev, dayCells, rangeStart, rangeDays }: {
                     <div className="flex flex-wrap gap-1 mt-1">
                         {ev.teams.map((t) => (
                             <span key={t.id} className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: t.color + "22", color: t.color }}>
-                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />{t.name}
+                                <span className="w-2 h-2 rounded-full animate-breathe" style={{ backgroundColor: t.color }} />{t.name}
                             </span>
                         ))}
                     </div>

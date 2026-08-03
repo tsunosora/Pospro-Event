@@ -125,7 +125,7 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
             <header className="shrink-0 bg-card border-b-2 border-border animate-fade">
                 <div className="w-full px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-2.5">
-                        <CalendarDays className="h-7 w-7 text-primary shrink-0" />
+                        <CalendarDays className="h-7 w-7 text-primary shrink-0 animate-float" />
                         <h1 className="text-xl md:text-2xl font-bold">Jadwal Event</h1>
                     </div>
                     <LiveClock variant="bar" />
@@ -145,7 +145,7 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
                             </button>
                         </div>
                         <button onClick={() => shift(-1)} aria-label="Bulan sebelumnya" className="h-10 w-10 inline-flex items-center justify-center rounded-lg border-2 border-border hover:bg-muted active:scale-95 transition"><ChevronLeft className="h-5 w-5" /></button>
-                        <span className="text-base md:text-lg font-bold min-w-[9rem] text-center">{MONTHS_ID[month - 1]} {year}</span>
+                        <span key={`${month}-${year}`} className="text-base md:text-lg font-bold min-w-[9rem] text-center animate-pop">{MONTHS_ID[month - 1]} {year}</span>
                         <button onClick={() => shift(1)} aria-label="Bulan berikutnya" className="h-10 w-10 inline-flex items-center justify-center rounded-lg border-2 border-border hover:bg-muted active:scale-95 transition"><ChevronRight className="h-5 w-5" /></button>
                         <button onClick={onLocked} aria-label="Kunci" title="Kunci halaman" className="h-10 w-10 inline-flex items-center justify-center rounded-lg border-2 border-border hover:bg-muted active:scale-95 transition"><LogOut className="h-5 w-5" /></button>
                     </div>
