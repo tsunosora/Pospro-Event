@@ -152,17 +152,29 @@ export class EventsService {
     /** Peta customerId → { productCategory, orderDescription } dari Lead yang sudah convert. Satu query untuk keduanya. */
     private async leadInfoByCustomer(customerIdsRaw: (number | null)[]) {
         const customerIds = Array.from(new Set(customerIdsRaw.filter((id): id is number => id != null)));
-        const map = new Map<number, { productCategory: string | null; orderDescription: string | null }>();
+        const map = new Map<number, {
+            productCategory: string | null;
+            orderDescription: string | null;
+            marketing: { id: number; name: string; position: string | null } | null;
+        }>();
         if (customerIds.length === 0) return map;
         const leads = await this.prisma.lead.findMany({
             where: { convertedCustomerId: { in: customerIds } },
-            select: { convertedCustomerId: true, productCategory: true, orderDescription: true },
+            select: {
+                convertedCustomerId: true,
+                productCategory: true,
+                orderDescription: true,
+                assignedWorker: { select: { id: true, name: true, position: true } },
+            },
         });
         for (const l of leads) {
             if (l.convertedCustomerId != null) {
                 map.set(l.convertedCustomerId, {
                     productCategory: l.productCategory ?? null,
                     orderDescription: l.orderDescription ?? null,
+                    marketing: l.assignedWorker
+                        ? { id: l.assignedWorker.id, name: l.assignedWorker.name, position: l.assignedWorker.position ?? null }
+                        : null,
                 });
             }
         }
@@ -254,6 +266,7 @@ export class EventsService {
                 ...rest,
                 teams: Array.from(teamMap.values()),
                 crew,
+                marketing: info?.marketing ?? null,
                 orderDescription: info?.orderDescription ?? null,
                 productCategory: info?.productCategory ?? null,
             };

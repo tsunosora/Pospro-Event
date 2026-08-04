@@ -25,6 +25,7 @@ export type PublicTimelineEvent = {
         role: string | null;
         team: { id: number; name: string; color: string } | null;
     }>;
+    marketing: { id: number; name: string; position: string | null } | null;
     orderDescription: string | null;
     productCategory: string | null;
 };
