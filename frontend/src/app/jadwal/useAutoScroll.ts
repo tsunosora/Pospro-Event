@@ -25,7 +25,7 @@ export function useAutoScroll(
         if (!el || !enabled) return;
 
         const DOWN = 34;        // px/detik saat turun
-        const UP_FACTOR = 6;    // kecepatan balik ke atas (x lebih cepat)
+        const UP_FACTOR = 1;    // kecepatan balik ke atas = sama dengan turun
         const IDLE_MS = 6000;   // lanjut setelah sekian ms tanpa interaksi
         const PAUSE_BOTTOM = 2600;
         const PAUSE_TOP = 1400;
