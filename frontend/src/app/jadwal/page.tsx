@@ -164,9 +164,9 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
                         >
                             <MoveVertical className={`h-4 w-4 ${autoScroll ? "animate-bounce" : ""}`} /> Auto
                         </button>
-                        {/* Rentang tampilan: 1 atau 3 bulan */}
+                        {/* Rentang tampilan */}
                         <div className="inline-flex rounded-lg border-2 border-border overflow-hidden">
-                            {[1, 3].map((m) => (
+                            {[1, 3, 6, 12].map((m) => (
                                 <button
                                     key={m}
                                     onClick={() => setMonths(m)}
