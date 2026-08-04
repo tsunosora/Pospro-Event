@@ -65,7 +65,9 @@ export function ScheduleCalendar({ events, year, month, months = 1 }: { events: 
         const fit = Math.floor((containerW - LEFT_W - 2) / range.days);
         return Math.max(MIN_CELL, Math.min(MAX_CELL, fit));
     }, [containerW, range.days, months]);
-    const showDayNums = cellW >= 20; // nomor tanggal hanya bila cukup lebar
+    // Angka tanggal SELALU ada, tapi diberi jarak agar tak berdesakan saat sempit:
+    // kolom lebar → tiap hari; sedang → tiap 5 hari; sempit → tiap 10 hari.
+    const stepDays = cellW >= 20 ? 1 : cellW >= 9 ? 5 : 10;
 
     const dayCells = useMemo(() => Array.from({ length: range.days }, (_, i) => {
         const d = new Date(range.start); d.setDate(d.getDate() + i);
@@ -122,24 +124,23 @@ export function ScheduleCalendar({ events, year, month, months = 1 }: { events: 
                             </tr>
                             {/* Baris hari */}
                             <tr className="border-b-2 border-border">
-                                {dayCells.map((d) => (
-                                    <th
-                                        key={d.idx}
-                                        className={`text-center ${d.isMonthStart ? "border-l-2 border-l-primary/50" : "border-l border-border/40"} ${d.isToday ? "bg-primary/15 animate-breathe" : d.isWeekend ? "bg-muted/40" : ""}`}
-                                        style={{ width: cellW, minWidth: cellW }}
-                                    >
-                                        {showDayNums ? (
-                                            <>
-                                                <div className="text-[10px] text-muted-foreground leading-none">{d.dow}</div>
-                                                <div className={`text-sm font-bold leading-tight ${d.isToday ? "text-primary" : ""}`}>{d.day}</div>
-                                            </>
-                                        ) : (
-                                            <div className="h-3 flex items-center justify-center">
-                                                {d.isToday && <span className="h-1.5 w-1.5 rounded-full bg-primary animate-breathe" />}
-                                            </div>
-                                        )}
-                                    </th>
-                                ))}
+                                {dayCells.map((d) => {
+                                    const showNum = stepDays === 1 || d.isToday || d.day === 1 || d.day % stepDays === 0;
+                                    return (
+                                        <th
+                                            key={d.idx}
+                                            className={`text-center align-bottom overflow-visible ${d.isMonthStart ? "border-l-2 border-l-primary/50" : "border-l border-border/40"} ${d.isToday ? "bg-primary/15 animate-breathe" : d.isWeekend ? "bg-muted/40" : ""}`}
+                                            style={{ width: cellW, minWidth: cellW }}
+                                        >
+                                            {stepDays === 1 && <div className="text-[10px] text-muted-foreground leading-none">{d.dow}</div>}
+                                            {showNum ? (
+                                                <div className={`font-bold leading-tight whitespace-nowrap ${stepDays === 1 ? "text-sm" : "text-[11px]"} ${d.isToday ? "text-primary" : ""}`}>{d.day}</div>
+                                            ) : (
+                                                <div className="h-4" />
+                                            )}
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody>
