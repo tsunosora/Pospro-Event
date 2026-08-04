@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -30,11 +30,39 @@ function fmtHours(h: number | null): string {
     return `${Math.round(h / 24)} hari`;
 }
 
-function periodPreset(key: string): { from?: string; to?: string } {
+type PeriodKey = "today" | "week" | "month" | "quarter" | "year" | "all" | "custom";
+
+/**
+ * Batas hari dari input "YYYY-MM-DD" dihitung di zona waktu LOKAL (WIB), bukan UTC.
+ * `new Date("YYYY-MM-DD")` akan di-parse sebagai UTC midnight → geser mundur 1 hari
+ * di WIB. Maka kita bangun Date dari komponen y/m/d lokal: `from` = awal hari,
+ * `to` = akhir hari (inklusif, karena backend memakai `lte`). `.toISOString()`
+ * menghasilkan instant UTC yang benar untuk kolom DateTime.
+ */
+function dayRangeFromInputs(fromStr?: string, toStr?: string): { from?: string; to?: string } {
+    const res: { from?: string; to?: string } = {};
+    if (fromStr) {
+        const [y, m, d] = fromStr.split("-").map(Number);
+        if (y && m && d) res.from = new Date(y, m - 1, d, 0, 0, 0, 0).toISOString();
+    }
+    if (toStr) {
+        const [y, m, d] = toStr.split("-").map(Number);
+        if (y && m && d) res.to = new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
+    }
+    return res;
+}
+
+function periodPreset(key: PeriodKey, customFrom?: string, customTo?: string): { from?: string; to?: string } {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const fmt = (d: Date) => d.toISOString();
     if (key === "all") return {};
+    if (key === "custom") return dayRangeFromInputs(customFrom, customTo);
+    if (key === "year") return { from: fmt(new Date(now.getFullYear(), 0, 1)) };
+    if (key === "quarter") {
+        const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
+        return { from: fmt(new Date(now.getFullYear(), qStartMonth, 1)) };
+    }
     if (key === "month") {
         const start = new Date(now.getFullYear(), now.getMonth(), 1);
         return { from: fmt(start) };
@@ -50,7 +78,10 @@ function periodPreset(key: string): { from?: string; to?: string } {
 }
 
 export default function CrmPerformancePage() {
-    const [period, setPeriod] = useState<"today" | "week" | "month" | "all">("month");
+    const [period, setPeriod] = useState<PeriodKey>("month");
+    /** Rentang tanggal manual (mode Custom) — format "YYYY-MM-DD", kosong = belum diisi. */
+    const [customFrom, setCustomFrom] = useState("");
+    const [customTo, setCustomTo] = useState("");
     /** Modal stuck leads — null = tertutup. workerId null = tampilkan semua marketing. */
     const [stuckModal, setStuckModal] = useState<{ workerId: number | null; workerName: string | null } | null>(null);
     /** Modal detail closing & gagal per marketing — null = tertutup. */
@@ -58,9 +89,18 @@ export default function CrmPerformancePage() {
     /** Auto-popup peringatan hanya muncul sekali per buka halaman. */
     const [autoShown, setAutoShown] = useState(false);
 
+    // Rentang tanggal aktif — dihitung sekali, dipakai ulang di query & kedua modal.
+    const range = useMemo(
+        () => periodPreset(period, customFrom, customTo),
+        [period, customFrom, customTo],
+    );
+    // Mode Custom baru siap di-query kalau minimal salah satu batas tanggal diisi.
+    const customReady = period !== "custom" || Boolean(customFrom || customTo);
+
     const { data, isLoading } = useQuery({
-        queryKey: ["crm-performance", period],
-        queryFn: () => getMarketerPerformance(periodPreset(period)),
+        queryKey: ["crm-performance", period, range.from ?? "", range.to ?? ""],
+        queryFn: () => getMarketerPerformance(range),
+        enabled: customReady,
     });
 
     const rows = data ?? [];
@@ -104,12 +144,15 @@ export default function CrmPerformancePage() {
                             Leaderboard tim — diurutkan berdasarkan total nilai closing.
                         </p>
                     </div>
-                    <div className="flex gap-1 bg-muted p-1 rounded-lg">
+                    <div className="flex flex-wrap gap-1 bg-muted p-1 rounded-lg">
                         {([
                             { k: "today", label: "Hari ini" },
                             { k: "week", label: "Minggu ini" },
                             { k: "month", label: "Bulan ini" },
+                            { k: "quarter", label: "Kuartal ini" },
+                            { k: "year", label: "Tahun ini" },
                             { k: "all", label: "Semua" },
+                            { k: "custom", label: "Custom" },
                         ] as const).map((p) => (
                             <button
                                 key={p.k}
@@ -126,6 +169,48 @@ export default function CrmPerformancePage() {
                     </div>
                 </div>
             </div>
+
+            {/* Rentang tanggal manual — hanya tampil saat mode Custom */}
+            {period === "custom" && (
+                <div className="glass rounded-xl p-3 flex flex-wrap items-end gap-3">
+                    <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground">
+                        Dari tanggal
+                        <input
+                            type="date"
+                            value={customFrom}
+                            max={customTo || undefined}
+                            onChange={(e) => setCustomFrom(e.target.value)}
+                            className="px-2.5 py-1.5 rounded-md border border-border bg-card text-sm text-foreground"
+                        />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground">
+                        Sampai tanggal
+                        <input
+                            type="date"
+                            value={customTo}
+                            min={customFrom || undefined}
+                            onChange={(e) => setCustomTo(e.target.value)}
+                            className="px-2.5 py-1.5 rounded-md border border-border bg-card text-sm text-foreground"
+                        />
+                    </label>
+                    {(customFrom || customTo) && (
+                        <button
+                            onClick={() => {
+                                setCustomFrom("");
+                                setCustomTo("");
+                            }}
+                            className="px-3 py-1.5 rounded-md text-sm font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                            Reset
+                        </button>
+                    )}
+                    {!customFrom && !customTo && (
+                        <span className="text-xs text-muted-foreground pb-1.5">
+                            Pilih tanggal untuk memfilter. Kosongkan salah satu untuk rentang terbuka.
+                        </span>
+                    )}
+                </div>
+            )}
 
             {/* Ringkasan */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -243,7 +328,7 @@ export default function CrmPerformancePage() {
                 onClose={() => setStuckModal(null)}
                 workerId={stuckModal?.workerId ?? null}
                 workerName={stuckModal?.workerName ?? null}
-                period={periodPreset(period)}
+                period={range}
             />
 
             <MarketerDetailModal
@@ -251,7 +336,7 @@ export default function CrmPerformancePage() {
                 onClose={() => setDetailModal(null)}
                 workerId={detailModal?.workerId ?? null}
                 workerName={detailModal?.workerName ?? null}
-                period={periodPreset(period)}
+                period={range}
             />
         </div>
     );
