@@ -14,10 +14,12 @@ export class PublicScheduleController {
     async list(
         @Query('year') year?: string,
         @Query('month') month?: string,
+        @Query('months') months?: string,
     ) {
         return this.svc.findAllPublic({
             year: year ? Number(year) : undefined,
             month: month ? Number(month) : undefined,
+            months: months ? Number(months) : undefined,
         });
     }
 }

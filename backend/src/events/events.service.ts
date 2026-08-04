@@ -187,14 +187,15 @@ export class EventsService {
      * orderDescription dari Lead (via Customer) supaya tukang tahu barang yang dipesan.
      * Tidak memuat data finansial/RAB.
      */
-    async findAllPublic(filter: { year?: number; month?: number; teamIds?: number[]; picIds?: number[] } = {}) {
+    async findAllPublic(filter: { year?: number; month?: number; months?: number; teamIds?: number[]; picIds?: number[] } = {}) {
         const where: any = {
             status: { in: [EventStatus.SCHEDULED, EventStatus.IN_PROGRESS, EventStatus.COMPLETED] },
         };
         if (filter.year) {
+            const span = filter.months && filter.months > 0 ? filter.months : 1;
             const start = new Date(filter.year, filter.month ? filter.month - 1 : 0, 1);
             const end = filter.month
-                ? new Date(filter.year, filter.month, 1)
+                ? new Date(filter.year, (filter.month - 1) + span, 1) // rentang `span` bulan
                 : new Date(filter.year + 1, 0, 1);
             where.OR = [
                 { eventStart: { gte: start, lt: end } },

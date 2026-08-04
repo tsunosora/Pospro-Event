@@ -35,8 +35,9 @@ export async function getPublicSchedule(
     pin: string,
     year: number,
     month: number,
+    months = 1,
 ): Promise<PublicTimelineEvent[]> {
-    const params = new URLSearchParams({ year: String(year), month: String(month) });
+    const params = new URLSearchParams({ year: String(year), month: String(month), months: String(months) });
     const r = await fetch(`${apiBase}/public/schedule?${params.toString()}`, {
         headers: { 'x-schedule-pin': pin },
         cache: 'no-store',

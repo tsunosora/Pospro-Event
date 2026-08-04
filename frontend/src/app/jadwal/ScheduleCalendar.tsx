@@ -7,6 +7,7 @@ import { LiveBadge } from "./LiveBadge";
 import { CrewCards } from "./CrewCards";
 
 const DOW_ID = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 type Phase = "departure" | "setup" | "event" | "dismantle";
 const PHASE_COLOR: Record<Phase, { solid: string; label: string }> = {
     departure: { solid: "bg-slate-500", label: "Berangkat" },
@@ -34,18 +35,22 @@ function getPhaseRanges(ev: PublicTimelineEvent): Array<{ phase: Phase; start: D
     return out;
 }
 
-export function ScheduleCalendar({ events, year, month }: { events: PublicTimelineEvent[]; year: number; month: number }) {
+export function ScheduleCalendar({ events, year, month, months = 1 }: { events: PublicTimelineEvent[]; year: number; month: number; months?: number }) {
     const today = new Date();
-    const range = useMemo(
-        () => ({ start: new Date(year, month - 1, 1), days: new Date(year, month, 0).getDate() }),
-        [year, month],
-    );
+    const range = useMemo(() => {
+        const start = new Date(year, month - 1, 1);
+        const endEx = new Date(year, month - 1 + months, 1); // eksklusif
+        const days = Math.round((endEx.getTime() - start.getTime()) / 86400000);
+        return { start, days };
+    }, [year, month, months]);
     const dayCells = useMemo(() => Array.from({ length: range.days }, (_, i) => {
         const d = new Date(range.start); d.setDate(d.getDate() + i);
         return {
             idx: i, date: d, day: d.getDate(), dow: DOW_ID[d.getDay()],
             isToday: startOfDay(d).getTime() === startOfDay(today).getTime(),
             isWeekend: d.getDay() === 0 || d.getDay() === 6,
+            isMonthStart: d.getDate() === 1,
+            monthShort: MONTHS_SHORT[d.getMonth()],
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }), [range]);
@@ -58,7 +63,7 @@ export function ScheduleCalendar({ events, year, month }: { events: PublicTimeli
         return (
             <div className="py-20 text-center text-muted-foreground animate-fade">
                 <CalendarDays className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50 animate-float" />
-                <p className="text-lg">Tidak ada event di bulan ini.</p>
+                <p className="text-lg">Tidak ada event di rentang ini.</p>
             </div>
         );
     }
@@ -74,10 +79,10 @@ export function ScheduleCalendar({ events, year, month }: { events: PublicTimeli
                         {dayCells.map((d) => (
                             <th
                                 key={d.idx}
-                                className={`text-center py-2 border-l border-border/50 ${d.isToday ? "bg-primary/15 animate-breathe" : d.isWeekend ? "bg-muted/40" : ""}`}
+                                className={`text-center py-2 ${d.isMonthStart ? "border-l-2 border-l-primary/60" : "border-l border-border/50"} ${d.isToday ? "bg-primary/15 animate-breathe" : d.isWeekend ? "bg-muted/40" : ""}`}
                                 style={{ width: CELL_W, minWidth: CELL_W }}
                             >
-                                <div className="text-xs text-muted-foreground leading-none">{d.dow}</div>
+                                <div className={`text-xs leading-none ${d.isMonthStart ? "font-bold text-primary" : "text-muted-foreground"}`}>{d.isMonthStart ? d.monthShort : d.dow}</div>
                                 <div className={`text-lg font-bold leading-tight ${d.isToday ? "text-primary" : ""}`}>{d.day}</div>
                             </th>
                         ))}
@@ -105,7 +110,7 @@ export function ScheduleCalendar({ events, year, month }: { events: PublicTimeli
 
 function EventRow({ ev, dayCells, rangeStart, rangeDays, rowIndex }: {
     ev: PublicTimelineEvent;
-    dayCells: Array<{ idx: number; isToday: boolean; isWeekend: boolean }>;
+    dayCells: Array<{ idx: number; isToday: boolean; isWeekend: boolean; isMonthStart: boolean }>;
     rangeStart: Date; rangeDays: number; rowIndex: number;
 }) {
     const dayPhase = new Map<number, Phase>();
@@ -163,7 +168,7 @@ function EventRow({ ev, dayCells, rangeStart, rangeDays, rowIndex }: {
                 return (
                     <td
                         key={d.idx}
-                        className={`p-0 border-l border-border/50 ${d.isToday ? "bg-primary/10" : d.isWeekend ? "bg-muted/30" : ""}`}
+                        className={`p-0 ${d.isMonthStart ? "border-l-2 border-l-primary/40" : "border-l border-border/50"} ${d.isToday ? "bg-primary/10" : d.isWeekend ? "bg-muted/30" : ""}`}
                         style={{ width: CELL_W, minWidth: CELL_W, height: ROW_H }}
                     >
                         {phase && (

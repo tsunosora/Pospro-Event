@@ -104,24 +104,32 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
     const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
     const [view, setView] = useState<"calendar" | "list">("calendar");
     const [autoScroll, setAutoScroll] = useState(true);
+    const [months, setMonths] = useState(1);
     const scrollRef = useRef<HTMLDivElement>(null);
     const year = cursor.getFullYear();
     const month = cursor.getMonth() + 1;
 
     const { data: events = [], isLoading, error } = useQuery({
-        queryKey: ["public-schedule", year, month],
-        queryFn: () => getPublicSchedule(pin, year, month),
+        queryKey: ["public-schedule", year, month, months],
+        queryFn: () => getPublicSchedule(pin, year, month, months),
         retry: false,
     });
 
     // Auto-scroll layar standby — hanya saat konten meluber; berhenti saat ada
-    // interaksi, lanjut setelah idle. Reset ke atas saat ganti view/bulan.
-    useAutoScroll(scrollRef, autoScroll && !isLoading, `${view}-${year}-${month}`);
+    // interaksi, lanjut setelah idle. Reset ke atas saat ganti view/rentang.
+    useAutoScroll(scrollRef, autoScroll && !isLoading, `${view}-${year}-${month}-${months}`);
 
     // PIN dicabut/berubah di server → kembali ke gate.
     useEffect(() => { if (error instanceof SchedulePinError) onLocked(); }, [error, onLocked]);
 
-    const shift = (d: number) => setCursor(new Date(year, month - 1 + d, 1));
+    // Geser satu jendela penuh (1 atau 3 bulan) tiap klik.
+    const shift = (d: number) => setCursor(new Date(year, month - 1 + d * months, 1));
+
+    // Label rentang: "Agustus 2026" atau "Agu – Okt 2026".
+    const endM = new Date(year, month - 1 + months - 1, 1);
+    const rangeLabel = months === 1
+        ? `${MONTHS_ID[month - 1]} ${year}`
+        : `${MONTHS_ID[month - 1].slice(0, 3)}${year === endM.getFullYear() ? "" : " " + year} – ${MONTHS_ID[endM.getMonth()].slice(0, 3)} ${endM.getFullYear()}`;
 
     return (
         <div className="jadwal-motion relative h-screen w-full bg-background text-foreground flex flex-col overflow-hidden">
@@ -156,9 +164,21 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
                         >
                             <MoveVertical className={`h-4 w-4 ${autoScroll ? "animate-bounce" : ""}`} /> Auto
                         </button>
-                        <button onClick={() => shift(-1)} aria-label="Bulan sebelumnya" className="h-10 w-10 inline-flex items-center justify-center rounded-lg border-2 border-border hover:bg-muted active:scale-95 transition"><ChevronLeft className="h-5 w-5" /></button>
-                        <span key={`${month}-${year}`} className="text-base md:text-lg font-bold min-w-[9rem] text-center animate-pop">{MONTHS_ID[month - 1]} {year}</span>
-                        <button onClick={() => shift(1)} aria-label="Bulan berikutnya" className="h-10 w-10 inline-flex items-center justify-center rounded-lg border-2 border-border hover:bg-muted active:scale-95 transition"><ChevronRight className="h-5 w-5" /></button>
+                        {/* Rentang tampilan: 1 atau 3 bulan */}
+                        <div className="inline-flex rounded-lg border-2 border-border overflow-hidden">
+                            {[1, 3].map((m) => (
+                                <button
+                                    key={m}
+                                    onClick={() => setMonths(m)}
+                                    className={`h-10 px-3 text-sm font-semibold transition-colors ${months === m ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                                >
+                                    {m} Bln
+                                </button>
+                            ))}
+                        </div>
+                        <button onClick={() => shift(-1)} aria-label="Sebelumnya" className="h-10 w-10 inline-flex items-center justify-center rounded-lg border-2 border-border hover:bg-muted active:scale-95 transition"><ChevronLeft className="h-5 w-5" /></button>
+                        <span key={`${month}-${year}-${months}`} className="text-base md:text-lg font-bold min-w-[11rem] text-center animate-pop">{rangeLabel}</span>
+                        <button onClick={() => shift(1)} aria-label="Berikutnya" className="h-10 w-10 inline-flex items-center justify-center rounded-lg border-2 border-border hover:bg-muted active:scale-95 transition"><ChevronRight className="h-5 w-5" /></button>
                         <button onClick={onLocked} aria-label="Kunci" title="Kunci halaman" className="h-10 w-10 inline-flex items-center justify-center rounded-lg border-2 border-border hover:bg-muted active:scale-95 transition"><LogOut className="h-5 w-5" /></button>
                     </div>
                 </div>
@@ -172,10 +192,10 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
                 ) : error instanceof RateLimitError ? (
                     <div className="py-20 px-6 text-center text-lg text-muted-foreground animate-fade">{error.message}</div>
                 ) : (
-                    <div key={`${view}-${year}-${month}`} className="animate-fade">
+                    <div key={`${view}-${year}-${month}-${months}`} className="animate-fade">
                         {view === "calendar"
-                            ? <ScheduleCalendar events={events} year={year} month={month} />
-                            : <ScheduleList events={events} />}
+                            ? <ScheduleCalendar events={events} year={year} month={month} months={months} />
+                            : <ScheduleList events={events} months={months} />}
                     </div>
                 )}
             </div>
