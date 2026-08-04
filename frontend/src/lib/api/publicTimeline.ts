@@ -6,6 +6,8 @@ export type PublicTimelineEvent = {
     code: string;
     name: string;
     brand: "EXINDO" | "XPOSER" | "OTHER";
+    /** Warna brand (themeColor dari setting brand). Null bila belum diatur → pakai fallback. */
+    brandColor?: string | null;
     status: "DRAFT" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
     venue: string | null;
     customerId: number | null;
@@ -29,6 +31,26 @@ export type PublicTimelineEvent = {
     orderDescription: string | null;
     productCategory: string | null;
 };
+
+/**
+ * Label + warna fallback per brand — dipakai HANYA kalau themeColor belum diatur di
+ * setting brand. Nilai disamakan dengan default "Warna PDF" di /settings/brands.
+ */
+const BRAND_FALLBACK: Record<string, { label: string; color: string }> = {
+    EXINDO: { label: "Exindo", color: "#1e40af" },
+    XPOSER: { label: "Xposer", color: "#0d9488" },
+    OTHER: { label: "Lainnya", color: "#c8203a" },
+};
+
+/** Warna brand efektif untuk sebuah event: pakai themeColor dari setting brand, fallback ke default. */
+export function brandColorOf(ev: Pick<PublicTimelineEvent, "brand" | "brandColor">): string {
+    return ev.brandColor || BRAND_FALLBACK[ev.brand]?.color || BRAND_FALLBACK.OTHER.color;
+}
+
+/** Label brand ringkas untuk badge. */
+export function brandLabelOf(ev: Pick<PublicTimelineEvent, "brand">): string {
+    return BRAND_FALLBACK[ev.brand]?.label ?? ev.brand;
+}
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 

@@ -245,6 +245,12 @@ export class EventsService {
         // Lookup productCategory & orderDescription dari Lead via Customer (Lead.convertedCustomerId === event.customerId).
         const leadByCustomer = await this.leadInfoByCustomer(events.map((e) => e.customerId));
 
+        // Warna brand (themeColor dari setting brand) → dipakai frontend untuk latar kartu per brand.
+        const brandRows = await this.prisma.brandSettings.findMany({
+            select: { brand: true, themeColor: true },
+        });
+        const brandColorMap = new Map(brandRows.map((b) => [b.brand, b.themeColor]));
+
         return events.map((ev) => {
             // Team unik per event (untuk chip & judul filter di halaman publik).
             const teamMap = new Map<number, { id: number; name: string; color: string }>();
@@ -265,6 +271,7 @@ export class EventsService {
             const info = ev.customerId != null ? leadByCustomer.get(ev.customerId) : undefined;
             return {
                 ...rest,
+                brandColor: brandColorMap.get(ev.brand) ?? null,
                 teams: Array.from(teamMap.values()),
                 crew,
                 marketing: info?.marketing ?? null,

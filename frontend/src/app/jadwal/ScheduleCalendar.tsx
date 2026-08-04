@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapPin, User as UserIcon, Package, Tag, CalendarDays } from "lucide-react";
-import type { PublicTimelineEvent } from "@/lib/api/publicTimeline";
+import { brandColorOf, brandLabelOf, type PublicTimelineEvent } from "@/lib/api/publicTimeline";
 import { LiveBadge } from "./LiveBadge";
 import { CrewCards } from "./CrewCards";
 
@@ -182,12 +182,31 @@ function EventRow({ ev, dayCells, rangeStart, rangeDays, rowIndex, cellW }: {
     });
 
     const pic = ev.picWorker?.name ?? ev.picName;
+    const brandColor = brandColorOf(ev);
 
     return (
         <tr className="border-b-2 border-border/60 align-top animate-fade" style={{ animationDelay: `${Math.min(rowIndex, 12) * 60}ms` }}>
-            <td className="px-3 py-2.5 sticky left-0 bg-card border-r-2 border-border z-10" style={{ width: LEFT_W, minWidth: LEFT_W, height: ROW_H }}>
+            <td
+                className="px-3 py-2.5 sticky left-0 bg-card border-r-2 border-border z-10"
+                style={{
+                    width: LEFT_W,
+                    minWidth: LEFT_W,
+                    height: ROW_H,
+                    // Aksen kiri + tint warna brand. Gradient dipakai agar tint menumpuk di
+                    // atas bg-card yang OPAQUE (kalau pakai backgroundColor transparan, konten
+                    // yang scroll di belakang kolom sticky ini akan tembus).
+                    borderLeft: `4px solid ${brandColor}`,
+                    backgroundImage: `linear-gradient(${brandColor}0D, ${brandColor}0D)`,
+                }}
+            >
                 <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-base md:text-lg leading-snug">{ev.name}</span>
+                    <span
+                        className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                        style={{ backgroundColor: brandColor + "1F", color: brandColor }}
+                    >
+                        {brandLabelOf(ev)}
+                    </span>
                     {ev.status === "IN_PROGRESS" && <LiveBadge />}
                 </div>
                 {ev.venue && (

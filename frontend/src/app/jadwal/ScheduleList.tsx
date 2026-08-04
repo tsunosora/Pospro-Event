@@ -2,7 +2,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import { MapPin, User as UserIcon, Package, CalendarDays } from "lucide-react";
-import type { PublicTimelineEvent } from "@/lib/api/publicTimeline";
+import { brandColorOf, brandLabelOf, type PublicTimelineEvent } from "@/lib/api/publicTimeline";
 import { LiveBadge } from "./LiveBadge";
 import { CrewCards } from "./CrewCards";
 
@@ -30,21 +30,29 @@ function sortKey(ev: PublicTimelineEvent): number {
     return d ? d.getTime() : Number.MAX_SAFE_INTEGER;
 }
 
-const BRAND_LABEL: Record<string, string> = { EXINDO: "Exindo", XPOSER: "Xposer", OTHER: "Lainnya" };
-
 function EventCard({ ev, i }: { ev: PublicTimelineEvent; i: number }) {
     const pic = ev.picWorker?.name ?? ev.picName;
+    const brandColor = brandColorOf(ev);
     return (
         <div
-            className="rounded-xl border-2 border-border bg-card p-4 animate-in transition-shadow hover:shadow-md"
-            style={{ animationDelay: `${Math.min(i, 12) * 45}ms` }}
+            className="rounded-xl border-2 p-4 animate-in transition-shadow hover:shadow-md"
+            style={{
+                animationDelay: `${Math.min(i, 12) * 45}ms`,
+                backgroundColor: brandColor + "0D", // tint latar ~5%
+                borderColor: brandColor + "40",     // border warna brand ~25%
+            }}
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-bold text-lg leading-snug">{ev.name}</h3>
                     {ev.status === "IN_PROGRESS" && <LiveBadge />}
                 </div>
-                <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">{BRAND_LABEL[ev.brand] ?? ev.brand}</span>
+                <span
+                    className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full"
+                    style={{ backgroundColor: brandColor + "1F", color: brandColor }}
+                >
+                    {brandLabelOf(ev)}
+                </span>
             </div>
             <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5 font-semibold text-foreground"><CalendarDays className="h-4 w-4 shrink-0" />{eventDateLabel(ev)}</span>
