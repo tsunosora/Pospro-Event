@@ -404,6 +404,7 @@
   .jadwal-motion .animate-sheen      { animation: sheen-sweep 5.5s ease-in-out infinite !important; }
   .jadwal-motion .animate-slide-bg   { animation: slide-bg 2.4s linear infinite !important; }
   .jadwal-motion .animate-spin       { animation: spin 1s linear infinite !important; }
+  .jadwal-motion .animate-bounce     { animation: bounce 1s infinite !important; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 

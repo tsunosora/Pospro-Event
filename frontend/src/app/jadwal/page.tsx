@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, KeyRound, Loader2, Lock, LayoutList, CalendarRange, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { CalendarDays, KeyRound, Loader2, Lock, LayoutList, CalendarRange, ChevronLeft, ChevronRight, LogOut, MoveVertical } from "lucide-react";
+import { useAutoScroll } from "./useAutoScroll";
 import { getPublicSchedule, verifyPublicSchedulePin, SchedulePinError, RateLimitError } from "@/lib/api/publicSchedule";
 import { ScheduleCalendar } from "./ScheduleCalendar";
 import { ScheduleList } from "./ScheduleList";
@@ -102,6 +103,8 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
     const today = new Date();
     const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
     const [view, setView] = useState<"calendar" | "list">("calendar");
+    const [autoScroll, setAutoScroll] = useState(true);
+    const scrollRef = useRef<HTMLDivElement>(null);
     const year = cursor.getFullYear();
     const month = cursor.getMonth() + 1;
 
@@ -110,6 +113,10 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
         queryFn: () => getPublicSchedule(pin, year, month),
         retry: false,
     });
+
+    // Auto-scroll layar standby — hanya saat konten meluber; berhenti saat ada
+    // interaksi, lanjut setelah idle. Reset ke atas saat ganti view/bulan.
+    useAutoScroll(scrollRef, autoScroll && !isLoading, `${view}-${year}-${month}`);
 
     // PIN dicabut/berubah di server → kembali ke gate.
     useEffect(() => { if (error instanceof SchedulePinError) onLocked(); }, [error, onLocked]);
@@ -141,6 +148,14 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
                                 <LayoutList className="h-4 w-4" /> Daftar
                             </button>
                         </div>
+                        <button
+                            onClick={() => setAutoScroll((v) => !v)}
+                            aria-label="Auto-scroll"
+                            title={autoScroll ? "Auto-scroll aktif — klik untuk matikan" : "Auto-scroll mati — klik untuk nyalakan"}
+                            className={`h-10 px-3 inline-flex items-center gap-1.5 rounded-lg border-2 text-sm font-semibold transition active:scale-95 ${autoScroll ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}
+                        >
+                            <MoveVertical className={`h-4 w-4 ${autoScroll ? "animate-bounce" : ""}`} /> Auto
+                        </button>
                         <button onClick={() => shift(-1)} aria-label="Bulan sebelumnya" className="h-10 w-10 inline-flex items-center justify-center rounded-lg border-2 border-border hover:bg-muted active:scale-95 transition"><ChevronLeft className="h-5 w-5" /></button>
                         <span key={`${month}-${year}`} className="text-base md:text-lg font-bold min-w-[9rem] text-center animate-pop">{MONTHS_ID[month - 1]} {year}</span>
                         <button onClick={() => shift(1)} aria-label="Bulan berikutnya" className="h-10 w-10 inline-flex items-center justify-center rounded-lg border-2 border-border hover:bg-muted active:scale-95 transition"><ChevronRight className="h-5 w-5" /></button>
@@ -151,7 +166,7 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
             {/* Garis aksen bergerak (streak) */}
             <div className="relative z-10 h-1 w-full bg-gradient-to-r from-primary/0 via-primary to-primary/0 animate-slide-bg" />
 
-            <div className="relative z-10 flex-1 overflow-auto">
+            <div ref={scrollRef} className="relative z-10 flex-1 overflow-auto">
                 {isLoading ? (
                     <div className="py-20 text-center text-lg text-muted-foreground"><Loader2 className="h-7 w-7 animate-spin inline mr-2 align-middle" /> Memuat jadwal…</div>
                 ) : error instanceof RateLimitError ? (
