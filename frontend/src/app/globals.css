@@ -299,7 +299,7 @@
   }
   /* Sapuan cahaya melintas layar. */
   .animate-sheen {
-    animation: sheen-sweep 5.5s ease-in-out infinite;
+    animation: sheen-sweep 11s ease-in-out infinite;
   }
   /* Garis aksen bergerak (streak) di bawah header. */
   .animate-slide-bg {
@@ -401,7 +401,7 @@
   .jadwal-motion .animate-breathe    { animation: breathe 3s ease-in-out infinite !important; }
   .jadwal-motion .animate-orbit      { animation: orbit 15s ease-in-out infinite !important; }
   .jadwal-motion .animate-orbit-rev  { animation: orbit 21s ease-in-out infinite reverse !important; }
-  .jadwal-motion .animate-sheen      { animation: sheen-sweep 5.5s ease-in-out infinite !important; }
+  .jadwal-motion .animate-sheen      { animation: sheen-sweep 11s ease-in-out infinite !important; }
   .jadwal-motion .animate-slide-bg   { animation: slide-bg 2.4s linear infinite !important; }
   .jadwal-motion .animate-spin       { animation: spin 1s linear infinite !important; }
   .jadwal-motion .animate-bounce     { animation: bounce 1s infinite !important; }

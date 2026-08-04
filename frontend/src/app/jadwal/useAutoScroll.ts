@@ -36,27 +36,25 @@ export function useAutoScroll(
         let waitUntil = 0;
         let last = performance.now();
         let idleTimer: ReturnType<typeof setTimeout> | undefined;
+        // Akumulator posisi float — JANGAN baca el.scrollTop balik (dibulatkan ke
+        // integer → pecahan hilang tiap frame → gerak tersendat). Simpan sendiri.
+        let pos = el.scrollTop;
 
-        const canScroll = () => el.scrollHeight - el.clientHeight > 4;
+        const maxTop = () => el.scrollHeight - el.clientHeight;
 
         const step = (now: number) => {
             const dt = Math.min((now - last) / 1000, 0.05);
             last = now;
-            if (!paused && canScroll() && now >= waitUntil) {
+            const max = maxTop();
+            if (!paused && max > 4 && now >= waitUntil) {
                 if (dir === 1) {
-                    el.scrollTop += DOWN * dt;
-                    if (el.scrollTop >= el.scrollHeight - el.clientHeight - 1) {
-                        dir = -1;
-                        waitUntil = now + PAUSE_BOTTOM;
-                    }
+                    pos += DOWN * dt;
+                    if (pos >= max) { pos = max; dir = -1; waitUntil = now + PAUSE_BOTTOM; }
                 } else {
-                    el.scrollTop -= DOWN * UP_FACTOR * dt;
-                    if (el.scrollTop <= 1) {
-                        el.scrollTop = 0;
-                        dir = 1;
-                        waitUntil = now + PAUSE_TOP;
-                    }
+                    pos -= DOWN * UP_FACTOR * dt;
+                    if (pos <= 0) { pos = 0; dir = 1; waitUntil = now + PAUSE_TOP; }
                 }
+                el.scrollTop = pos;
             }
             raf = requestAnimationFrame(step);
         };
@@ -67,6 +65,7 @@ export function useAutoScroll(
             if (idleTimer) clearTimeout(idleTimer);
             idleTimer = setTimeout(() => {
                 paused = false;
+                pos = el.scrollTop; // sinkron ke posisi terakhir user
                 last = performance.now();
             }, IDLE_MS);
         };
@@ -87,5 +86,5 @@ export function useAutoScroll(
             window.removeEventListener("mousemove", onInteract);
             window.removeEventListener("keydown", onInteract);
         };
-    }, [ref, enabled]);
+    }, [ref, enabled, resetKey]);
 }
