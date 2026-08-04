@@ -7,6 +7,7 @@ import { getPublicSchedule, verifyPublicSchedulePin, SchedulePinError, RateLimit
 import { ScheduleCalendar } from "./ScheduleCalendar";
 import { ScheduleList } from "./ScheduleList";
 import { LiveClock } from "./LiveClock";
+import { AmbientBg } from "./AmbientBg";
 
 const SS_KEY = "schedule-pin";
 const MONTHS_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -53,12 +54,7 @@ function PinGate({ onOk }: { onOk: (pin: string) => void }) {
 
     return (
         <div className="jadwal-motion relative min-h-screen w-full flex items-center justify-center p-6 bg-background overflow-hidden">
-            {/* Latar ambient — blob gradien melayang pelan (dekoratif). */}
-            <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className="animate-drift absolute -top-24 -left-16 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
-                <div className="animate-drift-rev absolute -bottom-24 -right-10 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
-                <div className="animate-drift absolute top-1/3 right-1/4 h-56 w-56 rounded-full bg-primary/10 blur-3xl" style={{ animationDelay: "-8s" }} />
-            </div>
+            <AmbientBg />
             <form onSubmit={submit} className="relative w-full max-w-sm space-y-5 text-center animate-in">
                 <div className="flex flex-col items-center gap-3">
                     {/* Ikon melayang + cincin denyut → menarik perhatian */}
@@ -121,8 +117,9 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
     const shift = (d: number) => setCursor(new Date(year, month - 1 + d, 1));
 
     return (
-        <div className="jadwal-motion h-screen w-full bg-background text-foreground flex flex-col">
-            <header className="shrink-0 bg-card border-b-2 border-border animate-fade">
+        <div className="jadwal-motion relative h-screen w-full bg-background text-foreground flex flex-col overflow-hidden">
+            <AmbientBg />
+            <header className="relative z-10 shrink-0 bg-card/90 backdrop-blur-sm border-b-2 border-border animate-fade">
                 <div className="w-full px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-2.5">
                         <CalendarDays className="h-7 w-7 text-primary shrink-0 animate-float" />
@@ -151,8 +148,10 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
                     </div>
                 </div>
             </header>
+            {/* Garis aksen bergerak (streak) */}
+            <div className="relative z-10 h-1 w-full bg-gradient-to-r from-primary/0 via-primary to-primary/0 animate-slide-bg" />
 
-            <div className="flex-1 overflow-auto">
+            <div className="relative z-10 flex-1 overflow-auto">
                 {isLoading ? (
                     <div className="py-20 text-center text-lg text-muted-foreground"><Loader2 className="h-7 w-7 animate-spin inline mr-2 align-middle" /> Memuat jadwal…</div>
                 ) : error instanceof RateLimitError ? (
