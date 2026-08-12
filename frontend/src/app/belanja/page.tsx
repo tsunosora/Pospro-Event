@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Wallet, ShoppingCart, Plus, ArrowDownCircle, Trash2, ReceiptText, Users, AlertTriangle, Loader2 } from "lucide-react";
-import { getKasSummary, getKasByAdmin, getRekapHarian, deleteBelanja, type BelanjaRow } from "@/lib/api/belanja";
+import { Wallet, ShoppingCart, Plus, ArrowDownCircle, Trash2, ReceiptText, Users, AlertTriangle, Loader2, FileDown } from "lucide-react";
+import { getKasSummary, getKasByAdmin, getRekapHarian, deleteBelanja, downloadBelanjaPdf, type BelanjaRow } from "@/lib/api/belanja";
 import { getUsers } from "@/lib/api/settings";
 import { DateRangeFilter, presetToRange, type DateRange } from "@/components/DateRangeFilter";
 import { CatatBelanjaSheet } from "@/components/CatatBelanjaSheet";
@@ -66,7 +66,14 @@ export default function BelanjaPage() {
         <h1 className="text-xl font-bold flex items-center gap-2">
           <ShoppingCart className="h-5 w-5 text-primary" /> Buku Belanja Harian
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => downloadBelanjaPdf({ from, to })}
+            className="inline-flex items-center gap-1.5 border border-border px-3 py-1.5 rounded-md text-sm hover:bg-muted"
+            title="Export laporan belanja periode ini ke PDF"
+          >
+            <FileDown className="h-4 w-4" /> Export PDF
+          </button>
           <button
             onClick={() => setUangMasukOpen(true)}
             className="inline-flex items-center gap-1.5 border border-border px-3 py-1.5 rounded-md text-sm hover:bg-muted"
@@ -164,7 +171,7 @@ export default function BelanjaPage() {
                       {tagBadge(b)}
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      {b.rabCategory?.name ? `${b.rabCategory.name} · ` : ""}
+                      {b.rabItem?.description ? `${b.rabItem.description} · ` : b.rabCategory?.name ? `${b.rabCategory.name} · ` : ""}
                       {b.createdBy?.name ?? ""}
                     </div>
                   </div>

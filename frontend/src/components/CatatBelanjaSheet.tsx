@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { X, ShoppingCart, Loader2, Camera, Users } from "lucide-react";
 import { createBelanja, uploadBelanjaNota, getKasSummary, getRealisasiRab } from "@/lib/api/belanja";
 import { getEvents, type EventRecord } from "@/lib/api/events";
+import { getRab } from "@/lib/api/rab";
 import { getUsers } from "@/lib/api/settings";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -18,15 +19,18 @@ interface Props {
 type UserOpt = { id: number; name?: string | null };
 const rp = (v: string | number) => "Rp " + Number(v || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 });
 
-/** Input belanja cepat (mobile-first). Tag ke event (→ real cost RAB) atau keperluan lain. */
+/** Input belanja cepat (mobile-first). Tag ke event (→ real cost RAB) atau keperluan lain.
+ *  "Untuk apa?" bisa pilih item terdaftar di RAB event, atau ketik custom. */
 export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Props) {
   const qc = useQueryClient();
   const { currentUser } = useCurrentUser();
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState<string>("");
-  const [tagMode, setTagMode] = useState<"event" | "lain">(defaultEventId ? "event" : "event");
+  const [tagMode, setTagMode] = useState<"event" | "lain">("event");
   const [eventId, setEventId] = useState<number | "">(defaultEventId ?? "");
   const [rabCategoryId, setRabCategoryId] = useState<number | "">("");
+  const [rabItemId, setRabItemId] = useState<number | "">("");
+  const [customItem, setCustomItem] = useState<boolean>(false);
   const [category, setCategory] = useState<string>("");
   const [spentAt, setSpentAt] = useState<string>(new Date().toISOString().slice(0, 10));
   const [file, setFile] = useState<File | null>(null);
@@ -40,12 +44,47 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
   const selectedEvent = useMemo(() => events.find((e) => e.id === eventId), [events, eventId]);
   const rabPlanId = selectedEvent?.rabPlanId ?? null;
 
+  // Item + pos RAB untuk event terpilih
+  const { data: rab } = useQuery({
+    queryKey: ["rab", rabPlanId],
+    queryFn: () => getRab(rabPlanId as number),
+    enabled: open && tagMode === "event" && !!rabPlanId,
+  });
+  const rabItems = rab?.items ?? [];
   const { data: realisasi } = useQuery({
     queryKey: ["realisasi-rab", rabPlanId],
     queryFn: () => getRealisasiRab(rabPlanId as number),
     enabled: open && tagMode === "event" && !!rabPlanId,
   });
   const posOptions = realisasi?.pos ?? [];
+
+  const showItemPicker = tagMode === "event" && !!rabPlanId && rabItems.length > 0 && !customItem;
+
+  function resetTagFields() {
+    setRabItemId("");
+    setRabCategoryId("");
+    setCustomItem(false);
+    setDescription("");
+  }
+
+  function onPickItem(val: string) {
+    if (val === "__custom__") {
+      setCustomItem(true);
+      setRabItemId("");
+      setDescription("");
+      return;
+    }
+    if (val === "") {
+      setRabItemId("");
+      return;
+    }
+    const item = rabItems.find((i) => i.id === Number(val));
+    if (item) {
+      setRabItemId(item.id ?? "");
+      setDescription(item.description);
+      setRabCategoryId(item.categoryId ?? "");
+    }
+  }
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -55,6 +94,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
         spentAt,
         eventId: tagMode === "event" ? Number(eventId) : null,
         rabCategoryId: tagMode === "event" && rabCategoryId !== "" ? Number(rabCategoryId) : null,
+        rabItemId: tagMode === "event" && rabItemId !== "" ? Number(rabItemId) : null,
         category: tagMode === "lain" ? category : null,
         attributeToUserId: attributeToUserId === "" ? null : Number(attributeToUserId),
       });
@@ -73,10 +113,11 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
       qc.invalidateQueries({ queryKey: ["rekap-belanja"] });
       qc.invalidateQueries({ queryKey: ["belanja"] });
       if (rabPlanId) qc.invalidateQueries({ queryKey: ["realisasi-rab", rabPlanId] });
-      // reset
       setAmount(0);
       setDescription("");
       setRabCategoryId("");
+      setRabItemId("");
+      setCustomItem(false);
       setCategory("");
       setFile(null);
       onSaved?.();
@@ -91,8 +132,8 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
     e.preventDefault();
     setError(null);
     if (!(amount > 0)) return setError("Nominal harus lebih dari 0");
-    if (!description.trim()) return setError("Deskripsi belanja wajib diisi");
     if (tagMode === "event" && !eventId) return setError("Pilih event, atau ganti ke Keperluan Lain");
+    if (!description.trim()) return setError("Pilih item RAB atau isi deskripsi belanja");
     saveMut.mutate();
   }
 
@@ -109,7 +150,8 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
             </h2>
             {summary && (
               <p className="text-xs text-muted-foreground mt-0.5">
-                Saldo kas: <span className={summary.saldo < 0 ? "text-destructive font-semibold" : "font-semibold"}>{rp(summary.saldo)}</span>
+                Saldo kas:{" "}
+                <span className={summary.saldo < 0 ? "text-destructive font-semibold" : "font-semibold"}>{rp(summary.saldo)}</span>
               </p>
             )}
           </div>
@@ -135,76 +177,115 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
             />
           </div>
 
-          <div>
-            <label className="text-xs font-medium">Untuk apa? *</label>
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
-              placeholder="mis. Beli cat"
-            />
-          </div>
-
           {/* Tag: event vs keperluan lain */}
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => setTagMode("event")}
+              onClick={() => {
+                setTagMode("event");
+                resetTagFields();
+              }}
               className={`px-3 py-1.5 rounded text-sm border ${tagMode === "event" ? "border-primary bg-primary/10 text-primary font-medium" : "border-border"}`}
             >
               Untuk Event
             </button>
             <button
               type="button"
-              onClick={() => setTagMode("lain")}
+              onClick={() => {
+                setTagMode("lain");
+                resetTagFields();
+              }}
               className={`px-3 py-1.5 rounded text-sm border ${tagMode === "lain" ? "border-primary bg-primary/10 text-primary font-medium" : "border-border"}`}
             >
               Keperluan Lain
             </button>
           </div>
 
-          {tagMode === "event" ? (
-            <>
-              <div>
-                <label className="text-xs font-medium">Event (RAB) *</label>
-                <select
-                  value={eventId}
-                  onChange={(e) => {
-                    setEventId(e.target.value === "" ? "" : Number(e.target.value));
-                    setRabCategoryId("");
-                  }}
+          {tagMode === "event" && (
+            <div>
+              <label className="text-xs font-medium">Event (RAB) *</label>
+              <select
+                value={eventId}
+                onChange={(e) => {
+                  setEventId(e.target.value === "" ? "" : Number(e.target.value));
+                  resetTagFields();
+                }}
+                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
+              >
+                <option value="">— Pilih event —</option>
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.code} — {ev.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Untuk apa? — dropdown item RAB atau custom */}
+          <div>
+            <label className="text-xs font-medium">Untuk apa? *</label>
+            {showItemPicker ? (
+              <select
+                value={rabItemId}
+                onChange={(e) => onPickItem(e.target.value)}
+                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
+              >
+                <option value="">— Pilih item dari RAB —</option>
+                {rabItems.map((it) => (
+                  <option key={it.id} value={it.id}>
+                    {it.description}
+                  </option>
+                ))}
+                <option value="__custom__">✏️ Item lain (ketik manual)…</option>
+              </select>
+            ) : (
+              <div className="space-y-1">
+                <input
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
-                >
-                  <option value="">— Pilih event —</option>
-                  {events.map((ev) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.code} — {ev.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {rabPlanId && posOptions.length > 0 && (
-                <div>
-                  <label className="text-xs font-medium">Pos Anggaran (opsional)</label>
-                  <select
-                    value={rabCategoryId}
-                    onChange={(e) => setRabCategoryId(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
+                  placeholder="mis. Beli cat"
+                />
+                {tagMode === "event" && !!rabPlanId && rabItems.length > 0 && customItem && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomItem(false);
+                      setDescription("");
+                    }}
+                    className="text-xs text-primary hover:underline"
                   >
-                    <option value="">— Tanpa pos —</option>
-                    {posOptions.map((p) => (
-                      <option key={p.categoryId} value={p.categoryId}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {selectedEvent && !rabPlanId && (
-                <p className="text-xs text-muted-foreground">Event ini belum punya RAB — belanja tetap tercatat untuk event, tanpa pos anggaran.</p>
-              )}
-            </>
-          ) : (
+                    ← Pilih dari item RAB
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {tagMode === "event" && !!rabPlanId && posOptions.length > 0 && (
+            <div>
+              <label className="text-xs font-medium">Pos Anggaran (opsional)</label>
+              <select
+                value={rabCategoryId}
+                onChange={(e) => setRabCategoryId(e.target.value === "" ? "" : Number(e.target.value))}
+                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
+              >
+                <option value="">— Tanpa pos —</option>
+                {posOptions.map((p) => (
+                  <option key={p.categoryId} value={p.categoryId}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {tagMode === "event" && selectedEvent && !rabPlanId && (
+            <p className="text-xs text-muted-foreground">Event ini belum punya RAB — belanja tetap tercatat untuk event, tanpa pos anggaran.</p>
+          )}
+
+          {tagMode === "lain" && (
             <div>
               <label className="text-xs font-medium">Kategori</label>
               <input

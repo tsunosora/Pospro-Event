@@ -7,6 +7,7 @@ export interface CreateBelanjaDto {
   spentAt?: string;
   eventId?: number | null;
   rabCategoryId?: number | null;
+  rabItemId?: number | null; // item RAB terpilih (opsional)
   category?: string | null;
   attributeToUserId?: number | null; // opsi: atribusikan ke admin lain (default = user token)
 }
@@ -14,6 +15,7 @@ export interface CreateBelanjaDto {
 const INCLUDE = {
   event: { select: { id: true, code: true, name: true } },
   rabCategory: { select: { id: true, name: true } },
+  rabItem: { select: { id: true, description: true } },
   createdBy: { select: { id: true, name: true } },
 } as const;
 
@@ -50,7 +52,19 @@ export class BelanjaService {
     }
     const userId = dto.attributeToUserId || tokenUserId;
     const eventId = dto.eventId ?? null;
-    const rabCategoryId = eventId ? (dto.rabCategoryId ?? null) : null;
+    let rabItemId: number | null = null;
+    let rabCategoryId = eventId ? (dto.rabCategoryId ?? null) : null;
+    // Item RAB terpilih: validasi milik RAB event ini, lalu isi pos dari kategori item bila belum diisi
+    if (eventId && rabPlanId && dto.rabItemId) {
+      const item = await this.prisma.rabItem.findUnique({
+        where: { id: dto.rabItemId },
+        select: { id: true, rabPlanId: true, categoryId: true },
+      });
+      if (item && item.rabPlanId === rabPlanId) {
+        rabItemId = item.id;
+        if (!rabCategoryId) rabCategoryId = item.categoryId;
+      }
+    }
     const category = eventId ? null : (dto.category?.trim() || 'Keperluan Lain');
     const spentAt = dto.spentAt ? new Date(dto.spentAt) : new Date();
     const description = dto.description.trim();
@@ -85,6 +99,7 @@ export class BelanjaService {
           eventId,
           rabPlanId,
           rabCategoryId,
+          rabItemId,
           category,
           cashflowId: cf.id,
           createdById: userId,

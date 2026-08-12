@@ -733,6 +733,7 @@ model RabItem {
   productVariant       ProductVariant?       @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
   sourcePackingItem    EventPackingItem?     @relation("PackingSourcedRabItems", fields: [sourcePackingItemId], references: [id], onDelete: SetNull)
   inventoryAcquisition InventoryAcquisition? @relation("RabItemAcquisition")
+  belanja              Belanja[]             @relation("RabItemBelanja")
 
   @@index([rabPlanId, categoryId, orderIndex])
   @@index([sourcePackingItemId])
@@ -2032,6 +2033,7 @@ model Belanja {
   eventId       Int?     @map("event_id") // null = keperluan lain (non-event)
   rabPlanId     Int?     @map("rab_plan_id") // auto dari event.rabPlanId → real cost RAB
   rabCategoryId Int?     @map("rab_category_id") // pos anggaran RAB (opsional)
+  rabItemId     Int?     @map("rab_item_id") // item RAB terpilih (opsional) → realisasi per item
   category      String?  @db.VarChar(100) // label saat keperluan lain, mis. "Operasional"
   cashflowId    Int?     @unique @map("cashflow_id") // link ke entri Cashflow yang auto-dibuat
   createdById   Int      @map("created_by_id")
@@ -2041,6 +2043,7 @@ model Belanja {
   event       Event?       @relation("EventBelanja", fields: [eventId], references: [id], onDelete: SetNull)
   rabPlan     RabPlan?     @relation("RabPlanBelanja", fields: [rabPlanId], references: [id], onDelete: SetNull)
   rabCategory RabCategory? @relation("RabCategoryBelanja", fields: [rabCategoryId], references: [id], onDelete: SetNull)
+  rabItem     RabItem?     @relation("RabItemBelanja", fields: [rabItemId], references: [id], onDelete: SetNull)
   cashflow    Cashflow?    @relation("BelanjaCashflow", fields: [cashflowId], references: [id], onDelete: SetNull)
   createdBy   User         @relation("BelanjaCreatedBy", fields: [createdById], references: [id])
 

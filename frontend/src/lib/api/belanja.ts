@@ -9,9 +9,11 @@ export interface Penerimaan {
 export interface BelanjaRow {
   id: number; amount: string; description: string; spentAt: string;
   notaUrl?: string | null; eventId?: number | null; rabPlanId?: number | null;
-  category?: string | null; rabCategoryId?: number | null;
+  category?: string | null; rabCategoryId?: number | null; rabItemId?: number | null;
   event?: { id: number; code: string; name: string } | null;
-  rabCategory?: { id: number; name: string } | null; createdBy?: { id: number; name?: string };
+  rabCategory?: { id: number; name: string } | null;
+  rabItem?: { id: number; description: string } | null;
+  createdBy?: { id: number; name?: string };
 }
 export interface RekapHari { tanggal: string; total: number; items: BelanjaRow[]; }
 export interface RealisasiPos { categoryId: number; name: string; rencana: number; real: number; selisih: number; overspend: boolean; }
@@ -35,7 +37,8 @@ export const getRekapHarian = async (params: { from?: string; to?: string } = {}
   (await api.get<RekapHari[]>('/belanja/rekap-harian', { params })).data;
 export const createBelanja = async (input: {
   amount: number; description: string; spentAt?: string;
-  eventId?: number | null; rabCategoryId?: number | null; category?: string | null; attributeToUserId?: number | null;
+  eventId?: number | null; rabCategoryId?: number | null; rabItemId?: number | null;
+  category?: string | null; attributeToUserId?: number | null;
 }) => (await api.post<BelanjaRow>('/belanja', input)).data;
 export const uploadBelanjaNota = async (id: number, file: File) => {
   const fd = new FormData();
@@ -45,3 +48,23 @@ export const uploadBelanjaNota = async (id: number, file: File) => {
 export const deleteBelanja = async (id: number) => (await api.delete(`/belanja/${id}`)).data;
 export const getRealisasiRab = async (rabPlanId: number) =>
   (await api.get<RealisasiRab>(`/belanja/realisasi-rab/${rabPlanId}`)).data;
+
+/** Download laporan belanja PDF (per periode / per event / per RAB). */
+export const downloadBelanjaPdf = async (
+  params: { from?: string; to?: string; eventId?: number; rabPlanId?: number } = {},
+  fallbackName = "laporan-belanja.pdf",
+) => {
+  const res = await api.get(`/belanja/export/pdf`, { params, responseType: "blob" });
+  const blob = new Blob([res.data], { type: "application/pdf" });
+  const cd = (res.headers as Record<string, string>)["content-disposition"] ?? "";
+  const match = /filename="([^"]+)"/.exec(cd);
+  const filename = match ? match[1] : fallbackName;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};

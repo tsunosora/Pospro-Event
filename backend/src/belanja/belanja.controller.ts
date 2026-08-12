@@ -4,11 +4,13 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   ParseIntPipe,
   Post,
   Query,
   Req,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -16,10 +18,11 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { BelanjaService } from './belanja.service';
 import type { CreateBelanjaDto } from './belanja.service';
+import { BelanjaPdfService } from './belanja-pdf.service';
 
 interface JwtRequest extends Request {
   user?: { userId?: number; id?: number };
@@ -39,7 +42,10 @@ const notaFilter = (_r: any, file: any, cb: any) => {
 @Controller('belanja')
 @UseGuards(JwtAuthGuard)
 export class BelanjaController {
-  constructor(private service: BelanjaService) {}
+  constructor(
+    private service: BelanjaService,
+    private pdfService: BelanjaPdfService,
+  ) {}
 
   @Get()
   list(
@@ -66,6 +72,26 @@ export class BelanjaController {
   @Get('realisasi-rab/:rabPlanId')
   realisasi(@Param('rabPlanId', ParseIntPipe) rabPlanId: number) {
     return this.service.realisasiRab(rabPlanId);
+  }
+
+  @Get('export/pdf')
+  @Header('Content-Type', 'application/pdf')
+  async exportPdf(
+    @Res() res: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('eventId') eventId?: string,
+    @Query('rabPlanId') rabPlanId?: string,
+  ) {
+    const { buffer, filename } = await this.pdfService.render({
+      from,
+      to,
+      eventId: eventId ? Number(eventId) : undefined,
+      rabPlanId: rabPlanId ? Number(rabPlanId) : undefined,
+    });
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length.toString());
+    res.end(buffer);
   }
 
   @Post()
