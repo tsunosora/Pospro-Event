@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { MapPin, User as UserIcon, Package, Tag, CalendarDays, Building2, Megaphone } from "lucide-react";
+import { MapPin, User as UserIcon, Package, Tag, CalendarDays, Building2, Megaphone, ChevronDown } from "lucide-react";
 import { brandColorOf, brandLabelOf, type PublicTimelineEvent } from "@/lib/api/publicTimeline";
 import { LiveBadge } from "./LiveBadge";
 import { CrewCards } from "./CrewCards";
@@ -237,8 +237,9 @@ function DayCells({ dayCells, dayPhase, cellW, evName }: {
                         style={{ width: cellW, minWidth: cellW, height: ROW_H }}
                     >
                         {phase && (
+                            // Full kotak: isi penuh sel (lebar & tinggi), tanpa sudut membulat.
                             <div
-                                className={`${PHASE_COLOR[phase].solid} h-[60%] my-[20%] mx-px rounded-sm animate-bar`}
+                                className={`${PHASE_COLOR[phase].solid} w-full h-full animate-bar`}
                                 style={{ animationDelay: `${(d.idx % 14) * 90}ms` }}
                                 title={`${PHASE_COLOR[phase].label} — ${evName}`}
                             />
@@ -333,6 +334,9 @@ function EventRowV2({ ev, dayCells, rangeStart, rangeDays, rowIndex, cellW }: Ro
     const pic = ev.picWorker?.name ?? ev.picName;
     const client = ev.customerName ?? ev.customer?.name ?? null;
     const brandColor = brandColorOf(ev);
+    // Deskripsi order (teks bebas) disembunyikan default agar tinggi baris seragam;
+    // tampil hanya saat tombol "Detail" diklik. Badge kategori tetap terlihat.
+    const [showWork, setShowWork] = useState(false);
 
     const cell: Record<ColKey, ReactNode> = {
         name: (
@@ -357,13 +361,26 @@ function EventRowV2({ ev, dayCells, rangeStart, rangeDays, rowIndex, cellW }: Ro
         ),
         work: (ev.productCategory?.trim() || ev.orderDescription) ? (
             <div className="flex flex-col gap-1">
-                {ev.productCategory?.trim() && (
-                    <span className="self-start inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5">
-                        <Tag className="h-3.5 w-3.5 shrink-0" />{ev.productCategory}
-                    </span>
-                )}
-                {ev.orderDescription && (
-                    <span className="text-sm leading-relaxed whitespace-pre-line">{ev.orderDescription}</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    {ev.productCategory?.trim() && (
+                        <span className="self-start inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5">
+                            <Tag className="h-3.5 w-3.5 shrink-0" />{ev.productCategory}
+                        </span>
+                    )}
+                    {ev.orderDescription && (
+                        <button
+                            type="button"
+                            onClick={() => setShowWork((v) => !v)}
+                            title={showWork ? "Sembunyikan detail" : "Lihat detail pekerjaan"}
+                            className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground hover:text-primary transition-colors"
+                        >
+                            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showWork ? "rotate-180" : ""}`} />
+                            Detail
+                        </button>
+                    )}
+                </div>
+                {showWork && ev.orderDescription && (
+                    <span className="text-sm leading-relaxed whitespace-pre-line animate-fade">{ev.orderDescription}</span>
                 )}
             </div>
         ) : <Empty />,

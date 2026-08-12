@@ -213,7 +213,7 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
                         </button>
                         {/* Rentang tampilan */}
                         <div className="inline-flex rounded-lg border-2 border-border overflow-hidden">
-                            {[1, 3, 6, 12].map((m) => (
+                            {[1, 2, 3, 6, 12].map((m) => (
                                 <button
                                     key={m}
                                     onClick={() => setMonths(m)}
