@@ -106,6 +106,7 @@ const navigation: NavEntry[] = [
     // ── 💰 Keuangan ──
     { kind: "section", label: "Keuangan" },
     { kind: "link", name: "Cashflow Bisnis", href: "/cashflow", icon: Banknote },
+    { kind: "link", name: "Belanja Harian", href: "/belanja", icon: ShoppingCart },
     { kind: "link", name: "Payroll & Absensi", href: "/payroll", icon: Wallet },
     { kind: "link", name: "Tarif Gaji (Kota+Divisi)", href: "/settings/wage-rates", icon: Wallet },
     { kind: "link", name: "Laba per Project", href: "/reports/event-profit", icon: TrendingDown },

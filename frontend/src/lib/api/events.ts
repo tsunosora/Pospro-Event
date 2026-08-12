@@ -12,6 +12,8 @@ export interface EventRecord {
     venue: string | null;
     customerId: number | null;
     customerName: string | null;
+    /** RAB terkait event (untuk real cost belanja). Null kalau event belum ter-link RAB. */
+    rabPlanId: number | null;
     /** Kategori produk — di-enrich dari Lead (via Customer). Bisa null kalau event tak berasal dari lead. */
     productCategory: string | null;
     /** Deskripsi pesanan — di-enrich dari Lead (via Customer). Bisa null kalau event tak berasal dari lead. */

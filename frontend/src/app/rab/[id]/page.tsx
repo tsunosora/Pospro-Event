@@ -52,6 +52,7 @@ import {
 import MultiplierCalculator, { type CalcResult } from "../MultiplierCalculator";
 import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
 import InventoryAcquisitionsSection from "./InventoryAcquisitionsSection";
+import { RabRealisasiSection } from "@/components/RabRealisasiSection";
 import { CustomerPickerModal } from "@/components/CustomerPickerModal";
 import { TagChipInput } from "@/components/TagChipInput";
 
@@ -1212,6 +1213,9 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
 
             {/* Pengadaan Inventaris — track items tagged isInventory */}
             {!isNaN(id) && <InventoryAcquisitionsSection rabPlanId={id} />}
+
+            {/* Realisasi belanja (real cost) — dari Buku Belanja Harian yang di-tag ke RAB ini */}
+            {!isNaN(id) && <RabRealisasiSection rabPlanId={id} />}
 
             {/* ─── Status Laporan Project — admin tandai laporan lengkap ─── */}
             <div className={`rounded-xl border-2 p-4 sm:p-5 ${reportCompletedAt
