@@ -824,18 +824,20 @@ function buildInvoiceOpeningHtml(opts: {
     project: { name: string; location: string; dateRange: string };
     events: Array<{ name: string; location: string; dateRange: string }>;
     labelOverrides: Record<string, string> | null;
-}): string {
+}): string | null {
+    // Kalimat pembuka hanya relevan untuk invoice DP (dan invoice tanpa part).
+    // Untuk PELUNASAN & FULL, pembuka sengaja DIHILANGKAN — invoice pelunasan/sekali-bayar
+    // langsung menampilkan rincian tagihan tanpa paragraf pengantar.
+    if (opts.invoicePart === 'PELUNASAN' || opts.invoicePart === 'FULL') return null;
+
     const L = (key: InvoiceOpeningLabelKey): string => {
         const override = opts.labelOverrides?.[key]?.trim();
         return override || INVOICE_OPENING_DEFAULTS[key];
     };
 
-    // Prefix berdasarkan invoicePart.
     // DP sengaja TIDAK diberi prefix — label "INVOICE — DOWN PAYMENT" sudah tampil
     // besar di atas judul (lihat sewa.hbs), jadi prefix di pembuka hanya duplikasi.
-    let prefix = '';
-    if (opts.invoicePart === 'PELUNASAN') prefix = `<strong>${escapeHtml(L('pelunasan'))}</strong> `;
-    else if (opts.invoicePart === 'FULL') prefix = `<strong>${escapeHtml(L('full'))}</strong> `;
+    const prefix = '';
 
     // Verb per template
     const verb = opts.templateKey === 'sewa' ? L('verbSewa') : L('verbPengadaan');

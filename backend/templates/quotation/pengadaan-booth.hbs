@@ -263,10 +263,13 @@
     {{!-- Custom opening per quotation — override default --}}
     <p class="opening" style="white-space: pre-line;">{{customOpening}}</p>
     {{else if doc.isInvoice}}
+    {{!-- Invoice: pembuka hanya untuk DP. PELUNASAN/FULL → invoiceOpeningHtml null, pembuka dihilangkan. --}}
+    {{#if invoiceOpeningHtml}}
     <p class="opening">
       {{i18n.denganHormat}}<br/>
       {{{invoiceOpeningHtml}}}
     </p>
+    {{/if}}
     {{else}}
     <p class="opening">
       {{i18n.denganHormat}}<br/>
