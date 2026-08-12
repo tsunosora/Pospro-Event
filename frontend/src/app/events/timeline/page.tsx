@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
-    ChevronLeft, ChevronRight, Printer, Loader2, Search, X,
+    ChevronLeft, ChevronRight, ChevronDown, Printer, Loader2, Search, X,
     AlertTriangle, Calendar, Copy, Download, Layers, Pencil,
     Building2, Package, Users, MapPin, User, Share2, RefreshCw, Check, Tag, FileText,
 } from "lucide-react";
@@ -604,7 +604,7 @@ export default function EventTimelinePage() {
     }
 
     return (
-        <div className="flex flex-col h-[calc(100vh-4rem)] bg-background">
+        <div className="flex flex-col h-[calc(100vh-4rem)] bg-background print:h-auto print:block">
             {/* ── Header ── */}
             <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-border print:hidden">
                 <div>
@@ -886,7 +886,7 @@ export default function EventTimelinePage() {
             </div>
 
             {/* ── Gantt ── */}
-            <div ref={gridContainerRef} className="flex-1 overflow-auto relative">
+            <div ref={gridContainerRef} className="flex-1 overflow-auto relative print:overflow-visible print:flex-none print:h-auto">
                 {isLoading ? (
                     <div className="p-8 text-center text-muted-foreground">
                         <Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Memuat timeline...
@@ -941,6 +941,13 @@ export default function EventTimelinePage() {
                 @media print {
                     @page { size: A3 landscape; margin: 1cm; }
                     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    /* Jangan klip: biarkan seluruh timeline mengalir ke banyak halaman */
+                    html, body { height: auto !important; overflow: visible !important; }
+                    /* Sticky header/kolom kiri jadi statis agar tak menumpuk saat cetak */
+                    .sticky { position: static !important; }
+                    /* Header tabel diulang di tiap halaman; baris tak terpotong */
+                    thead { display: table-header-group; }
+                    tr, td, th { break-inside: avoid; }
                 }
             `}</style>
         </div>
@@ -1101,6 +1108,9 @@ function EventRow({
     onDragStart: (ev: EventRecord, phase: Phase, originalEnd: Date) => void;
 }) {
     const today = startOfDay(new Date());
+    // Deskripsi pesanan disembunyikan default (rapih & seragam seperti /jadwal V2);
+    // muncul saat tombol "Detail" diklik. Badge kategori tetap terlihat.
+    const [showWork, setShowWork] = useState(false);
     let ranges = getPhaseRanges(ev).filter((r) => showDeparture || r.phase !== "departure");
 
     // Apply drag preview override
@@ -1170,12 +1180,21 @@ function EventRow({
                         </div>
                     )}
                     {ev.orderDescription?.trim() && (
-                        <div
-                            className="flex items-center gap-0.5 mt-0.5 px-1 py-0 text-[9px] text-foreground/70 bg-muted/60 rounded truncate max-w-full"
-                            title={`Pesanan: ${ev.orderDescription}`}
-                        >
-                            <FileText className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{ev.orderDescription}</span>
-                        </div>
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setShowWork((v) => !v)}
+                                title={showWork ? "Sembunyikan pesanan" : "Lihat pesanan"}
+                                className="inline-flex items-center gap-0.5 mt-0.5 text-[9px] text-muted-foreground hover:text-primary transition-colors"
+                            >
+                                <ChevronDown className={`w-2.5 h-2.5 shrink-0 transition-transform ${showWork ? "rotate-180" : ""}`} /> Detail
+                            </button>
+                            {showWork && (
+                                <div className="flex items-start gap-0.5 mt-0.5 px-1 py-0.5 text-[9px] text-foreground/70 bg-muted/60 rounded max-w-full">
+                                    <FileText className="w-2.5 h-2.5 shrink-0 mt-0.5" /> <span className="whitespace-pre-line break-words">{ev.orderDescription}</span>
+                                </div>
+                            )}
+                        </>
                     )}
                     <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
                         <span className={`inline-block px-1 py-0 text-[8px] rounded ${status.cls} font-medium`}>{status.label}</span>
