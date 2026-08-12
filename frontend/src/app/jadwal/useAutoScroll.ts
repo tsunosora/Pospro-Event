@@ -70,11 +70,14 @@ export function useAutoScroll(
             }, IDLE_MS);
         };
 
+        // Hanya interaksi DISENGAJA yang menjeda: scroll (wheel), sentuh, klik/tekan
+        // pointer, atau keyboard. `mousemove` SENGAJA TIDAK dipakai — di layar
+        // standby/TV kursor overlay atau remote bisa memicu mousemove terus-menerus
+        // sehingga timer idle 6s tak pernah habis → auto-scroll "macet" selamanya.
         const passive = { passive: true } as const;
         el.addEventListener("wheel", onInteract, passive);
         el.addEventListener("touchstart", onInteract, passive);
         el.addEventListener("pointerdown", onInteract, passive);
-        window.addEventListener("mousemove", onInteract, passive);
         window.addEventListener("keydown", onInteract);
 
         return () => {
@@ -83,7 +86,6 @@ export function useAutoScroll(
             el.removeEventListener("wheel", onInteract);
             el.removeEventListener("touchstart", onInteract);
             el.removeEventListener("pointerdown", onInteract);
-            window.removeEventListener("mousemove", onInteract);
             window.removeEventListener("keydown", onInteract);
         };
     }, [ref, enabled, resetKey]);

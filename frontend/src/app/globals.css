@@ -261,10 +261,11 @@
     animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     transform-origin: left center;
   }
-  /* Bar gantt: tumbuh saat muncul + kilau brightness terus-menerus (standby). */
+  /* Bar gantt: tumbuh saat muncul + kilau brightness SANGAT halus (standby).
+     Amplitudo & kecepatan sengaja rendah agar tidak berkedip / menyilaukan. */
   .animate-bar {
     animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both,
-               bar-shine 1.7s ease-in-out infinite;
+               bar-shine 4.5s ease-in-out infinite;
     transform-origin: left center;
   }
   /* Cincin denyut lembut di belakang ikon. */
@@ -304,7 +305,7 @@
   /* Garis aksen bergerak (streak) di bawah header. */
   .animate-slide-bg {
     background-size: 200% 100%;
-    animation: slide-bg 2.4s linear infinite;
+    animation: slide-bg 5s linear infinite;
   }
 }
 
@@ -347,12 +348,12 @@
   75%, 100% { transform: scale(2.2); opacity: 0; }
 }
 @keyframes breathe {
-  0%, 100% { opacity: 0.3; transform: scale(0.82); }
-  50%      { opacity: 1; transform: scale(1.15); }
+  0%, 100% { opacity: 0.72; transform: scale(0.96); }
+  50%      { opacity: 1; transform: scale(1.04); }
 }
 @keyframes bar-shine {
-  0%, 100% { filter: brightness(0.9); }
-  50%      { filter: brightness(1.9) saturate(1.3); }
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.06); }
 }
 @keyframes orbit {
   0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
@@ -372,6 +373,25 @@
   to   { background-position: -200% 0; }
 }
 
+/* ── /jadwal: layar standby publik — DEFAULT tenang (tak perlu menunggu
+   prefers-reduced-motion). Halaman ini menyala lama & ditonton terus, jadi
+   animasi loop yang berkedip / menyapu putih dimatikan agar tidak berkedip &
+   tidak menyilaukan; HANYA animasi masuk sekali-jalan + float lembut + spinner
+   yang dipertahankan. Aturan tak-berlapis (unlayered) + !important → menang atas
+   utility Tailwind. Selaras dengan blok prefers-reduced-motion di bawah.
+   Scoped ke .jadwal-motion → tidak memengaruhi halaman lain. */
+.jadwal-motion .animate-breathe,
+.jadwal-motion .animate-pulse-ring,
+.jadwal-motion .animate-sheen,
+.jadwal-motion .animate-slide-bg,
+.jadwal-motion .animate-ping-slow,
+.jadwal-motion .animate-shimmer,
+.jadwal-motion .animate-bounce { animation: none !important; }
+/* Bar gantt: pertahankan tumbuh sekali saat muncul, buang kilau brightness berulang. */
+.jadwal-motion .animate-bar {
+  animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
 /* ── Hormati preferensi reduce-motion: matikan animasi & transisi non-esensial
    untuk aksesibilitas (WCAG 2.3.3 / prefers-reduced-motion). */
 @media (prefers-reduced-motion: reduce) {
@@ -385,26 +405,19 @@
   }
 
   /* Pengecualian KHUSUS halaman /jadwal (wrapper .jadwal-motion): halaman ini
-     adalah tampilan publik/standby (mis. layar kantor), animasi dekoratif tetap
-     hidup walau perangkat mengaktifkan Reduce Motion. Halaman lain tetap tenang. */
+     tampilan publik/standby (mis. layar kantor). Saat perangkat minta Reduce
+     Motion kita HANYA pertahankan animasi masuk sekali-jalan + float lembut +
+     spinner loading. Semua kedipan loop (breathe, pulse-ring, shimmer, sheen,
+     slide-bg, bounce, orbit, drift, bar-shine) DIBIARKAN mati mengikuti aturan
+     global di atas — supaya benar-benar tenang & tidak menyilaukan. */
   .jadwal-motion .animate-in         { animation: fade-in-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
   .jadwal-motion .animate-fade       { animation: fade-in 0.2s ease-out both !important; }
   .jadwal-motion .animate-pop        { animation: pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
   .jadwal-motion .animate-float      { animation: float-soft 3s ease-in-out infinite !important; }
   .jadwal-motion .animate-grow       { animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
-  .jadwal-motion .animate-bar        { animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both, bar-shine 1.7s ease-in-out infinite !important; }
-  .jadwal-motion .animate-pulse-ring { animation: pulse-ring 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite !important; }
-  .jadwal-motion .animate-drift      { animation: drift 20s ease-in-out infinite !important; }
-  .jadwal-motion .animate-drift-rev  { animation: drift 26s ease-in-out infinite reverse !important; }
-  .jadwal-motion .animate-shimmer    { animation: shimmer 2.8s ease-in-out infinite !important; }
-  .jadwal-motion .animate-ping-slow  { animation: ping-slow 1.6s cubic-bezier(0, 0, 0.2, 1) infinite !important; }
-  .jadwal-motion .animate-breathe    { animation: breathe 3s ease-in-out infinite !important; }
-  .jadwal-motion .animate-orbit      { animation: orbit 15s ease-in-out infinite !important; }
-  .jadwal-motion .animate-orbit-rev  { animation: orbit 21s ease-in-out infinite reverse !important; }
-  .jadwal-motion .animate-sheen      { animation: sheen-sweep 11s ease-in-out infinite !important; }
-  .jadwal-motion .animate-slide-bg   { animation: slide-bg 2.4s linear infinite !important; }
+  /* Bar hanya tumbuh sekali, tanpa kilau berulang. */
+  .jadwal-motion .animate-bar        { animation: grow-bar 0.5s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
   .jadwal-motion .animate-spin       { animation: spin 1s linear infinite !important; }
-  .jadwal-motion .animate-bounce     { animation: bounce 1s infinite !important; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 

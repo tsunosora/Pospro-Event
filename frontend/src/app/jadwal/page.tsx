@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, KeyRound, Loader2, Lock, LayoutList, CalendarRange, ChevronLeft, ChevronRight, LogOut, MoveVertical } from "lucide-react";
+import { CalendarDays, KeyRound, Loader2, Lock, LayoutList, CalendarRange, ChevronLeft, ChevronRight, LogOut, MoveVertical, Rows3, Columns3 } from "lucide-react";
 import { useAutoScroll } from "./useAutoScroll";
 import { getPublicSchedule, verifyPublicSchedulePin, SchedulePinError, RateLimitError } from "@/lib/api/publicSchedule";
 import { ScheduleCalendar } from "./ScheduleCalendar";
@@ -12,6 +12,30 @@ import { AmbientBg } from "./AmbientBg";
 
 const SS_KEY = "schedule-pin";
 const MONTHS_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+// Auto fit-to-screen: render /jadwal pada lebar desain tetap (DESIGN_W) lalu
+// scale agar pas ke viewport. Di TV yang melaporkan viewport CSS kecil (DPR
+// tinggi) konten tampak "besar banget"; menyusutkan ke rasio innerWidth/DESIGN_W
+// mengembalikan kepadatan normal — makin sempit viewport, makin besar penyusutan.
+// Hanya MENGECILKAN (cap 1) → desktop ≥ DESIGN_W tak berubah. Ubah DESIGN_W untuk
+// menyetel seberapa kecil tampilan di TV.
+const DESIGN_W = 1600;
+function FitToScreen({ children }: { children: React.ReactNode }) {
+    const [scale, setScale] = useState(1);
+    useEffect(() => {
+        const compute = () => setScale(Math.min(1, window.innerWidth / DESIGN_W));
+        compute();
+        window.addEventListener("resize", compute);
+        return () => window.removeEventListener("resize", compute);
+    }, []);
+    return (
+        <div className="fixed inset-0 overflow-hidden">
+            <div style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: "top left" }}>
+                {children}
+            </div>
+        </div>
+    );
+}
 
 export default function JadwalPage() {
     // pin: null = belum unlock; ready: false sampai sessionStorage terbaca (hindari hydration mismatch).
@@ -54,7 +78,8 @@ function PinGate({ onOk }: { onOk: (pin: string) => void }) {
     }
 
     return (
-        <div className="jadwal-motion relative min-h-screen w-full flex items-center justify-center p-6 bg-background overflow-hidden">
+        <FitToScreen>
+        <div className="jadwal-motion relative h-full w-full flex items-center justify-center p-6 bg-background overflow-hidden">
             <AmbientBg />
             <form onSubmit={submit} className="relative w-full max-w-sm space-y-5 text-center animate-in">
                 <div className="flex flex-col items-center gap-3">
@@ -96,6 +121,7 @@ function PinGate({ onOk }: { onOk: (pin: string) => void }) {
                 </button>
             </form>
         </div>
+        </FitToScreen>
     );
 }
 
@@ -103,6 +129,7 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
     const today = new Date();
     const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
     const [view, setView] = useState<"calendar" | "list">("calendar");
+    const [calVariant, setCalVariant] = useState<1 | 2>(2);
     const [autoScroll, setAutoScroll] = useState(true);
     const [months, setMonths] = useState(1);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -117,7 +144,7 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
 
     // Auto-scroll layar standby — hanya saat konten meluber; berhenti saat ada
     // interaksi, lanjut setelah idle. Reset ke atas saat ganti view/rentang.
-    useAutoScroll(scrollRef, autoScroll && !isLoading, `${view}-${year}-${month}-${months}`);
+    useAutoScroll(scrollRef, autoScroll && !isLoading, `${view}-${calVariant}-${year}-${month}-${months}`);
 
     // PIN dicabut/berubah di server → kembali ke gate.
     useEffect(() => { if (error instanceof SchedulePinError) onLocked(); }, [error, onLocked]);
@@ -132,7 +159,8 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
         : `${MONTHS_ID[month - 1].slice(0, 3)}${year === endM.getFullYear() ? "" : " " + year} – ${MONTHS_ID[endM.getMonth()].slice(0, 3)} ${endM.getFullYear()}`;
 
     return (
-        <div className="jadwal-motion relative h-screen w-full bg-background text-foreground flex flex-col overflow-hidden">
+        <FitToScreen>
+        <div className="jadwal-motion relative h-full w-full bg-background text-foreground flex flex-col overflow-hidden">
             <AmbientBg />
             <header className="relative z-10 shrink-0 bg-card/90 backdrop-blur-sm border-b-2 border-border animate-fade">
                 <div className="w-full px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
@@ -156,6 +184,25 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
                                 <LayoutList className="h-4 w-4" /> Daftar
                             </button>
                         </div>
+                        {/* Ganti tampilan kalender: Versi 1 (menumpuk) / Versi 2 (kolom). Hanya di mode Kalender. */}
+                        {view === "calendar" && (
+                            <div className="inline-flex rounded-lg border-2 border-border overflow-hidden">
+                                <button
+                                    onClick={() => setCalVariant(1)}
+                                    title="Tampilan 1 — info menumpuk satu kolom"
+                                    className={`h-10 px-3 inline-flex items-center gap-1.5 text-sm font-semibold transition-colors ${calVariant === 1 ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                                >
+                                    <Rows3 className="h-4 w-4" /> 1
+                                </button>
+                                <button
+                                    onClick={() => setCalVariant(2)}
+                                    title="Tampilan 2 — info dipecah per kolom"
+                                    className={`h-10 px-3 inline-flex items-center gap-1.5 text-sm font-semibold transition-colors ${calVariant === 2 ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                                >
+                                    <Columns3 className="h-4 w-4" /> 2
+                                </button>
+                            </div>
+                        )}
                         <button
                             onClick={() => setAutoScroll((v) => !v)}
                             aria-label="Auto-scroll"
@@ -183,8 +230,8 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
                     </div>
                 </div>
             </header>
-            {/* Garis aksen bergerak (streak) */}
-            <div className="relative z-10 h-1 w-full bg-gradient-to-r from-primary/0 via-primary to-primary/0 animate-slide-bg" />
+            {/* Garis aksen tipis (animasi geser dimatikan di /jadwal — lihat globals.css). */}
+            <div className="relative z-10 h-px w-full bg-gradient-to-r from-primary/0 via-primary/30 to-primary/0 animate-slide-bg" />
 
             <div ref={scrollRef} className="relative z-10 flex-1 overflow-auto">
                 {isLoading ? (
@@ -192,13 +239,14 @@ function ScheduleView({ pin, onLocked }: { pin: string; onLocked: () => void }) 
                 ) : error instanceof RateLimitError ? (
                     <div className="py-20 px-6 text-center text-lg text-muted-foreground animate-fade">{error.message}</div>
                 ) : (
-                    <div key={`${view}-${year}-${month}-${months}`} className="animate-fade">
+                    <div key={`${view}-${calVariant}-${year}-${month}-${months}`} className="animate-fade">
                         {view === "calendar"
-                            ? <ScheduleCalendar events={events} year={year} month={month} months={months} />
+                            ? <ScheduleCalendar events={events} year={year} month={month} months={months} variant={calVariant} />
                             : <ScheduleList events={events} months={months} />}
                     </div>
                 )}
             </div>
         </div>
+        </FitToScreen>
     );
 }
