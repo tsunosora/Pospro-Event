@@ -20,10 +20,8 @@ export class AuthController {
     return this.authService.login(user);
   }
 
-  @Post('register')
-  async register(@Body() signUpDto: Record<string, any>) {
-    return this.authService.register(signUpDto);
-  }
+  // Registrasi mandiri (self-signup) publik DIHILANGKAN — akun baru hanya dibuat
+  // owner dari dalam aplikasi via POST /users (butuh login). Lihat users.controller.ts.
 
   @UseGuards(JwtAuthGuard)
   @Get('me')

@@ -7,6 +7,9 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
+  // Buat akun user/karyawan baru — hanya dari dalam aplikasi (butuh login).
+  // Self-signup publik sudah dihapus dari /auth/register.
+  @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
