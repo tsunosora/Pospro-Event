@@ -37,7 +37,7 @@ export const getRekapHarian = async (params: { from?: string; to?: string } = {}
   (await api.get<RekapHari[]>('/belanja/rekap-harian', { params })).data;
 export const createBelanja = async (input: {
   amount: number; description: string; spentAt?: string;
-  eventId?: number | null; rabCategoryId?: number | null; rabItemId?: number | null;
+  eventId?: number | null; rabPlanId?: number | null; rabCategoryId?: number | null; rabItemId?: number | null;
   category?: string | null; attributeToUserId?: number | null;
 }) => (await api.post<BelanjaRow>('/belanja', input)).data;
 export const uploadBelanjaNota = async (id: number, file: File) => {

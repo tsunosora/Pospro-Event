@@ -6,6 +6,7 @@ export interface CreateBelanjaDto {
   description: string;
   spentAt?: string;
   eventId?: number | null;
+  rabPlanId?: number | null; // RAB terpilih (eksplisit) — override tautan event.rabPlanId
   rabCategoryId?: number | null;
   rabItemId?: number | null; // item RAB terpilih (opsional)
   category?: string | null;
@@ -43,12 +44,16 @@ export class BelanjaService {
     if (!dto.description?.trim()) throw new BadRequestException('Deskripsi belanja wajib diisi');
     if (!(Number(dto.amount) > 0)) throw new BadRequestException('Nominal harus > 0');
 
-    // Auto-resolve rabPlanId dari event (bila event punya RAB) → jadi real cost RAB
+    // RAB untuk real cost: pakai pilihan eksplisit dulu, fallback ke tautan event.rabPlanId
     let rabPlanId: number | null = null;
     if (dto.eventId) {
       const ev = await this.prisma.event.findUnique({ where: { id: dto.eventId }, select: { id: true, rabPlanId: true } });
       if (!ev) throw new NotFoundException('Event tidak ditemukan');
       rabPlanId = ev.rabPlanId ?? null;
+    }
+    if (dto.rabPlanId) {
+      const rab = await this.prisma.rabPlan.findUnique({ where: { id: dto.rabPlanId }, select: { id: true } });
+      if (rab) rabPlanId = rab.id;
     }
     const userId = dto.attributeToUserId || tokenUserId;
     const eventId = dto.eventId ?? null;

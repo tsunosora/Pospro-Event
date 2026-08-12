@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { X, ShoppingCart, Loader2, Camera, Users } from "lucide-react";
 import { createBelanja, uploadBelanjaNota, getKasSummary, getRealisasiRab } from "@/lib/api/belanja";
 import { getEvents, type EventRecord } from "@/lib/api/events";
-import { getRab } from "@/lib/api/rab";
+import { getRab, getRabList } from "@/lib/api/rab";
 import { getUsers } from "@/lib/api/settings";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -28,6 +28,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
   const [description, setDescription] = useState<string>("");
   const [tagMode, setTagMode] = useState<"event" | "lain">("event");
   const [eventId, setEventId] = useState<number | "">(defaultEventId ?? "");
+  const [rabPlanId, setRabPlanId] = useState<number | "">("");
   const [rabCategoryId, setRabCategoryId] = useState<number | "">("");
   const [rabItemId, setRabItemId] = useState<number | "">("");
   const [customItem, setCustomItem] = useState<boolean>(false);
@@ -41,10 +42,10 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
   const { data: events = [] } = useQuery<EventRecord[]>({ queryKey: ["events"], queryFn: () => getEvents(), enabled: open });
   const { data: users = [] } = useQuery<UserOpt[]>({ queryKey: ["users"], queryFn: getUsers, staleTime: 5 * 60 * 1000 });
 
-  const selectedEvent = useMemo(() => events.find((e) => e.id === eventId), [events, eventId]);
-  const rabPlanId = selectedEvent?.rabPlanId ?? null;
+  // Daftar RAB untuk dipilih (event → RAB tidak selalu ter-tautkan di data)
+  const { data: rabs = [] } = useQuery({ queryKey: ["rab-list"], queryFn: getRabList, enabled: open && tagMode === "event" });
 
-  // Item + pos RAB untuk event terpilih
+  // Item + pos RAB untuk RAB terpilih
   const { data: rab } = useQuery({
     queryKey: ["rab", rabPlanId],
     queryFn: () => getRab(rabPlanId as number),
@@ -60,7 +61,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
 
   const showItemPicker = tagMode === "event" && !!rabPlanId && rabItems.length > 0 && !customItem;
 
-  function resetTagFields() {
+  function resetItemFields() {
     setRabItemId("");
     setRabCategoryId("");
     setCustomItem(false);
@@ -93,6 +94,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
         description,
         spentAt,
         eventId: tagMode === "event" ? Number(eventId) : null,
+        rabPlanId: tagMode === "event" && rabPlanId !== "" ? Number(rabPlanId) : null,
         rabCategoryId: tagMode === "event" && rabCategoryId !== "" ? Number(rabCategoryId) : null,
         rabItemId: tagMode === "event" && rabItemId !== "" ? Number(rabItemId) : null,
         category: tagMode === "lain" ? category : null,
@@ -115,6 +117,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
       if (rabPlanId) qc.invalidateQueries({ queryKey: ["realisasi-rab", rabPlanId] });
       setAmount(0);
       setDescription("");
+      setRabPlanId("");
       setRabCategoryId("");
       setRabItemId("");
       setCustomItem(false);
@@ -183,7 +186,8 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
               type="button"
               onClick={() => {
                 setTagMode("event");
-                resetTagFields();
+                resetItemFields();
+                setRabPlanId("");
               }}
               className={`px-3 py-1.5 rounded text-sm border ${tagMode === "event" ? "border-primary bg-primary/10 text-primary font-medium" : "border-border"}`}
             >
@@ -193,7 +197,8 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
               type="button"
               onClick={() => {
                 setTagMode("lain");
-                resetTagFields();
+                resetItemFields();
+                setRabPlanId("");
               }}
               className={`px-3 py-1.5 rounded text-sm border ${tagMode === "lain" ? "border-primary bg-primary/10 text-primary font-medium" : "border-border"}`}
             >
@@ -207,8 +212,11 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
               <select
                 value={eventId}
                 onChange={(e) => {
-                  setEventId(e.target.value === "" ? "" : Number(e.target.value));
-                  resetTagFields();
+                  const v = e.target.value === "" ? "" : Number(e.target.value);
+                  setEventId(v);
+                  resetItemFields();
+                  const ev = events.find((x) => x.id === v);
+                  setRabPlanId(ev?.rabPlanId ?? "");
                 }}
                 className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
               >
@@ -216,6 +224,28 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
                 {events.map((ev) => (
                   <option key={ev.id} value={ev.id}>
                     {ev.code} — {ev.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Pilih RAB (untuk ambil item) — event↔RAB tidak selalu ter-tautkan di data */}
+          {tagMode === "event" && eventId !== "" && (
+            <div>
+              <label className="text-xs font-medium">RAB Proyek (untuk ambil item)</label>
+              <select
+                value={rabPlanId}
+                onChange={(e) => {
+                  setRabPlanId(e.target.value === "" ? "" : Number(e.target.value));
+                  resetItemFields();
+                }}
+                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
+              >
+                <option value="">— Pilih RAB (opsional) —</option>
+                {rabs.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.code} — {r.title}
                   </option>
                 ))}
               </select>
@@ -281,8 +311,8 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
             </div>
           )}
 
-          {tagMode === "event" && selectedEvent && !rabPlanId && (
-            <p className="text-xs text-muted-foreground">Event ini belum punya RAB — belanja tetap tercatat untuk event, tanpa pos anggaran.</p>
+          {tagMode === "event" && eventId !== "" && rabPlanId === "" && (
+            <p className="text-xs text-muted-foreground">Pilih RAB di atas untuk memunculkan daftar item & pos anggaran. Tanpa RAB, belanja tetap tercatat untuk event.</p>
           )}
 
           {tagMode === "lain" && (
