@@ -1171,14 +1171,25 @@ export class QuotationsService {
 
         // Guard over-payment: cegah DP/cicilan ter-input dobel yang membuat cashflow ganda
         // (akar masalah double-count DP). Toleransi kecil untuk pembulatan float.
+        //
+        // Ceiling per tipe invoice:
+        //  - DP: boleh melebihi porsi DP (amountToPay) sampai grand total invoice.
+        //    Client kerap transfer lebih dari nominal DP (mis. DP 15jt tapi transfer
+        //    25jt dari total 30jt) — pembayaran aktual itu harus tetap bisa dicatat.
+        //  - PELUNASAN/FULL/tanpa part: tetap dibatasi amountToPay, supaya bagian DP
+        //    yang sudah ditagih terpisah tidak terhitung dobel di cashflow.
+        const isDpInvoice = (inv as any).invoicePart === 'DP';
+        const overpayCeiling = isDpInvoice
+            ? Math.max(Number(inv.total ?? 0), targetAmount)
+            : targetAmount;
         const OVERPAY_TOLERANCE = 1; // 1 rupiah
-        if (targetAmount > 0 && accumulatedPaid > targetAmount + OVERPAY_TOLERANCE) {
-            const sisaTagih = Math.max(0, targetAmount - previousPaid);
+        if (overpayCeiling > 0 && accumulatedPaid > overpayCeiling + OVERPAY_TOLERANCE) {
+            const sisaTagih = Math.max(0, overpayCeiling - previousPaid);
             throw new BadRequestException(
                 `Pembayaran melebihi tagihan invoice ${inv.invoiceNumber}. ` +
                 `Sisa yang harus dibayar Rp ${sisaTagih.toLocaleString('id-ID')}, ` +
                 `tetapi nominal yang diinput Rp ${newPayment.toLocaleString('id-ID')} ` +
-                `(total terbayar jadi Rp ${accumulatedPaid.toLocaleString('id-ID')} dari target Rp ${targetAmount.toLocaleString('id-ID')}). ` +
+                `(total terbayar jadi Rp ${accumulatedPaid.toLocaleString('id-ID')} dari batas Rp ${overpayCeiling.toLocaleString('id-ID')}). ` +
                 `Cek apakah DP sudah termasuk di tagihan ini atau pembayaran sudah pernah dicatat.`,
             );
         }

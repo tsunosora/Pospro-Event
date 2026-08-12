@@ -32,6 +32,16 @@ export function MarkPaidModal({ invoice, onClose, onSubmit, pending }: Props) {
     const alreadyPaid = Number((invoice as any).paidAmount ?? 0);
     const sisaTagihan = Math.max(0, amountToPay - alreadyPaid);
 
+    // Batas atas pembayaran (selaras dgn guard backend markInvoicePaid):
+    //  - Invoice DP: client boleh transfer lebih dari porsi DP sampai grand total
+    //    (mis. DP 15jt tapi bayar 25jt dari total 30jt). Jadi "lebih bayar" hanya
+    //    diperingatkan kalau melewati grand total.
+    //  - PELUNASAN/FULL/tanpa part: batas tetap porsi tagihan invoice ini.
+    const isDpInvoice = (invoice as any).invoicePart === "DP";
+    const grandTotal = Number(invoice.total ?? invoice.amountToPay ?? 0);
+    const overpayCeiling = isDpInvoice ? Math.max(grandTotal, amountToPay) : amountToPay;
+    const sisaHinggaCeiling = Math.max(0, overpayCeiling - alreadyPaid);
+
     // DP percent dari quotation (default 50 kalau gak ada)
     const dpPercentDefault = Math.max(1, Math.min(99, Number(invoice.dpPercent ?? 50) || 50));
 
@@ -93,7 +103,8 @@ export function MarkPaidModal({ invoice, onClose, onSubmit, pending }: Props) {
 
     const isPartial = amount > 0 && amount < sisaTagihan;
     const isFull = amount >= sisaTagihan;
-    const isOverpay = amount > sisaTagihan;
+    // Lebih bayar diukur terhadap batas atas (grand total utk DP), bukan porsi tagihan.
+    const isOverpay = amount > sisaHinggaCeiling + 0.01;
     const needBankPicker = paymentMethod === "BANK_TRANSFER" && createCashflow;
 
     /** Hitung berapa % nominal dari sisa tagihan. */
@@ -118,7 +129,7 @@ export function MarkPaidModal({ invoice, onClose, onSubmit, pending }: Props) {
             return alert("Pilih rekening tujuan untuk pembayaran transfer.");
         }
         if (isOverpay) {
-            if (!confirm(`Nominal Rp ${amount.toLocaleString("id-ID")} > sisa tagihan Rp ${sisaTagihan.toLocaleString("id-ID")}.\nYakin lanjut?`)) return;
+            if (!confirm(`Nominal Rp ${amount.toLocaleString("id-ID")} > batas tagihan Rp ${sisaHinggaCeiling.toLocaleString("id-ID")}.\nYakin lanjut?`)) return;
         }
         await onSubmit({
             amount,
@@ -248,7 +259,7 @@ export function MarkPaidModal({ invoice, onClose, onSubmit, pending }: Props) {
                                 isOverpay ? "text-destructive" :
                                     "text-warning"
                                 }`}>
-                                {isOverpay && <><AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-px" /><span>Lebih bayar Rp <span className="nums">{(amount - sisaTagihan).toLocaleString("id-ID")}</span> — sisa akan dianggap kelebihan</span></>}
+                                {isOverpay && <><AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-px" /><span>Lebih bayar Rp <span className="nums">{(amount - sisaHinggaCeiling).toLocaleString("id-ID")}</span> — sisa akan dianggap kelebihan</span></>}
                                 {isPartial && <><Clock className="w-3.5 h-3.5 flex-shrink-0 mt-px" /><span>Pembayaran sebagian (<span className="nums">{amountPercent.toFixed(1)}</span>% dari sisa tagihan) — status jadi PARTIALLY_PAID. Sisa Rp <span className="nums">{(sisaTagihan - amount).toLocaleString("id-ID")}</span> masih harus dibayar.</span></>}
                                 {isFull && !isOverpay && <><CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-px" /><span>Pembayaran lunas — status jadi PAID.</span></>}
                             </p>

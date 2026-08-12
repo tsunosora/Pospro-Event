@@ -223,4 +223,56 @@ describe('QuotationsService — fix double-count DP PELUNASAN', () => {
             expect(cfArg.data.type).toBe('INCOME');
         });
     });
+
+    // ── Regresi bug: invoice DP boleh menerima pembayaran melebihi porsi DP ──
+    // Kasus user: total tagihan 30jt, DP di invoice 15jt (50%), tapi client transfer
+    // 25jt. Pembayaran ini HARUS bisa dicatat (25jt ≤ grand total 30jt). Guard lama
+    // membandingkan ke amountToPay (15jt) sehingga 25jt keliru ditolak.
+    describe('markInvoicePaid() — DP boleh overpay sampai grand total', () => {
+        const invoiceDp = {
+            id: 300,
+            type: InvoiceType.INVOICE,
+            status: 'SENT',
+            invoiceNumber: '5400/Xp/Inv/VI/26',
+            invoicePart: 'DP',
+            amountToPay: dec('15000000'), // porsi DP 50%
+            total: dec('30000000'),       // grand total
+            paidAmount: dec('0'),
+            paymentCashflowId: null,
+        };
+
+        const makeTx = () => {
+            const tx = {
+                invoicePayment: {
+                    count: jest.fn().mockResolvedValue(0),
+                    create: jest.fn().mockResolvedValue({}),
+                },
+                cashflow: { create: jest.fn().mockResolvedValue({ id: 1 }) },
+                invoice: { update: jest.fn().mockResolvedValue({ id: 300, items: [] }) },
+            };
+            prisma.$transaction.mockImplementation(async (cb: any) => cb(tx));
+            return tx;
+        };
+
+        it('menerima pembayaran DP 25jt walau porsi DP invoice cuma 15jt (≤ grand total 30jt)', async () => {
+            prisma.invoice.findUnique.mockResolvedValue({ ...invoiceDp });
+            const tx = makeTx();
+
+            await service.markInvoicePaid(300, {
+                amount: 25_000_000,
+                createCashflow: true,
+                paymentMethod: 'BANK_TRANSFER',
+            });
+
+            expect(tx.cashflow.create).toHaveBeenCalledTimes(1);
+            expect(Number(tx.cashflow.create.mock.calls[0][0].data.amount)).toBe(25_000_000);
+        });
+
+        it('tetap menolak DP yang melebihi grand total (35jt > 30jt)', async () => {
+            prisma.invoice.findUnique.mockResolvedValue({ ...invoiceDp });
+            await expect(
+                service.markInvoicePaid(300, { amount: 35_000_000 }),
+            ).rejects.toBeInstanceOf(BadRequestException);
+        });
+    });
 });
