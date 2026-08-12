@@ -58,16 +58,18 @@ model User {
   createdAt    DateTime? @default(now()) @map("created_at")
   updatedAt    DateTime? @default(now()) @map("updated_at")
 
-  role      Role?      @relation(fields: [roleId], references: [id])
-  cashflows Cashflow[]
-  cashflowRequests    CashflowChangeRequest[]    @relation("CashflowRequests")
-  cashflowReviews     CashflowChangeRequest[]    @relation("CashflowReviews")
-  editRequests        TransactionEditRequest[]   @relation("EditRequests")
-  editReviews         TransactionEditRequest[]   @relation("EditReviews")
-  withdrawalsCreated  Withdrawal[]               @relation("WithdrawalCreatedBy")
-  attendanceApprovals Attendance[]               @relation("AttendanceApprover")
-  adjustmentsCreated  PayrollAdjustment[]        @relation("AdjustmentCreatedBy")
-  attendanceAuditLogs AttendanceAuditLog[]       @relation("AuditChangedBy")
+  role                  Role?                    @relation(fields: [roleId], references: [id])
+  cashflows             Cashflow[]
+  cashflowRequests      CashflowChangeRequest[]  @relation("CashflowRequests")
+  cashflowReviews       CashflowChangeRequest[]  @relation("CashflowReviews")
+  editRequests          TransactionEditRequest[] @relation("EditRequests")
+  editReviews           TransactionEditRequest[] @relation("EditReviews")
+  withdrawalsCreated    Withdrawal[]             @relation("WithdrawalCreatedBy")
+  attendanceApprovals   Attendance[]             @relation("AttendanceApprover")
+  adjustmentsCreated    PayrollAdjustment[]      @relation("AdjustmentCreatedBy")
+  attendanceAuditLogs   AttendanceAuditLog[]     @relation("AuditChangedBy")
+  penerimaanDanaCreated PenerimaanDana[]         @relation("PenerimaanDanaCreatedBy")
+  belanjaCreated        Belanja[]                @relation("BelanjaCreatedBy")
 
   @@map("users")
 }
@@ -124,52 +126,52 @@ model Product {
 }
 
 model ProductVariant {
-  id                      Int       @id @default(autoincrement())
-  productId               Int       @map("product_id")
-  sku                     String    @unique @db.VarChar(100)
-  variantName             String?   @map("variant_name") @db.VarChar(100)
-  price                   Decimal   @db.Decimal(15, 2)
-  hpp                     Decimal   @default(0) @db.Decimal(15, 2)
-  stock                   Int       @default(0)
-  size                    String?   @db.VarChar(50)
-  color                   String?   @db.VarChar(50)
-  variantImageUrl         String?   @map("variant_image_url") @db.Text
-  description             String?   @db.Text                                  // Keterangan / spesifikasi varian (mis. "Bahan kayu jati, ukuran 60x60cm")
-  notes                   String?   @db.Text                                  // Catatan internal (mis. "Hanya untuk event premium")
-  defaultWarehouseId      Int?      @map("default_warehouse_id")              // Gudang tempat barang ini biasanya disimpan
-  isRollMaterial          Boolean   @default(false) @map("is_roll_material")
-  rollPhysicalWidth       Decimal?  @map("roll_physical_width") @db.Decimal(10, 2)
-  rollEffectivePrintWidth Decimal?  @map("roll_effective_print_width") @db.Decimal(10, 2)
-  clicksPerUnit           Float?    @map("clicks_per_unit") // klik per unit terjual
-  boothProductType        BoothProductType? @map("booth_product_type")       // SEWA atau PENGADAAN untuk pospenawaran
-  defaultRentalUnit       String?   @db.VarChar(30) @map("default_rental_unit") // "hari", "m²", "unit", "set"
-  sourceRabPlanId         Int?      @map("source_rab_plan_id")                 // RAB asal (bila varian dibuat dari RAB)
-  createdAt               DateTime? @default(now()) @map("created_at")
-  updatedAt               DateTime? @default(now()) @updatedAt @map("updated_at")
+  id                      Int               @id @default(autoincrement())
+  productId               Int               @map("product_id")
+  sku                     String            @unique @db.VarChar(100)
+  variantName             String?           @map("variant_name") @db.VarChar(100)
+  price                   Decimal           @db.Decimal(15, 2)
+  hpp                     Decimal           @default(0) @db.Decimal(15, 2)
+  stock                   Int               @default(0)
+  size                    String?           @db.VarChar(50)
+  color                   String?           @db.VarChar(50)
+  variantImageUrl         String?           @map("variant_image_url") @db.Text
+  description             String?           @db.Text // Keterangan / spesifikasi varian (mis. "Bahan kayu jati, ukuran 60x60cm")
+  notes                   String?           @db.Text // Catatan internal (mis. "Hanya untuk event premium")
+  defaultWarehouseId      Int?              @map("default_warehouse_id") // Gudang tempat barang ini biasanya disimpan
+  isRollMaterial          Boolean           @default(false) @map("is_roll_material")
+  rollPhysicalWidth       Decimal?          @map("roll_physical_width") @db.Decimal(10, 2)
+  rollEffectivePrintWidth Decimal?          @map("roll_effective_print_width") @db.Decimal(10, 2)
+  clicksPerUnit           Float?            @map("clicks_per_unit") // klik per unit terjual
+  boothProductType        BoothProductType? @map("booth_product_type") // SEWA atau PENGADAAN untuk pospenawaran
+  defaultRentalUnit       String?           @map("default_rental_unit") @db.VarChar(30) // "hari", "m²", "unit", "set"
+  sourceRabPlanId         Int?              @map("source_rab_plan_id") // RAB asal (bila varian dibuat dari RAB)
+  createdAt               DateTime?         @default(now()) @map("created_at")
+  updatedAt               DateTime?         @default(now()) @updatedAt @map("updated_at")
 
-  product                 Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
-  defaultWarehouse        Warehouse?          @relation("VariantDefaultWarehouse", fields: [defaultWarehouseId], references: [id], onDelete: SetNull)
+  product                 Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  defaultWarehouse        Warehouse?             @relation("VariantDefaultWarehouse", fields: [defaultWarehouseId], references: [id], onDelete: SetNull)
   batches                 Batch[]
   movements               StockMovement[]
   transactionItems        TransactionItem[]
   hppVariableCosts        HppVariableCost[]
-  ingredientsAsRaw        Ingredient[]        @relation("RawMaterial")
+  ingredientsAsRaw        Ingredient[]           @relation("RawMaterial")
   opnameItems             StockOpnameItem[]
-  rollJobs                ProductionJob[]     @relation("RollUsedInJob")
-  batchRolls              ProductionBatch[]   @relation("RollUsedInBatch")
+  rollJobs                ProductionJob[]        @relation("RollUsedInJob")
+  batchRolls              ProductionBatch[]      @relation("RollUsedInBatch")
   supplierItems           SupplierItem[]
   priceTiers              VariantPriceTier[]
-  variantIngredients      VariantIngredient[] @relation("VariantBOM")
-  variantIngredientsAsRaw VariantIngredient[] @relation("VariantRawMaterial")
+  variantIngredients      VariantIngredient[]    @relation("VariantBOM")
+  variantIngredientsAsRaw VariantIngredient[]    @relation("VariantRawMaterial")
   hppWorksheets           HppWorksheet[]
   purchaseItems           StockPurchaseItem[]
   salesOrderItems         SalesOrderItem[]
   invoiceItems            InvoiceItem[]
   rabItems                RabItem[]
-  sourceRabPlan           RabPlan?            @relation("RabPlanGeneratedVariants", fields: [sourceRabPlanId], references: [id], onDelete: SetNull)
+  sourceRabPlan           RabPlan?               @relation("RabPlanGeneratedVariants", fields: [sourceRabPlanId], references: [id], onDelete: SetNull)
   withdrawalItems         WithdrawalItem[]
   packingItems            EventPackingItem[]
-  promotedFromLooseItem   RabLooseItem?       @relation("LooseItemPromotedVariant")
+  promotedFromLooseItem   RabLooseItem?          @relation("LooseItemPromotedVariant")
   inventoryAcquisitions   InventoryAcquisition[] @relation("VariantAcquisitions")
 
   @@map("product_variants")
@@ -178,11 +180,11 @@ model ProductVariant {
 model RabLooseItem {
   id                Int       @id @default(autoincrement())
   description       String    @db.VarChar(255)
-  normalizedKey     String    @unique @db.VarChar(255) @map("normalized_key")
+  normalizedKey     String    @unique @map("normalized_key") @db.VarChar(255)
   unit              String?   @db.VarChar(50)
-  lastPriceRab      Decimal   @default(0) @db.Decimal(15, 2) @map("last_price_rab")
-  lastPriceCost     Decimal   @default(0) @db.Decimal(15, 2) @map("last_price_cost")
-  defaultCategory   String?   @db.VarChar(50) @map("default_category")
+  lastPriceRab      Decimal   @default(0) @map("last_price_rab") @db.Decimal(15, 2)
+  lastPriceCost     Decimal   @default(0) @map("last_price_cost") @db.Decimal(15, 2)
+  defaultCategory   String?   @map("default_category") @db.VarChar(50)
   notes             String?   @db.Text
   usageCount        Int       @default(0) @map("usage_count")
   lastUsedAt        DateTime? @map("last_used_at")
@@ -190,7 +192,7 @@ model RabLooseItem {
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  promotedVariant   ProductVariant? @relation("LooseItemPromotedVariant", fields: [promotedVariantId], references: [id], onDelete: SetNull)
+  promotedVariant ProductVariant? @relation("LooseItemPromotedVariant", fields: [promotedVariantId], references: [id], onDelete: SetNull)
 
   @@index([usageCount])
   @@index([normalizedKey])
@@ -256,7 +258,7 @@ model StockMovement {
   quantity         Decimal      @db.Decimal(10, 4)
   reason           String?      @db.VarChar(255)
   balanceAfter     Float?       @map("balance_after")
-  referenceId      String?      @db.VarChar(100) @map("reference_id")
+  referenceId      String?      @map("reference_id") @db.VarChar(100)
   date             DateTime?    @default(now())
   createdAt        DateTime?    @default(now()) @map("created_at")
 
@@ -279,36 +281,36 @@ enum TransactionStatus {
 }
 
 model Transaction {
-  id                 Int               @id @default(autoincrement())
-  invoiceNumber      String            @unique @map("invoice_number") @db.VarChar(100)
-  totalAmount        Decimal           @map("total_amount") @db.Decimal(15, 2)
-  tax                Decimal           @db.Decimal(15, 2)
-  discount           Decimal           @default(0) @db.Decimal(15, 2)
-  shippingCost       Decimal           @default(0) @map("shipping_cost") @db.Decimal(15, 2)
-  grandTotal         Decimal           @map("grand_total") @db.Decimal(15, 2)
-  paymentMethod      PaymentMethod     @map("payment_method")
-  status             TransactionStatus @default(PENDING)
-  customerName       String?           @map("customer_name") @db.VarChar(200)
-  customerPhone      String?           @map("customer_phone") @db.VarChar(50)
-  customerAddress    String?           @map("customer_address") @db.Text
-  dueDate            DateTime?         @map("due_date")
-  downPayment        Decimal           @default(0) @map("down_payment") @db.Decimal(15, 2)
-  cashierName        String?           @map("cashier_name") @db.VarChar(100)
-  employeeName       String?           @map("employee_name") @db.VarChar(100)
-  bankAccountId      Int?              @map("bank_account_id")
-  dpPaymentMethod    PaymentMethod?    @map("dp_payment_method")
-  dpBankAccountId    Int?              @map("dp_bank_account_id")
-  productionPriority String            @default("NORMAL") @map("production_priority") @db.VarChar(20)
-  productionDeadline DateTime?         @map("production_deadline")
-  productionNotes    String?           @map("production_notes") @db.Text
+  id                  Int               @id @default(autoincrement())
+  invoiceNumber       String            @unique @map("invoice_number") @db.VarChar(100)
+  totalAmount         Decimal           @map("total_amount") @db.Decimal(15, 2)
+  tax                 Decimal           @db.Decimal(15, 2)
+  discount            Decimal           @default(0) @db.Decimal(15, 2)
+  shippingCost        Decimal           @default(0) @map("shipping_cost") @db.Decimal(15, 2)
+  grandTotal          Decimal           @map("grand_total") @db.Decimal(15, 2)
+  paymentMethod       PaymentMethod     @map("payment_method")
+  status              TransactionStatus @default(PENDING)
+  customerName        String?           @map("customer_name") @db.VarChar(200)
+  customerPhone       String?           @map("customer_phone") @db.VarChar(50)
+  customerAddress     String?           @map("customer_address") @db.Text
+  dueDate             DateTime?         @map("due_date")
+  downPayment         Decimal           @default(0) @map("down_payment") @db.Decimal(15, 2)
+  cashierName         String?           @map("cashier_name") @db.VarChar(100)
+  employeeName        String?           @map("employee_name") @db.VarChar(100)
+  bankAccountId       Int?              @map("bank_account_id")
+  dpPaymentMethod     PaymentMethod?    @map("dp_payment_method")
+  dpBankAccountId     Int?              @map("dp_bank_account_id")
+  productionPriority  String            @default("NORMAL") @map("production_priority") @db.VarChar(20)
+  productionDeadline  DateTime?         @map("production_deadline")
+  productionNotes     String?           @map("production_notes") @db.Text
   checkoutNumber      String?           @unique @map("checkout_number") @db.VarChar(100)
   paidAt              DateTime?         @map("paid_at")
   checkoutCashierName String?           @map("checkout_cashier_name") @db.VarChar(100)
-  createdAt          DateTime?         @default(now()) @map("created_at")
-  updatedAt          DateTime?         @default(now()) @updatedAt @map("updated_at")
+  createdAt           DateTime?         @default(now()) @map("created_at")
+  updatedAt           DateTime?         @default(now()) @updatedAt @map("updated_at")
 
   items          TransactionItem[]
-  bankAccount    BankAccount?           @relation(fields: [bankAccountId], references: [id])
+  bankAccount    BankAccount?             @relation(fields: [bankAccountId], references: [id])
   productionJobs ProductionJob[]
   printJobs      PrintJob[]
   editRequests   TransactionEditRequest[]
@@ -327,10 +329,10 @@ model TransactionItem {
   widthCm          Decimal?  @map("width_cm") @db.Decimal(10, 2)
   heightCm         Decimal?  @map("height_cm") @db.Decimal(10, 2)
   areaCm2          Decimal?  @map("area_cm2") @db.Decimal(15, 4)
-  pcs              Int?      @default(1)                         // jumlah kopi/PCS untuk AREA_BASED
-  unitType         String?   @map("unit_type") @db.VarChar(10)  // 'm', 'cm', 'menit'
+  pcs              Int?      @default(1) // jumlah kopi/PCS untuk AREA_BASED
+  unitType         String?   @map("unit_type") @db.VarChar(10) // 'm', 'cm', 'menit'
   note             String?   @db.Text
-  clickType        String?   @map("click_type") @db.VarChar(50)  // "A3+ WARNA", "A4 BW", dll
+  clickType        String?   @map("click_type") @db.VarChar(50) // "A3+ WARNA", "A4 BW", dll
   createdAt        DateTime? @default(now()) @map("created_at")
 
   transaction    Transaction    @relation(fields: [transactionId], references: [id], onDelete: Cascade)
@@ -347,29 +349,30 @@ enum CashflowType {
 }
 
 model Cashflow {
-  id            Int            @id @default(autoincrement())
-  type          CashflowType
-  category      String         @db.VarChar(100)
-  amount        Decimal        @db.Decimal(15, 2)
-  note          String?        @db.Text
-  userId        Int?           @map("user_id")
-  bankAccountId Int?           @map("bank_account_id")
-  paymentMethod  PaymentMethod? @map("payment_method")
-  platformSource String?        @map("platform_source") @db.VarChar(100)
-  date           DateTime       @default(now())
-  shiftReportId    Int?     @map("shift_report_id") // tag pengeluaran ke shift tertentu
-  excludeFromShift Boolean  @default(false) @map("exclude_from_shift") // true = tidak masuk laporan shift manapun (retroaktif/lupa)
-  eventId       Int?           @map("event_id")     // tag ke event tertentu (untuk laba per project)
-  rabPlanId     Int?           @map("rab_plan_id")  // tag ke RAB plan tertentu
-  createdAt        DateTime? @default(now()) @map("created_at")
-  updatedAt     DateTime?      @default(now()) @updatedAt @map("updated_at")
+  id               Int            @id @default(autoincrement())
+  type             CashflowType
+  category         String         @db.VarChar(100)
+  amount           Decimal        @db.Decimal(15, 2)
+  note             String?        @db.Text
+  userId           Int?           @map("user_id")
+  bankAccountId    Int?           @map("bank_account_id")
+  paymentMethod    PaymentMethod? @map("payment_method")
+  platformSource   String?        @map("platform_source") @db.VarChar(100)
+  date             DateTime       @default(now())
+  shiftReportId    Int?           @map("shift_report_id") // tag pengeluaran ke shift tertentu
+  excludeFromShift Boolean        @default(false) @map("exclude_from_shift") // true = tidak masuk laporan shift manapun (retroaktif/lupa)
+  eventId          Int?           @map("event_id") // tag ke event tertentu (untuk laba per project)
+  rabPlanId        Int?           @map("rab_plan_id") // tag ke RAB plan tertentu
+  createdAt        DateTime?      @default(now()) @map("created_at")
+  updatedAt        DateTime?      @default(now()) @updatedAt @map("updated_at")
 
-  user           User?        @relation(fields: [userId], references: [id])
-  bankAccount    BankAccount? @relation(fields: [bankAccountId], references: [id])
-  shiftReport    ShiftReport? @relation(fields: [shiftReportId], references: [id], onDelete: SetNull)
-  event          Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  rabPlan        RabPlan?     @relation(fields: [rabPlanId], references: [id], onDelete: SetNull)
+  user           User?                   @relation(fields: [userId], references: [id])
+  bankAccount    BankAccount?            @relation(fields: [bankAccountId], references: [id])
+  shiftReport    ShiftReport?            @relation(fields: [shiftReportId], references: [id], onDelete: SetNull)
+  event          Event?                  @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  rabPlan        RabPlan?                @relation(fields: [rabPlanId], references: [id], onDelete: SetNull)
   changeRequests CashflowChangeRequest[]
+  belanja        Belanja?                @relation("BelanjaCashflow")
 
   @@index([eventId])
   @@index([rabPlanId])
@@ -388,22 +391,22 @@ enum ChangeRequestType {
 }
 
 model CashflowChangeRequest {
-  id            Int                  @id @default(autoincrement())
-  cashflowId    Int                  @map("cashflow_id")
-  requesterId   Int                  @map("requester_id")
+  id            Int                 @id @default(autoincrement())
+  cashflowId    Int                 @map("cashflow_id")
+  requesterId   Int                 @map("requester_id")
   type          ChangeRequestType
-  status        ChangeRequestStatus  @default(PENDING)
+  status        ChangeRequestStatus @default(PENDING)
   payload       Json?
-  requesterNote String?              @map("requester_note") @db.Text
-  reviewerNote  String?              @map("reviewer_note")  @db.Text
-  reviewedBy    Int?                 @map("reviewed_by")
-  reviewedAt    DateTime?            @map("reviewed_at")
-  createdAt     DateTime             @default(now()) @map("created_at")
-  updatedAt     DateTime             @default(now()) @updatedAt @map("updated_at")
+  requesterNote String?             @map("requester_note") @db.Text
+  reviewerNote  String?             @map("reviewer_note") @db.Text
+  reviewedBy    Int?                @map("reviewed_by")
+  reviewedAt    DateTime?           @map("reviewed_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @default(now()) @updatedAt @map("updated_at")
 
   cashflow  Cashflow @relation(fields: [cashflowId], references: [id], onDelete: Cascade)
   requester User     @relation("CashflowRequests", fields: [requesterId], references: [id])
-  reviewer  User?    @relation("CashflowReviews",  fields: [reviewedBy],  references: [id])
+  reviewer  User?    @relation("CashflowReviews", fields: [reviewedBy], references: [id])
 
   @@map("cashflow_change_requests")
 }
@@ -426,9 +429,9 @@ model TransactionEditRequest {
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @default(now()) @updatedAt @map("updated_at")
 
-  transaction  Transaction @relation(fields: [transactionId], references: [id])
-  requestedBy  User        @relation("EditRequests", fields: [requestedById], references: [id])
-  reviewedBy   User?       @relation("EditReviews",  fields: [reviewedById], references: [id])
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+  requestedBy User        @relation("EditRequests", fields: [requestedById], references: [id])
+  reviewedBy  User?       @relation("EditReviews", fields: [reviewedById], references: [id])
 
   @@map("transaction_edit_requests")
 }
@@ -450,173 +453,173 @@ enum InvoiceType {
 }
 
 enum QuotationVariant {
-  SEWA            // Sewa perlengkapan event
+  SEWA // Sewa perlengkapan event
   PENGADAAN_BOOTH // Pengadaan booth special design
 }
 
 model Invoice {
-  id            Int           @id @default(autoincrement())
-  invoiceNumber String        @unique @map("invoice_number") @db.VarChar(100)
-  type          InvoiceType   @default(INVOICE)
-  clientName    String        @map("client_name") @db.VarChar(200)
-  clientCompany String?       @map("client_company") @db.VarChar(200) // Instansi/PT
-  clientAddress String?       @map("client_address") @db.Text // Alamat Lengkap
-  clientPhone   String?       @map("client_phone") @db.VarChar(50) // No. HP/Telp
-  clientEmail   String?       @map("client_email") @db.VarChar(150) // Email Perusahaan
-  customerId    Int?          @map("customer_id")
-  date          DateTime      @default(now())
-  dueDate       DateTime?     @map("due_date") // Tanggal jatuh tempo (mode single date)
+  id                        Int               @id @default(autoincrement())
+  invoiceNumber             String            @unique @map("invoice_number") @db.VarChar(100)
+  type                      InvoiceType       @default(INVOICE)
+  clientName                String            @map("client_name") @db.VarChar(200)
+  clientCompany             String?           @map("client_company") @db.VarChar(200) // Instansi/PT
+  clientAddress             String?           @map("client_address") @db.Text // Alamat Lengkap
+  clientPhone               String?           @map("client_phone") @db.VarChar(50) // No. HP/Telp
+  clientEmail               String?           @map("client_email") @db.VarChar(150) // Email Perusahaan
+  customerId                Int?              @map("customer_id")
+  date                      DateTime          @default(now())
+  dueDate                   DateTime?         @map("due_date") // Tanggal jatuh tempo (mode single date)
   /// Tanggal akhir jatuh tempo — kalau di-set, dueDate→dueDateEnd jadi RANGE.
   /// Mis. dueDate=15 Mei, dueDateEnd=20 Mei → "Jatuh tempo: 15-20 Mei 2026".
   /// Null = mode single date (cuma pakai dueDate).
-  dueDateEnd    DateTime?     @map("due_date_end")
-  validUntil    DateTime?     @map("valid_until") // Quotation: masa berlaku penawaran
-  status        InvoiceStatus @default(DRAFT)
-  subtotal      Decimal       @default(0) @db.Decimal(15, 2)
-  taxRate       Decimal       @default(0) @map("tax_rate") @db.Decimal(5, 2) // % PPN
-  taxAmount     Decimal       @default(0) @map("tax_amount") @db.Decimal(15, 2) // Rp PPN
+  dueDateEnd                DateTime?         @map("due_date_end")
+  validUntil                DateTime?         @map("valid_until") // Quotation: masa berlaku penawaran
+  status                    InvoiceStatus     @default(DRAFT)
+  subtotal                  Decimal           @default(0) @db.Decimal(15, 2)
+  taxRate                   Decimal           @default(0) @map("tax_rate") @db.Decimal(5, 2) // % PPN
+  taxAmount                 Decimal           @default(0) @map("tax_amount") @db.Decimal(15, 2) // Rp PPN
   /// Pricing mode untuk PPN:
   ///   false (default) = harga item BELUM termasuk PPN (mode exclusive).
   ///     Subtotal = sum items, PPN = subtotal × rate%, Total = subtotal + PPN
   ///   true = harga item SUDAH termasuk PPN (mode inclusive).
   ///     Subtotal = gross (sum items), DPP = subtotal / (1+rate%), PPN = subtotal - DPP, Total = subtotal
-  priceIncludesTax Boolean @default(false) @map("price_includes_tax")
+  priceIncludesTax          Boolean           @default(false) @map("price_includes_tax")
   /// Auto gross-up untuk PPh — kalau ON, harga items dianggap "target net" (yg ingin diterima).
   /// Sistem otomatis hitung DPP = target / (1 - pphRate%) sehingga setelah klien potong PPh,
   /// vendor terima persis target net. Tanpa flag ini, marketing harus manual gross-up sendiri.
-  grossUpPph Boolean @default(false) @map("gross_up_pph")
+  grossUpPph                Boolean           @default(false) @map("gross_up_pph")
   /// PPh (Pajak Penghasilan / withholding tax) — biasanya PPh 23 (2%) atau PPh 4 ayat 2 (1.5%).
   /// PPh DIPOTONG dari total (klien transfer = total - PPh), jadi mengurangi nominal yang diterima vendor.
   /// Mis. event Rp 100jt + PPN 11% = Rp 111jt, dipotong PPh 2% = Rp 2.22jt → diterima Rp 108.78jt
-  pphRate       Decimal       @default(0) @map("pph_rate") @db.Decimal(5, 2) // % PPh
-  pphAmount     Decimal       @default(0) @map("pph_amount") @db.Decimal(15, 2) // Rp PPh (dipotong dari klien)
-  discount      Decimal       @default(0) @db.Decimal(15, 2) // Diskon (Rp)
-  total         Decimal       @default(0) @db.Decimal(15, 2) // Grand Total (Subtotal + PPN - Diskon)
-  notes         String?       @db.Text // Syarat & Ketentuan, Garansi, dll
+  pphRate                   Decimal           @default(0) @map("pph_rate") @db.Decimal(5, 2) // % PPh
+  pphAmount                 Decimal           @default(0) @map("pph_amount") @db.Decimal(15, 2) // Rp PPh (dipotong dari klien)
+  discount                  Decimal           @default(0) @db.Decimal(15, 2) // Diskon (Rp)
+  total                     Decimal           @default(0) @db.Decimal(15, 2) // Grand Total (Subtotal + PPN - Diskon)
+  notes                     String?           @db.Text // Syarat & Ketentuan, Garansi, dll
   // ----- Penawaran booth/event extensions ----- //
-  quotationVariant  QuotationVariant? @map("quotation_variant")
-  parentQuotationId Int?              @map("parent_quotation_id") // revisi merujuk ke penawaran induk
-  revisionNumber    Int               @default(0) @map("revision_number") // 0 = original, 1,2,... = revisi ke-n
-  projectName       String?           @map("project_name") @db.VarChar(500) // Nama event/proyek
-  eventLocation     String?           @map("event_location") @db.VarChar(200)
-  eventDateStart    DateTime?         @map("event_date_start")
-  eventDateEnd      DateTime?         @map("event_date_end")
+  quotationVariant          QuotationVariant? @map("quotation_variant")
+  parentQuotationId         Int?              @map("parent_quotation_id") // revisi merujuk ke penawaran induk
+  revisionNumber            Int               @default(0) @map("revision_number") // 0 = original, 1,2,... = revisi ke-n
+  projectName               String?           @map("project_name") @db.VarChar(500) // Nama event/proyek
+  eventLocation             String?           @map("event_location") @db.VarChar(200)
+  eventDateStart            DateTime?         @map("event_date_start")
+  eventDateEnd              DateTime?         @map("event_date_end")
   // Multi-event support: array `[{name, location, dateStart, dateEnd}]` untuk event tambahan.
   // Event utama tetap pakai field projectName/eventLocation/eventDateStart/eventDateEnd di atas.
-  additionalEvents  Json?             @map("additional_events")
-  bankAccountIds    String?           @map("bank_account_ids") @db.VarChar(200) // CSV id bank yang dicantumkan di penawaran
-  dpPercent         Decimal           @default(50) @map("dp_percent") @db.Decimal(5, 2)
+  additionalEvents          Json?             @map("additional_events")
+  bankAccountIds            String?           @map("bank_account_ids") @db.VarChar(200) // CSV id bank yang dicantumkan di penawaran
+  dpPercent                 Decimal           @default(50) @map("dp_percent") @db.Decimal(5, 2)
   // "DP Sudah Dibayar" — dikurangkan dari grand total saat render invoice.
   //   dpPaidMode: "auto" (jumlah dari invoice DP anak yg sudah dibayar) | "custom" (override manual)
   //   dpPaidCustom: nominal manual (dipakai kalau mode "custom")
-  dpPaidMode        String?           @map("dp_paid_mode") @db.VarChar(10)
-  dpPaidCustom      Decimal?          @map("dp_paid_custom") @db.Decimal(15, 2)
-  rabPlanId         Int?              @map("rab_plan_id")
-  brand             EventBrand?
-  signCity          String?           @map("sign_city") @db.VarChar(100) // Kota lokasi surat dibuat (mis. "Semarang"); kalau null pakai default dari brand address
-  variantCode       String?           @map("variant_code") @db.VarChar(50) // FK-style ke QuotationVariantConfig.code; kalau null fallback ke enum quotationVariant
-  signedByWorkerId  Int?              @map("signed_by_worker_id")          // Marketing/Sales yang menandatangani; kalau null pakai fallback director brand
-  invoicePart       String?           @map("invoice_part") @db.VarChar(20)  // "DP" | "PELUNASAN" | "FULL" — untuk dokumen tipe INVOICE
-  amountToPay       Decimal?          @map("amount_to_pay") @db.Decimal(15, 2) // Jumlah yang ditagihkan di invoice ini (mis. DP 50%); kalau null pakai total
-  itemDisplayMode   String?           @map("item_display_mode") @db.VarChar(30) // "detailed" (default) | "category-summary" — sembunyikan harga per item, hanya total per kategori
+  dpPaidMode                String?           @map("dp_paid_mode") @db.VarChar(10)
+  dpPaidCustom              Decimal?          @map("dp_paid_custom") @db.Decimal(15, 2)
+  rabPlanId                 Int?              @map("rab_plan_id")
+  brand                     EventBrand?
+  signCity                  String?           @map("sign_city") @db.VarChar(100) // Kota lokasi surat dibuat (mis. "Semarang"); kalau null pakai default dari brand address
+  variantCode               String?           @map("variant_code") @db.VarChar(50) // FK-style ke QuotationVariantConfig.code; kalau null fallback ke enum quotationVariant
+  signedByWorkerId          Int?              @map("signed_by_worker_id") // Marketing/Sales yang menandatangani; kalau null pakai fallback director brand
+  invoicePart               String?           @map("invoice_part") @db.VarChar(20) // "DP" | "PELUNASAN" | "FULL" — untuk dokumen tipe INVOICE
+  amountToPay               Decimal?          @map("amount_to_pay") @db.Decimal(15, 2) // Jumlah yang ditagihkan di invoice ini (mis. DP 50%); kalau null pakai total
+  itemDisplayMode           String?           @map("item_display_mode") @db.VarChar(30) // "detailed" (default) | "category-summary" — sembunyikan harga per item, hanya total per kategori
   // Custom text per quotation — override default brand text. Null = pakai brandTexts dari BrandSettings.
-  customOpeningText  String?           @map("custom_opening_text") @db.Text   // Override paragraf "Dengan hormat..." (full custom)
-  customDisclaimer   String?           @map("custom_disclaimer") @db.Text     // Legacy: full override; default skip pakai prepend/append saja
-  customPaymentTerms String?           @map("custom_payment_terms") @db.Text  // Legacy: full override
-  customClosing      String?           @map("custom_closing") @db.Text        // Legacy: full override
+  customOpeningText         String?           @map("custom_opening_text") @db.Text // Override paragraf "Dengan hormat..." (full custom)
+  customDisclaimer          String?           @map("custom_disclaimer") @db.Text // Legacy: full override; default skip pakai prepend/append saja
+  customPaymentTerms        String?           @map("custom_payment_terms") @db.Text // Legacy: full override
+  customClosing             String?           @map("custom_closing") @db.Text // Legacy: full override
   // ---- SPK-specific custom text (override saat render SPK saja, tidak pengaruh penawaran) ----
-  customOpeningSpk     String?         @map("custom_opening_spk") @db.Text
-  customDisclaimerSpk  String?         @map("custom_disclaimer_spk") @db.Text
-  customPaymentTermsSpk String?        @map("custom_payment_terms_spk") @db.Text
-  customClosingSpk     String?         @map("custom_closing_spk") @db.Text
+  customOpeningSpk          String?           @map("custom_opening_spk") @db.Text
+  customDisclaimerSpk       String?           @map("custom_disclaimer_spk") @db.Text
+  customPaymentTermsSpk     String?           @map("custom_payment_terms_spk") @db.Text
+  customClosingSpk          String?           @map("custom_closing_spk") @db.Text
   // Penanggung Jawab khusus SPK — kalau di-set, override clientName di SPK header.
   // Berguna ketika PIC yang tandatangan SPK berbeda dengan PIC di penawaran.
-  spkPicName           String?         @map("spk_pic_name") @db.VarChar(150)
-  spkPicPosition       String?         @map("spk_pic_position") @db.VarChar(100)
-  spkPicPhone          String?         @map("spk_pic_phone") @db.VarChar(50)
+  spkPicName                String?           @map("spk_pic_name") @db.VarChar(150)
+  spkPicPosition            String?           @map("spk_pic_position") @db.VarChar(100)
+  spkPicPhone               String?           @map("spk_pic_phone") @db.VarChar(50)
   // Batas pelunasan SPK — tanggal selambat-lambatnya pelunasan dibayar.
   // Kalau null, render SPK fallback ke validUntil (legacy behavior).
-  spkPaymentDeadline   DateTime?       @map("spk_payment_deadline")
+  spkPaymentDeadline        DateTime?         @map("spk_payment_deadline")
   // ─── Payment tracking (Invoice) ─────────────────────────────────────────
   // Total nominal yang sudah dibayar (akumulasi kalau partial). Null = belum bayar.
-  paidAmount           Decimal?        @map("paid_amount") @db.Decimal(15, 2)
+  paidAmount                Decimal?          @map("paid_amount") @db.Decimal(15, 2)
   // Tanggal pembayaran terakhir (untuk full) atau terakhir update (untuk partial).
-  paidAt               DateTime?       @map("paid_at")
+  paidAt                    DateTime?         @map("paid_at")
   // Metode: TRANSFER / CASH / QRIS / OTHER
-  paymentMethod        String?         @map("payment_method") @db.VarChar(20)
+  paymentMethod             String?           @map("payment_method") @db.VarChar(20)
   // No. referensi (no. transfer, no. cek, bukti pembayaran)
-  paymentRef           String?         @map("payment_ref") @db.VarChar(200)
+  paymentRef                String?           @map("payment_ref") @db.VarChar(200)
   // Catatan bebas pembayaran (mis. "Bayar tunai via Pak Budi", "Dipotong PPh 2.5%")
-  paymentNote          String?         @map("payment_note") @db.Text
+  paymentNote               String?           @map("payment_note") @db.Text
   // URL ke gambar bukti transfer (upload manual oleh admin saat Mark Paid)
-  paymentProofUrl      String?         @map("payment_proof_url") @db.VarChar(500)
+  paymentProofUrl           String?           @map("payment_proof_url") @db.VarChar(500)
   // Cancel info — kalau status=CANCELLED
-  cancelledAt          DateTime?       @map("cancelled_at")
-  cancelReason         String?         @map("cancel_reason") @db.VarChar(255)
+  cancelledAt               DateTime?         @map("cancelled_at")
+  cancelReason              String?           @map("cancel_reason") @db.VarChar(255)
   // FK ke Cashflow row yang auto-created saat Mark Paid (untuk traceability).
-  paymentCashflowId    Int?            @unique @map("payment_cashflow_id")
+  paymentCashflowId         Int?              @unique @map("payment_cashflow_id")
   // ---- Invoice-specific custom text (override saat render Invoice saja, tidak pengaruh penawaran) ----
-  customOpeningInvoice    String?      @map("custom_opening_invoice") @db.Text
-  customDisclaimerInvoice String?      @map("custom_disclaimer_invoice") @db.Text
-  customPaymentTermsInvoice String?    @map("custom_payment_terms_invoice") @db.Text
-  customClosingInvoice    String?      @map("custom_closing_invoice") @db.Text
+  customOpeningInvoice      String?           @map("custom_opening_invoice") @db.Text
+  customDisclaimerInvoice   String?           @map("custom_disclaimer_invoice") @db.Text
+  customPaymentTermsInvoice String?           @map("custom_payment_terms_invoice") @db.Text
+  customClosingInvoice      String?           @map("custom_closing_invoice") @db.Text
   // Penanggung Jawab khusus Invoice — kalau di-set, override clientName/Position/Phone di Invoice.
   // Berguna ketika PIC yang menerima tagihan invoice berbeda dengan PIC di penawaran (mis. ke Finance team).
-  invoicePicName       String?         @map("invoice_pic_name") @db.VarChar(150)
-  invoicePicPosition   String?         @map("invoice_pic_position") @db.VarChar(100)
-  invoicePicPhone      String?         @map("invoice_pic_phone") @db.VarChar(50)
+  invoicePicName            String?           @map("invoice_pic_name") @db.VarChar(150)
+  invoicePicPosition        String?           @map("invoice_pic_position") @db.VarChar(100)
+  invoicePicPhone           String?           @map("invoice_pic_phone") @db.VarChar(50)
   // Append/prepend mode — text di atas/bawah default dari BrandSettings
-  disclaimerPrepend     String?        @map("disclaimer_prepend") @db.Text
-  disclaimerAppend      String?        @map("disclaimer_append") @db.Text
-  paymentTermsPrepend   String?        @map("payment_terms_prepend") @db.Text
-  paymentTermsAppend    String?        @map("payment_terms_append") @db.Text
-  closingPrepend        String?        @map("closing_prepend") @db.Text
-  closingAppend         String?        @map("closing_append") @db.Text
-  attachmentCount    Int?              @map("attachment_count")                // Jumlah lampiran (mis. 1, 2, 3). Null = default 1.
-  customAttachmentText String?         @map("custom_attachment_text") @db.Text // Override teks lampiran (mis. "Brosur produk, Foto referensi"). Null = pakai "{N} ({terbilang}) berkas".
-  language           String            @default("id") @map("language") @db.VarChar(5) // "id" (default) atau "en"
+  disclaimerPrepend         String?           @map("disclaimer_prepend") @db.Text
+  disclaimerAppend          String?           @map("disclaimer_append") @db.Text
+  paymentTermsPrepend       String?           @map("payment_terms_prepend") @db.Text
+  paymentTermsAppend        String?           @map("payment_terms_append") @db.Text
+  closingPrepend            String?           @map("closing_prepend") @db.Text
+  closingAppend             String?           @map("closing_append") @db.Text
+  attachmentCount           Int?              @map("attachment_count") // Jumlah lampiran (mis. 1, 2, 3). Null = default 1.
+  customAttachmentText      String?           @map("custom_attachment_text") @db.Text // Override teks lampiran (mis. "Brosur produk, Foto referensi"). Null = pakai "{N} ({terbilang}) berkas".
+  language                  String            @default("id") @map("language") @db.VarChar(5) // "id" (default) atau "en"
   // Toggle mata uang USD — kalau true, label Rp diganti USD di semua nominal (TANPA konversi kurs).
   // Marketing input nilai USD manual ke field harga. Default false = pakai Rp.
-  useUsdCurrency     Boolean           @default(false) @map("use_usd_currency")
+  useUsdCurrency            Boolean           @default(false) @map("use_usd_currency")
   // Custom subject — override auto-derive dari variantLabel.
   // Contoh: "Booth Rental offering letter" (English) vs default "Penawaran Sewa Booth Special Design".
-  customSubject      String?           @map("custom_subject") @db.VarChar(200)
+  customSubject             String?           @map("custom_subject") @db.VarChar(200)
   // Payment schedule multi-step — array `[{label, percent}]`. Total persen harus = 100.
   // Null = pakai dpPercent legacy (single DP + auto-pelunasan).
-  paymentSchedule    Json?             @map("payment_schedule")
+  paymentSchedule           Json?             @map("payment_schedule")
   // Specifications terpisah dari item table — list group dengan judul.
   // Format: `[{title?: string, items: string[]}]`. Render sebagai section setelah item table.
-  specifications     Json?             @map("specifications")
+  specifications            Json?             @map("specifications")
   // Rincian Pekerjaan — snapshot daftar item pekerjaan (dikelola di halaman /penawaran/[id]/rincian).
   // Format: `[{description: string, volume?: string, unit?: string, note?: string}]`.
   // Di-seed dari item penawaran saat pertama dibuat, lalu jadi daftar editable yang berdiri sendiri
   // (tidak menyentuh item penawaran). Null/empty = belum dibuat → PDF fallback ke item penawaran.
-  rincianPekerjaanItems Json?          @map("rincian_pekerjaan_items")
+  rincianPekerjaanItems     Json?             @map("rincian_pekerjaan_items")
   // Jadwal khusus dokumen Rincian Pekerjaan — tanggal pasang (instalasi) & bongkar (pembongkaran).
   // Terpisah dari eventDateStart/End; tidak memengaruhi penawaran. Null = tidak ditampilkan.
-  rincianInstallDate    DateTime?      @map("rincian_install_date")
-  rincianDismantleDate  DateTime?      @map("rincian_dismantle_date")
+  rincianInstallDate        DateTime?         @map("rincian_install_date")
+  rincianDismantleDate      DateTime?         @map("rincian_dismantle_date")
   // Harga paket — alternatif untuk diskon dengan label lebih jelas.
   // Kalau di-set & > 0 → tampil "Total Penawaran / Harga Paket" di footer (PDF Nukahiji style).
-  packagePrice       Decimal?          @map("package_price") @db.Decimal(15, 2)
+  packagePrice              Decimal?          @map("package_price") @db.Decimal(15, 2)
   // Tampilkan grand total di footer? Default true. Set false untuk mode 'package' (PDF Jalakx).
-  showGrandTotal     Boolean           @default(true) @map("show_grand_total")
+  showGrandTotal            Boolean           @default(true) @map("show_grand_total")
   // Tampilkan baris Diskon di PDF invoice? Default true. Toggle di UI invoice.
-  showDiscount       Boolean           @default(true) @map("show_discount")
+  showDiscount              Boolean           @default(true) @map("show_discount")
   // Tampilkan baris PPh di PDF invoice? Default true. Toggle di UI invoice.
-  showPph            Boolean           @default(true) @map("show_pph")
+  showPph                   Boolean           @default(true) @map("show_pph")
   // Tampilkan baris Harga Paket di PDF invoice? Default true. Toggle di UI invoice.
-  showPackagePrice   Boolean           @default(true) @map("show_package_price")
-  createdAt     DateTime?     @default(now()) @map("created_at")
-  updatedAt     DateTime?     @default(now()) @updatedAt @map("updated_at")
+  showPackagePrice          Boolean           @default(true) @map("show_package_price")
+  createdAt                 DateTime?         @default(now()) @map("created_at")
+  updatedAt                 DateTime?         @default(now()) @updatedAt @map("updated_at")
 
-  items    InvoiceItem[]
-  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  parent   Invoice?  @relation("QuotationRevisions", fields: [parentQuotationId], references: [id], onDelete: SetNull)
-  children Invoice[] @relation("QuotationRevisions")
-  rabPlan  RabPlan?  @relation("QuotationRabPlan", fields: [rabPlanId], references: [id], onDelete: SetNull)
-  signedByWorker Worker? @relation("InvoiceSignedByWorker", fields: [signedByWorkerId], references: [id], onDelete: SetNull)
-  payments InvoicePayment[] @relation("InvoicePayments")
+  items          InvoiceItem[]
+  customer       Customer?               @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  parent         Invoice?                @relation("QuotationRevisions", fields: [parentQuotationId], references: [id], onDelete: SetNull)
+  children       Invoice[]               @relation("QuotationRevisions")
+  rabPlan        RabPlan?                @relation("QuotationRabPlan", fields: [rabPlanId], references: [id], onDelete: SetNull)
+  signedByWorker Worker?                 @relation("InvoiceSignedByWorker", fields: [signedByWorkerId], references: [id], onDelete: SetNull)
+  payments       InvoicePayment[]        @relation("InvoicePayments")
   dueDateHistory InvoiceDueDateHistory[] @relation("InvoiceDueDateHistory")
 
   @@index([type, quotationVariant])
@@ -627,25 +630,25 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id               Int     @id @default(autoincrement())
-  invoiceId        Int     @map("invoice_id")
-  description      String  @db.VarChar(255)
-  unit             String? @db.VarChar(50) // Satuan: pcs, m², lembar, set, unit/hari, m²/hari
-  quantity         Decimal @db.Decimal(15, 4) // desimal utk area m² / durasi
+  id               Int      @id @default(autoincrement())
+  invoiceId        Int      @map("invoice_id")
+  description      String   @db.VarChar(255)
+  unit             String?  @db.VarChar(50) // Satuan: pcs, m², lembar, set, unit/hari, m²/hari
+  quantity         Decimal  @db.Decimal(15, 4) // desimal utk area m² / durasi
   /// Multiplier tambahan untuk sewa multi-faktor (hari, jam, dll).
   /// Subtotal = quantity × unitMultiplier × price.
   /// Mis. sewa 2 unit × 3 hari × Rp 350.000 → quantity=2, unitMultiplier=3, price=350000, subtotal=2.100.000
   /// Null/1 = item normal (qty × price). Tidak break kompatibilitas data lama.
   unitMultiplier   Decimal? @default(1) @map("unit_multiplier") @db.Decimal(10, 4)
-  price            Decimal @db.Decimal(15, 2)
-  orderIndex       Int     @default(0) @map("order_index")
-  productVariantId Int?    @map("product_variant_id")
-  categoryName     String? @map("category_name") @db.VarChar(100) // snapshot kategori RAB untuk grouping di PDF
+  price            Decimal  @db.Decimal(15, 2)
+  orderIndex       Int      @default(0) @map("order_index")
+  productVariantId Int?     @map("product_variant_id")
+  categoryName     String?  @map("category_name") @db.VarChar(100) // snapshot kategori RAB untuk grouping di PDF
   // Multi-event grouping: link item ke event tertentu (untuk penawaran multi-lokasi).
   // null = shared/global. 0 = event utama (projectName). 1+ = additionalEvents[i-1].
-  eventIndex       Int?    @map("event_index")
+  eventIndex       Int?     @map("event_index")
   // Package grouping (mode 'package'): nama paket (mis. "Package 1", "Package 2"). null untuk mode normal.
-  packageGroup     String? @map("package_group") @db.VarChar(80)
+  packageGroup     String?  @map("package_group") @db.VarChar(80)
 
   invoice        Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
@@ -658,75 +661,77 @@ model InvoiceItem {
 
 // ----- RAB (Rencana Anggaran Biaya) two-tier costing ----- //
 model RabCategory {
-  id         Int       @id @default(autoincrement())
-  name       String    @unique @db.VarChar(100)
-  orderIndex Int       @default(0) @map("order_index")
-  isActive   Boolean   @default(true) @map("is_active")
+  id         Int      @id @default(autoincrement())
+  name       String   @unique @db.VarChar(100)
+  orderIndex Int      @default(0) @map("order_index")
+  isActive   Boolean  @default(true) @map("is_active")
   // optional stable identifier (used for built-in/seeded categories)
-  key        String?   @unique @db.VarChar(50)
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+  key        String?  @unique @db.VarChar(50)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
-  items RabItem[]
+  items   RabItem[]
+  belanja Belanja[] @relation("RabCategoryBelanja")
 
   @@index([orderIndex])
   @@map("rab_categories")
 }
 
 model RabPlan {
-  id          Int         @id @default(autoincrement())
-  code        String      @unique @db.VarChar(50)              // "RAB-2026-0037"
-  title       String      @db.VarChar(255)
-  projectName String?     @map("project_name") @db.VarChar(200)
-  location    String?     @db.VarChar(200)
-  periodStart DateTime?   @map("period_start")
-  periodEnd   DateTime?   @map("period_end")
-  customerId  Int?        @map("customer_id")
-  brand       EventBrand?
+  id                Int         @id @default(autoincrement())
+  code              String      @unique @db.VarChar(50) // "RAB-2026-0037"
+  title             String      @db.VarChar(255)
+  projectName       String?     @map("project_name") @db.VarChar(200)
+  location          String?     @db.VarChar(200)
+  periodStart       DateTime?   @map("period_start")
+  periodEnd         DateTime?   @map("period_end")
+  customerId        Int?        @map("customer_id")
+  brand             EventBrand?
   // Pendapatan
-  dpAmount    Decimal   @default(0) @map("dp_amount") @db.Decimal(15, 2)
-  pelunasan   Decimal   @default(0) @db.Decimal(15, 2)
-  incomeOther Decimal   @default(0) @map("income_other") @db.Decimal(15, 2)
-  notes       String?   @db.Text
-  imageUrl    String?   @map("image_url") @db.Text  // Foto sketsa/desain/referensi project (single image)
-  tags        String?   @db.Text  // JSON array of tag strings (e.g. ["Stand Standar 3x3", "Pengadaan"])
-  reportCompletedAt DateTime? @map("report_completed_at")  // Admin manually mark laporan RAB sudah lengkap
-  reportCompletedBy Int?      @map("report_completed_by")  // user ID yang menandai (audit)
-  createdAt   DateTime? @default(now()) @map("created_at")
-  updatedAt   DateTime? @default(now()) @updatedAt @map("updated_at")
+  dpAmount          Decimal     @default(0) @map("dp_amount") @db.Decimal(15, 2)
+  pelunasan         Decimal     @default(0) @db.Decimal(15, 2)
+  incomeOther       Decimal     @default(0) @map("income_other") @db.Decimal(15, 2)
+  notes             String?     @db.Text
+  imageUrl          String?     @map("image_url") @db.Text // Foto sketsa/desain/referensi project (single image)
+  tags              String?     @db.Text // JSON array of tag strings (e.g. ["Stand Standar 3x3", "Pengadaan"])
+  reportCompletedAt DateTime?   @map("report_completed_at") // Admin manually mark laporan RAB sudah lengkap
+  reportCompletedBy Int?        @map("report_completed_by") // user ID yang menandai (audit)
+  createdAt         DateTime?   @default(now()) @map("created_at")
+  updatedAt         DateTime?   @default(now()) @updatedAt @map("updated_at")
 
-  customer          Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  items             RabItem[]
-  quotations        Invoice[]         @relation("QuotationRabPlan")
-  generatedVariants ProductVariant[]  @relation("RabPlanGeneratedVariants")
-  events            Event[]           @relation("EventRabPlan")
-  cashflows         Cashflow[]
+  customer              Customer?              @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items                 RabItem[]
+  quotations            Invoice[]              @relation("QuotationRabPlan")
+  generatedVariants     ProductVariant[]       @relation("RabPlanGeneratedVariants")
+  events                Event[]                @relation("EventRabPlan")
+  cashflows             Cashflow[]
   inventoryAcquisitions InventoryAcquisition[] @relation("RabPlanAcquisitions")
+  belanja               Belanja[]              @relation("RabPlanBelanja")
 
   @@index([brand])
   @@map("rab_plans")
 }
 
 model RabItem {
-  id               Int      @id @default(autoincrement())
-  rabPlanId        Int      @map("rab_plan_id")
-  categoryId       Int      @map("category_id")
-  orderIndex       Int      @default(0) @map("order_index")
-  description      String   @db.VarChar(255)
-  unit             String?  @db.VarChar(50)
-  quantity         Decimal  @default(1) @db.Decimal(15, 4) // qty sisi RAB (client-facing)
-  quantityCost     Decimal  @default(1) @map("quantity_cost") @db.Decimal(15, 4) // qty sisi COST (aktual/internal)
-  priceRab         Decimal  @default(0) @map("price_rab") @db.Decimal(15, 2) // harga penawaran ke klien
-  priceCost        Decimal  @default(0) @map("price_cost") @db.Decimal(15, 2) // harga aktual/internal (COST)
-  productVariantId      Int?     @map("product_variant_id")
-  sourcePackingItemId   Int?     @map("source_packing_item_id")
-  notes                 String?  @db.Text
-  isInventory           Boolean  @default(false) @map("is_inventory") // tag: barang yang dibeli sebagai aset perusahaan (bukan murni cost event)
+  id                  Int     @id @default(autoincrement())
+  rabPlanId           Int     @map("rab_plan_id")
+  categoryId          Int     @map("category_id")
+  orderIndex          Int     @default(0) @map("order_index")
+  description         String  @db.VarChar(255)
+  unit                String? @db.VarChar(50)
+  quantity            Decimal @default(1) @db.Decimal(15, 4) // qty sisi RAB (client-facing)
+  quantityCost        Decimal @default(1) @map("quantity_cost") @db.Decimal(15, 4) // qty sisi COST (aktual/internal)
+  priceRab            Decimal @default(0) @map("price_rab") @db.Decimal(15, 2) // harga penawaran ke klien
+  priceCost           Decimal @default(0) @map("price_cost") @db.Decimal(15, 2) // harga aktual/internal (COST)
+  productVariantId    Int?    @map("product_variant_id")
+  sourcePackingItemId Int?    @map("source_packing_item_id")
+  notes               String? @db.Text
+  isInventory         Boolean @default(false) @map("is_inventory") // tag: barang yang dibeli sebagai aset perusahaan (bukan murni cost event)
 
-  rabPlan            RabPlan           @relation(fields: [rabPlanId], references: [id], onDelete: Cascade)
-  category           RabCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  productVariant     ProductVariant?   @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
-  sourcePackingItem  EventPackingItem? @relation("PackingSourcedRabItems", fields: [sourcePackingItemId], references: [id], onDelete: SetNull)
+  rabPlan              RabPlan               @relation(fields: [rabPlanId], references: [id], onDelete: Cascade)
+  category             RabCategory           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  productVariant       ProductVariant?       @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  sourcePackingItem    EventPackingItem?     @relation("PackingSourcedRabItems", fields: [sourcePackingItemId], references: [id], onDelete: SetNull)
   inventoryAcquisition InventoryAcquisition? @relation("RabItemAcquisition")
 
   @@index([rabPlanId, categoryId, orderIndex])
@@ -738,8 +743,8 @@ model RabItem {
 // ----- Counter nomor dokumen (penawaran, dll) ----- //
 model DocumentNumberCounter {
   id        Int      @id @default(autoincrement())
-  docType   String   @db.VarChar(20) @map("doc_type")  // "Pnwr"
-  kode      String   @db.VarChar(20)                    // kode perusahaan: "Xp", "Ep"
+  docType   String   @map("doc_type") @db.VarChar(20) // "Pnwr"
+  kode      String   @db.VarChar(20) // kode perusahaan: "Xp", "Ep"
   year      Int
   lastSeq   Int      @default(0) @map("last_seq")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -823,16 +828,16 @@ model StoreSettings {
   lowStockThreshold     Int       @default(5) @map("low_stock_threshold")
   shiftReminderTime     String?   @map("shift_reminder_time") @db.VarChar(5)
   shiftReminderTime2    String?   @map("shift_reminder_time_2") @db.VarChar(5)
-  notifyGithubCommit     Boolean   @default(true) @map("notify_github_commit")
-  discordWebhookUrl      String?   @map("discord_webhook_url") @db.Text
-  githubWebhookSecret    String?   @map("github_webhook_secret") @db.VarChar(200)
+  notifyGithubCommit    Boolean   @default(true) @map("notify_github_commit")
+  discordWebhookUrl     String?   @map("discord_webhook_url") @db.Text
+  githubWebhookSecret   String?   @map("github_webhook_secret") @db.VarChar(200)
   // Rclone Auto-Backup
-  rcloneEnabled          Boolean   @default(false) @map("rclone_enabled")
-  rcloneRemote           String?   @map("rclone_remote") @db.VarChar(300)
-  rcloneSchedule         String?   @default("0 2 * * *") @map("rclone_schedule") @db.VarChar(50)
-  rcloneKeepCount        Int       @default(7) @map("rclone_keep_count")
-  rcloneLastBackupAt     DateTime? @map("rclone_last_backup_at")
-  rcloneLastStatus       String?   @map("rclone_last_status") @db.VarChar(500)
+  rcloneEnabled         Boolean   @default(false) @map("rclone_enabled")
+  rcloneRemote          String?   @map("rclone_remote") @db.VarChar(300)
+  rcloneSchedule        String?   @default("0 2 * * *") @map("rclone_schedule") @db.VarChar(50)
+  rcloneKeepCount       Int       @default(7) @map("rclone_keep_count")
+  rcloneLastBackupAt    DateTime? @map("rclone_last_backup_at")
+  rcloneLastStatus      String?   @map("rclone_last_status") @db.VarChar(500)
   createdAt             DateTime? @default(now()) @map("created_at")
   updatedAt             DateTime? @default(now()) @updatedAt @map("updated_at")
 
@@ -849,8 +854,8 @@ model BankAccount {
   createdAt      DateTime? @default(now()) @map("created_at")
   updatedAt      DateTime? @default(now()) @updatedAt @map("updated_at")
 
-  transactions Transaction[]
-  cashflows    Cashflow[]
+  transactions    Transaction[]
+  cashflows       Cashflow[]
   invoicePayments InvoicePayment[]
 
   @@map("bank_accounts")
@@ -863,19 +868,19 @@ model BankAccount {
  * installmentNumber = 1, 2, 3, ... — auto-increment per invoice.
  */
 model InvoicePayment {
-  id                Int       @id @default(autoincrement())
-  invoiceId         Int       @map("invoice_id")
-  installmentNumber Int       @map("installment_number") // urutan cicilan: 1, 2, 3, ...
-  amount            Decimal   @db.Decimal(15, 2)
-  paidAt            DateTime  @map("paid_at")
-  paymentMethod     String?   @map("payment_method") @db.VarChar(20) // CASH | QRIS | BANK_TRANSFER | OTHER
-  paymentRef        String?   @map("payment_ref") @db.VarChar(200)
-  paymentNote       String?   @map("payment_note") @db.Text
-  paymentProofUrl   String?   @map("payment_proof_url") @db.VarChar(500)
-  bankAccountId     Int?      @map("bank_account_id")
-  cashflowId        Int?      @unique @map("cashflow_id") // FK ke Cashflow yang auto-created
-  createdById       Int?      @map("created_by_id") // user yang record pembayaran
-  createdAt         DateTime  @default(now()) @map("created_at")
+  id                Int      @id @default(autoincrement())
+  invoiceId         Int      @map("invoice_id")
+  installmentNumber Int      @map("installment_number") // urutan cicilan: 1, 2, 3, ...
+  amount            Decimal  @db.Decimal(15, 2)
+  paidAt            DateTime @map("paid_at")
+  paymentMethod     String?  @map("payment_method") @db.VarChar(20) // CASH | QRIS | BANK_TRANSFER | OTHER
+  paymentRef        String?  @map("payment_ref") @db.VarChar(200)
+  paymentNote       String?  @map("payment_note") @db.Text
+  paymentProofUrl   String?  @map("payment_proof_url") @db.VarChar(500)
+  bankAccountId     Int?     @map("bank_account_id")
+  cashflowId        Int?     @unique @map("cashflow_id") // FK ke Cashflow yang auto-created
+  createdById       Int?     @map("created_by_id") // user yang record pembayaran
+  createdAt         DateTime @default(now()) @map("created_at")
 
   invoice     Invoice      @relation("InvoicePayments", fields: [invoiceId], references: [id], onDelete: Cascade)
   bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
@@ -891,16 +896,16 @@ model InvoicePayment {
  * Owner bisa cek: berapa kali invoice ini di-extend, alasan apa, oleh siapa.
  */
 model InvoiceDueDateHistory {
-  id             Int       @id @default(autoincrement())
-  invoiceId      Int       @map("invoice_id")
-  oldDueDate     DateTime? @map("old_due_date")
-  oldDueDateEnd  DateTime? @map("old_due_date_end")
-  newDueDate     DateTime? @map("new_due_date")
-  newDueDateEnd  DateTime? @map("new_due_date_end")
+  id            Int       @id @default(autoincrement())
+  invoiceId     Int       @map("invoice_id")
+  oldDueDate    DateTime? @map("old_due_date")
+  oldDueDateEnd DateTime? @map("old_due_date_end")
+  newDueDate    DateTime? @map("new_due_date")
+  newDueDateEnd DateTime? @map("new_due_date_end")
   /// Alasan perubahan — mis. "Klien belum ada uang, minta tunda 1 minggu"
-  reason         String?   @db.Text
-  changedById    Int?      @map("changed_by_id") // user yang ubah
-  changedAt      DateTime  @default(now()) @map("changed_at")
+  reason        String?   @db.Text
+  changedById   Int?      @map("changed_by_id") // user yang ubah
+  changedAt     DateTime  @default(now()) @map("changed_at")
 
   invoice Invoice @relation("InvoiceDueDateHistory", fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -914,8 +919,8 @@ model Customer {
   phone       String?   @db.VarChar(50)
   email       String?   @db.VarChar(150)
   address     String?   @db.Text
-  companyName String?   @db.VarChar(200) @map("company_name") // Nama perusahaan/instansi klien
-  companyPIC  String?   @db.VarChar(150) @map("company_pic")  // Nama PIC/kontak person di klien
+  companyName String?   @map("company_name") @db.VarChar(200) // Nama perusahaan/instansi klien
+  companyPIC  String?   @map("company_pic") @db.VarChar(150) // Nama PIC/kontak person di klien
   createdAt   DateTime? @default(now()) @map("created_at")
   updatedAt   DateTime? @default(now()) @updatedAt @map("updated_at")
 
@@ -1057,12 +1062,12 @@ model SupplierItem {
 
 model StockPurchase {
   id            Int      @id @default(autoincrement())
-  invoiceNumber String?  @db.VarChar(100) @map("invoice_number")
+  invoiceNumber String?  @map("invoice_number") @db.VarChar(100)
   supplierId    Int?     @map("supplier_id")
   notes         String?  @db.Text
   createdAt     DateTime @default(now()) @map("created_at")
 
-  supplier Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  supplier Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   items    StockPurchaseItem[]
 
   @@map("stock_purchases")
@@ -1073,7 +1078,7 @@ model StockPurchaseItem {
   purchaseId       Int      @map("purchase_id")
   productVariantId Int      @map("product_variant_id")
   quantity         Int
-  unitPrice        Decimal? @db.Decimal(15, 2) @map("unit_price")
+  unitPrice        Decimal? @map("unit_price") @db.Decimal(15, 2)
 
   purchase       StockPurchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
@@ -1141,22 +1146,22 @@ model ShiftReport {
   transferDifference Decimal @map("transfer_difference") @db.Decimal(15, 2)
 
   // Detailed breakdowns for WA report
-  expectedBankBalances Json? @map("expected_bank_balances")
-  actualBankBalances   Json? @map("actual_bank_balances") // Saldo Laporan mBanking
-  realBankBalances     Json? @map("real_bank_balances") // Saldo Real di Bank
-  shiftExpenses        Json? @map("shift_expenses")
-  structuredExpenses   Json? @map("structured_expenses") // Pengeluaran terstruktur per metode
-  kasbon               Json? @map("kasbon")               // [{name: string, amount: number}]
-  setorKas             Json? @map("setor_kas")            // [{bankName: string, amount: number}]
-  tarikTunai           Json? @map("tarik_tunai")          // [{bankName: string, amount: number}]
+  expectedBankBalances Json?   @map("expected_bank_balances")
+  actualBankBalances   Json?   @map("actual_bank_balances") // Saldo Laporan mBanking
+  realBankBalances     Json?   @map("real_bank_balances") // Saldo Real di Bank
+  shiftExpenses        Json?   @map("shift_expenses")
+  structuredExpenses   Json?   @map("structured_expenses") // Pengeluaran terstruktur per metode
+  kasbon               Json?   @map("kasbon") // [{name: string, amount: number}]
+  setorKas             Json?   @map("setor_kas") // [{bankName: string, amount: number}]
+  tarikTunai           Json?   @map("tarik_tunai") // [{bankName: string, amount: number}]
   tukarTransferKeCash  Decimal @default(0) @map("tukar_transfer_ke_cash") @db.Decimal(15, 2) // Konversi transfer masuk menjadi kas fisik
-  additionalIncomes    Json? @map("additional_incomes")   // [{bankName: string, amount: number, description: string}]
+  additionalIncomes    Json?   @map("additional_incomes") // [{bankName: string, amount: number, description: string}]
 
   expensesTotal    Decimal   @map("expenses_total") @db.Decimal(15, 2)
   notes            String?   @db.Text
-  amendedAt        DateTime? @map("amended_at")       // diisi saat laporan dikoreksi
+  amendedAt        DateTime? @map("amended_at") // diisi saat laporan dikoreksi
   amendNote        String?   @map("amend_note") @db.Text // catatan alasan koreksi
-  proofImages      Json?     @map("proof_images")    // array of uploaded image paths
+  proofImages      Json?     @map("proof_images") // array of uploaded image paths
   whatsappMessage  String?   @map("whatsapp_message") @db.Text // backup pesan WA untuk resend
   paymentExchanges Json?     @map("payment_exchanges") // [{from, to, amount}]
   createdAt        DateTime? @default(now()) @map("created_at")
@@ -1226,7 +1231,7 @@ model SalesOrder {
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
-  customer    Customer?         @relation(fields: [customerId],    references: [id], onDelete: SetNull)
+  customer    Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
   transaction Transaction?      @relation(fields: [transactionId], references: [id], onDelete: SetNull)
   items       SalesOrderItem[]
   proofs      SalesOrderProof[]
@@ -1248,7 +1253,7 @@ model SalesOrderItem {
   customPrice      Float?  @map("custom_price")
   note             String? @db.Text
 
-  salesOrder     SalesOrder     @relation(fields: [salesOrderId],     references: [id], onDelete: Cascade)
+  salesOrder     SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
   productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
 
   @@index([salesOrderId])
@@ -1274,7 +1279,7 @@ model Designer {
   id        Int      @id @default(autoincrement())
   name      String   @db.VarChar(100)
   pin       String   @db.VarChar(10)
-  isActive  Boolean  @default(true)  @map("is_active")
+  isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("designers")
@@ -1304,23 +1309,23 @@ model Warehouse {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
-  withdrawals Withdrawal[]
-  storageLocations StorageLocation[]
+  withdrawals           Withdrawal[]
+  storageLocations      StorageLocation[]
   inventoryAcquisitions InventoryAcquisition[] @relation("WarehouseAcquisitions")
-  defaultForVariants ProductVariant[] @relation("VariantDefaultWarehouse")
+  defaultForVariants    ProductVariant[]       @relation("VariantDefaultWarehouse")
 
   @@map("warehouses")
 }
 
 model StorageLocation {
-  id          Int       @id @default(autoincrement())
-  warehouseId Int       @map("warehouse_id")
-  code        String    @db.VarChar(50)
-  name        String    @db.VarChar(150)
-  notes       String?   @db.Text
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+  id          Int      @id @default(autoincrement())
+  warehouseId Int      @map("warehouse_id")
+  code        String   @db.VarChar(50)
+  name        String   @db.VarChar(150)
+  notes       String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
   warehouse    Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
   packingItems EventPackingItem[]
@@ -1331,47 +1336,47 @@ model StorageLocation {
 }
 
 model Worker {
-  id                 Int      @id @default(autoincrement())
-  name               String   @db.VarChar(100)                          // Nama panggilan / display (yang muncul di dropdown)
-  fullName           String?  @map("full_name") @db.VarChar(150)        // Nama lengkap (untuk audit/HR record, opsional)
-  position           String?  @db.VarChar(100)
-  phone              String?  @db.VarChar(50)
-  photoUrl           String?  @map("photo_url") @db.Text
-  signatureImageUrl  String?  @map("signature_image_url") @db.Text   // Tanda tangan untuk surat penawaran
+  id                   Int      @id @default(autoincrement())
+  name                 String   @db.VarChar(100) // Nama panggilan / display (yang muncul di dropdown)
+  fullName             String?  @map("full_name") @db.VarChar(150) // Nama lengkap (untuk audit/HR record, opsional)
+  position             String?  @db.VarChar(100)
+  phone                String?  @db.VarChar(50)
+  photoUrl             String?  @map("photo_url") @db.Text
+  signatureImageUrl    String?  @map("signature_image_url") @db.Text // Tanda tangan untuk surat penawaran
   /// Nama custom yang tampil di bawah TTD (kalau beda dari "name").
   /// Mis. `name`="Pak Budi" tapi di TTD perlu tampil "Budi Santoso, S.T." untuk formal letter.
   /// Null = pakai `name` sebagai fallback.
-  signatureDisplayName String? @map("signature_display_name") @db.VarChar(150)
-  stampImageUrl      String?  @map("stamp_image_url") @db.Text       // Stempel pribadi (optional, fallback ke brand stamp)
-  isActive           Boolean  @default(true) @map("is_active")
-  notes              String?  @db.Text
+  signatureDisplayName String?  @map("signature_display_name") @db.VarChar(150)
+  stampImageUrl        String?  @map("stamp_image_url") @db.Text // Stempel pribadi (optional, fallback ke brand stamp)
+  isActive             Boolean  @default(true) @map("is_active")
+  notes                String?  @db.Text
   // ─── Payroll fields ───────────────────────────────────────────────
-  dailyWageRate         Decimal? @map("daily_wage_rate") @db.Decimal(12, 2)         // Gaji per hari (Rp). Null = belum di-set
-  overtimeRatePerHour   Decimal? @map("overtime_rate_per_hour") @db.Decimal(12, 2)  // Tarif lembur per jam (Rp), mulai jam 17:00
-  isPic                 Boolean  @default(false) @map("is_pic")                     // True = bisa dapat link absensi PIC
-  picAccessToken        String?  @unique @map("pic_access_token") @db.VarChar(64)   // Token unik untuk public link PIC
-  picPin                String?  @map("pic_pin") @db.VarChar(20)                    // PIN 4-6 digit untuk security tambahan saat akses public link
-  teamId                Int?     @map("team_id")                                     // Worker member dari team mana (untuk filter PIC absensi)
-  defaultCityKey        String?  @map("default_city_key") @db.VarChar(100)           // Default kota untuk wage resolution (preset PIC dropdown)
-  defaultDivisionKey    String?  @map("default_division_key") @db.VarChar(100)       // Default divisi untuk wage resolution
+  dailyWageRate        Decimal? @map("daily_wage_rate") @db.Decimal(12, 2) // Gaji per hari (Rp). Null = belum di-set
+  overtimeRatePerHour  Decimal? @map("overtime_rate_per_hour") @db.Decimal(12, 2) // Tarif lembur per jam (Rp), mulai jam 17:00
+  isPic                Boolean  @default(false) @map("is_pic") // True = bisa dapat link absensi PIC
+  picAccessToken       String?  @unique @map("pic_access_token") @db.VarChar(64) // Token unik untuk public link PIC
+  picPin               String?  @map("pic_pin") @db.VarChar(20) // PIN 4-6 digit untuk security tambahan saat akses public link
+  teamId               Int?     @map("team_id") // Worker member dari team mana (untuk filter PIC absensi)
+  defaultCityKey       String?  @map("default_city_key") @db.VarChar(100) // Default kota untuk wage resolution (preset PIC dropdown)
+  defaultDivisionKey   String?  @map("default_division_key") @db.VarChar(100) // Default divisi untuk wage resolution
   // ─────────────────────────────────────────────────────────────────
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
 
-  withdrawals        Withdrawal[]
-  eventsAsPic        Event[]              @relation("EventPic")
-  packingChecked     EventPackingItem[]   @relation("PackingCheckedBy")
-  assignedLeads      Lead[]               @relation("LeadAssignedWorker")
-  previousAssignedLeads Lead[]            @relation("LeadPreviousWorker")
-  leadActivities     LeadActivity[]
-  crewAssignments    EventCrewAssignment[]
-  leadingTeams       CrewTeam[]           @relation("TeamLeader")
-  signedQuotations   Invoice[]            @relation("InvoiceSignedByWorker")
-  attendances        Attendance[]         @relation("WorkerAttendance")    // sebagai subjek absensi
-  recordedAttendances Attendance[]        @relation("RecordedByPic")       // sebagai PIC yang merekam absensi
-  team               CrewTeam?            @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
-  adjustments        PayrollAdjustment[]  @relation("WorkerAdjustments")    // tunjangan/potongan
-  auditChangesAsPic  AttendanceAuditLog[] @relation("AuditChangedByPic")    // audit dari PIC
+  withdrawals           Withdrawal[]
+  eventsAsPic           Event[]               @relation("EventPic")
+  packingChecked        EventPackingItem[]    @relation("PackingCheckedBy")
+  assignedLeads         Lead[]                @relation("LeadAssignedWorker")
+  previousAssignedLeads Lead[]                @relation("LeadPreviousWorker")
+  leadActivities        LeadActivity[]
+  crewAssignments       EventCrewAssignment[]
+  leadingTeams          CrewTeam[]            @relation("TeamLeader")
+  signedQuotations      Invoice[]             @relation("InvoiceSignedByWorker")
+  attendances           Attendance[]          @relation("WorkerAttendance") // sebagai subjek absensi
+  recordedAttendances   Attendance[]          @relation("RecordedByPic") // sebagai PIC yang merekam absensi
+  team                  CrewTeam?             @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
+  adjustments           PayrollAdjustment[]   @relation("WorkerAdjustments") // tunjangan/potongan
+  auditChangesAsPic     AttendanceAuditLog[]  @relation("AuditChangedByPic") // audit dari PIC
 
   @@map("workers")
 }
@@ -1382,30 +1387,30 @@ model Worker {
 ///   2. Kalau Attendance.cityKey + divisionKey di-set & ada WageRate match → pakai matrix
 ///   3. Fallback: Worker.dailyWageRate (default)
 model Attendance {
-  id              Int              @id @default(autoincrement())
-  workerId        Int              @map("worker_id")
-  attendanceDate  DateTime         @map("attendance_date") @db.Date
-  status          AttendanceStatus @default(ABSENT)
-  overtimeHours   Decimal          @default(0) @map("overtime_hours") @db.Decimal(5, 2)
-  notes           String?          @db.VarChar(255)
-  recordedByPicId Int?             @map("recorded_by_pic_id")
+  id              Int                      @id @default(autoincrement())
+  workerId        Int                      @map("worker_id")
+  attendanceDate  DateTime                 @map("attendance_date") @db.Date
+  status          AttendanceStatus         @default(ABSENT)
+  overtimeHours   Decimal                  @default(0) @map("overtime_hours") @db.Decimal(5, 2)
+  notes           String?                  @db.VarChar(255)
+  recordedByPicId Int?                     @map("recorded_by_pic_id")
   // Wage context — bisa kosong (fallback ke Worker default) atau di-set untuk override per-row
-  eventId         Int?             @map("event_id")
-  cityKey         String?          @map("city_key") @db.VarChar(100)
-  divisionKey     String?          @map("division_key") @db.VarChar(100)
+  eventId         Int?                     @map("event_id")
+  cityKey         String?                  @map("city_key") @db.VarChar(100)
+  divisionKey     String?                  @map("division_key") @db.VarChar(100)
   // Approval flow — admin approve absensi PIC sebelum payroll final
   approvalStatus  AttendanceApprovalStatus @default(PENDING) @map("approval_status")
-  approvedAt      DateTime?        @map("approved_at")
-  approvedById    Int?             @map("approved_by_id")                            // User.id admin yang approve
-  rejectionReason String?          @map("rejection_reason") @db.VarChar(500)
-  recordedAt      DateTime         @default(now()) @map("recorded_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
+  approvedAt      DateTime?                @map("approved_at")
+  approvedById    Int?                     @map("approved_by_id") // User.id admin yang approve
+  rejectionReason String?                  @map("rejection_reason") @db.VarChar(500)
+  recordedAt      DateTime                 @default(now()) @map("recorded_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
 
-  worker          Worker           @relation("WorkerAttendance", fields: [workerId], references: [id], onDelete: Cascade)
-  recordedByPic   Worker?          @relation("RecordedByPic", fields: [recordedByPicId], references: [id], onDelete: SetNull)
-  event           Event?           @relation("EventAttendance", fields: [eventId], references: [id], onDelete: SetNull)
-  approvedBy      User?            @relation("AttendanceApprover", fields: [approvedById], references: [id], onDelete: SetNull)
-  auditLogs       AttendanceAuditLog[]
+  worker        Worker               @relation("WorkerAttendance", fields: [workerId], references: [id], onDelete: Cascade)
+  recordedByPic Worker?              @relation("RecordedByPic", fields: [recordedByPicId], references: [id], onDelete: SetNull)
+  event         Event?               @relation("EventAttendance", fields: [eventId], references: [id], onDelete: SetNull)
+  approvedBy    User?                @relation("AttendanceApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  auditLogs     AttendanceAuditLog[]
 
   @@unique([workerId, attendanceDate])
   @@index([attendanceDate])
@@ -1417,27 +1422,27 @@ model Attendance {
 }
 
 enum AttendanceApprovalStatus {
-  PENDING    // PIC submit, menunggu approve admin
-  APPROVED   // Admin approve, masuk payroll final
-  REJECTED   // Admin reject, gak dihitung gaji
+  PENDING // PIC submit, menunggu approve admin
+  APPROVED // Admin approve, masuk payroll final
+  REJECTED // Admin reject, gak dihitung gaji
 }
 
 /// Audit log untuk attendance — simpan history setiap CREATE/UPDATE/DELETE/APPROVE/REJECT.
 /// Old & new data disimpan sebagai JSON snapshot untuk forensik.
 model AttendanceAuditLog {
-  id              Int              @id @default(autoincrement())
-  attendanceId    Int?             @map("attendance_id")           // nullable supaya log tetap ada walau attendance ter-hapus
-  action          AuditAction
-  changedById     Int?             @map("changed_by_id")            // User.id admin (kalau dari /payroll page)
-  changedByPicId  Int?             @map("changed_by_pic_id")        // Worker.id PIC (kalau dari public link)
-  oldData         String?          @db.Text                          // JSON snapshot sebelum perubahan
-  newData         String?          @db.Text                          // JSON snapshot setelah perubahan
-  notes           String?          @db.VarChar(500)
-  createdAt       DateTime         @default(now()) @map("created_at")
+  id             Int         @id @default(autoincrement())
+  attendanceId   Int?        @map("attendance_id") // nullable supaya log tetap ada walau attendance ter-hapus
+  action         AuditAction
+  changedById    Int?        @map("changed_by_id") // User.id admin (kalau dari /payroll page)
+  changedByPicId Int?        @map("changed_by_pic_id") // Worker.id PIC (kalau dari public link)
+  oldData        String?     @db.Text // JSON snapshot sebelum perubahan
+  newData        String?     @db.Text // JSON snapshot setelah perubahan
+  notes          String?     @db.VarChar(500)
+  createdAt      DateTime    @default(now()) @map("created_at")
 
-  attendance      Attendance?      @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
-  changedBy       User?            @relation("AuditChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
-  changedByPic    Worker?          @relation("AuditChangedByPic", fields: [changedByPicId], references: [id], onDelete: SetNull)
+  attendance   Attendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  changedBy    User?       @relation("AuditChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  changedByPic Worker?     @relation("AuditChangedByPic", fields: [changedByPicId], references: [id], onDelete: SetNull)
 
   @@index([attendanceId, createdAt])
   @@index([action, createdAt])
@@ -1455,18 +1460,18 @@ enum AuditAction {
 /// Tunjangan / Potongan per worker per periode (mingguan/bulanan/custom).
 /// Dipakai admin untuk tambah bonus, kasbon, denda, dll yang bukan dari attendance.
 model PayrollAdjustment {
-  id              Int                    @id @default(autoincrement())
-  workerId        Int                    @map("worker_id")
-  type            PayrollAdjustmentType
-  amount          Decimal                @db.Decimal(12, 2)            // selalu positif. Sign ditentukan oleh `type`.
-  effectiveDate   DateTime               @map("effective_date") @db.Date  // tanggal berlaku (untuk filter periode)
-  notes           String?                @db.VarChar(500)
-  createdById     Int?                   @map("created_by_id")          // User.id admin
-  createdAt       DateTime               @default(now()) @map("created_at")
-  updatedAt       DateTime               @updatedAt @map("updated_at")
+  id            Int                   @id @default(autoincrement())
+  workerId      Int                   @map("worker_id")
+  type          PayrollAdjustmentType
+  amount        Decimal               @db.Decimal(12, 2) // selalu positif. Sign ditentukan oleh `type`.
+  effectiveDate DateTime              @map("effective_date") @db.Date // tanggal berlaku (untuk filter periode)
+  notes         String?               @db.VarChar(500)
+  createdById   Int?                  @map("created_by_id") // User.id admin
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
 
-  worker          Worker                 @relation("WorkerAdjustments", fields: [workerId], references: [id], onDelete: Cascade)
-  createdBy       User?                  @relation("AdjustmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  worker    Worker @relation("WorkerAdjustments", fields: [workerId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("AdjustmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([workerId, effectiveDate])
   @@index([effectiveDate])
@@ -1474,10 +1479,10 @@ model PayrollAdjustment {
 }
 
 enum PayrollAdjustmentType {
-  BONUS        // bonus performa — positif, tambah ke gaji
-  ALLOWANCE    // tunjangan (transport, makan) — positif
-  DEDUCTION    // potongan (denda, terlambat) — negatif (kurangi)
-  ADVANCE      // kasbon — negatif (akan di-cair-kan dari gaji periode mendatang)
+  BONUS // bonus performa — positif, tambah ke gaji
+  ALLOWANCE // tunjangan (transport, makan) — positif
+  DEDUCTION // potongan (denda, terlambat) — negatif (kurangi)
+  ADVANCE // kasbon — negatif (akan di-cair-kan dari gaji periode mendatang)
 }
 
 /// Master rate gaji per kombinasi (Kota, Divisi).
@@ -1485,8 +1490,8 @@ enum PayrollAdjustmentType {
 /// Dipakai untuk resolve wage saat hitung payroll kalau Attendance.cityKey & divisionKey di-set.
 model WageRate {
   id                  Int      @id @default(autoincrement())
-  city                String   @db.VarChar(100)                              // nama kota (free text supaya match Customer.city)
-  division            String   @db.VarChar(100)                              // nama divisi (free text, mis. "Tukang Kayu")
+  city                String   @db.VarChar(100) // nama kota (free text supaya match Customer.city)
+  division            String   @db.VarChar(100) // nama divisi (free text, mis. "Tukang Kayu")
   dailyWageRate       Decimal  @map("daily_wage_rate") @db.Decimal(12, 2)
   overtimeRatePerHour Decimal  @map("overtime_rate_per_hour") @db.Decimal(12, 2)
   notes               String?  @db.VarChar(500)
@@ -1500,33 +1505,33 @@ model WageRate {
 }
 
 enum AttendanceStatus {
-  FULL_DAY    // gaji penuh
-  HALF_DAY    // 50% gaji
-  ABSENT      // tidak hadir = 0 (lembur tetap dihitung)
+  FULL_DAY // gaji penuh
+  HALF_DAY // 50% gaji
+  ABSENT // tidak hadir = 0 (lembur tetap dihitung)
 }
 
 model Withdrawal {
-  id                 Int              @id @default(autoincrement())
-  code               String           @unique @db.VarChar(50)
-  workerId           Int              @map("worker_id")
-  warehouseId        Int              @map("warehouse_id")
-  eventId            Int?             @map("event_id")
-  type               WithdrawalType
-  status             WithdrawalStatus @default(CHECKED_OUT)
-  purpose            String           @db.VarChar(255)
-  scheduledReturnAt  DateTime?        @map("scheduled_return_at")
-  actualReturnAt     DateTime?        @map("actual_return_at")
-  checkoutPhotoUrl   String?          @map("checkout_photo_url") @db.Text
-  returnPhotoUrl     String?          @map("return_photo_url") @db.Text
-  notes              String?          @db.Text
-  createdById        Int?             @map("created_by_id")
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at")
+  id                Int              @id @default(autoincrement())
+  code              String           @unique @db.VarChar(50)
+  workerId          Int              @map("worker_id")
+  warehouseId       Int              @map("warehouse_id")
+  eventId           Int?             @map("event_id")
+  type              WithdrawalType
+  status            WithdrawalStatus @default(CHECKED_OUT)
+  purpose           String           @db.VarChar(255)
+  scheduledReturnAt DateTime?        @map("scheduled_return_at")
+  actualReturnAt    DateTime?        @map("actual_return_at")
+  checkoutPhotoUrl  String?          @map("checkout_photo_url") @db.Text
+  returnPhotoUrl    String?          @map("return_photo_url") @db.Text
+  notes             String?          @db.Text
+  createdById       Int?             @map("created_by_id")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @default(now()) @updatedAt @map("updated_at")
 
-  worker    Worker    @relation(fields: [workerId], references: [id])
-  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
-  event     Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  createdBy User?     @relation("WithdrawalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  worker    Worker           @relation(fields: [workerId], references: [id])
+  warehouse Warehouse        @relation(fields: [warehouseId], references: [id])
+  event     Event?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  createdBy User?            @relation("WithdrawalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   items     WithdrawalItem[]
 
   @@index([status])
@@ -1541,7 +1546,7 @@ model WithdrawalItem {
   withdrawalId     Int     @map("withdrawal_id")
   productVariantId Int     @map("product_variant_id")
   quantity         Decimal @db.Decimal(15, 4)
-  returnedQty      Decimal @default(0) @db.Decimal(15, 4) @map("returned_qty")
+  returnedQty      Decimal @default(0) @map("returned_qty") @db.Decimal(15, 4)
   notes            String? @db.Text
 
   withdrawal     Withdrawal     @relation(fields: [withdrawalId], references: [id], onDelete: Cascade)
@@ -1568,55 +1573,56 @@ enum EventBrand {
 }
 
 model Event {
-  id             Int         @id @default(autoincrement())
-  code           String      @unique @db.VarChar(50)
-  name           String      @db.VarChar(255)
-  brand          EventBrand  @default(EXINDO)
-  status         EventStatus @default(SCHEDULED)
-  venue          String?     @db.VarChar(255)
-  customerId     Int?        @map("customer_id")
-  customerName   String?     @db.VarChar(200) @map("customer_name")
-  picWorkerId    Int?        @map("pic_worker_id")
-  picName        String?     @db.VarChar(150) @map("pic_name")
-  departureStart DateTime?   @map("departure_start")
-  departureEnd   DateTime?   @map("departure_end")
-  setupStart     DateTime?   @map("setup_start")
-  setupEnd       DateTime?   @map("setup_end")
-  loadingStart   DateTime?   @map("loading_start")
-  loadingEnd     DateTime?   @map("loading_end")
-  eventStart     DateTime?   @map("event_start")
-  eventEnd       DateTime?   @map("event_end")
-  notes          String?     @db.Text
-  shareToken     String?     @unique @db.VarChar(64) @map("share_token")
-  rabPlanId      Int?        @map("rab_plan_id")
+  id                     Int         @id @default(autoincrement())
+  code                   String      @unique @db.VarChar(50)
+  name                   String      @db.VarChar(255)
+  brand                  EventBrand  @default(EXINDO)
+  status                 EventStatus @default(SCHEDULED)
+  venue                  String?     @db.VarChar(255)
+  customerId             Int?        @map("customer_id")
+  customerName           String?     @map("customer_name") @db.VarChar(200)
+  picWorkerId            Int?        @map("pic_worker_id")
+  picName                String?     @map("pic_name") @db.VarChar(150)
+  departureStart         DateTime?   @map("departure_start")
+  departureEnd           DateTime?   @map("departure_end")
+  setupStart             DateTime?   @map("setup_start")
+  setupEnd               DateTime?   @map("setup_end")
+  loadingStart           DateTime?   @map("loading_start")
+  loadingEnd             DateTime?   @map("loading_end")
+  eventStart             DateTime?   @map("event_start")
+  eventEnd               DateTime?   @map("event_end")
+  notes                  String?     @db.Text
+  shareToken             String?     @unique @map("share_token") @db.VarChar(64)
+  rabPlanId              Int?        @map("rab_plan_id")
   // Wage override per event/project — kalau di-set, override WageRate matrix & Worker default
   // Member rate: dipakai untuk semua worker di event ini
-  dailyWageRate         Decimal? @map("daily_wage_rate") @db.Decimal(12, 2)
-  overtimeRatePerHour   Decimal? @map("overtime_rate_per_hour") @db.Decimal(12, 2)
+  dailyWageRate          Decimal?    @map("daily_wage_rate") @db.Decimal(12, 2)
+  overtimeRatePerHour    Decimal?    @map("overtime_rate_per_hour") @db.Decimal(12, 2)
   // PIC rate (opsional): dipakai khusus untuk worker yang sama dengan event.picWorkerId.
   // Kalau null → PIC pakai member rate.
-  dailyWageRatePic      Decimal? @map("daily_wage_rate_pic") @db.Decimal(12, 2)
-  overtimeRatePerHourPic Decimal? @map("overtime_rate_per_hour_pic") @db.Decimal(12, 2)
+  dailyWageRatePic       Decimal?    @map("daily_wage_rate_pic") @db.Decimal(12, 2)
+  overtimeRatePerHourPic Decimal?    @map("overtime_rate_per_hour_pic") @db.Decimal(12, 2)
   // --- BAST (Berita Acara Serah Terima) — override opsional, semua nullable ---
-  bastNumber           String?   @map("bast_number") @db.VarChar(80)
-  bastDate             DateTime? @map("bast_date")
-  bastReceiverName     String?   @map("bast_receiver_name") @db.VarChar(150)
-  bastReceiverPosition String?   @map("bast_receiver_position") @db.VarChar(120)
-  bastNotes            String?   @map("bast_notes") @db.Text
-  bastSignedByWorkerId Int?      @map("bast_signed_by_worker_id")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at")
+  bastNumber             String?     @map("bast_number") @db.VarChar(80)
+  bastDate               DateTime?   @map("bast_date")
+  bastReceiverName       String?     @map("bast_receiver_name") @db.VarChar(150)
+  bastReceiverPosition   String?     @map("bast_receiver_position") @db.VarChar(120)
+  bastNotes              String?     @map("bast_notes") @db.Text
+  bastSignedByWorkerId   Int?        @map("bast_signed_by_worker_id")
+  createdAt              DateTime    @default(now()) @map("created_at")
+  updatedAt              DateTime    @default(now()) @updatedAt @map("updated_at")
 
-  customer         Customer?              @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  picWorker        Worker?                @relation("EventPic", fields: [picWorkerId], references: [id], onDelete: SetNull)
-  rabPlan          RabPlan?               @relation("EventRabPlan", fields: [rabPlanId], references: [id], onDelete: SetNull)
-  withdrawals      Withdrawal[]
-  packingItems     EventPackingItem[]
-  crewAssignments  EventCrewAssignment[]
-  cashflows        Cashflow[]
-  attendances      Attendance[]            @relation("EventAttendance")
-  wageTiers        EventWageTier[]
-  bastItems        BastItem[]
+  customer        Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  picWorker       Worker?               @relation("EventPic", fields: [picWorkerId], references: [id], onDelete: SetNull)
+  rabPlan         RabPlan?              @relation("EventRabPlan", fields: [rabPlanId], references: [id], onDelete: SetNull)
+  withdrawals     Withdrawal[]
+  packingItems    EventPackingItem[]
+  crewAssignments EventCrewAssignment[]
+  cashflows       Cashflow[]
+  attendances     Attendance[]          @relation("EventAttendance")
+  wageTiers       EventWageTier[]
+  bastItems       BastItem[]
+  belanja         Belanja[]             @relation("EventBelanja")
 
   @@index([status])
   @@index([eventStart])
@@ -1631,7 +1637,7 @@ model BastItem {
   eventId     Int      @map("event_id")
   orderIndex  Int      @default(0) @map("order_index")
   description String   @db.VarChar(255)
-  quantity    String?  @db.VarChar(60)  // teks bebas: "2 unit", "4 titik"
+  quantity    String?  @db.VarChar(60) // teks bebas: "2 unit", "4 titik"
   condition   String?  @db.VarChar(255) // kondisi / keterangan per item
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
@@ -1664,46 +1670,46 @@ model EventWageTier {
 
 // ----- Event Crew Setup-Time Tracking ----- //
 model CrewTeam {
-  id              Int       @id @default(autoincrement())
-  name            String    @unique @db.VarChar(80)
-  leaderWorkerId  Int?      @map("leader_worker_id")
-  color           String    @default("#6366f1") @db.VarChar(20)
-  notes           String?   @db.Text
-  isActive        Boolean   @default(true) @map("is_active")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  id             Int      @id @default(autoincrement())
+  name           String   @unique @db.VarChar(80)
+  leaderWorkerId Int?     @map("leader_worker_id")
+  color          String   @default("#6366f1") @db.VarChar(20)
+  notes          String?  @db.Text
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
   leader      Worker?               @relation("TeamLeader", fields: [leaderWorkerId], references: [id], onDelete: SetNull)
   assignments EventCrewAssignment[]
-  members     Worker[]              @relation("TeamMembers")               // Permanent member untuk PIC absensi
+  members     Worker[]              @relation("TeamMembers") // Permanent member untuk PIC absensi
 
   @@map("crew_teams")
 }
 
 model EventCrewAssignment {
-  id              Int       @id @default(autoincrement())
-  eventId         Int       @map("event_id")
-  workerId        Int       @map("worker_id")
-  teamId          Int?      @map("team_id")
-  role            String?   @db.VarChar(80)
-  scheduledStart  DateTime? @map("scheduled_start")
-  scheduledEnd    DateTime? @map("scheduled_end")
+  id                  Int       @id @default(autoincrement())
+  eventId             Int       @map("event_id")
+  workerId            Int       @map("worker_id")
+  teamId              Int?      @map("team_id")
+  role                String?   @db.VarChar(80)
+  scheduledStart      DateTime? @map("scheduled_start")
+  scheduledEnd        DateTime? @map("scheduled_end")
   // Tier gaji yang dipilih untuk member ini (referensi ke EventWageTier).
   // Kalau di-set, gaji ikut tarif tier (ubah tier → ikut update).
-  wageTierId      Int?      @map("wage_tier_id")
+  wageTierId          Int?      @map("wage_tier_id")
   // Override gaji per member untuk event ini (paling spesifik — menang di atas
   // tier/PIC/event/matrix/worker). Kosong = pakai tier atau default.
-  dailyWageRate       Decimal? @map("daily_wage_rate") @db.Decimal(12, 2)
-  overtimeRatePerHour Decimal? @map("overtime_rate_per_hour") @db.Decimal(12, 2)
-  startedAt       DateTime? @map("started_at")
-  finishedAt      DateTime? @map("finished_at")
-  startPhotoUrl   String?   @map("start_photo_url") @db.Text
-  endPhotoUrl     String?   @map("end_photo_url") @db.Text
-  startNote       String?   @db.Text @map("start_note")
-  endNote         String?   @db.Text @map("end_note")
-  accessToken     String    @unique @map("access_token") @db.VarChar(64)
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  dailyWageRate       Decimal?  @map("daily_wage_rate") @db.Decimal(12, 2)
+  overtimeRatePerHour Decimal?  @map("overtime_rate_per_hour") @db.Decimal(12, 2)
+  startedAt           DateTime? @map("started_at")
+  finishedAt          DateTime? @map("finished_at")
+  startPhotoUrl       String?   @map("start_photo_url") @db.Text
+  endPhotoUrl         String?   @map("end_photo_url") @db.Text
+  startNote           String?   @map("start_note") @db.Text
+  endNote             String?   @map("end_note") @db.Text
+  accessToken         String    @unique @map("access_token") @db.VarChar(64)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at")
 
   event    Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
   worker   Worker         @relation(fields: [workerId], references: [id])
@@ -1729,7 +1735,7 @@ model EventPackingItem {
   productVariantId  Int                 @map("product_variant_id")
   quantity          Decimal             @default(1) @db.Decimal(15, 4)
   storageLocationId Int?                @map("storage_location_id")
-  locationNote      String?             @db.VarChar(255) @map("location_note")
+  locationNote      String?             @map("location_note") @db.VarChar(255)
   isChecked         Boolean             @default(false) @map("is_checked")
   disposition       PackingDisposition?
   orderIndex        Int                 @default(0) @map("order_index")
@@ -1762,17 +1768,17 @@ enum LeadLevel {
 }
 
 enum LeadSource {
-  META_ADS         // Meta Ads (gabungan FB+IG dari Meta Business)
-  INSTAGRAM_ADS    // Instagram Ads spesifik
-  FACEBOOK_ADS     // Facebook Ads spesifik
-  TIKTOK           // TikTok / TikTok Ads / Live Shopping
-  LINKEDIN         // LinkedIn (B2B)
-  WHATSAPP         // WhatsApp langsung
-  WEBSITE          // Form website
-  REFERRAL         // Referensi/rekomendasi
-  WALK_IN          // Datang langsung ke kantor/toko
-  EXHIBITION       // Pameran / Trade Expo / Booth event
-  OTHER            // Lainnya — pakai sourceDetail untuk specifics
+  META_ADS // Meta Ads (gabungan FB+IG dari Meta Business)
+  INSTAGRAM_ADS // Instagram Ads spesifik
+  FACEBOOK_ADS // Facebook Ads spesifik
+  TIKTOK // TikTok / TikTok Ads / Live Shopping
+  LINKEDIN // LinkedIn (B2B)
+  WHATSAPP // WhatsApp langsung
+  WEBSITE // Form website
+  REFERRAL // Referensi/rekomendasi
+  WALK_IN // Datang langsung ke kantor/toko
+  EXHIBITION // Pameran / Trade Expo / Booth event
+  OTHER // Lainnya — pakai sourceDetail untuk specifics
 }
 
 enum LeadStatus {
@@ -1780,25 +1786,25 @@ enum LeadStatus {
   CONTACTED
   RESPONDED
   NO_RESPONSE
-  WAITING            // menunggu (umum)
-  WAITING_DECISION   // menunggu keputusan klien (setelah penawaran/proposal)
-  PROPOSAL_SENT      // penawaran/SPH/quotation sudah dikirim
-  NEGOTIATION        // sedang negosiasi (harga, scope, term)
-  IN_PROGRESS        // sedang dikerjakan
-  ON_HOLD            // di-pause sementara (klien minta tunggu, dll)
+  WAITING // menunggu (umum)
+  WAITING_DECISION // menunggu keputusan klien (setelah penawaran/proposal)
+  PROPOSAL_SENT // penawaran/SPH/quotation sudah dikirim
+  NEGOTIATION // sedang negosiasi (harga, scope, term)
+  IN_PROGRESS // sedang dikerjakan
+  ON_HOLD // di-pause sementara (klien minta tunggu, dll)
   CLOSED_DEAL
-  REORDER            // pelanggan order ulang (reorder) dari deal sebelumnya
-  REPEAT_ORDER       // pelanggan langganan / order berulang
+  REORDER // pelanggan order ulang (reorder) dari deal sebelumnya
+  REPEAT_ORDER // pelanggan langganan / order berulang
   CLOSED_LOST
 }
 
 model LeadStage {
-  id         Int     @id @default(autoincrement())
-  name       String  @db.VarChar(80)
-  color      String  @default("#94a3b8") @db.VarChar(20)
-  orderIndex Int     @default(0) @map("order_index")
-  isTerminal Boolean @default(false) @map("is_terminal")
-  isWinStage Boolean @default(false) @map("is_win_stage")
+  id          Int     @id @default(autoincrement())
+  name        String  @db.VarChar(80)
+  color       String  @default("#94a3b8") @db.VarChar(20)
+  orderIndex  Int     @default(0) @map("order_index")
+  isTerminal  Boolean @default(false) @map("is_terminal")
+  isWinStage  Boolean @default(false) @map("is_win_stage")
   /// Stage "kalah" (mis. Lost / Invalid Lead): lead di sini dianggap CLOSED_LOST,
   /// tetap tampil di papan pipeline (beda dgn isTerminal yg menyembunyikan dari board).
   isLostStage Boolean @default(false) @map("is_lost_stage")
@@ -1819,52 +1825,52 @@ model LeadLabel {
 }
 
 model Lead {
-  id                  Int         @id @default(autoincrement())
-  name                String?     @db.VarChar(150)
-  phone               String      @db.VarChar(50)
-  phoneNormalized     String      @map("phone_normalized") @db.VarChar(30)
-  organization        String?     @db.VarChar(200)
-  productCategory     String?     @map("product_category") @db.VarChar(100)
-  brand               EventBrand?
-  level               LeadLevel?
-  source              LeadSource @default(OTHER)
-  sourceDetail        String?    @map("source_detail") @db.VarChar(150)
-  greetingTemplate    String?    @map("greeting_template") @db.Text
-  status              LeadStatus @default(NEW)
-  stageId             Int        @map("stage_id")
-  stageOrderIndex     Int        @default(0) @map("stage_order_index")
-  assignedWorkerId    Int?       @map("assigned_worker_id")
-  previousAssignedWorkerId Int?  @map("previous_assigned_worker_id")
-  followUpDate        DateTime?  @map("follow_up_date")
-  orderDescription    String?    @map("order_description") @db.Text
-  projectValueEst     Decimal?   @map("project_value_est") @db.Decimal(15, 2)
-  eventDateStart      DateTime?  @map("event_date_start")
-  eventDateEnd        DateTime?  @map("event_date_end")
-  eventLocation       String?    @map("event_location") @db.VarChar(200)
+  id                       Int         @id @default(autoincrement())
+  name                     String?     @db.VarChar(150)
+  phone                    String      @db.VarChar(50)
+  phoneNormalized          String      @map("phone_normalized") @db.VarChar(30)
+  organization             String?     @db.VarChar(200)
+  productCategory          String?     @map("product_category") @db.VarChar(100)
+  brand                    EventBrand?
+  level                    LeadLevel?
+  source                   LeadSource  @default(OTHER)
+  sourceDetail             String?     @map("source_detail") @db.VarChar(150)
+  greetingTemplate         String?     @map("greeting_template") @db.Text
+  status                   LeadStatus  @default(NEW)
+  stageId                  Int         @map("stage_id")
+  stageOrderIndex          Int         @default(0) @map("stage_order_index")
+  assignedWorkerId         Int?        @map("assigned_worker_id")
+  previousAssignedWorkerId Int?        @map("previous_assigned_worker_id")
+  followUpDate             DateTime?   @map("follow_up_date")
+  orderDescription         String?     @map("order_description") @db.Text
+  projectValueEst          Decimal?    @map("project_value_est") @db.Decimal(15, 2)
+  eventDateStart           DateTime?   @map("event_date_start")
+  eventDateEnd             DateTime?   @map("event_date_end")
+  eventLocation            String?     @map("event_location") @db.VarChar(200)
   /// Array event tambahan (multi-kota/multi-tanggal) — JSON: [{ name, location, dateStart, dateEnd }]
   /// Event utama tetap pakai eventDateStart/End/Location di atas. Field ini untuk event 2, 3, dst.
-  additionalEvents    Json?      @map("additional_events")
-  city                String?    @db.VarChar(100)
-  notes               String?    @db.Text
-  imageUrl            String?    @map("image_url") @db.Text  // Foto referensi/sketsa project lead (single image)
-  leadCameAt          DateTime   @default(now()) @map("lead_came_at")
-  lastContactedAt     DateTime?  @map("last_contacted_at")
+  additionalEvents         Json?       @map("additional_events")
+  city                     String?     @db.VarChar(100)
+  notes                    String?     @db.Text
+  imageUrl                 String?     @map("image_url") @db.Text // Foto referensi/sketsa project lead (single image)
+  leadCameAt               DateTime    @default(now()) @map("lead_came_at")
+  lastContactedAt          DateTime?   @map("last_contacted_at")
   /// Waktu sentuhan terakhir apa pun (pindah stage, catatan, kontak, transfer, convert).
   /// Dipakai untuk deteksi "stuck": follow-up berupa pindah kartu ke pipeline juga me-reset timer.
   /// Beda dg lastContactedAt yg khusus kontak ke customer (dipakai avgResponseHours).
-  lastActivityAt      DateTime?  @map("last_activity_at")
-  convertedCustomerId Int?       @unique @map("converted_customer_id")
-  convertedAt         DateTime?  @map("converted_at")
-  closedDealAt        DateTime?  @map("closed_deal_at")
-  createdAt           DateTime   @default(now()) @map("created_at")
-  updatedAt           DateTime   @updatedAt @map("updated_at")
+  lastActivityAt           DateTime?   @map("last_activity_at")
+  convertedCustomerId      Int?        @unique @map("converted_customer_id")
+  convertedAt              DateTime?   @map("converted_at")
+  closedDealAt             DateTime?   @map("closed_deal_at")
+  createdAt                DateTime    @default(now()) @map("created_at")
+  updatedAt                DateTime    @updatedAt @map("updated_at")
 
-  stage             LeadStage         @relation(fields: [stageId], references: [id])
-  assignedWorker    Worker?           @relation("LeadAssignedWorker", fields: [assignedWorkerId], references: [id])
-  previousAssignedWorker Worker?      @relation("LeadPreviousWorker", fields: [previousAssignedWorkerId], references: [id])
-  convertedCustomer Customer?         @relation(fields: [convertedCustomerId], references: [id])
-  labels            LeadLabelOnLead[]
-  activities        LeadActivity[]
+  stage                  LeadStage         @relation(fields: [stageId], references: [id])
+  assignedWorker         Worker?           @relation("LeadAssignedWorker", fields: [assignedWorkerId], references: [id])
+  previousAssignedWorker Worker?           @relation("LeadPreviousWorker", fields: [previousAssignedWorkerId], references: [id])
+  convertedCustomer      Customer?         @relation(fields: [convertedCustomerId], references: [id])
+  labels                 LeadLabelOnLead[]
+  activities             LeadActivity[]
 
   @@index([stageId, stageOrderIndex])
   @@index([phoneNormalized])
@@ -1908,41 +1914,41 @@ model LeadActivity {
 /// Profil per-brand untuk surat penawaran multi-tenant.
 /// Tidak menggantikan StoreSettings (yang tetap untuk global flags & fallback).
 model BrandSettings {
-  id                   Int        @id @default(autoincrement())
-  brand                EventBrand @unique
-  companyName          String     @map("company_name") @db.VarChar(200) // "CV. Exindo Pratama"
-  companyCode          String     @map("company_code") @db.VarChar(20)  // "Ep" / "Xp" — dipakai di nomor seri
-  directorName         String?    @map("director_name") @db.VarChar(150)
-  logoImageUrl         String?    @map("logo_image_url") @db.Text       // logo kecil di pojok
-  letterheadImageUrl   String?    @map("letterhead_image_url") @db.Text // kop surat full-page background image
-  stampImageUrl        String?    @map("stamp_image_url") @db.Text       // stempel default brand (fallback kalau worker tidak punya stempel pribadi)
-  address              String?    @db.Text
-  phone                String?    @db.VarChar(50)
-  email                String?    @db.VarChar(150)
-  npwp                 String?    @db.VarChar(50)
-  bankAccountIds       String?    @map("bank_account_ids") @db.VarChar(200) // CSV BankAccount.id default
-  letterheadFooter     String?    @map("letterhead_footer") @db.Text   // kept for backward-compat
-  quotationDisclaimer  String?    @map("quotation_disclaimer") @db.Text // "# Harga belum termasuk..."
-  quotationPaymentTerms String?   @map("quotation_payment_terms") @db.Text // "Sedangkan system pembayaran 50%..."
-  quotationClosing     String?    @map("quotation_closing") @db.Text   // "Demikian penawaran kerjasama kami..."
-  invoiceClosingText   String?    @map("invoice_closing_text") @db.Text // "Nb: Jika terjadi pembatalan..." khusus untuk invoice (bukan penawaran)
-  openingTemplate      String?    @map("opening_template") @db.Text     // Template paragraf "Dengan hormat..." — bisa di-copy ke quotation
+  id                      Int        @id @default(autoincrement())
+  brand                   EventBrand @unique
+  companyName             String     @map("company_name") @db.VarChar(200) // "CV. Exindo Pratama"
+  companyCode             String     @map("company_code") @db.VarChar(20) // "Ep" / "Xp" — dipakai di nomor seri
+  directorName            String?    @map("director_name") @db.VarChar(150)
+  logoImageUrl            String?    @map("logo_image_url") @db.Text // logo kecil di pojok
+  letterheadImageUrl      String?    @map("letterhead_image_url") @db.Text // kop surat full-page background image
+  stampImageUrl           String?    @map("stamp_image_url") @db.Text // stempel default brand (fallback kalau worker tidak punya stempel pribadi)
+  address                 String?    @db.Text
+  phone                   String?    @db.VarChar(50)
+  email                   String?    @db.VarChar(150)
+  npwp                    String?    @db.VarChar(50)
+  bankAccountIds          String?    @map("bank_account_ids") @db.VarChar(200) // CSV BankAccount.id default
+  letterheadFooter        String?    @map("letterhead_footer") @db.Text // kept for backward-compat
+  quotationDisclaimer     String?    @map("quotation_disclaimer") @db.Text // "# Harga belum termasuk..."
+  quotationPaymentTerms   String?    @map("quotation_payment_terms") @db.Text // "Sedangkan system pembayaran 50%..."
+  quotationClosing        String?    @map("quotation_closing") @db.Text // "Demikian penawaran kerjasama kami..."
+  invoiceClosingText      String?    @map("invoice_closing_text") @db.Text // "Nb: Jika terjadi pembatalan..." khusus untuk invoice (bukan penawaran)
+  openingTemplate         String?    @map("opening_template") @db.Text // Template paragraf "Dengan hormat..." — bisa di-copy ke quotation
   // English versions — dipakai kalau quotation.language = 'en'
-  quotationDisclaimerEn   String? @map("quotation_disclaimer_en") @db.Text
-  quotationPaymentTermsEn String? @map("quotation_payment_terms_en") @db.Text
-  quotationClosingEn      String? @map("quotation_closing_en") @db.Text
-  invoiceClosingTextEn    String? @map("invoice_closing_text_en") @db.Text
-  openingTemplateEn       String? @map("opening_template_en") @db.Text
-  themeColor           String?    @map("theme_color") @db.VarChar(20) // Hex color untuk PDF header & accent (mis. "#1e40af"). Null = pakai default per brand.
+  quotationDisclaimerEn   String?    @map("quotation_disclaimer_en") @db.Text
+  quotationPaymentTermsEn String?    @map("quotation_payment_terms_en") @db.Text
+  quotationClosingEn      String?    @map("quotation_closing_en") @db.Text
+  invoiceClosingTextEn    String?    @map("invoice_closing_text_en") @db.Text
+  openingTemplateEn       String?    @map("opening_template_en") @db.Text
+  themeColor              String?    @map("theme_color") @db.VarChar(20) // Hex color untuk PDF header & accent (mis. "#1e40af"). Null = pakai default per brand.
   /// Custom labels untuk opening paragraph invoice — JSON object.
   /// Setiap key bisa di-override; kalau null/empty → pakai default.
   /// Keys yang di-support:
   ///   dp, pelunasan, full, verbSewa, verbPengadaan, untukEvent, padaTanggal, di, rincianSuffix
   /// Contoh: {"dp":"Uang Muka","pelunasan":"Pelunasan","verbSewa":"Penyewaan"}
-  invoiceLabelOverrides Json? @map("invoice_label_overrides")
-  isActive             Boolean    @default(true) @map("is_active")
-  createdAt            DateTime   @default(now()) @map("created_at")
-  updatedAt            DateTime   @updatedAt @map("updated_at")
+  invoiceLabelOverrides   Json?      @map("invoice_label_overrides")
+  isActive                Boolean    @default(true) @map("is_active")
+  createdAt               DateTime   @default(now()) @map("created_at")
+  updatedAt               DateTime   @updatedAt @map("updated_at")
 
   @@map("brand_settings")
 }
@@ -1951,18 +1957,18 @@ model BrandSettings {
 /// di /penawaran create form, juga menentukan template & format surat.
 /// Auto-seed 2 default (SEWA, PENGADAAN_BOOTH) saat pertama kali list.
 model QuotationVariantConfig {
-  id                  Int      @id @default(autoincrement())
-  code                String   @unique @db.VarChar(50)   // mis. "SEWA", "INTERIOR", "JASA_DESAIN"
-  label               String   @db.VarChar(150)          // mis. "Sewa Perlengkapan Event"
-  subject             String?  @db.VarChar(200)          // override subject surat — kalau null pakai label
-  templateKey         String   @default("pengadaan-booth") @map("template_key") @db.VarChar(50) // "sewa" | "pengadaan-booth"
-  defaultDpPercent    Decimal  @default(50) @map("default_dp_percent") @db.Decimal(5, 2)
-  color               String?  @db.VarChar(20)           // mis. "#c8203a" untuk badge
-  description         String?  @db.Text                  // hint untuk user di dropdown
-  orderIndex          Int      @default(0) @map("order_index")
-  isActive            Boolean  @default(true) @map("is_active")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id               Int      @id @default(autoincrement())
+  code             String   @unique @db.VarChar(50) // mis. "SEWA", "INTERIOR", "JASA_DESAIN"
+  label            String   @db.VarChar(150) // mis. "Sewa Perlengkapan Event"
+  subject          String?  @db.VarChar(200) // override subject surat — kalau null pakai label
+  templateKey      String   @default("pengadaan-booth") @map("template_key") @db.VarChar(50) // "sewa" | "pengadaan-booth"
+  defaultDpPercent Decimal  @default(50) @map("default_dp_percent") @db.Decimal(5, 2)
+  color            String?  @db.VarChar(20) // mis. "#c8203a" untuk badge
+  description      String?  @db.Text // hint untuk user di dropdown
+  orderIndex       Int      @default(0) @map("order_index")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("quotation_variant_configs")
 }
@@ -1971,22 +1977,22 @@ model QuotationVariantConfig {
 /// Setiap RabItem dengan isInventory=true otomatis spawn 1 record ini saat RAB save.
 /// Admin bisa store ke stok (create stock movement + link ProductVariant) atau cancel.
 model InventoryAcquisition {
-  id                Int       @id @default(autoincrement())
-  rabPlanId         Int       @map("rab_plan_id")
-  rabItemId         Int       @unique @map("rab_item_id")  // 1:1 dengan RabItem
-  description       String    @db.VarChar(255)             // snapshot dari RabItem.description
-  quantity          Decimal   @db.Decimal(15, 4)
-  unit              String?   @db.VarChar(50)
-  unitCost          Decimal   @map("unit_cost") @db.Decimal(15, 2)
-  totalCost         Decimal   @map("total_cost") @db.Decimal(15, 2)
-  status            String    @default("PENDING") @db.VarChar(20) // PENDING | STORED | CANCELLED
-  productVariantId  Int?      @map("product_variant_id")          // kalau di-stok, link ke variant existing/new
-  warehouseId       Int?      @map("warehouse_id")                // gudang destination
-  storedAt          DateTime? @map("stored_at")
-  photoUrl          String?   @map("photo_url") @db.Text          // foto barang fisik untuk audit
-  notes             String?   @db.Text
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  id               Int       @id @default(autoincrement())
+  rabPlanId        Int       @map("rab_plan_id")
+  rabItemId        Int       @unique @map("rab_item_id") // 1:1 dengan RabItem
+  description      String    @db.VarChar(255) // snapshot dari RabItem.description
+  quantity         Decimal   @db.Decimal(15, 4)
+  unit             String?   @db.VarChar(50)
+  unitCost         Decimal   @map("unit_cost") @db.Decimal(15, 2)
+  totalCost        Decimal   @map("total_cost") @db.Decimal(15, 2)
+  status           String    @default("PENDING") @db.VarChar(20) // PENDING | STORED | CANCELLED
+  productVariantId Int?      @map("product_variant_id") // kalau di-stok, link ke variant existing/new
+  warehouseId      Int?      @map("warehouse_id") // gudang destination
+  storedAt         DateTime? @map("stored_at")
+  photoUrl         String?   @map("photo_url") @db.Text // foto barang fisik untuk audit
+  notes            String?   @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   rabPlan        RabPlan         @relation("RabPlanAcquisitions", fields: [rabPlanId], references: [id], onDelete: Cascade)
   rabItem        RabItem         @relation("RabItemAcquisition", fields: [rabItemId], references: [id], onDelete: Cascade)
@@ -1996,4 +2002,50 @@ model InventoryAcquisition {
   @@index([rabPlanId])
   @@index([status])
   @@map("inventory_acquisitions")
+}
+
+/// Kas masuk untuk belanja operasional (uang dari owner ke admin). Satu kantong, di-breakdown per admin via createdById.
+model PenerimaanDana {
+  id          Int      @id @default(autoincrement())
+  amount      Decimal  @db.Decimal(15, 2)
+  source      String?  @db.VarChar(150) // dari siapa, mis. "Owner"
+  note        String?  @db.Text
+  receivedAt  DateTime @map("received_at")
+  createdById Int      @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  createdBy User @relation("PenerimaanDanaCreatedBy", fields: [createdById], references: [id])
+
+  @@index([receivedAt])
+  @@map("penerimaan_dana")
+}
+
+/// Pembelanjaan harian. Tiap belanja di-tag ke event (→ real cost RAB) atau keperluan lain.
+/// Otomatis membuat 1 entri Cashflow EXPENSE (cashflowId) agar event-profit akurat.
+model Belanja {
+  id            Int      @id @default(autoincrement())
+  amount        Decimal  @db.Decimal(15, 2)
+  description   String   @db.VarChar(255)
+  spentAt       DateTime @map("spent_at")
+  notaUrl       String?  @map("nota_url") @db.VarChar(500)
+  eventId       Int?     @map("event_id") // null = keperluan lain (non-event)
+  rabPlanId     Int?     @map("rab_plan_id") // auto dari event.rabPlanId → real cost RAB
+  rabCategoryId Int?     @map("rab_category_id") // pos anggaran RAB (opsional)
+  category      String?  @db.VarChar(100) // label saat keperluan lain, mis. "Operasional"
+  cashflowId    Int?     @unique @map("cashflow_id") // link ke entri Cashflow yang auto-dibuat
+  createdById   Int      @map("created_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  event       Event?       @relation("EventBelanja", fields: [eventId], references: [id], onDelete: SetNull)
+  rabPlan     RabPlan?     @relation("RabPlanBelanja", fields: [rabPlanId], references: [id], onDelete: SetNull)
+  rabCategory RabCategory? @relation("RabCategoryBelanja", fields: [rabCategoryId], references: [id], onDelete: SetNull)
+  cashflow    Cashflow?    @relation("BelanjaCashflow", fields: [cashflowId], references: [id], onDelete: SetNull)
+  createdBy   User         @relation("BelanjaCreatedBy", fields: [createdById], references: [id])
+
+  @@index([spentAt])
+  @@index([eventId])
+  @@index([rabPlanId])
+  @@map("belanja")
 }

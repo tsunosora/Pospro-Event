@@ -253,6 +253,11 @@ export const BACKUP_GROUPS = {
         label: 'Sales Order & Designer',
         tables: ['designer', 'salesOrder', 'salesOrderItem', 'salesOrderProof'],
     },
+    belanja: {
+        label: 'Kas Belanja (Penerimaan & Pembelanjaan)',
+        // belanja: tag event/RAB (real cost) + link cashflowId; penerimaanDana: kas masuk per admin
+        tables: ['penerimaanDana', 'belanja'],
+    },
 } as const;
 
 export type BackupGroupKey = keyof typeof BACKUP_GROUPS;
@@ -300,6 +305,8 @@ const RESTORE_ORDER = [
     'attendance',                               // → setelah worker (FK ke worker via workerId & recordedByPicId, optional eventId)
     'payrollAdjustment',                        // → setelah worker (FK ke worker)
     'attendanceAuditLog',                       // → setelah attendance (FK optional ke attendance)
+    'penerimaanDana',                           // → setelah user
+    'belanja',                                  // → setelah event, rabPlan, rabCategory, cashflow, user
 ];
 
 // Path folder uploads gambar (3x up = backend root ketika dikompilasi ke dist/backup/)
