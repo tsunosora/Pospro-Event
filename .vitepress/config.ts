@@ -68,6 +68,7 @@ export default defineConfig({
         text: '💰 Laporan & Keuangan',
         items: [
           { text: '💸 Cashflow Bisnis', link: '/cashflow' },
+          { text: '🛒 Belanja Harian', link: '/belanja-harian' },
           { text: '📊 Laporan Stok', link: '/laporan-stok' },
           { text: '🧮 Kalkulator HPP', link: '/hpp-calculator' },
           { text: '🗺️ Peta Cuan Lokasi', link: '/peta-cuan' },
