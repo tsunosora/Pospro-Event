@@ -1,0 +1,91 @@
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+  Req,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import type { Request } from 'express';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { BelanjaService } from './belanja.service';
+import type { CreateBelanjaDto } from './belanja.service';
+
+interface JwtRequest extends Request {
+  user?: { userId?: number; id?: number };
+}
+const uid = (r: JwtRequest) => r.user?.userId ?? r.user?.id ?? null;
+
+const notaStorage = diskStorage({
+  destination: './public/uploads/belanja',
+  filename: (_r, file, cb) => cb(null, `nota-${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`),
+});
+const notaFilter = (_r: any, file: any, cb: any) => {
+  if (!file.originalname.toLowerCase().match(/\.(jpg|jpeg|jfif|png|webp|pdf)$/))
+    return cb(new BadRequestException('Hanya gambar/PDF yang diizinkan'), false);
+  cb(null, true);
+};
+
+@Controller('belanja')
+@UseGuards(JwtAuthGuard)
+export class BelanjaController {
+  constructor(private service: BelanjaService) {}
+
+  @Get()
+  list(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('eventId') eventId?: string,
+    @Query('rabPlanId') rabPlanId?: string,
+    @Query('untagged') untagged?: string,
+  ) {
+    return this.service.list({
+      from,
+      to,
+      eventId: eventId ? Number(eventId) : undefined,
+      rabPlanId: rabPlanId ? Number(rabPlanId) : undefined,
+      untagged: untagged === 'true',
+    });
+  }
+
+  @Get('rekap-harian')
+  rekap(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.service.rekapHarian({ from, to });
+  }
+
+  @Get('realisasi-rab/:rabPlanId')
+  realisasi(@Param('rabPlanId', ParseIntPipe) rabPlanId: number) {
+    return this.service.realisasiRab(rabPlanId);
+  }
+
+  @Post()
+  create(@Body() body: CreateBelanjaDto, @Req() req: JwtRequest) {
+    const u = uid(req);
+    if (!u) throw new Error('User context missing');
+    return this.service.create(body, u);
+  }
+
+  @Post(':id/nota')
+  @UseInterceptors(
+    FileInterceptor('file', { storage: notaStorage, fileFilter: notaFilter, limits: { fileSize: 10 * 1024 * 1024 } }),
+  )
+  uploadNota(@Param('id', ParseIntPipe) id: number, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('File nota wajib diupload');
+    return this.service.attachNota(id, file.filename);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(id);
+  }
+}
