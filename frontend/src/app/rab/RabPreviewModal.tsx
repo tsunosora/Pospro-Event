@@ -40,7 +40,6 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
         queryFn: () => getRealisasiRab(rabId),
     });
     const realByItem = new Map((realisasi?.perItem ?? []).map((p) => [p.rabItemId, p.real]));
-    const totalReal = realisasi?.totalReal ?? 0;
 
     // Block body scroll while modal open
     useEffect(() => {
@@ -459,14 +458,8 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
 
                         {/* Items list */}
                         <div className="rounded-lg border border-border overflow-hidden">
-                            <div className="px-4 py-2 border-b bg-muted/30 flex items-center justify-between gap-2">
+                            <div className="px-4 py-2 border-b bg-muted/30">
                                 <h3 className="text-sm font-semibold">Detail Item ({rab.items.length})</h3>
-                                {totalReal > 0 && (
-                                    <span className="text-xs text-muted-foreground">
-                                        Realisasi belanja: <span className="font-semibold text-foreground">{fmtRp(totalReal)}</span>
-                                        <span className="text-muted-foreground/70"> / COST {fmtRp(summary.totals.totalCost)}</span>
-                                    </span>
-                                )}
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-xs">
@@ -480,7 +473,6 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                             <th className="text-right px-2 py-1.5">Harga COST</th>
                                             <th className="text-right px-2 py-1.5">Sub RAB</th>
                                             <th className="text-right px-2 py-1.5">Sub COST</th>
-                                            <th className="text-right px-2 py-1.5">Real Cost</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -511,12 +503,19 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                                     <td className="px-2 py-1.5 text-right font-mono nums">{fmtRp(r)}</td>
                                                     <td className="px-2 py-1.5 text-right font-mono nums text-muted-foreground">{fmtRp(c)}</td>
                                                     <td className="px-2 py-1.5 text-right font-mono nums">{fmtRp(subRab)}</td>
-                                                    <td className="px-2 py-1.5 text-right font-mono nums text-muted-foreground">{fmtRp(subCost)}</td>
                                                     <td className="px-2 py-1.5 text-right font-mono nums">
                                                         {(() => {
                                                             const rc = (it.id != null ? realByItem.get(it.id) : undefined) ?? 0;
-                                                            if (rc <= 0) return <span className="text-muted-foreground/40">—</span>;
-                                                            return <span className={rc > subCost ? "text-destructive font-semibold" : "text-emerald-600 font-semibold"}>{fmtRp(rc)}</span>;
+                                                            // Ada belanja → tampilkan real cost di kolom COST (estimasi jadi acuan kecil)
+                                                            if (rc > 0) {
+                                                                return (
+                                                                    <span title={`Estimasi COST: ${fmtRp(subCost)}`}>
+                                                                        <span className={rc > subCost ? "text-destructive font-semibold" : "text-emerald-600 font-semibold"}>{fmtRp(rc)}</span>
+                                                                        {subCost > 0 && <span className="block text-[9px] text-muted-foreground/60">est {fmtRp(subCost)}</span>}
+                                                                    </span>
+                                                                );
+                                                            }
+                                                            return <span className="text-muted-foreground">{fmtRp(subCost)}</span>;
                                                         })()}
                                                     </td>
                                                 </tr>
