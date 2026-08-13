@@ -48,7 +48,7 @@ export class KasService {
     const [masukAgg, keluarAgg, untagged] = await Promise.all([
       this.prisma.penerimaanDana.aggregate({ _sum: { amount: true }, where: scope }),
       this.prisma.belanja.aggregate({ _sum: { amount: true }, where: scope }),
-      this.prisma.belanja.count({ where: { ...scope, eventId: null, category: null } }),
+      this.prisma.belanja.count({ where: { ...scope, eventId: null, rabPlanId: null, category: null } }),
     ]);
     const s = computeSaldoKas(Number(masukAgg._sum.amount ?? 0), Number(keluarAgg._sum.amount ?? 0));
     return { ...s, untaggedCount: untagged, userId: userId ?? null };

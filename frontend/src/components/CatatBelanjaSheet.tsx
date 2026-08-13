@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { X, ShoppingCart, Loader2, Camera, Users } from "lucide-react";
 import { createBelanja, uploadBelanjaNota, getKasSummary, getRealisasiRab } from "@/lib/api/belanja";
-import { getEvents, type EventRecord } from "@/lib/api/events";
 import { getRab, getRabList } from "@/lib/api/rab";
 import { getUsers } from "@/lib/api/settings";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -13,22 +12,21 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSaved?: () => void;
-  defaultEventId?: number;
+  defaultRabPlanId?: number;
 }
 
 type UserOpt = { id: number; name?: string | null };
 const rp = (v: string | number) => "Rp " + Number(v || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 });
 
-/** Input belanja cepat (mobile-first). Tag ke event (→ real cost RAB) atau keperluan lain.
- *  "Untuk apa?" bisa pilih item terdaftar di RAB event, atau ketik custom. */
-export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Props) {
+/** Input belanja cepat (mobile-first). Tag ke Proyek (RAB → real cost) atau keperluan lain.
+ *  "Untuk apa?" bisa pilih item terdaftar di RAB, atau ketik custom. */
+export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId }: Props) {
   const qc = useQueryClient();
   const { currentUser } = useCurrentUser();
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState<string>("");
-  const [tagMode, setTagMode] = useState<"event" | "lain">("event");
-  const [eventId, setEventId] = useState<number | "">(defaultEventId ?? "");
-  const [rabPlanId, setRabPlanId] = useState<number | "">("");
+  const [tagMode, setTagMode] = useState<"rab" | "lain">("rab");
+  const [rabPlanId, setRabPlanId] = useState<number | "">(defaultRabPlanId ?? "");
   const [rabCategoryId, setRabCategoryId] = useState<number | "">("");
   const [rabItemId, setRabItemId] = useState<number | "">("");
   const [customItem, setCustomItem] = useState<boolean>(false);
@@ -39,27 +37,24 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
   const [error, setError] = useState<string | null>(null);
 
   const { data: summary } = useQuery({ queryKey: ["kas-summary", null], queryFn: () => getKasSummary(), enabled: open });
-  const { data: events = [] } = useQuery<EventRecord[]>({ queryKey: ["events"], queryFn: () => getEvents(), enabled: open });
   const { data: users = [] } = useQuery<UserOpt[]>({ queryKey: ["users"], queryFn: getUsers, staleTime: 5 * 60 * 1000 });
+  const { data: rabs = [] } = useQuery({ queryKey: ["rab-list"], queryFn: getRabList, enabled: open && tagMode === "rab" });
 
-  // Daftar RAB untuk dipilih (event → RAB tidak selalu ter-tautkan di data)
-  const { data: rabs = [] } = useQuery({ queryKey: ["rab-list"], queryFn: getRabList, enabled: open && tagMode === "event" });
-
-  // Item + pos RAB untuk RAB terpilih
+  // Item + pos untuk RAB terpilih
   const { data: rab } = useQuery({
     queryKey: ["rab", rabPlanId],
     queryFn: () => getRab(rabPlanId as number),
-    enabled: open && tagMode === "event" && !!rabPlanId,
+    enabled: open && tagMode === "rab" && !!rabPlanId,
   });
   const rabItems = rab?.items ?? [];
   const { data: realisasi } = useQuery({
     queryKey: ["realisasi-rab", rabPlanId],
     queryFn: () => getRealisasiRab(rabPlanId as number),
-    enabled: open && tagMode === "event" && !!rabPlanId,
+    enabled: open && tagMode === "rab" && !!rabPlanId,
   });
   const posOptions = realisasi?.pos ?? [];
 
-  const showItemPicker = tagMode === "event" && !!rabPlanId && rabItems.length > 0 && !customItem;
+  const showItemPicker = tagMode === "rab" && !!rabPlanId && rabItems.length > 0 && !customItem;
 
   function resetItemFields() {
     setRabItemId("");
@@ -93,10 +88,9 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
         amount,
         description,
         spentAt,
-        eventId: tagMode === "event" ? Number(eventId) : null,
-        rabPlanId: tagMode === "event" && rabPlanId !== "" ? Number(rabPlanId) : null,
-        rabCategoryId: tagMode === "event" && rabCategoryId !== "" ? Number(rabCategoryId) : null,
-        rabItemId: tagMode === "event" && rabItemId !== "" ? Number(rabItemId) : null,
+        rabPlanId: tagMode === "rab" && rabPlanId !== "" ? Number(rabPlanId) : null,
+        rabCategoryId: tagMode === "rab" && rabCategoryId !== "" ? Number(rabCategoryId) : null,
+        rabItemId: tagMode === "rab" && rabItemId !== "" ? Number(rabItemId) : null,
         category: tagMode === "lain" ? category : null,
         attributeToUserId: attributeToUserId === "" ? null : Number(attributeToUserId),
       });
@@ -117,7 +111,6 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
       if (rabPlanId) qc.invalidateQueries({ queryKey: ["realisasi-rab", rabPlanId] });
       setAmount(0);
       setDescription("");
-      setRabPlanId("");
       setRabCategoryId("");
       setRabItemId("");
       setCustomItem(false);
@@ -135,7 +128,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
     e.preventDefault();
     setError(null);
     if (!(amount > 0)) return setError("Nominal harus lebih dari 0");
-    if (tagMode === "event" && !eventId) return setError("Pilih event, atau ganti ke Keperluan Lain");
+    if (tagMode === "rab" && !rabPlanId) return setError("Pilih RAB proyek, atau ganti ke Keperluan Lain");
     if (!description.trim()) return setError("Pilih item RAB atau isi deskripsi belanja");
     saveMut.mutate();
   }
@@ -180,18 +173,17 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
             />
           </div>
 
-          {/* Tag: event vs keperluan lain */}
+          {/* Tag: proyek (RAB) vs keperluan lain */}
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => {
-                setTagMode("event");
+                setTagMode("rab");
                 resetItemFields();
-                setRabPlanId("");
               }}
-              className={`px-3 py-1.5 rounded text-sm border ${tagMode === "event" ? "border-primary bg-primary/10 text-primary font-medium" : "border-border"}`}
+              className={`px-3 py-1.5 rounded text-sm border ${tagMode === "rab" ? "border-primary bg-primary/10 text-primary font-medium" : "border-border"}`}
             >
-              Untuk Event
+              Untuk Proyek (RAB)
             </button>
             <button
               type="button"
@@ -206,34 +198,9 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
             </button>
           </div>
 
-          {tagMode === "event" && (
+          {tagMode === "rab" && (
             <div>
-              <label className="text-xs font-medium">Event (RAB) *</label>
-              <select
-                value={eventId}
-                onChange={(e) => {
-                  const v = e.target.value === "" ? "" : Number(e.target.value);
-                  setEventId(v);
-                  resetItemFields();
-                  const ev = events.find((x) => x.id === v);
-                  setRabPlanId(ev?.rabPlanId ?? "");
-                }}
-                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
-              >
-                <option value="">— Pilih event —</option>
-                {events.map((ev) => (
-                  <option key={ev.id} value={ev.id}>
-                    {ev.code} — {ev.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Pilih RAB (untuk ambil item) — event↔RAB tidak selalu ter-tautkan di data */}
-          {tagMode === "event" && eventId !== "" && (
-            <div>
-              <label className="text-xs font-medium">RAB Proyek (untuk ambil item)</label>
+              <label className="text-xs font-medium">RAB Proyek *</label>
               <select
                 value={rabPlanId}
                 onChange={(e) => {
@@ -242,7 +209,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
                 }}
                 className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
               >
-                <option value="">— Pilih RAB (opsional) —</option>
+                <option value="">— Pilih RAB —</option>
                 {rabs.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.code} — {r.title}
@@ -277,7 +244,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
                   className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5"
                   placeholder="mis. Beli cat"
                 />
-                {tagMode === "event" && !!rabPlanId && rabItems.length > 0 && customItem && (
+                {tagMode === "rab" && !!rabPlanId && rabItems.length > 0 && customItem && (
                   <button
                     type="button"
                     onClick={() => {
@@ -293,7 +260,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
             )}
           </div>
 
-          {tagMode === "event" && !!rabPlanId && posOptions.length > 0 && (
+          {tagMode === "rab" && !!rabPlanId && posOptions.length > 0 && (
             <div>
               <label className="text-xs font-medium">Pos Anggaran (opsional)</label>
               <select
@@ -309,10 +276,6 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultEventId }: Pr
                 ))}
               </select>
             </div>
-          )}
-
-          {tagMode === "event" && eventId !== "" && rabPlanId === "" && (
-            <p className="text-xs text-muted-foreground">Pilih RAB di atas untuk memunculkan daftar item & pos anggaran. Tanpa RAB, belanja tetap tercatat untuk event.</p>
           )}
 
           {tagMode === "lain" && (

@@ -11,6 +11,7 @@ export interface BelanjaRow {
   notaUrl?: string | null; eventId?: number | null; rabPlanId?: number | null;
   category?: string | null; rabCategoryId?: number | null; rabItemId?: number | null;
   event?: { id: number; code: string; name: string } | null;
+  rabPlan?: { id: number; code: string; title: string } | null;
   rabCategory?: { id: number; name: string } | null;
   rabItem?: { id: number; description: string } | null;
   createdBy?: { id: number; name?: string };

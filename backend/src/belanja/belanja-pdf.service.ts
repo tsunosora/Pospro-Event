@@ -101,7 +101,7 @@ export class BelanjaPdfService implements OnModuleDestroy {
       .map((h) => {
         const items = (h.items as any[])
           .map((b) => {
-            const tag = b.event ? esc(b.event.code) : esc(b.category || 'Lainnya');
+            const tag = b.event ? esc(b.event.code) : b.rabPlan ? esc(b.rabPlan.code) : esc(b.category || 'Lainnya');
             const pos = b.rabItem?.description || b.rabCategory?.name || '—';
             return `<tr>
               <td>${esc(b.description)}</td>

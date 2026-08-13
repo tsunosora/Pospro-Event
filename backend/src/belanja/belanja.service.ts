@@ -15,6 +15,7 @@ export interface CreateBelanjaDto {
 
 const INCLUDE = {
   event: { select: { id: true, code: true, name: true } },
+  rabPlan: { select: { id: true, code: true, title: true } },
   rabCategory: { select: { id: true, name: true } },
   rabItem: { select: { id: true, description: true } },
   createdBy: { select: { id: true, name: true } },
@@ -57,10 +58,12 @@ export class BelanjaService {
     }
     const userId = dto.attributeToUserId || tokenUserId;
     const eventId = dto.eventId ?? null;
+    // "Proyek" = terkait event/RAB. "Keperluan Lain" = tanpa keduanya (pakai label kategori bebas).
+    const isProject = !!(eventId || rabPlanId);
     let rabItemId: number | null = null;
-    let rabCategoryId = eventId ? (dto.rabCategoryId ?? null) : null;
-    // Item RAB terpilih: validasi milik RAB event ini, lalu isi pos dari kategori item bila belum diisi
-    if (eventId && rabPlanId && dto.rabItemId) {
+    let rabCategoryId = isProject ? (dto.rabCategoryId ?? null) : null;
+    // Item RAB terpilih: validasi milik RAB terpilih, lalu isi pos dari kategori item bila belum diisi
+    if (rabPlanId && dto.rabItemId) {
       const item = await this.prisma.rabItem.findUnique({
         where: { id: dto.rabItemId },
         select: { id: true, rabPlanId: true, categoryId: true },
@@ -70,12 +73,12 @@ export class BelanjaService {
         if (!rabCategoryId) rabCategoryId = item.categoryId;
       }
     }
-    const category = eventId ? null : (dto.category?.trim() || 'Keperluan Lain');
+    const category = isProject ? null : (dto.category?.trim() || 'Keperluan Lain');
     const spentAt = dto.spentAt ? new Date(dto.spentAt) : new Date();
     const description = dto.description.trim();
 
-    // Kategori Cashflow (String wajib): pos RAB > kategori keperluan lain > default
-    let cashflowCategory = category ?? 'Belanja Event';
+    // Kategori Cashflow (String wajib): pos RAB > label keperluan lain > default proyek
+    let cashflowCategory = category ?? (rabPlanId ? 'Belanja Proyek' : 'Belanja');
     if (rabCategoryId) {
       const cat = await this.prisma.rabCategory.findUnique({ where: { id: rabCategoryId }, select: { name: true } });
       if (cat) cashflowCategory = cat.name;

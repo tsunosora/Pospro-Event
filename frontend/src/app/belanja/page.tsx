@@ -57,6 +57,9 @@ export default function BelanjaPage() {
     if (b.event) {
       return <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">{b.event.code}</span>;
     }
+    if (b.rabPlan) {
+      return <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">{b.rabPlan.code}</span>;
+    }
     return <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">{b.category || "Lainnya"}</span>;
   }
 
