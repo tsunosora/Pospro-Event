@@ -312,7 +312,7 @@ export class PayrollSummaryService {
                 where: { attendanceDate: { gte: start, lte: end } },
                 select: {
                     id: true, workerId: true, attendanceDate: true, status: true, overtimeHours: true,
-                    eventId: true, cityKey: true, divisionKey: true, approvalStatus: true,
+                    notes: true, eventId: true, cityKey: true, divisionKey: true, approvalStatus: true,
                 },
             }),
             this.prisma.payrollAdjustment.findMany({
@@ -360,7 +360,7 @@ export class PayrollSummaryService {
                     id: null as number | null, date: dateKey, status: null as AttendanceStatus | null,
                     overtimeHours: 0, total: 0, source: null as string | null,
                     cityKey: null, divisionKey: null, eventId: null as number | null,
-                    autoLinked: false, approvalStatus: null as AttendanceApprovalStatus | null,
+                    notes: null as string | null, autoLinked: false, approvalStatus: null as AttendanceApprovalStatus | null,
                 };
                 const eff = this.effectiveWageInputs(
                     { workerId: w.id, eventId: att.eventId, divisionKey: att.divisionKey, attendanceDate: att.attendanceDate },
@@ -379,7 +379,7 @@ export class PayrollSummaryService {
                 return {
                     id: att.id, date: dateKey, status: att.status, overtimeHours, total, source,
                     cityKey: att.cityKey, divisionKey: att.divisionKey, eventId: eff.eventId,
-                    autoLinked: eff.auto, approvalStatus: att.approvalStatus,
+                    notes: att.notes, autoLinked: eff.auto, approvalStatus: att.approvalStatus,
                 };
             });
             const wageFromAttendance = cells.reduce((s, c) => s + c.total, 0);

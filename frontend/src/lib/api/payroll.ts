@@ -50,10 +50,12 @@ export interface WeeklySummary {
             status: AttendanceStatus | null;
             overtimeHours: number;
             total: number;
-            source: 'assignment' | 'event-pic' | 'event' | 'matrix' | 'worker' | 'none' | null;
+            source: 'tier' | 'assignment' | 'event-pic' | 'event' | 'matrix' | 'worker' | 'none' | null;
             cityKey: string | null;
             divisionKey: string | null;
             eventId: number | null;
+            notes: string | null;
+            autoLinked?: boolean;
             approvalStatus: AttendanceApprovalStatus | null;
         }>;
         totalWage: number;

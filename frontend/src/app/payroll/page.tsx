@@ -150,13 +150,13 @@ export default function PayrollPage() {
 
 // ─── Input Mingguan Tab (admin isi absensi 1 minggu sekaligus) ─────────────
 
-type GridCell = { status: AttendanceStatus | null; overtime: number; city: string | null; division: string | null; eventId: number | null };
+type GridCell = { status: AttendanceStatus | null; overtime: number; city: string | null; division: string | null; eventId: number | null; notes: string | null };
 type GridRow = { city: string | null; division: string | null; eventId: number | null; days: Record<string, GridCell> };
 
 // Sel kosong default — dipakai sebagai fallback saat render terjadi pada frame transisi
 // (grid masih minggu lama sementara data.days sudah minggu baru, sebelum useEffect rebuild grid).
 // Tanpa ini, row.days[d] bisa undefined dan akses .status melempar TypeError.
-const EMPTY_CELL: GridCell = { status: null, overtime: 0, city: null, division: null, eventId: null };
+const EMPTY_CELL: GridCell = { status: null, overtime: 0, city: null, division: null, eventId: null, notes: null };
 
 const KEEP = "__keep__"; // sentinel: pada bulk apply = "biarkan, jangan ubah"
 
@@ -196,8 +196,8 @@ function InputMingguanTab() {
             for (const d of data.days) {
                 const c = w.cells[d];
                 days[d] = c
-                    ? { status: c.status, overtime: c.overtimeHours, city: c.cityKey ?? w.defaultCityKey, division: c.divisionKey ?? w.defaultDivisionKey, eventId: c.eventId }
-                    : { status: null, overtime: 0, city: w.defaultCityKey, division: w.defaultDivisionKey, eventId: null };
+                    ? { status: c.status, overtime: c.overtimeHours, city: c.cityKey ?? w.defaultCityKey, division: c.divisionKey ?? (c.eventId ? null : w.defaultDivisionKey), eventId: c.eventId, notes: c.notes }
+                    : { status: null, overtime: 0, city: w.defaultCityKey, division: w.defaultDivisionKey, eventId: null, notes: null };
                 if (c?.eventId != null && rowEventId == null) rowEventId = c.eventId;
             }
             next.set(w.id, { city: w.defaultCityKey, division: w.defaultDivisionKey, eventId: rowEventId, days });
@@ -327,6 +327,7 @@ function InputMingguanTab() {
                     rows.push({
                         workerId: w.id, date: d, status: c.status,
                         overtimeHours: c.overtime,
+                        notes: c.notes?.trim() || null,
                         eventId: c.eventId ?? row.eventId ?? null,
                         cityKey: c.city ?? row.city ?? null,
                         divisionKey: c.division ?? row.division ?? null,
@@ -356,6 +357,14 @@ function InputMingguanTab() {
 
     return (
         <div className="space-y-3">
+            {/* Preset keterangan lembur (dipakai semua input keterangan via list="ot-note-presets") */}
+            <datalist id="ot-note-presets">
+                <option value="Lembur Pasang" />
+                <option value="Lembur Bongkar" />
+                <option value="Lembur Muat / Loading" />
+                <option value="Lembur Setup" />
+                <option value="Lembur Event" />
+            </datalist>
             {/* Kontrol minggu + tim */}
             <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-3 flex-wrap">
                 <Calendar className="h-5 w-5 text-muted-foreground" />
@@ -576,6 +585,15 @@ function InputMingguanTab() {
                                                                     </select>
                                                                 </>
                                                             )}
+                                                            {/* Keterangan lembur / catatan (preset via datalist + teks bebas) */}
+                                                            <input
+                                                                list="ot-note-presets"
+                                                                value={cell.notes ?? ""}
+                                                                onChange={(e) => setCell(w.id, d, { notes: e.target.value || null })}
+                                                                placeholder={cell.overtime > 0 ? "ket. lembur…" : "catatan…"}
+                                                                title="Keterangan lembur / catatan (mis. Lembur Pasang)"
+                                                                className={`w-[120px] text-[9px] border rounded mt-1 px-1 py-0.5 bg-background ${cell.overtime > 0 && !cell.notes ? "border-warning/60" : ""}`}
+                                                            />
                                                         </td>
                                                     );
                                                 })}
@@ -853,15 +871,15 @@ function AttendanceCell({ cell, onApprove, onReject, onAudit }: {
 }) {
     const sBadge = cell.status ? STATUS_LABEL[cell.status] : null;
     const aBadge = cell.approvalStatus ? APPROVAL_LABEL[cell.approvalStatus] : null;
-    const sourceLabel = cell.source === 'assignment' ? '💰 Gaji Crew' : cell.source === 'event-pic' ? '👑 Event PIC' : cell.source === 'event' ? '🎪 Event Member' : cell.source === 'matrix' ? '📊 Matrix' : cell.source === 'worker' ? '👤 Default' : '';
+    const sourceLabel = cell.source === 'tier' ? 'Gaji A/B/C' : cell.source === 'assignment' ? 'Gaji Crew' : cell.source === 'event-pic' ? 'Event PIC' : cell.source === 'event' ? 'Event Member' : cell.source === 'matrix' ? 'Matrix' : cell.source === 'worker' ? 'Default' : '';
     const tooltip = sBadge
-        ? `${sBadge.label}${cell.overtimeHours ? ` + ${cell.overtimeHours}j` : ''} = Rp ${formatRp(cell.total)}\nSumber: ${sourceLabel}\nStatus: ${aBadge?.label ?? '-'}`
+        ? `${sBadge.label}${cell.overtimeHours ? ` + ${cell.overtimeHours}j` : ''} = Rp ${formatRp(cell.total)}\nSumber: ${sourceLabel}\nStatus: ${aBadge?.label ?? '-'}${cell.notes ? `\nKet: ${cell.notes}` : ''}`
         : '';
     return (
         <div className="inline-flex flex-col items-center gap-0.5 group relative">
             <div className={`inline-flex flex-col items-center justify-center px-1 py-0.5 rounded border text-xs ${sBadge?.cls ?? ''}`} title={tooltip}>
                 <span className="font-bold text-sm">{sBadge?.emoji}</span>
-                {cell.overtimeHours > 0 && <span className="text-[9px] font-mono">+{cell.overtimeHours}j</span>}
+                {cell.overtimeHours > 0 && <span className="text-[9px] font-mono">+{cell.overtimeHours}j{cell.notes ? "*" : ""}</span>}
             </div>
             {aBadge && (
                 <span className={`text-[8px] px-1 rounded border ${aBadge.cls} font-medium`}>{aBadge.label.charAt(0)}</span>
