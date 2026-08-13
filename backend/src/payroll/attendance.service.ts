@@ -402,6 +402,10 @@ export class AttendanceService {
                 select: {
                     id: true, code: true, name: true, venue: true,
                     dailyWageRate: true, overtimeRatePerHour: true,
+                    wageTiers: {
+                        orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+                        select: { id: true, dailyWageRate: true, overtimeRatePerHour: true },
+                    },
                 },
             }),
         ]);
@@ -460,6 +464,12 @@ export class AttendanceService {
                 venue: e.venue,
                 dailyWageRate: e.dailyWageRate != null ? parseFloat(e.dailyWageRate.toString()) : null,
                 overtimeRatePerHour: e.overtimeRatePerHour != null ? parseFloat(e.overtimeRatePerHour.toString()) : null,
+                tiers: e.wageTiers.map((t, idx) => ({
+                    id: t.id,
+                    label: `Gaji ${String.fromCharCode(65 + idx)}`,
+                    dailyWageRate: t.dailyWageRate != null ? parseFloat(t.dailyWageRate.toString()) : null,
+                    overtimeRatePerHour: t.overtimeRatePerHour != null ? parseFloat(t.overtimeRatePerHour.toString()) : null,
+                })),
             })),
             workers: workers.map((w) => ({
                 id: w.id,

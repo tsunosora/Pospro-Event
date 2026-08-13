@@ -22,7 +22,16 @@ function resolveRates(
     event: { dailyWageRate: any; overtimeRatePerHour: any; dailyWageRatePic: any; overtimeRatePerHourPic: any; picWorkerId: number | null } | null,
     rateMatrixMap: Map<string, { dailyWageRate: any; overtimeRatePerHour: any }>,
     assignmentOverride?: { dailyWageRate: any; overtimeRatePerHour: any } | null,
-): { dailyRate: number; overtimeRate: number; source: 'assignment' | 'event-pic' | 'event' | 'matrix' | 'worker' | 'none' } {
+    tierRate?: { dailyWageRate: any; overtimeRatePerHour: any } | null,
+): { dailyRate: number; overtimeRate: number; source: 'tier' | 'assignment' | 'event-pic' | 'event' | 'matrix' | 'worker' | 'none' } {
+    // 0. Tier "Gaji A/B/C" yang dipilih di payroll (paling eksplisit, menang di atas semua)
+    if (tierRate && tierRate.dailyWageRate != null) {
+        return {
+            dailyRate: parseFloat(tierRate.dailyWageRate.toString()),
+            overtimeRate: tierRate.overtimeRatePerHour != null ? parseFloat(tierRate.overtimeRatePerHour.toString()) : 0,
+            source: 'tier',
+        };
+    }
     // 1. Crew assignment override (gaji per member di event ini — paling spesifik, menang di atas semua)
     if (assignmentOverride && assignmentOverride.dailyWageRate != null) {
         return {
@@ -47,8 +56,8 @@ function resolveRates(
             source: 'event',
         };
     }
-    // 3. WageRate matrix
-    if (att.cityKey && att.divisionKey) {
+    // 3. WageRate matrix — hanya untuk hari non-event (utk event, divisionKey dipakai sbg id tier)
+    if (!att.eventId && att.cityKey && att.divisionKey) {
         const key = `${att.cityKey.toLowerCase()}|${att.divisionKey.toLowerCase()}`;
         const r = rateMatrixMap.get(key);
         if (r) {
@@ -120,7 +129,7 @@ export class PayrollSummaryService {
      *  - Event yang ke-refer di attendance → Map by id
      */
     private async loadResolvers(eventIds: number[]) {
-        const [wageRates, events, assignments] = await Promise.all([
+        const [wageRates, events, assignments, tiers] = await Promise.all([
             this.prisma.wageRate.findMany({
                 where: { isActive: true },
                 select: { city: true, division: true, dailyWageRate: true, overtimeRatePerHour: true },
@@ -145,6 +154,13 @@ export class PayrollSummaryService {
                     },
                 })
                 : Promise.resolve([]),
+            // Tier "Gaji A/B/C" per event → dipakai saat absensi memilih tier (divisionKey = id tier).
+            eventIds.length > 0
+                ? this.prisma.eventWageTier.findMany({
+                    where: { eventId: { in: eventIds } },
+                    select: { id: true, eventId: true, dailyWageRate: true, overtimeRatePerHour: true },
+                })
+                : Promise.resolve([]),
         ]);
         const rateMatrixMap = new Map<string, { dailyWageRate: any; overtimeRatePerHour: any }>();
         for (const r of wageRates) {
@@ -165,7 +181,10 @@ export class PayrollSummaryService {
             else if (a.wageTier?.dailyWageRate != null) { daily = a.wageTier.dailyWageRate; ot = a.wageTier.overtimeRatePerHour; }
             if (daily != null) assignmentMap.set(`${a.eventId}|${a.workerId}`, { dailyWageRate: daily, overtimeRatePerHour: ot });
         }
-        return { rateMatrixMap, eventMap, assignmentMap };
+        // Map id tier → tarif (+ eventId untuk validasi milik event yg benar).
+        const tierMap = new Map<number, { eventId: number; dailyWageRate: any; overtimeRatePerHour: any }>();
+        for (const t of tiers) tierMap.set(t.id, { eventId: t.eventId, dailyWageRate: t.dailyWageRate, overtimeRatePerHour: t.overtimeRatePerHour });
+        return { rateMatrixMap, eventMap, assignmentMap, tierMap };
     }
 
     /**
@@ -239,29 +258,38 @@ export class PayrollSummaryService {
      * - Kalau tidak → coba auto-match ke penugasan crew yang menutupi tanggalnya & punya tarif.
      */
     private effectiveWageInputs(
-        att: { workerId: number; eventId: number | null; attendanceDate: Date },
+        att: { workerId: number; eventId: number | null; divisionKey: string | null; attendanceDate: Date },
         eventMap: Map<number, { dailyWageRate: any; overtimeRatePerHour: any; dailyWageRatePic: any; overtimeRatePerHourPic: any; picWorkerId: number | null }>,
         assignmentMap: Map<string, { dailyWageRate: any; overtimeRatePerHour: any }>,
         autoMap: Map<number, Array<{ startDate: string; endDate: string; eventId: number; event: any; override: { dailyWageRate: any; overtimeRatePerHour: any } | null }>>,
-    ): { eventId: number | null; event: any; override: { dailyWageRate: any; overtimeRatePerHour: any } | null; auto: boolean } {
+        tierMap: Map<number, { eventId: number; dailyWageRate: any; overtimeRatePerHour: any }>,
+    ): { eventId: number | null; event: any; override: { dailyWageRate: any; overtimeRatePerHour: any } | null; tierRate: { dailyWageRate: any; overtimeRatePerHour: any } | null; auto: boolean } {
+        // Tier "Gaji A/B/C" yang dipilih di payroll: divisionKey = id tier valid milik event ini.
+        const tierRateFor = (eventId: number | null): { dailyWageRate: any; overtimeRatePerHour: any } | null => {
+            if (!eventId || !att.divisionKey || !/^\d+$/.test(att.divisionKey)) return null;
+            const t = tierMap.get(Number(att.divisionKey));
+            return t && t.eventId === eventId ? { dailyWageRate: t.dailyWageRate, overtimeRatePerHour: t.overtimeRatePerHour } : null;
+        };
+
         if (att.eventId) {
             return {
                 eventId: att.eventId,
                 event: eventMap.get(att.eventId) ?? null,
                 override: assignmentMap.get(`${att.eventId}|${att.workerId}`) ?? null,
+                tierRate: tierRateFor(att.eventId),
                 auto: false,
             };
         }
         const dateKey = att.attendanceDate.toISOString().slice(0, 10);
         const matches = (autoMap.get(att.workerId) ?? []).filter((m) => m.startDate <= dateKey && dateKey <= m.endDate);
-        if (!matches.length) return { eventId: null, event: null, override: null, auto: false };
+        if (!matches.length) return { eventId: null, event: null, override: null, tierRate: null, auto: false };
         // Prioritas tarif yang bisa dipakai: override/tier > PIC event > tarif event member.
         const chosen =
             matches.find((m) => m.override?.dailyWageRate != null) ??
             matches.find((m) => m.event.picWorkerId === att.workerId && m.event.dailyWageRatePic != null) ??
             matches.find((m) => m.event.dailyWageRate != null);
-        if (!chosen) return { eventId: null, event: null, override: null, auto: false };
-        return { eventId: chosen.eventId, event: chosen.event, override: chosen.override, auto: true };
+        if (!chosen) return { eventId: null, event: null, override: null, tierRate: null, auto: false };
+        return { eventId: chosen.eventId, event: chosen.event, override: chosen.override, tierRate: null, auto: true };
     }
 
     async weeklySummary(weekStart: string, weekEnd?: string) {
@@ -307,7 +335,7 @@ export class PayrollSummaryService {
         }
 
         const eventIds = Array.from(new Set(attendances.map(a => a.eventId).filter((x): x is number => x != null)));
-        const { rateMatrixMap, eventMap, assignmentMap } = await this.loadResolvers(eventIds);
+        const { rateMatrixMap, eventMap, assignmentMap, tierMap } = await this.loadResolvers(eventIds);
         const autoMap = await this.loadAutoAssignments(start, end);
 
         const byWorker = new Map<number, Map<string, typeof attendances[number]>>();
@@ -335,8 +363,8 @@ export class PayrollSummaryService {
                     autoLinked: false, approvalStatus: null as AttendanceApprovalStatus | null,
                 };
                 const eff = this.effectiveWageInputs(
-                    { workerId: w.id, eventId: att.eventId, attendanceDate: att.attendanceDate },
-                    eventMap, assignmentMap, autoMap,
+                    { workerId: w.id, eventId: att.eventId, divisionKey: att.divisionKey, attendanceDate: att.attendanceDate },
+                    eventMap, assignmentMap, autoMap, tierMap,
                 );
                 const { dailyRate, overtimeRate, source } = resolveRates(
                     { workerId: w.id, eventId: eff.eventId, cityKey: att.cityKey, divisionKey: att.divisionKey },
@@ -344,6 +372,7 @@ export class PayrollSummaryService {
                     eff.event,
                     rateMatrixMap,
                     eff.override,
+                    eff.tierRate,
                 );
                 const overtimeHours = parseFloat(att.overtimeHours.toString()) || 0;
                 const { total } = calcRowWage(att.status, overtimeHours, dailyRate, overtimeRate);
@@ -447,7 +476,7 @@ export class PayrollSummaryService {
         }
 
         const eventIds = Array.from(new Set(attendances.map(a => a.eventId).filter((x): x is number => x != null)));
-        const { rateMatrixMap, eventMap, assignmentMap } = await this.loadResolvers(eventIds);
+        const { rateMatrixMap, eventMap, assignmentMap, tierMap } = await this.loadResolvers(eventIds);
         const autoMap = await this.loadAutoAssignments(start, end);
 
         const byWorker = new Map<number, typeof attendances>();
@@ -466,8 +495,8 @@ export class PayrollSummaryService {
                 const oh = parseFloat(a.overtimeHours.toString()) || 0;
                 overtimeHours += oh;
                 const eff = this.effectiveWageInputs(
-                    { workerId: w.id, eventId: a.eventId, attendanceDate: a.attendanceDate },
-                    eventMap, assignmentMap, autoMap,
+                    { workerId: w.id, eventId: a.eventId, divisionKey: a.divisionKey, attendanceDate: a.attendanceDate },
+                    eventMap, assignmentMap, autoMap, tierMap,
                 );
                 const { dailyRate, overtimeRate } = resolveRates(
                     { workerId: w.id, eventId: eff.eventId, cityKey: a.cityKey, divisionKey: a.divisionKey },
@@ -475,6 +504,7 @@ export class PayrollSummaryService {
                     eff.event,
                     rateMatrixMap,
                     eff.override,
+                    eff.tierRate,
                 );
                 let rowBase = 0;
                 if (a.status === 'FULL_DAY') { fullDays++; rowBase = dailyRate; }

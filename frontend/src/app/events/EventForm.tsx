@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Loader2, Save, Trash2, Wallet, Users, User } from "lucide-react";
+import { Loader2, Save, Trash2, Wallet } from "lucide-react";
 import {
     createEvent, updateEvent, deleteEvent,
     type EventBrand, type EventFormInput, type EventRecord, type EventStatus,
@@ -57,10 +57,6 @@ export default function EventForm({ mode, initial }: Props) {
         eventStart: toDateOnly(initial?.eventStart),
         eventEnd: toDateOnly(initial?.eventEnd),
         notes: initial?.notes ?? "",
-        dailyWageRate: initial?.dailyWageRate ?? "",
-        overtimeRatePerHour: initial?.overtimeRatePerHour ?? "",
-        dailyWageRatePic: initial?.dailyWageRatePic ?? "",
-        overtimeRatePerHourPic: initial?.overtimeRatePerHourPic ?? "",
     });
     const [error, setError] = useState<string | null>(null);
 
@@ -93,10 +89,6 @@ export default function EventForm({ mode, initial }: Props) {
                 eventStart: dateOnlyToIso(form.eventStart as string),
                 eventEnd: dateOnlyToIso(form.eventEnd as string),
                 notes: form.notes?.toString().trim() || null,
-                dailyWageRate: form.dailyWageRate ? String(form.dailyWageRate).trim() || null : null,
-                overtimeRatePerHour: form.overtimeRatePerHour ? String(form.overtimeRatePerHour).trim() || null : null,
-                dailyWageRatePic: form.dailyWageRatePic ? String(form.dailyWageRatePic).trim() || null : null,
-                overtimeRatePerHourPic: form.overtimeRatePerHourPic ? String(form.overtimeRatePerHourPic).trim() || null : null,
             };
             if (mode === "create") return createEvent(payload);
             return updateEvent(initial!.id, payload);
@@ -289,75 +281,14 @@ export default function EventForm({ mode, initial }: Props) {
                 />
             </div>
 
-            {/* Wage override per event/project */}
+            {/* Tarif gaji event → sekarang via "Gaji A/B/C" di tab Crew */}
             <div className="pt-3 border-t border-dashed border-border">
-                <div className="text-xs font-bold text-success mb-2 flex items-center gap-1">
-                    <Wallet className="w-4 h-4" /> Override Gaji untuk Event Ini (Opsional)
+                <div className="text-xs font-bold text-success mb-1 flex items-center gap-1">
+                    <Wallet className="w-4 h-4" /> Tarif Gaji Event
                 </div>
-                <p className="text-[11px] text-muted-foreground mb-2">
-                    Override matrix kota+divisi & default worker. Kosongkan kalau pakai default.
+                <p className="text-[11px] text-muted-foreground">
+                    Atur tarif lewat <b>Gaji A/B/C</b> di tab <b>Crew</b> event ini. Saat input payroll, pilih Gaji A/B/C per hari — gaji otomatis ikut tarif tersebut.
                 </p>
-                {/* Member rate */}
-                <div className="bg-success/10 border border-success/30 rounded-lg p-2 mb-2">
-                    <div className="text-[11px] font-bold text-success mb-1.5 flex items-center gap-1"><Users className="w-4 h-4" /> Member / Crew (worker biasa)</div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-xs font-medium">Gaji Harian (Rp)</label>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                value={form.dailyWageRate ?? ""}
-                                onChange={(e) => setForm((f) => ({ ...f, dailyWageRate: e.target.value.replace(/[^\d.]/g, "") }))}
-                                placeholder="200000"
-                                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5 nums"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium">Lembur per Jam (Rp)</label>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                value={form.overtimeRatePerHour ?? ""}
-                                onChange={(e) => setForm((f) => ({ ...f, overtimeRatePerHour: e.target.value.replace(/[^\d.]/g, "") }))}
-                                placeholder="25000"
-                                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5 nums"
-                            />
-                        </div>
-                    </div>
-                </div>
-                {/* PIC rate */}
-                <div className="bg-info/10 border border-info/30 rounded-lg p-2">
-                    <div className="text-[11px] font-bold text-info mb-1.5 flex items-center gap-1">
-                        <User className="w-4 h-4" /> PIC Khusus (worker yang dipilih sebagai PIC event di atas)
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mb-1.5">
-                        Kosongkan kalau PIC ikut rate Member. Isi kalau PIC dapat fee lebih tinggi (mandor/koordinator).
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-xs font-medium">Gaji Harian PIC (Rp)</label>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                value={form.dailyWageRatePic ?? ""}
-                                onChange={(e) => setForm((f) => ({ ...f, dailyWageRatePic: e.target.value.replace(/[^\d.]/g, "") }))}
-                                placeholder="350000"
-                                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5 nums"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium">Lembur PIC per Jam (Rp)</label>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                value={form.overtimeRatePerHourPic ?? ""}
-                                onChange={(e) => setForm((f) => ({ ...f, overtimeRatePerHourPic: e.target.value.replace(/[^\d.]/g, "") }))}
-                                placeholder="40000"
-                                className="w-full border border-border bg-background rounded px-2 py-1.5 text-sm mt-0.5 nums"
-                            />
-                        </div>
-                    </div>
-                </div>
             </div>
 
             {error && <div className="text-xs text-destructive">{error}</div>}

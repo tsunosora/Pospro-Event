@@ -145,7 +145,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
     function handleBulkSetTier(wageTierId: number | null) {
         const n = selectedAssignmentIds.size;
         if (n === 0) return;
-        const tierLabel = wageTierId === null ? "Default" : tiers.find((t) => t.id === wageTierId)?.name ?? "Tier";
+        const tierLabel = wageTierId === null ? "Default" : tiers.find((t) => t.id === wageTierId)?.label ?? "Gaji";
         if (confirm(`Set tarif gaji ${n} crew ke "${tierLabel}"?`)) {
             bulkSetTierMut.mutate({ ids: Array.from(selectedAssignmentIds), wageTierId });
         }
@@ -270,28 +270,29 @@ export default function CrewTab({ eventId }: { eventId: number }) {
             {/* ── Tarif Gaji (Tier) per event ── */}
             <details className="border border-success/30 bg-success/10 rounded-lg">
                 <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-success flex items-center gap-2 transition-colors">
-                    <Wallet className="h-4 w-4" /> Tarif Gaji (Tier) — {tiers.length}
+                    <Wallet className="h-4 w-4" /> Gaji A/B/C — {tiers.length}
                     <span className="text-[11px] font-normal text-muted-foreground ml-auto">klik untuk atur ▾</span>
                 </summary>
                 <div className="px-3 pb-3 space-y-2">
                     <p className="text-[11px] text-muted-foreground">
-                        Tentukan tarif sekali (mis. PIC, Member, Crew Baru). Saat assign cukup pilih tier — gaji otomatis. Ubah tarif di sini → semua crew di tier itu ikut update.
+                        Daftar tarif gaji event ini (Gaji A, B, C…). Saat input payroll, pilih Gaji A/B/C per hari — gaji otomatis ikut tarif di sini.
                     </p>
                     {tiers.length > 0 && (
-                        <div className="grid grid-cols-[1.3fr_1fr_1fr_auto] gap-2 text-[10px] font-semibold text-muted-foreground px-0.5">
-                            <span>Nama Tier</span><span>Gaji Harian (Rp)</span><span>Lembur/Jam (Rp)</span><span></span>
+                        <div className="grid grid-cols-[0.8fr_1fr_1fr_auto] gap-2 text-[10px] font-semibold text-muted-foreground px-0.5">
+                            <span>Gaji</span><span>Gaji Harian (Rp)</span><span>Lembur/Jam (Rp)</span><span></span>
                         </div>
                     )}
-                    {tiers.map((t) => (
+                    {tiers.map((t, idx) => (
                         <TierRow
                             key={t.id}
                             tier={t}
+                            label={t.label ?? `Gaji ${String.fromCharCode(65 + idx)}`}
                             onSave={(patch) => updateTierMut.mutate({ id: t.id, ...patch })}
-                            onDelete={() => { if (confirm(`Hapus tier "${t.name}"? Crew yang pakai tier ini akan kembali ke default.`)) deleteTierMut.mutate(t.id); }}
+                            onDelete={() => { if (confirm(`Hapus ${t.label ?? `Gaji ${String.fromCharCode(65 + idx)}`}? Sisanya akan digeser (B jadi A, dst).`)) deleteTierMut.mutate(t.id); }}
                             saving={updateTierMut.isPending}
                         />
                     ))}
-                    <AddTierForm onAdd={(draft) => createTierMut.mutate({ eventId, ...draft, sortOrder: tiers.length })} pending={createTierMut.isPending} />
+                    <AddTierForm nextLabel={`Gaji ${String.fromCharCode(65 + tiers.length)}`} onAdd={(draft) => createTierMut.mutate({ eventId, ...draft, sortOrder: tiers.length })} pending={createTierMut.isPending} />
                 </div>
             </details>
 
@@ -370,7 +371,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                         disabled={bulkSetTierMut.isPending}
                                         className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
                                     >
-                                        {t.name}{t.dailyWageRate != null ? ` · Rp ${Number(t.dailyWageRate).toLocaleString("id-ID")}/hari` : ""}
+                                        {t.label ?? t.name}{t.dailyWageRate != null ? ` · Rp ${Number(t.dailyWageRate).toLocaleString("id-ID")}/hari` : ""}
                                     </button>
                                 ))}
                             </div>
@@ -614,7 +615,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                                 <div className="text-xs mt-1">
                                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-success/15 text-success font-medium">
                                                         <Wallet className="h-3 w-3" />
-                                                        {manual ? "Gaji custom" : `Tier: ${a.wageTier?.name}`}
+                                                        {manual ? "Gaji custom" : (tiers.find((t) => t.id === a.wageTierId)?.label ?? a.wageTier?.name)}
                                                         {daily != null && <span className="nums">: Rp {daily.toLocaleString("id-ID")}/hari</span>}
                                                         {ot != null && <span className="nums"> · lembur Rp {Number(ot).toLocaleString("id-ID")}/jam</span>}
                                                     </span>
@@ -681,7 +682,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                                     <option value="">— Default —</option>
                                                     {tiers.map((t) => (
                                                         <option key={t.id} value={t.id}>
-                                                            {t.name}{t.dailyWageRate != null ? ` · Rp ${Number(t.dailyWageRate).toLocaleString("id-ID")}` : ""}
+                                                            {t.label ?? t.name}{t.dailyWageRate != null ? ` · Rp ${Number(t.dailyWageRate).toLocaleString("id-ID")}` : ""}
                                                         </option>
                                                     ))}
                                                 </select>
@@ -782,27 +783,22 @@ export default function CrewTab({ eventId }: { eventId: number }) {
     );
 }
 
-// ── Baris tier yang bisa diedit inline ──
-function TierRow({ tier, onSave, onDelete, saving }: {
+// ── Baris tier (Gaji A/B/C) yang bisa diedit inline — label read-only, hanya nominal & lembur ──
+function TierRow({ tier, label, onSave, onDelete, saving }: {
     tier: EventWageTier;
-    onSave: (patch: { name: string; dailyWageRate: string | null; overtimeRatePerHour: string | null }) => void;
+    label: string;
+    onSave: (patch: { dailyWageRate: string | null; overtimeRatePerHour: string | null }) => void;
     onDelete: () => void;
     saving: boolean;
 }) {
     const initDaily = tier.dailyWageRate != null ? String(Number(tier.dailyWageRate)) : "";
     const initOt = tier.overtimeRatePerHour != null ? String(Number(tier.overtimeRatePerHour)) : "";
-    const [name, setName] = useState(tier.name);
     const [daily, setDaily] = useState(initDaily);
     const [ot, setOt] = useState(initOt);
-    const dirty = name !== tier.name || daily !== initDaily || ot !== initOt;
+    const dirty = daily !== initDaily || ot !== initOt;
     return (
-        <div className="grid grid-cols-[1.3fr_1fr_1fr_auto] gap-2 items-center">
-            <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Nama tier"
-                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background"
-            />
+        <div className="grid grid-cols-[0.8fr_1fr_1fr_auto] gap-2 items-center">
+            <span className="px-2 py-1.5 text-sm font-semibold text-success">{label}</span>
             <input
                 value={daily}
                 inputMode="numeric"
@@ -820,15 +816,15 @@ function TierRow({ tier, onSave, onDelete, saving }: {
             <div className="flex items-center gap-1">
                 {dirty && (
                     <button
-                        onClick={() => onSave({ name: name.trim() || "Tier", dailyWageRate: daily || null, overtimeRatePerHour: ot || null })}
+                        onClick={() => onSave({ dailyWageRate: daily || null, overtimeRatePerHour: ot || null })}
                         disabled={saving}
                         className="px-2 py-1 text-xs rounded-md bg-success text-white hover:bg-success/90 disabled:opacity-50 transition-colors cursor-pointer"
-                        title="Simpan tier"
+                        title="Simpan"
                     >
                         <Check className="h-3.5 w-3.5" />
                     </button>
                 )}
-                <button onClick={onDelete} className="p-1.5 rounded hover:bg-destructive/10 text-destructive transition-colors cursor-pointer" title="Hapus tier">
+                <button onClick={onDelete} className="p-1.5 rounded hover:bg-destructive/10 text-destructive transition-colors cursor-pointer" title="Hapus">
                     <Trash2 className="h-3.5 w-3.5" />
                 </button>
             </div>
@@ -836,27 +832,22 @@ function TierRow({ tier, onSave, onDelete, saving }: {
     );
 }
 
-// ── Form tambah tier baru ──
-function AddTierForm({ onAdd, pending }: {
-    onAdd: (draft: { name: string; dailyWageRate: string | null; overtimeRatePerHour: string | null }) => void;
+// ── Form tambah tier baru (Gaji berikutnya) — label otomatis ──
+function AddTierForm({ nextLabel, onAdd, pending }: {
+    nextLabel: string;
+    onAdd: (draft: { dailyWageRate: string | null; overtimeRatePerHour: string | null }) => void;
     pending: boolean;
 }) {
-    const [name, setName] = useState("");
     const [daily, setDaily] = useState("");
     const [ot, setOt] = useState("");
     function submit() {
-        if (!name.trim()) return;
-        onAdd({ name: name.trim(), dailyWageRate: daily || null, overtimeRatePerHour: ot || null });
-        setName(""); setDaily(""); setOt("");
+        if (!daily && !ot) return;
+        onAdd({ dailyWageRate: daily || null, overtimeRatePerHour: ot || null });
+        setDaily(""); setOt("");
     }
     return (
-        <div className="grid grid-cols-[1.3fr_1fr_1fr_auto] gap-2 items-center pt-1 border-t border-dashed border-success/30">
-            <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="+ Tier baru (mis. PIC)"
-                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background"
-            />
+        <div className="grid grid-cols-[0.8fr_1fr_1fr_auto] gap-2 items-center pt-1 border-t border-dashed border-success/30">
+            <span className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">{nextLabel}</span>
             <input
                 value={daily}
                 inputMode="numeric"
@@ -873,7 +864,7 @@ function AddTierForm({ onAdd, pending }: {
             />
             <button
                 onClick={submit}
-                disabled={pending || !name.trim()}
+                disabled={pending || (!daily && !ot)}
                 className="inline-flex items-center gap-1 px-2 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
                 <Plus className="h-3.5 w-3.5" /> Tambah

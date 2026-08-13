@@ -113,6 +113,7 @@ export interface EventWageTier {
     id: number;
     eventId: number;
     name: string;
+    label?: string; // "Gaji A/B/C" — dihitung backend dari urutan
     dailyWageRate: string | null;
     overtimeRatePerHour: string | null;
     sortOrder: number;

@@ -218,11 +218,19 @@ function InputMingguanTab() {
         return m;
     }, [data]);
 
-    // Prioritas estimasi (selaras backend): override event > matriks kota×divisi > default worker.
+    // Prioritas estimasi (selaras backend): tier Gaji A/B/C > tarif event > matriks kota×divisi (non-event) > default worker.
+    // Catatan: untuk hari event, `division` menyimpan id tier (Gaji A/B/C).
     function resolveRate(w: WeeklyInputContext["workers"][number], city: string | null, division: string | null, eventId: number | null) {
         if (eventId != null) {
             const ev = eventMap.get(eventId);
-            if (ev && ev.dailyWageRate != null) return { daily: ev.dailyWageRate, ot: ev.overtimeRatePerHour ?? 0 };
+            if (ev) {
+                if (division && /^\d+$/.test(division)) {
+                    const t = ev.tiers?.find((x) => x.id === Number(division));
+                    if (t && t.dailyWageRate != null) return { daily: t.dailyWageRate, ot: t.overtimeRatePerHour ?? 0 };
+                }
+                if (ev.dailyWageRate != null) return { daily: ev.dailyWageRate, ot: ev.overtimeRatePerHour ?? 0 };
+            }
+            return { daily: w.dailyWageRate, ot: w.overtimeRatePerHour };
         }
         if (city && division) {
             const r = rateMap.get(`${city.toLowerCase()}|${division.toLowerCase()}`);
@@ -482,7 +490,7 @@ function InputMingguanTab() {
                                                 <div className="font-medium leading-tight">{w.name}</div>
                                                 {row.eventId != null && (
                                                     <div className="text-[10px] text-info font-medium truncate max-w-[140px] inline-flex items-center gap-0.5" title={eventMap.get(row.eventId)?.name ?? ""}>
-                                                        <Calendar className="h-2.5 w-2.5 shrink-0" /> {eventMap.get(row.eventId)?.code ?? eventMap.get(row.eventId)?.name ?? `#${row.eventId}`}
+                                                        <Calendar className="h-2.5 w-2.5 shrink-0" /> {eventMap.get(row.eventId)?.name ?? `#${row.eventId}`}
                                                     </div>
                                                 )}
                                                 <div className="flex gap-1 mt-0.5">
@@ -537,24 +545,37 @@ function InputMingguanTab() {
                                         {isOpen && (
                                             <tr className="bg-warning/5 border-t border-warning/20">
                                                 <td colSpan={4} className="p-2 text-[10px] text-warning align-top">
-                                                    Override Event/Kota/Divisi per hari (untuk hari kerja di event/kota berbeda):
+                                                    Pilih Event + Gaji A/B/C per hari (hari non-event: kota+divisi):
                                                 </td>
                                                 {(data?.days ?? []).map((d) => {
                                                     const cell = row.days[d] ?? EMPTY_CELL;
                                                     return (
                                                         <td key={d} className="p-1 align-top">
-                                                            <select value={cell.eventId ?? ""} onChange={(e) => setCell(w.id, d, { eventId: e.target.value ? Number(e.target.value) : null })} className="w-[44px] text-[9px] border rounded mb-1 bg-background" title="Event">
-                                                                <option value="">event</option>
-                                                                {(data?.events ?? []).map((ev) => <option key={ev.id} value={ev.id}>{ev.code || ev.name}</option>)}
+                                                            <select value={cell.eventId ?? ""} onChange={(e) => setCell(w.id, d, { eventId: e.target.value ? Number(e.target.value) : null, division: null })} className="w-[120px] text-[9px] border rounded mb-1 bg-background" title="Event">
+                                                                <option value="">— event —</option>
+                                                                {(data?.events ?? []).map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
                                                             </select>
-                                                            <select value={cell.city ?? ""} onChange={(e) => setCell(w.id, d, { city: e.target.value || null })} className="w-[44px] text-[9px] border rounded mb-1 bg-background" title="Kota">
-                                                                <option value="">kota</option>
-                                                                {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
-                                                            </select>
-                                                            <select value={cell.division ?? ""} onChange={(e) => setCell(w.id, d, { division: e.target.value || null })} className="w-[44px] text-[9px] border rounded bg-background" title="Divisi">
-                                                                <option value="">div</option>
-                                                                {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
-                                                            </select>
+                                                            {cell.eventId ? (
+                                                                // Hari event → pilih Gaji A/B/C (id tier disimpan di divisionKey)
+                                                                <select value={cell.division ?? ""} onChange={(e) => setCell(w.id, d, { division: e.target.value || null })} className="w-[120px] text-[9px] border rounded bg-background" title="Gaji A/B/C">
+                                                                    <option value="">— tarif event —</option>
+                                                                    {(eventMap.get(cell.eventId)?.tiers ?? []).map((t) => (
+                                                                        <option key={t.id} value={t.id}>{t.label}{t.dailyWageRate != null ? ` · ${formatRp(t.dailyWageRate)}` : ""}</option>
+                                                                    ))}
+                                                                </select>
+                                                            ) : (
+                                                                // Hari non-event → matrix kota+divisi (legacy)
+                                                                <>
+                                                                    <select value={cell.city ?? ""} onChange={(e) => setCell(w.id, d, { city: e.target.value || null })} className="w-[120px] text-[9px] border rounded mb-1 bg-background" title="Kota">
+                                                                        <option value="">— kota —</option>
+                                                                        {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                                                                    </select>
+                                                                    <select value={cell.division ?? ""} onChange={(e) => setCell(w.id, d, { division: e.target.value || null })} className="w-[120px] text-[9px] border rounded bg-background" title="Divisi">
+                                                                        <option value="">— divisi —</option>
+                                                                        {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                                                                    </select>
+                                                                </>
+                                                            )}
                                                         </td>
                                                     );
                                                 })}

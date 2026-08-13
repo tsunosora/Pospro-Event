@@ -34,6 +34,9 @@ export interface WageTierInput {
     sortOrder?: number;
 }
 
+/** Label otomatis tier: sortOrder 0 → "Gaji A", 1 → "Gaji B", dst. */
+export const tierLabel = (sortOrder: number) => `Gaji ${String.fromCharCode(65 + Math.max(0, sortOrder))}`;
+
 @Injectable()
 export class EventCrewService {
     constructor(
@@ -75,23 +78,27 @@ export class EventCrewService {
         });
     }
 
-    // ── Wage tiers (tarif gaji per event) ──
+    // ── Wage tiers (tarif gaji per event) = daftar "Gaji A/B/C" ──
     async listTiers(eventId: number) {
-        return this.prisma.eventWageTier.findMany({
+        const tiers = await this.prisma.eventWageTier.findMany({
             where: { eventId },
             orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
         });
+        // Label huruf mengikuti urutan tampil (bukan sortOrder mentah) supaya selalu kontigu A/B/C.
+        return tiers.map((t, idx) => ({ ...t, label: tierLabel(idx) }));
     }
 
     async createTier(eventId: number, input: WageTierInput) {
         if (!eventId) throw new BadRequestException('eventId wajib');
+        // sortOrder default = jumlah tier existing (tambah di urutan berikutnya) → label huruf berikut.
+        const sortOrder = input.sortOrder ?? (await this.prisma.eventWageTier.count({ where: { eventId } }));
         return this.prisma.eventWageTier.create({
             data: {
                 eventId,
-                name: (input.name ?? '').trim() || 'Tier',
+                name: (input.name ?? '').trim() || tierLabel(sortOrder),
                 dailyWageRate: this.parseRate(input.dailyWageRate),
                 overtimeRatePerHour: this.parseRate(input.overtimeRatePerHour),
-                sortOrder: input.sortOrder ?? 0,
+                sortOrder,
             },
         });
     }
@@ -107,7 +114,17 @@ export class EventCrewService {
 
     async removeTier(id: number) {
         // Assignment yang pakai tier ini otomatis wageTierId → null (onDelete: SetNull)
+        const tier = await this.prisma.eventWageTier.findUnique({ where: { id }, select: { eventId: true } });
         await this.prisma.eventWageTier.delete({ where: { id } });
+        // Recompact sortOrder supaya label huruf tetap kontigu (A/B/C tanpa lompat).
+        if (tier) {
+            const rest = await this.prisma.eventWageTier.findMany({
+                where: { eventId: tier.eventId },
+                orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+                select: { id: true },
+            });
+            await Promise.all(rest.map((t, idx) => this.prisma.eventWageTier.update({ where: { id: t.id }, data: { sortOrder: idx } })));
+        }
         return { ok: true };
     }
 
