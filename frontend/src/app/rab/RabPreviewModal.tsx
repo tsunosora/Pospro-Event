@@ -507,7 +507,10 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                                     <td className="px-2 py-1.5 text-right font-mono nums">{fmtRp(r)}</td>
                                                     <td className="px-2 py-1.5 text-right font-mono nums">
                                                         {hasReal ? (
-                                                            <span className={realUnit > c ? "text-destructive font-semibold" : "text-emerald-600 font-semibold"} title={`Estimasi: ${fmtRp(c)}`}>{fmtRp(realUnit)}</span>
+                                                            <span title={`Estimasi ${fmtRp(c)} + belanja ${fmtRp(realUnit)}`}>
+                                                                <span className="font-semibold">{fmtRp(c + realUnit)}</span>
+                                                                <span className="block text-[9px] text-muted-foreground/70">{fmtRp(c)} + {fmtRp(realUnit)}</span>
+                                                            </span>
                                                         ) : (
                                                             <span className="text-muted-foreground">{fmtRp(c)}</span>
                                                         )}
@@ -515,7 +518,7 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                                     <td className="px-2 py-1.5 text-right font-mono nums">{fmtRp(subRab)}</td>
                                                     <td className="px-2 py-1.5 text-right font-mono nums">
                                                         {hasReal ? (
-                                                            <span className={realTotal > subCost ? "text-destructive font-semibold" : "text-emerald-600 font-semibold"} title={`Estimasi: ${fmtRp(subCost)}`}>{fmtRp(realTotal)}</span>
+                                                            <span className="font-semibold" title={`Estimasi ${fmtRp(subCost)} + belanja ${fmtRp(realTotal)}`}>{fmtRp(subCost + realTotal)}</span>
                                                         ) : (
                                                             <span className="text-muted-foreground">{fmtRp(subCost)}</span>
                                                         )}
