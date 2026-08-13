@@ -1,8 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Loader2, FileDown } from "lucide-react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { TrendingUp, Loader2, FileDown, Plus } from "lucide-react";
 import { getRealisasiRab, downloadBelanjaPdf } from "@/lib/api/belanja";
+import { CatatBelanjaSheet } from "@/components/CatatBelanjaSheet";
 
 const rp = (v: string | number) => "Rp " + Number(v || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 });
 
@@ -12,6 +14,8 @@ interface Props {
 
 /** Realisasi belanja (real cost) vs rencana per pos — bersumber dari Buku Belanja Harian yang di-tag ke RAB ini. */
 export function RabRealisasiSection({ rabPlanId }: Props) {
+  const qc = useQueryClient();
+  const [sheetOpen, setSheetOpen] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["realisasi-rab", rabPlanId],
     queryFn: () => getRealisasiRab(rabPlanId),
@@ -27,14 +31,30 @@ export function RabRealisasiSection({ rabPlanId }: Props) {
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">Bersumber dari Buku Belanja Harian yang di-tag ke RAB ini.</p>
         </div>
-        <button
-          onClick={() => downloadBelanjaPdf({ rabPlanId }, `laporan-belanja-rab-${rabPlanId}.pdf`)}
-          className="shrink-0 inline-flex items-center gap-1.5 border border-border px-2.5 py-1.5 rounded-md text-xs hover:bg-muted"
-          title="Export laporan belanja RAB ini ke PDF"
-        >
-          <FileDown className="h-3.5 w-3.5" /> Export PDF
-        </button>
+        <div className="shrink-0 flex items-center gap-2">
+          <button
+            onClick={() => setSheetOpen(true)}
+            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-2.5 py-1.5 rounded-md text-xs hover:opacity-90"
+            title="Catat belanja untuk RAB ini"
+          >
+            <Plus className="h-3.5 w-3.5" /> Catat Belanja
+          </button>
+          <button
+            onClick={() => downloadBelanjaPdf({ rabPlanId }, `laporan-belanja-rab-${rabPlanId}.pdf`)}
+            className="inline-flex items-center gap-1.5 border border-border px-2.5 py-1.5 rounded-md text-xs hover:bg-muted"
+            title="Export laporan belanja RAB ini ke PDF"
+          >
+            <FileDown className="h-3.5 w-3.5" /> Export PDF
+          </button>
+        </div>
       </div>
+
+      <CatatBelanjaSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        defaultRabPlanId={rabPlanId}
+        onSaved={() => qc.invalidateQueries({ queryKey: ["realisasi-rab", rabPlanId] })}
+      />
 
       {isLoading ? (
         <div className="text-center py-6 text-sm text-muted-foreground">
