@@ -24,11 +24,14 @@ function resolveRates(
     assignmentOverride?: { dailyWageRate: any; overtimeRatePerHour: any } | null,
     tierRate?: { dailyWageRate: any; overtimeRatePerHour: any } | null,
 ): { dailyRate: number; overtimeRate: number; source: 'tier' | 'assignment' | 'event-pic' | 'event' | 'matrix' | 'worker' | 'none' } {
+    // Fallback tarif lembur: kalau sumber gaji (tier/event/override) tak menetapkan tarif lembur
+    // sendiri, pakai tarif lembur default worker — supaya lembur tetap dihitung, bukan 0.
+    const otFallback = worker.overtimeRatePerHour != null ? parseFloat(worker.overtimeRatePerHour.toString()) : 0;
     // 0. Tier "Gaji A/B/C" yang dipilih di payroll (paling eksplisit, menang di atas semua)
     if (tierRate && tierRate.dailyWageRate != null) {
         return {
             dailyRate: parseFloat(tierRate.dailyWageRate.toString()),
-            overtimeRate: tierRate.overtimeRatePerHour != null ? parseFloat(tierRate.overtimeRatePerHour.toString()) : 0,
+            overtimeRate: tierRate.overtimeRatePerHour != null ? parseFloat(tierRate.overtimeRatePerHour.toString()) : otFallback,
             source: 'tier',
         };
     }
@@ -36,7 +39,7 @@ function resolveRates(
     if (assignmentOverride && assignmentOverride.dailyWageRate != null) {
         return {
             dailyRate: parseFloat(assignmentOverride.dailyWageRate.toString()),
-            overtimeRate: assignmentOverride.overtimeRatePerHour != null ? parseFloat(assignmentOverride.overtimeRatePerHour.toString()) : 0,
+            overtimeRate: assignmentOverride.overtimeRatePerHour != null ? parseFloat(assignmentOverride.overtimeRatePerHour.toString()) : otFallback,
             source: 'assignment',
         };
     }
@@ -44,7 +47,7 @@ function resolveRates(
     if (att.eventId && event && event.picWorkerId === att.workerId && event.dailyWageRatePic != null) {
         return {
             dailyRate: parseFloat(event.dailyWageRatePic.toString()),
-            overtimeRate: event.overtimeRatePerHourPic != null ? parseFloat(event.overtimeRatePerHourPic.toString()) : 0,
+            overtimeRate: event.overtimeRatePerHourPic != null ? parseFloat(event.overtimeRatePerHourPic.toString()) : otFallback,
             source: 'event-pic',
         };
     }
@@ -52,7 +55,7 @@ function resolveRates(
     if (att.eventId && event && event.dailyWageRate != null) {
         return {
             dailyRate: parseFloat(event.dailyWageRate.toString()),
-            overtimeRate: event.overtimeRatePerHour != null ? parseFloat(event.overtimeRatePerHour.toString()) : 0,
+            overtimeRate: event.overtimeRatePerHour != null ? parseFloat(event.overtimeRatePerHour.toString()) : otFallback,
             source: 'event',
         };
     }

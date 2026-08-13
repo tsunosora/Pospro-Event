@@ -224,11 +224,12 @@ function InputMingguanTab() {
         if (eventId != null) {
             const ev = eventMap.get(eventId);
             if (ev) {
+                // Tarif lembur tier/event kosong → jatuh ke tarif lembur worker (bukan 0).
                 if (division && /^\d+$/.test(division)) {
                     const t = ev.tiers?.find((x) => x.id === Number(division));
-                    if (t && t.dailyWageRate != null) return { daily: t.dailyWageRate, ot: t.overtimeRatePerHour ?? 0 };
+                    if (t && t.dailyWageRate != null) return { daily: t.dailyWageRate, ot: t.overtimeRatePerHour ?? w.overtimeRatePerHour };
                 }
-                if (ev.dailyWageRate != null) return { daily: ev.dailyWageRate, ot: ev.overtimeRatePerHour ?? 0 };
+                if (ev.dailyWageRate != null) return { daily: ev.dailyWageRate, ot: ev.overtimeRatePerHour ?? w.overtimeRatePerHour };
             }
             return { daily: w.dailyWageRate, ot: w.overtimeRatePerHour };
         }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { MapPin, User as UserIcon, Package, Tag, CalendarDays, Building2, Megaphone, ChevronDown } from "lucide-react";
+import { MapPin, User as UserIcon, Package, Tag, CalendarDays, Building2, ChevronDown } from "lucide-react";
 import { brandColorOf, brandLabelOf, type PublicTimelineEvent } from "@/lib/api/publicTimeline";
 import { LiveBadge } from "./LiveBadge";
 import { CrewCards } from "./CrewCards";
@@ -20,14 +20,14 @@ const PHASE_COLOR: Record<Phase, { solid: string; label: string }> = {
 const LEFT_W_V1 = 280;
 
 // ── Versi 2: info dipecah jadi beberapa kolom tetap (tanpa drag).
-type ColKey = "name" | "work" | "venue" | "pic" | "client" | "marketing";
+// PIC & Marketing (+ crew) TIDAK lagi jadi kolom sendiri — digabung di bawah nama
+// event (lihat cell "name" → CrewCards), supaya penanggung jawab menyatu dgn eventnya.
+type ColKey = "name" | "work" | "venue" | "client";
 const COLUMNS: Array<{ key: ColKey; label: string; icon: typeof MapPin; width: number }> = [
-    { key: "name", label: "Nama Event", icon: CalendarDays, width: 190 },
+    { key: "name", label: "Nama Event & PIC", icon: CalendarDays, width: 240 },
     { key: "work", label: "Pekerjaan", icon: Package, width: 180 },
     { key: "venue", label: "Venue", icon: MapPin, width: 120 },
-    { key: "pic", label: "PIC", icon: UserIcon, width: 140 },
     { key: "client", label: "Client", icon: Building2, width: 140 },
-    { key: "marketing", label: "Marketing", icon: Megaphone, width: 110 },
 ];
 // Offset kiri kumulatif tiap kolom (untuk sticky left saat grid digeser horizontal).
 const COL_OFFSETS = COLUMNS.reduce<number[]>((acc, _c, i) => {
@@ -206,43 +206,56 @@ export function ScheduleCalendar({ events, year, month, months = 1, variant = 2 
     );
 }
 
-// Hitung fase per-hari (dipakai kedua varian): fase prioritas tertinggi menang.
-function computeDayPhase(ev: PublicTimelineEvent, rangeStart: Date, rangeDays: number) {
-    const dayPhase = new Map<number, Phase>();
-    const order: Record<Phase, number> = { event: 4, setup: 3, dismantle: 2, departure: 1 };
+// Urutan kronologis fase (kiri→kanan dalam satu sel hari): berangkat → pasang → event → bongkar.
+const PHASE_CHRONO: Phase[] = ["departure", "setup", "event", "dismantle"];
+
+// Hitung fase per-hari (dipakai kedua varian). SEMUA fase yang aktif di hari itu
+// dikumpulkan — mis. hari terakhir event yang siang masih "event" lalu malamnya
+// "bongkar" → sel menampilkan 2 warna (split vertikal), bukan cuma satu.
+function computeDayPhases(ev: PublicTimelineEvent, rangeStart: Date, rangeDays: number) {
+    const daySet = new Map<number, Set<Phase>>();
     getPhaseRanges(ev).forEach((r) => {
         const s = Math.max(0, daysBetween(rangeStart, r.start));
         const e = Math.min(rangeDays - 1, daysBetween(rangeStart, r.end));
         for (let d = s; d <= e; d++) {
-            const cur = dayPhase.get(d);
-            if (!cur || order[r.phase] > order[cur]) dayPhase.set(d, r.phase);
+            let set = daySet.get(d);
+            if (!set) { set = new Set<Phase>(); daySet.set(d, set); }
+            set.add(r.phase);
         }
     });
-    return dayPhase;
+    // Susun tiap hari dalam urutan kronologis agar warna terbaca sesuai waktu.
+    const out = new Map<number, Phase[]>();
+    daySet.forEach((set, d) => out.set(d, PHASE_CHRONO.filter((p) => set.has(p))));
+    return out;
 }
 
 // Kolom-kolom grid hari (bar fase) — identik kedua varian.
 function DayCells({ dayCells, dayPhase, cellW, evName }: {
     dayCells: Array<{ idx: number; isToday: boolean; isWeekend: boolean; isMonthStart: boolean }>;
-    dayPhase: Map<number, Phase>; cellW: number; evName: string;
+    dayPhase: Map<number, Phase[]>; cellW: number; evName: string;
 }) {
     return (
         <>
             {dayCells.map((d) => {
-                const phase = dayPhase.get(d.idx);
+                const phases = dayPhase.get(d.idx);
                 return (
                     <td
                         key={d.idx}
                         className={`p-0 ${d.isMonthStart ? "border-l-2 border-l-primary/40" : "border-l border-border/40"} ${d.isToday ? "bg-primary/10" : d.isWeekend ? "bg-muted/30" : ""}`}
                         style={{ width: cellW, minWidth: cellW, height: ROW_H }}
                     >
-                        {phase && (
-                            // Full kotak: isi penuh sel (lebar & tinggi), tanpa sudut membulat.
+                        {phases && phases.length > 0 && (
+                            // Full kotak: isi penuh sel. Kalau >1 fase di hari itu (mis. siang
+                            // event + malam bongkar) → split vertikal kiri→kanan, tiap fase 1 warna.
                             <div
-                                className={`${PHASE_COLOR[phase].solid} w-full h-full animate-bar`}
+                                className="flex w-full h-full animate-bar"
                                 style={{ animationDelay: `${(d.idx % 14) * 90}ms` }}
-                                title={`${PHASE_COLOR[phase].label} — ${evName}`}
-                            />
+                                title={`${phases.map((p) => PHASE_COLOR[p].label).join(" + ")} — ${evName}`}
+                            >
+                                {phases.map((p) => (
+                                    <div key={p} className={`${PHASE_COLOR[p].solid} h-full`} style={{ width: `${100 / phases.length}%` }} />
+                                ))}
+                            </div>
                         )}
                     </td>
                 );
@@ -259,7 +272,7 @@ type RowProps = {
 
 // ── Versi 1: satu kolom kiri menumpuk semua info.
 function EventRowV1({ ev, dayCells, rangeStart, rangeDays, rowIndex, cellW }: RowProps) {
-    const dayPhase = computeDayPhase(ev, rangeStart, rangeDays);
+    const dayPhase = computeDayPhases(ev, rangeStart, rangeDays);
     const pic = ev.picWorker?.name ?? ev.picName;
     const brandColor = brandColorOf(ev);
 
@@ -328,10 +341,9 @@ function Empty() {
     return <span className="text-sm text-muted-foreground/60 italic">—</span>;
 }
 
-// ── Versi 2: info dipecah jadi kolom Nama Event / Pekerjaan / Venue / PIC / Client / Marketing.
+// ── Versi 2: info dipecah jadi kolom Nama Event (+ PIC/Marketing/crew) / Pekerjaan / Venue / Client.
 function EventRowV2({ ev, dayCells, rangeStart, rangeDays, rowIndex, cellW }: RowProps) {
-    const dayPhase = computeDayPhase(ev, rangeStart, rangeDays);
-    const pic = ev.picWorker?.name ?? ev.picName;
+    const dayPhase = computeDayPhases(ev, rangeStart, rangeDays);
     const client = ev.customerName ?? ev.customer?.name ?? null;
     const brandColor = brandColorOf(ev);
     // Deskripsi order (teks bebas) disembunyikan default agar tinggi baris seragam;
@@ -357,6 +369,8 @@ function EventRowV2({ ev, dayCells, rangeStart, rangeDays, rowIndex, cellW }: Ro
                         ))}
                     </div>
                 )}
+                {/* PIC + Marketing + crew digabung di bawah nama event. */}
+                <CrewCards ev={ev} variant="compact" />
             </div>
         ),
         work: (ev.productCategory?.trim() || ev.orderDescription) ? (
@@ -387,22 +401,6 @@ function EventRowV2({ ev, dayCells, rangeStart, rangeDays, rowIndex, cellW }: Ro
         venue: ev.venue
             ? <span className="text-sm flex items-start gap-1.5"><MapPin className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />{ev.venue}</span>
             : <Empty />,
-        pic: (
-            <div className="flex flex-col gap-1">
-                {pic ? (
-                    <span className="text-sm font-semibold flex items-center gap-1.5"><UserIcon className="h-4 w-4 shrink-0 text-primary" />{pic}</span>
-                ) : <Empty />}
-                {ev.crew.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                        {ev.crew.map((c) => (
-                            <span key={c.id} className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full border border-border bg-background/60">
-                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: c.team?.color ?? "var(--muted-foreground)" }} />{c.name}
-                            </span>
-                        ))}
-                    </div>
-                )}
-            </div>
-        ),
         client: client
             ? (
                 <div className="text-sm leading-tight">
@@ -412,9 +410,6 @@ function EventRowV2({ ev, dayCells, rangeStart, rangeDays, rowIndex, cellW }: Ro
                     )}
                 </div>
             )
-            : <Empty />,
-        marketing: ev.marketing
-            ? <span className="text-sm flex items-center gap-1.5"><Megaphone className="h-4 w-4 shrink-0 text-amber-500" /><span className="font-medium">{ev.marketing.name}</span></span>
             : <Empty />,
     };
 
