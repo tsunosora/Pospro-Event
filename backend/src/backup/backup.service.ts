@@ -13,7 +13,14 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.22 (current) — Perbaikan cakupan: tabel BastItem yang terlewat kini di-backup.
+// v2.23 (current) — Kas Belanja: 2 tabel baru terdaftar penuh.
+//   - NEW TABLE PenerimaanDana (penerimaan_dana) — kas masuk untuk belanja operasional.
+//   - NEW TABLE Belanja (belanja) — pembelanjaan harian, tag ke RAB/item (real cost),
+//     link cashflowId. FK: event, rabPlan, rabCategory, rabItem, cashflow, user (createdBy).
+//   - DIDAFTARKAN di grup 'belanja' + RESTORE_ORDER paling akhir (setelah semua FK-nya:
+//     user, event, rabPlan, rabCategory, rabItem, cashflow). Kolom rabItemId di Belanja
+//     otomatis ter-backup (findMany tanpa select). Total tabel schema kini 72, semua terdaftar.
+// v2.22 — Perbaikan cakupan: tabel BastItem yang terlewat kini di-backup.
 //   - FIX: NEW TABLE BastItem (bast_items) — item Berita Acara Serah Terima per event
 //     (deskripsi/qty/kondisi override manual). Ditambahkan sejak fitur BAST tapi TIDAK
 //     terdaftar di BACKUP_GROUPS/RESTORE_ORDER, sehingga item BAST hilang dari backup &
