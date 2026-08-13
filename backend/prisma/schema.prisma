@@ -70,6 +70,9 @@ model User {
   attendanceAuditLogs   AttendanceAuditLog[]     @relation("AuditChangedBy")
   penerimaanDanaCreated PenerimaanDana[]         @relation("PenerimaanDanaCreatedBy")
   belanjaCreated        Belanja[]                @relation("BelanjaCreatedBy")
+  menuMakanCreated      MenuMakan[]              @relation("MenuMakanCreatedBy")
+  menuPlanCreated       MenuMakanPlan[]          @relation("MenuMakanPlanCreatedBy")
+  menuVoteCreated       MenuVoteSession[]        @relation("MenuVoteCreatedBy")
 
   @@map("users")
 }
@@ -2035,20 +2038,165 @@ model Belanja {
   rabCategoryId Int?     @map("rab_category_id") // pos anggaran RAB (opsional)
   rabItemId     Int?     @map("rab_item_id") // item RAB terpilih (opsional) → realisasi per item
   category      String?  @db.VarChar(100) // label saat keperluan lain, mis. "Operasional"
+  menuPlanId    Int?     @map("menu_plan_id") // tag ke rencana menu makan (real cost)
   cashflowId    Int?     @unique @map("cashflow_id") // link ke entri Cashflow yang auto-dibuat
   createdById   Int      @map("created_by_id")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
-  event       Event?       @relation("EventBelanja", fields: [eventId], references: [id], onDelete: SetNull)
-  rabPlan     RabPlan?     @relation("RabPlanBelanja", fields: [rabPlanId], references: [id], onDelete: SetNull)
-  rabCategory RabCategory? @relation("RabCategoryBelanja", fields: [rabCategoryId], references: [id], onDelete: SetNull)
-  rabItem     RabItem?     @relation("RabItemBelanja", fields: [rabItemId], references: [id], onDelete: SetNull)
-  cashflow    Cashflow?    @relation("BelanjaCashflow", fields: [cashflowId], references: [id], onDelete: SetNull)
-  createdBy   User         @relation("BelanjaCreatedBy", fields: [createdById], references: [id])
+  event       Event?         @relation("EventBelanja", fields: [eventId], references: [id], onDelete: SetNull)
+  rabPlan     RabPlan?       @relation("RabPlanBelanja", fields: [rabPlanId], references: [id], onDelete: SetNull)
+  rabCategory RabCategory?   @relation("RabCategoryBelanja", fields: [rabCategoryId], references: [id], onDelete: SetNull)
+  rabItem     RabItem?       @relation("RabItemBelanja", fields: [rabItemId], references: [id], onDelete: SetNull)
+  menuPlan    MenuMakanPlan? @relation("MenuPlanBelanja", fields: [menuPlanId], references: [id], onDelete: SetNull)
+  cashflow    Cashflow?      @relation("BelanjaCashflow", fields: [cashflowId], references: [id], onDelete: SetNull)
+  createdBy   User           @relation("BelanjaCreatedBy", fields: [createdById], references: [id])
 
   @@index([spentAt])
   @@index([eventId])
   @@index([rabPlanId])
+  @@index([menuPlanId])
   @@map("belanja")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Menu Makan Perusahaan
+// ─────────────────────────────────────────────────────────────
+
+enum MenuPlanSelectionMethod {
+  MANUAL
+  VOTE
+  SPIN
+}
+
+enum MenuPlanStatus {
+  PLANNED
+  DONE
+}
+
+enum MenuVoteStatus {
+  OPEN
+  CLOSED
+}
+
+model MenuMakan {
+  id            Int      @id @default(autoincrement())
+  name          String   @db.VarChar(150)
+  description   String?  @db.Text
+  servings      Int      @default(1) // porsi default menu
+  recipe        String?  @db.Text // langkah/resep (opsional)
+  imageUrl      String?  @map("image_url") @db.VarChar(500) // foto utama (thumbnail) = imageUrls[0]
+  imageUrls     String?  @map("image_urls") @db.Text // semua foto (JSON array path), bisa >1
+  estimatedCost Decimal  @default(0) @map("estimated_cost") @db.Decimal(15, 2) // cache = sum bahan
+  isActive      Boolean  @default(true) @map("is_active")
+  createdById   Int      @map("created_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  bahan      MenuMakanBahan[]    @relation("MenuBahan")
+  plans      MenuMakanPlan[]     @relation("MenuPlanMenu")
+  candidates MenuVoteCandidate[] @relation("CandidateMenu")
+  ballots    MenuVoteBallot[]    @relation("BallotMenu")
+  createdBy  User                @relation("MenuMakanCreatedBy", fields: [createdById], references: [id])
+
+  @@index([isActive])
+  @@map("menu_makan")
+}
+
+model MenuMakanBahan {
+  id        Int     @id @default(autoincrement())
+  menuId    Int     @map("menu_id")
+  name      String  @db.VarChar(150) // nama bahan
+  quantity  Decimal @default(1) @db.Decimal(12, 2)
+  unit      String? @db.VarChar(30) // kg, gram, buah, sdm, dst
+  unitPrice Decimal @default(0) @map("unit_price") @db.Decimal(15, 2) // harga per satuan
+  note      String? @db.VarChar(255)
+  sortOrder Int     @default(0) @map("sort_order")
+
+  menu MenuMakan @relation("MenuBahan", fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@index([menuId])
+  @@map("menu_makan_bahan")
+}
+
+model MenuMakanPlan {
+  id              Int                     @id @default(autoincrement())
+  planDate        DateTime                @map("plan_date") // tanggal makan
+  menuId          Int                     @map("menu_id")
+  servings        Int                     @default(1) // porsi hari itu
+  selectionMethod MenuPlanSelectionMethod @default(MANUAL) @map("selection_method")
+  estimatedCost   Decimal                 @default(0) @map("estimated_cost") @db.Decimal(15, 2) // snapshot cost menu saat plan dibuat
+  budget          Decimal?                @db.Decimal(15, 2) // override budget harian (opsional)
+  status          MenuPlanStatus          @default(PLANNED)
+  note            String?                 @db.Text
+  voteSessionId   Int?                    @unique @map("vote_session_id")
+  createdById     Int                     @map("created_by_id")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @default(now()) @updatedAt @map("updated_at")
+
+  menu        MenuMakan        @relation("MenuPlanMenu", fields: [menuId], references: [id])
+  voteSession MenuVoteSession? @relation("VoteSessionPlan", fields: [voteSessionId], references: [id], onDelete: SetNull)
+  belanja     Belanja[]        @relation("MenuPlanBelanja") // real cost
+  createdBy   User             @relation("MenuMakanPlanCreatedBy", fields: [createdById], references: [id])
+
+  @@index([planDate])
+  @@index([menuId])
+  @@map("menu_makan_plan")
+}
+
+model MenuMakanSetting {
+  id          Int      @id @default(1) // single row
+  dailyBudget Decimal  @default(0) @map("daily_budget") @db.Decimal(15, 2)
+  updatedById Int?     @map("updated_by_id") // scalar, tanpa relasi
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("menu_makan_setting")
+}
+
+model MenuVoteSession {
+  id           Int            @id @default(autoincrement())
+  title        String?        @db.VarChar(150)
+  planDate     DateTime       @map("plan_date") // target tanggal makan
+  status       MenuVoteStatus @default(OPEN)
+  winnerMenuId Int?           @map("winner_menu_id")
+  publicToken  String         @unique @map("public_token") @db.VarChar(64) // token link publik
+  expiresAt    DateTime       @map("expires_at") // link kedaluwarsa beberapa menit
+  createdById  Int            @map("created_by_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at")
+
+  candidates MenuVoteCandidate[] @relation("SessionCandidates")
+  ballots    MenuVoteBallot[]    @relation("SessionBallots")
+  plan       MenuMakanPlan?      @relation("VoteSessionPlan")
+  createdBy  User                @relation("MenuVoteCreatedBy", fields: [createdById], references: [id])
+
+  @@map("menu_vote_session")
+}
+
+model MenuVoteCandidate {
+  id        Int @id @default(autoincrement())
+  sessionId Int @map("session_id")
+  menuId    Int @map("menu_id")
+
+  session MenuVoteSession @relation("SessionCandidates", fields: [sessionId], references: [id], onDelete: Cascade)
+  menu    MenuMakan       @relation("CandidateMenu", fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, menuId])
+  @@map("menu_vote_candidate")
+}
+
+model MenuVoteBallot {
+  id        Int      @id @default(autoincrement())
+  sessionId Int      @map("session_id")
+  menuId    Int      @map("menu_id")
+  voterName String   @map("voter_name") @db.VarChar(100) // nama pemilih/perwakilan (tanpa login)
+  weight    Int      @default(1) // jumlah suara yang diwakili (mis. banyak anak perusahaan)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session MenuVoteSession @relation("SessionBallots", fields: [sessionId], references: [id], onDelete: Cascade)
+  menu    MenuMakan       @relation("BallotMenu", fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, voterName]) // 1 entri per nama per sesi
+  @@index([sessionId])
+  @@map("menu_vote_ballot")
 }

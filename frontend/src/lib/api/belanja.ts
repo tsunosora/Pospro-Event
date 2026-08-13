@@ -10,10 +10,12 @@ export interface BelanjaRow {
   id: number; amount: string; description: string; spentAt: string;
   notaUrl?: string | null; eventId?: number | null; rabPlanId?: number | null;
   category?: string | null; rabCategoryId?: number | null; rabItemId?: number | null;
+  menuPlanId?: number | null;
   event?: { id: number; code: string; name: string } | null;
   rabPlan?: { id: number; code: string; title: string } | null;
   rabCategory?: { id: number; name: string } | null;
   rabItem?: { id: number; description: string } | null;
+  menuPlan?: { id: number; planDate: string; menu?: { id: number; name: string } } | null;
   createdBy?: { id: number; name?: string };
 }
 export interface RekapHari { tanggal: string; total: number; items: BelanjaRow[]; }
@@ -33,14 +35,14 @@ export const createPenerimaan = async (input: {
 export const deletePenerimaan = async (id: number) => (await api.delete(`/kas/penerimaan/${id}`)).data;
 
 // ── Belanja ──
-export const getBelanja = async (params: { from?: string; to?: string; eventId?: number; rabPlanId?: number; rabItemId?: number; untagged?: boolean } = {}) =>
+export const getBelanja = async (params: { from?: string; to?: string; eventId?: number; rabPlanId?: number; rabItemId?: number; menuPlanId?: number; untagged?: boolean } = {}) =>
   (await api.get<BelanjaRow[]>('/belanja', { params })).data;
 export const getRekapHarian = async (params: { from?: string; to?: string } = {}) =>
   (await api.get<RekapHari[]>('/belanja/rekap-harian', { params })).data;
 export interface BelanjaInput {
   amount: number; description: string; spentAt?: string;
   eventId?: number | null; rabPlanId?: number | null; rabCategoryId?: number | null; rabItemId?: number | null;
-  category?: string | null; attributeToUserId?: number | null;
+  category?: string | null; menuPlanId?: number | null; attributeToUserId?: number | null;
 }
 export const createBelanja = async (input: BelanjaInput) => (await api.post<BelanjaRow>('/belanja', input)).data;
 export const updateBelanja = async (id: number, input: BelanjaInput) =>

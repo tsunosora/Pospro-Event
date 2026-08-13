@@ -36,6 +36,9 @@ import {
     MessageCircle,
     Tags,
     Settings2,
+    UtensilsCrossed,
+    BookOpen,
+    Vote,
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { useQuery } from "@tanstack/react-query";
@@ -107,6 +110,16 @@ const navigation: NavEntry[] = [
     { kind: "section", label: "Keuangan" },
     { kind: "link", name: "Cashflow Bisnis", href: "/cashflow", icon: Banknote },
     { kind: "link", name: "Belanja Harian", href: "/belanja", icon: ShoppingCart },
+    {
+        kind: "group",
+        name: "Menu Makan",
+        icon: UtensilsCrossed,
+        children: [
+            { kind: "link", name: "Library Menu", href: "/menu", icon: BookOpen },
+            { kind: "link", name: "Rencana & Monitoring", href: "/menu-plan", icon: CalendarDays },
+            { kind: "link", name: "Voting Menu", href: "/menu-vote", icon: Vote, managerOnly: true },
+        ],
+    },
     { kind: "link", name: "Payroll & Absensi", href: "/payroll", icon: Wallet },
     { kind: "link", name: "Tarif Gaji (Kota+Divisi)", href: "/settings/wage-rates", icon: Wallet },
     { kind: "link", name: "Laba per Project", href: "/reports/event-profit", icon: TrendingDown },

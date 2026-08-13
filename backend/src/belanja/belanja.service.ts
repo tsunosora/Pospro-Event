@@ -10,6 +10,7 @@ export interface CreateBelanjaDto {
   rabCategoryId?: number | null;
   rabItemId?: number | null; // item RAB terpilih (opsional)
   category?: string | null;
+  menuPlanId?: number | null; // tag ke rencana menu makan (real cost)
   attributeToUserId?: number | null; // opsi: atribusikan ke admin lain (default = user token)
 }
 
@@ -18,6 +19,7 @@ const INCLUDE = {
   rabPlan: { select: { id: true, code: true, title: true } },
   rabCategory: { select: { id: true, name: true } },
   rabItem: { select: { id: true, description: true } },
+  menuPlan: { select: { id: true, planDate: true, menu: { select: { id: true, name: true } } } },
   createdBy: { select: { id: true, name: true } },
 } as const;
 
@@ -25,11 +27,12 @@ const INCLUDE = {
 export class BelanjaService {
   constructor(private prisma: PrismaService) {}
 
-  async list(params: { from?: string; to?: string; eventId?: number; rabPlanId?: number; rabItemId?: number; untagged?: boolean }) {
+  async list(params: { from?: string; to?: string; eventId?: number; rabPlanId?: number; rabItemId?: number; menuPlanId?: number; untagged?: boolean }) {
     const where: any = {};
     if (params.eventId) where.eventId = params.eventId;
     if (params.rabPlanId) where.rabPlanId = params.rabPlanId;
     if (params.rabItemId) where.rabItemId = params.rabItemId;
+    if (params.menuPlanId) where.menuPlanId = params.menuPlanId;
     if (params.untagged) {
       where.eventId = null;
       where.category = null;
@@ -71,14 +74,21 @@ export class BelanjaService {
         if (!rabCategoryId) rabCategoryId = item.categoryId;
       }
     }
-    const category = isProject ? null : (dto.category?.trim() || 'Keperluan Lain');
+    // Tag ke rencana menu makan (real cost). Validasi ada; bila tidak, abaikan.
+    let menuPlanId: number | null = null;
+    if (dto.menuPlanId) {
+      const plan = await this.prisma.menuMakanPlan.findUnique({ where: { id: dto.menuPlanId }, select: { id: true } });
+      menuPlanId = plan?.id ?? null;
+    }
+    // Label kategori non-proyek: belanja menu → "Konsumsi", selain itu label bebas / "Keperluan Lain"
+    const category = isProject ? null : (dto.category?.trim() || (menuPlanId ? 'Konsumsi' : 'Keperluan Lain'));
     // Kategori Cashflow (String wajib): pos RAB > label keperluan lain > default proyek
     let cashflowCategory = category ?? (rabPlanId ? 'Belanja Proyek' : 'Belanja');
     if (rabCategoryId) {
       const cat = await this.prisma.rabCategory.findUnique({ where: { id: rabCategoryId }, select: { name: true } });
       if (cat) cashflowCategory = cat.name;
     }
-    return { eventId, rabPlanId, rabItemId, rabCategoryId, category, cashflowCategory };
+    return { eventId, rabPlanId, rabItemId, rabCategoryId, category, menuPlanId, cashflowCategory };
   }
 
   async create(dto: CreateBelanjaDto, tokenUserId: number) {
@@ -114,6 +124,7 @@ export class BelanjaService {
           rabCategoryId: f.rabCategoryId,
           rabItemId: f.rabItemId,
           category: f.category,
+          menuPlanId: f.menuPlanId,
           cashflowId: cf.id,
           createdById: userId,
         },
@@ -160,6 +171,7 @@ export class BelanjaService {
           rabCategoryId: f.rabCategoryId,
           rabItemId: f.rabItemId,
           category: f.category,
+          menuPlanId: f.menuPlanId,
           createdById: userId,
         },
         include: INCLUDE,

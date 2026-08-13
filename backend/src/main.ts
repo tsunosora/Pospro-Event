@@ -8,10 +8,11 @@ async function bootstrap() {
   app.use((req: any, res: any, next: any) => {
     const isPublic =
       req.path.startsWith('/products/public') ||
-      req.path === '/settings/public';
+      req.path === '/settings/public' ||
+      req.path.startsWith('/public/menu-vote'); // voting publik (GET detail + POST vote)
     if (isPublic) {
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
       if (req.method === 'OPTIONS') {
         res.status(204).end();

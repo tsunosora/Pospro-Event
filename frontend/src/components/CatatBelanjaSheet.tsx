@@ -13,6 +13,8 @@ interface Props {
   onClose: () => void;
   onSaved?: () => void;
   defaultRabPlanId?: number;
+  /** Bila diisi → belanja di-tag ke rencana menu makan (real cost). */
+  defaultMenuPlanId?: number;
   /** Bila diisi → mode edit. Gunakan `key` berbeda saat buka agar state ter-inisialisasi ulang. */
   editing?: BelanjaRow | null;
 }
@@ -22,13 +24,16 @@ const rp = (v: string | number) => "Rp " + Number(v || 0).toLocaleString("id-ID"
 
 /** Input belanja cepat (mobile-first). Tag ke Proyek (RAB → real cost) atau keperluan lain.
  *  "Untuk apa?" bisa pilih item terdaftar di RAB, atau ketik custom. */
-export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, editing }: Props) {
+export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, defaultMenuPlanId, editing }: Props) {
   const qc = useQueryClient();
   const { currentUser } = useCurrentUser();
   const isEdit = !!editing;
+  const forMenu = !!defaultMenuPlanId; // belanja khusus untuk rencana menu makan
   const [amount, setAmount] = useState<number>(editing ? Number(editing.amount) : 0);
   const [description, setDescription] = useState<string>(editing?.description ?? "");
-  const [tagMode, setTagMode] = useState<"rab" | "lain">(editing ? (editing.rabPlanId ? "rab" : "lain") : "rab");
+  const [tagMode, setTagMode] = useState<"rab" | "lain">(
+    forMenu ? "lain" : editing ? (editing.rabPlanId ? "rab" : "lain") : "rab",
+  );
   const [rabPlanId, setRabPlanId] = useState<number | "">(editing?.rabPlanId ?? defaultRabPlanId ?? "");
   const [rabCategoryId, setRabCategoryId] = useState<number | "">(editing?.rabCategoryId ?? "");
   const [rabItemId, setRabItemId] = useState<number | "">(editing?.rabItemId ?? "");
@@ -95,6 +100,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, ed
         rabCategoryId: tagMode === "rab" && rabCategoryId !== "" ? Number(rabCategoryId) : null,
         rabItemId: tagMode === "rab" && rabItemId !== "" ? Number(rabItemId) : null,
         category: tagMode === "lain" ? category : null,
+        menuPlanId: defaultMenuPlanId ?? null,
         attributeToUserId: attributeToUserId === "" ? null : Number(attributeToUserId),
       };
       const saved = isEdit ? await updateBelanja(editing!.id, payload) : await createBelanja(payload);
@@ -114,6 +120,8 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, ed
       qc.invalidateQueries({ queryKey: ["belanja"] });
       qc.invalidateQueries({ queryKey: ["belanja-item"] });
       qc.invalidateQueries({ queryKey: ["realisasi-rab"] });
+      qc.invalidateQueries({ queryKey: ["menu-plan"] });
+      qc.invalidateQueries({ queryKey: ["menu-plan-rekap"] });
       setAmount(0);
       setDescription("");
       setRabCategoryId("");
@@ -178,8 +186,14 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, ed
             />
           </div>
 
+          {forMenu && (
+            <div className="p-2.5 rounded bg-primary/10 border border-primary/30 text-xs text-primary flex items-center gap-1.5">
+              <ShoppingCart className="h-3.5 w-3.5" /> Belanja ini dicatat sebagai <b>real cost</b> untuk menu makan terpilih.
+            </div>
+          )}
+
           {/* Tag: proyek (RAB) vs keperluan lain */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className={`grid grid-cols-2 gap-2 ${forMenu ? "hidden" : ""}`}>
             <button
               type="button"
               onClick={() => {
