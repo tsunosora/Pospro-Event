@@ -53,6 +53,7 @@ export class BelanjaController {
     @Query('to') to?: string,
     @Query('eventId') eventId?: string,
     @Query('rabPlanId') rabPlanId?: string,
+    @Query('rabItemId') rabItemId?: string,
     @Query('untagged') untagged?: string,
   ) {
     return this.service.list({
@@ -60,6 +61,7 @@ export class BelanjaController {
       to,
       eventId: eventId ? Number(eventId) : undefined,
       rabPlanId: rabPlanId ? Number(rabPlanId) : undefined,
+      rabItemId: rabItemId ? Number(rabItemId) : undefined,
       untagged: untagged === 'true',
     });
   }

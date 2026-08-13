@@ -25,10 +25,11 @@ const INCLUDE = {
 export class BelanjaService {
   constructor(private prisma: PrismaService) {}
 
-  async list(params: { from?: string; to?: string; eventId?: number; rabPlanId?: number; untagged?: boolean }) {
+  async list(params: { from?: string; to?: string; eventId?: number; rabPlanId?: number; rabItemId?: number; untagged?: boolean }) {
     const where: any = {};
     if (params.eventId) where.eventId = params.eventId;
     if (params.rabPlanId) where.rabPlanId = params.rabPlanId;
+    if (params.rabItemId) where.rabItemId = params.rabItemId;
     if (params.untagged) {
       where.eventId = null;
       where.category = null;

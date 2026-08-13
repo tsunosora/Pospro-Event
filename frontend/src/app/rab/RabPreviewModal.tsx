@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { BelanjaHistoryModal } from "@/components/BelanjaHistoryModal";
 import {
     X, Loader2, ExternalLink, Calendar, MapPin, Building2, FileSpreadsheet,
     TrendingUp, ArrowUpRight, ArrowDownRight,
@@ -40,6 +41,7 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
         queryFn: () => getRealisasiRab(rabId),
     });
     const realByItem = new Map((realisasi?.perItem ?? []).map((p) => [p.rabItemId, p.real]));
+    const [historyItem, setHistoryItem] = useState<{ id: number; name: string } | null>(null);
 
     // Block body scroll while modal open
     useEffect(() => {
@@ -93,6 +95,7 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
     }
 
     return (
+      <>
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
             <div
                 className="bg-background rounded-xl shadow-2xl w-full max-w-5xl my-8 max-h-[90vh] overflow-y-auto"
@@ -507,10 +510,14 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                                     <td className="px-2 py-1.5 text-right font-mono nums">{fmtRp(r)}</td>
                                                     <td className="px-2 py-1.5 text-right font-mono nums">
                                                         {hasReal ? (
-                                                            <span title={`Estimasi ${fmtRp(c)} + belanja ${fmtRp(realUnit)}`}>
-                                                                <span className="font-semibold">{fmtRp(c + realUnit)}</span>
-                                                                <span className="block text-[9px] text-muted-foreground/70">{fmtRp(c)} + {fmtRp(realUnit)}</span>
-                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setHistoryItem({ id: it.id as number, name: it.description })}
+                                                                className="font-semibold text-primary hover:underline cursor-pointer"
+                                                                title="Lihat riwayat belanja & bukti"
+                                                            >
+                                                                {fmtRp(c + realUnit)}
+                                                            </button>
                                                         ) : (
                                                             <span className="text-muted-foreground">{fmtRp(c)}</span>
                                                         )}
@@ -518,7 +525,14 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                                     <td className="px-2 py-1.5 text-right font-mono nums">{fmtRp(subRab)}</td>
                                                     <td className="px-2 py-1.5 text-right font-mono nums">
                                                         {hasReal ? (
-                                                            <span className="font-semibold" title={`Estimasi ${fmtRp(subCost)} + belanja ${fmtRp(realTotal)}`}>{fmtRp(subCost + realTotal)}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setHistoryItem({ id: it.id as number, name: it.description })}
+                                                                className="font-semibold text-primary hover:underline cursor-pointer"
+                                                                title="Lihat riwayat belanja & bukti"
+                                                            >
+                                                                {fmtRp(subCost + realTotal)}
+                                                            </button>
                                                         ) : (
                                                             <span className="text-muted-foreground">{fmtRp(subCost)}</span>
                                                         )}
@@ -538,6 +552,14 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                 )}
             </div>
         </div>
+        {historyItem && (
+            <BelanjaHistoryModal
+                rabItemId={historyItem.id}
+                itemName={historyItem.name}
+                onClose={() => setHistoryItem(null)}
+            />
+        )}
+      </>
     );
 }
 

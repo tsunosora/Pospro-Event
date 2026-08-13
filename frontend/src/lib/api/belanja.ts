@@ -33,7 +33,7 @@ export const createPenerimaan = async (input: {
 export const deletePenerimaan = async (id: number) => (await api.delete(`/kas/penerimaan/${id}`)).data;
 
 // ── Belanja ──
-export const getBelanja = async (params: { from?: string; to?: string; eventId?: number; rabPlanId?: number; untagged?: boolean } = {}) =>
+export const getBelanja = async (params: { from?: string; to?: string; eventId?: number; rabPlanId?: number; rabItemId?: number; untagged?: boolean } = {}) =>
   (await api.get<BelanjaRow[]>('/belanja', { params })).data;
 export const getRekapHarian = async (params: { from?: string; to?: string } = {}) =>
   (await api.get<RekapHari[]>('/belanja/rekap-harian', { params })).data;
