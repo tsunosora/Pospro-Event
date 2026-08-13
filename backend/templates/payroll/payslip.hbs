@@ -105,28 +105,19 @@
       <div class="value">{{worker.position}}</div>
     </div>
     {{/if}}
-    {{#if worker.phone}}
-    <div>
-      <div class="label">No. HP</div>
-      <div class="value">{{worker.phone}}</div>
-    </div>
-    {{/if}}
-    <div>
-      <div class="label">Tarif Harian</div>
-      <div class="value">Rp {{rates.dailyFmt}}{{#if rates.overtimeFmt}} · Lembur Rp {{rates.overtimeFmt}}/jam{{/if}}</div>
-    </div>
   </div>
 
   {{!-- Attendance details --}}
-  <div class="section-title">📅 Absensi & Lembur</div>
+  <div class="section-title">Absensi &amp; Lembur</div>
   <table>
     <thead>
       <tr>
-        <th style="width:90pt">Tanggal</th>
-        <th>Status</th>
-        <th class="center" style="width:60pt">Lembur (jam)</th>
-        <th class="num" style="width:90pt">Tarif</th>
-        <th class="num" style="width:90pt">Sub-total</th>
+        <th style="width:80pt">Tanggal</th>
+        <th style="width:70pt">Status</th>
+        <th>Event</th>
+        <th>Keterangan</th>
+        <th class="center" style="width:52pt">Lembur (j)</th>
+        <th class="num" style="width:85pt">Sub-total</th>
       </tr>
     </thead>
     <tbody>
@@ -138,13 +129,14 @@
           {{#if this.isPending}}<span class="badge" style="background:#fef3c7;color:#92400e;">Pending</span>{{/if}}
           {{#if this.isRejected}}<span class="badge" style="background:#fee2e2;color:#991b1b;">Rejected</span>{{/if}}
         </td>
+        <td style="font-size:10pt;">{{#if this.eventName}}{{this.eventName}}{{else}}<span style="color:#9ca3af;">—</span>{{/if}}</td>
+        <td style="font-size:10pt;color:#6b7280;">{{#if this.notes}}{{this.notes}}{{else}}<span style="color:#d1d5db;">—</span>{{/if}}</td>
         <td class="center">{{this.overtimeHours}}</td>
-        <td class="num">Rp {{this.dailyRateFmt}}</td>
         <td class="num">Rp {{this.subtotalFmt}}</td>
       </tr>
       {{/each}}
       {{#unless attendance.rows.length}}
-      <tr><td colspan="5" style="text-align:center;color:#9ca3af;font-style:italic;">Tidak ada catatan absensi di periode ini</td></tr>
+      <tr><td colspan="6" style="text-align:center;color:#9ca3af;font-style:italic;">Tidak ada catatan absensi di periode ini</td></tr>
       {{/unless}}
     </tbody>
   </table>
@@ -170,7 +162,7 @@
 
   {{!-- Adjustments --}}
   {{#if adjustments.list.length}}
-  <div class="section-title">💰 Tunjangan & Potongan</div>
+  <div class="section-title">Tunjangan &amp; Potongan</div>
   <table>
     <thead>
       <tr>
@@ -217,7 +209,7 @@
 
   {{#if pendingNote}}
   <div class="pending-warning">
-    ⚠️ {{pendingNote}}
+    {{pendingNote}}
   </div>
   {{/if}}
 

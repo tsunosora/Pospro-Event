@@ -284,11 +284,13 @@ export class PayrollSummaryService {
         const matches = (autoMap.get(att.workerId) ?? []).filter((m) => m.startDate <= dateKey && dateKey <= m.endDate);
         if (!matches.length) return { eventId: null, event: null, override: null, tierRate: null, auto: false };
         // Prioritas tarif yang bisa dipakai: override/tier > PIC event > tarif event member.
+        // Kalau tak ada yang bertarif, tetap tautkan event pertama (untuk TAMPILAN di payroll/slip);
+        // tarifnya nanti jatuh ke default worker (event tanpa tarif tak mengubah gaji).
         const chosen =
             matches.find((m) => m.override?.dailyWageRate != null) ??
             matches.find((m) => m.event.picWorkerId === att.workerId && m.event.dailyWageRatePic != null) ??
-            matches.find((m) => m.event.dailyWageRate != null);
-        if (!chosen) return { eventId: null, event: null, override: null, tierRate: null, auto: false };
+            matches.find((m) => m.event.dailyWageRate != null) ??
+            matches[0];
         return { eventId: chosen.eventId, event: chosen.event, override: chosen.override, tierRate: null, auto: true };
     }
 
@@ -540,5 +542,81 @@ export class PayrollSummaryService {
         const grandAdjustment = rows.reduce((s, r) => s + r.adjustments.net, 0);
         const grandFinal = rows.reduce((s, r) => s + r.grandTotal, 0);
         return { rows, grandTotal, grandApproved, grandAdjustment, grandFinal };
+    }
+
+    /**
+     * Detail absensi per hari untuk SATU worker di periode [from,to] — dipakai slip gaji.
+     * Memakai resolver terpadu (tier Gaji A/B/C > override crew > event > auto-match penugasan > matrix > default),
+     * jadi angka & event yang tertaut PERSIS sama dengan halaman payroll. Termasuk keterangan (notes) & nama event.
+     */
+    async workerPayrollDetail(workerId: number, start: Date, end: Date) {
+        const [worker, attendances] = await Promise.all([
+            this.prisma.worker.findUnique({
+                where: { id: workerId },
+                select: { id: true, dailyWageRate: true, overtimeRatePerHour: true },
+            }),
+            this.prisma.attendance.findMany({
+                where: { workerId, attendanceDate: { gte: start, lte: end } },
+                orderBy: { attendanceDate: 'asc' },
+                select: {
+                    attendanceDate: true, status: true, overtimeHours: true, notes: true,
+                    eventId: true, cityKey: true, divisionKey: true, approvalStatus: true,
+                },
+            }),
+        ]);
+        if (!worker) return null;
+
+        const eventIds = Array.from(new Set(attendances.map((a) => a.eventId).filter((x): x is number => x != null)));
+        const { rateMatrixMap, eventMap, assignmentMap, tierMap } = await this.loadResolvers(eventIds);
+        const autoMap = await this.loadAutoAssignments(start, end);
+
+        // Hitung dulu event efektif tiap baris (termasuk hasil auto-match), lalu ambil nama event-nya.
+        const prepared = attendances.map((a) => {
+            const eff = this.effectiveWageInputs(
+                { workerId, eventId: a.eventId, divisionKey: a.divisionKey, attendanceDate: a.attendanceDate },
+                eventMap, assignmentMap, autoMap, tierMap,
+            );
+            const { dailyRate, overtimeRate, source } = resolveRates(
+                { workerId, eventId: eff.eventId, cityKey: a.cityKey, divisionKey: a.divisionKey },
+                { dailyWageRate: worker.dailyWageRate, overtimeRatePerHour: worker.overtimeRatePerHour },
+                eff.event, rateMatrixMap, eff.override, eff.tierRate,
+            );
+            return { a, eff, dailyRate, overtimeRate, source };
+        });
+
+        const effEventIds = Array.from(new Set(prepared.map((p) => p.eff.eventId).filter((x): x is number => x != null)));
+        const evNames = effEventIds.length
+            ? await this.prisma.event.findMany({ where: { id: { in: effEventIds } }, select: { id: true, code: true, name: true } })
+            : [];
+        const nameMap = new Map(evNames.map((e) => [e.id, e.name || e.code]));
+
+        let fullDays = 0, halfDays = 0, totalOvertimeHours = 0;
+        let fullBaseSum = 0, halfBaseSum = 0, overtimeSum = 0, approvedTotal = 0, pendingCount = 0;
+        const rows = prepared.map(({ a, eff, dailyRate, overtimeRate, source }) => {
+            const oh = parseFloat(a.overtimeHours.toString()) || 0;
+            totalOvertimeHours += oh;
+            const approved = a.approvalStatus === 'APPROVED';
+            if (a.approvalStatus === 'PENDING') pendingCount += 1;
+            let base = 0;
+            if (a.status === 'FULL_DAY') { base = dailyRate; if (approved) { fullDays += 1; fullBaseSum += base; } }
+            else if (a.status === 'HALF_DAY') { base = dailyRate * 0.5; if (approved) { halfDays += 1; halfBaseSum += base; } }
+            const overtimeAmount = oh * overtimeRate;
+            const subtotal = base + overtimeAmount;
+            if (approved) { overtimeSum += overtimeAmount; approvedTotal += subtotal; }
+            return {
+                attendanceDate: a.attendanceDate,
+                status: a.status,
+                overtimeHours: oh,
+                notes: a.notes ?? '',
+                eventId: eff.eventId,
+                eventName: eff.eventId ? (nameMap.get(eff.eventId) ?? '') : '',
+                autoLinked: eff.auto,
+                source,
+                base, overtimeAmount, subtotal,
+                approvalStatus: a.approvalStatus,
+            };
+        });
+
+        return { rows, fullDays, halfDays, totalOvertimeHours, fullBaseSum, halfBaseSum, overtimeSum, approvedTotal, pendingCount };
     }
 }
