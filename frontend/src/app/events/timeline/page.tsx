@@ -23,6 +23,8 @@ const PHASE_COLOR: Record<Phase, { solid: string; faded: string; label: string }
     event:     { solid: "bg-yellow-400", faded: "bg-yellow-200/70", label: "Event Day" },
     dismantle: { solid: "bg-blue-500",   faded: "bg-blue-300/60",   label: "Dismantle" },
 };
+// Urutan kronologis fase (kiri→kanan dalam satu sel hari): departure → setup → event → dismantle.
+const PHASE_CHRONO: Phase[] = ["departure", "setup", "event", "dismantle"];
 
 const STATUS_CFG: Record<EventStatus, { label: string; cls: string }> = {
     DRAFT:       { label: "Draft",       cls: "bg-muted text-foreground" },
@@ -1006,7 +1008,6 @@ function GanttTable({
                     <tr className="border-b border-border">
                         <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2 sticky left-0 bg-card border-r border-border" style={{ width: 160 }}>Event</th>
                         <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2" style={{ width: 130 }}>Client</th>
-                        <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2" style={{ width: 110 }}>PIC</th>
                         <th className="text-left text-[11px] font-semibold text-foreground px-2 py-2" style={{ width: 140 }}>Venue</th>
                         {dayCells.map((d) => (
                             <th
@@ -1026,7 +1027,7 @@ function GanttTable({
                     </tr>
                     {/* Capacity histogram */}
                     <tr className="border-b border-border bg-muted/10 print:hidden">
-                        <th colSpan={4} className="text-right text-[10px] text-muted-foreground px-3 py-1 sticky left-0 bg-muted/10 border-r border-border">
+                        <th colSpan={3} className="text-right text-[10px] text-muted-foreground px-3 py-1 sticky left-0 bg-muted/10 border-r border-border">
                             <span className="inline-flex items-center gap-1"><Layers className="h-3 w-3" /> Load</span>
                         </th>
                         {dayCells.map((d) => {
@@ -1048,7 +1049,7 @@ function GanttTable({
                         <Fragment key={`group-${g.key || "all"}`}>
                             {g.label && (
                                 <tr className="bg-muted/40 border-y border-border">
-                                    <td colSpan={4 + dayCells.length} className="px-3 py-1.5 text-xs font-semibold text-foreground/80 sticky left-0 bg-muted/40">
+                                    <td colSpan={3 + dayCells.length} className="px-3 py-1.5 text-xs font-semibold text-foreground/80 sticky left-0 bg-muted/40">
                                         ▾ {g.label} <span className="text-muted-foreground font-normal">({g.events.length})</span>
                                     </td>
                                 </tr>
@@ -1121,8 +1122,13 @@ function EventRow({
         });
     }
 
-    // Build cell-day → phase map
+    // Build cell-day → phase map.
+    //  - dayPhase = fase PRIORITAS tertinggi per hari → dipakai untuk logika interaksi
+    //    (klik bar, drag-resize, panah kontinuasi, faded masa lalu).
+    //  - daySet/dayPhaseList = SEMUA fase aktif di hari itu → dipakai untuk tampilan
+    //    split 2-warna (mode "phase"), mis. siang event + malam bongkar.
     const dayPhase = new Map<number, Phase>();
+    const daySet = new Map<number, Set<Phase>>();
     ranges.forEach((r) => {
         const startIdx = Math.max(0, daysBetween(rangeStart, r.start));
         const endIdx = Math.min(rangeDays - 1, daysBetween(rangeStart, r.end));
@@ -1131,8 +1137,13 @@ function EventRow({
             // priority: event > setup > dismantle > departure
             const order: Record<Phase, number> = { event: 4, setup: 3, dismantle: 2, departure: 1 };
             if (!existing || order[r.phase] > order[existing]) dayPhase.set(d, r.phase);
+            let set = daySet.get(d);
+            if (!set) { set = new Set<Phase>(); daySet.set(d, set); }
+            set.add(r.phase);
         }
     });
+    const dayPhaseList = new Map<number, Phase[]>();
+    daySet.forEach((set, d) => dayPhaseList.set(d, PHASE_CHRONO.filter((p) => set.has(p))));
 
     // Track which day idx is the LAST cell of each phase (for resize handle)
     const phaseLastIdx = new Map<Phase, number>();
@@ -1158,6 +1169,12 @@ function EventRow({
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${brandStrip}`} />
                 <div className="pl-2">
                     <Link href={`/events/${ev.id}`} className="hover:text-primary block truncate text-xs leading-tight" title={ev.name}>{ev.name}</Link>
+                    {/* PIC digabung di bawah nama event (kolom PIC terpisah dihapus). */}
+                    {picName(ev) !== "—" && (
+                        <div className="flex items-center gap-0.5 mt-0.5 text-[9px] text-foreground/70 truncate max-w-full" title={`PIC: ${picName(ev)}`}>
+                            <User className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{picName(ev)}</span>
+                        </div>
+                    )}
                     {/* Label organisasi/klien — asalnya dari Lead.organization → Customer.companyName,
                         atau dari Event.customerName (teks bebas) kalau tidak link ke customer */}
                     {(() => {
@@ -1233,17 +1250,17 @@ function EventRow({
                 </div>
             </td>
             <td className="px-2 py-1.5 text-[11px] text-foreground/80 truncate" style={{ width: 130 }} title={clientName(ev)}>{clientName(ev)}</td>
-            <td className="px-2 py-1.5 text-[11px] text-foreground/80 truncate" style={{ width: 110 }} title={picName(ev)}>{picName(ev)}</td>
             <td className="px-2 py-1.5 text-[11px] text-foreground/70 truncate" style={{ width: 140 }} title={ev.venue ?? ""}>{ev.venue ?? "—"}</td>
 
             {dayCells.map((d) => {
                 const phase = dayPhase.get(d.idx);
+                const phases = dayPhaseList.get(d.idx) ?? [];
+                const isPast = d.date < today;
                 const conflictKey = `${ev.id}-${d.idx}`;
                 const isConflict = conflicts.has(conflictKey);
                 let bg = "";
                 let bgStyle: React.CSSProperties | undefined;
                 if (phase) {
-                    const isPast = d.date < today;
                     if (colorMode === "phase") {
                         bg = isPast ? PHASE_COLOR[phase].faded : PHASE_COLOR[phase].solid;
                     } else if (colorMode === "team") {
@@ -1262,6 +1279,9 @@ function EventRow({
                 }
                 const isFirstOfRange = phase && (!dayPhase.get(d.idx - 1) || dayPhase.get(d.idx - 1) !== phase);
                 const isLastOfRange = phase && (!dayPhase.get(d.idx + 1) || dayPhase.get(d.idx + 1) !== phase);
+                // Mode "phase": kalau >1 fase di hari itu (mis. siang event + malam bongkar) →
+                // split 2-warna. Logika interaksi (klik/drag/panah) tetap pakai fase prioritas.
+                const isSplit = colorMode === "phase" && phases.length > 1;
 
                 return (
                     <td
@@ -1271,11 +1291,11 @@ function EventRow({
                     >
                         {phase && (
                             <div
-                                className={`${bg} h-[78%] mx-0 my-[11%] ${editMode ? "cursor-default" : "cursor-pointer"} relative ${isConflict ? "ring-2 ring-amber-500 ring-inset" : ""}`}
+                                className={`${isSplit ? "" : bg} h-[78%] mx-0 my-[11%] ${editMode ? "cursor-default" : "cursor-pointer"} relative ${isConflict ? "ring-2 ring-amber-500 ring-inset" : ""}`}
                                 style={bgStyle}
                                 onClick={() => !editMode && onBarClick(ev, phase)}
                                 title={
-                                    `${PHASE_COLOR[phase].label}: ${ev.name}\n` +
+                                    `${isSplit ? phases.map((p) => PHASE_COLOR[p].label).join(" + ") : PHASE_COLOR[phase].label}: ${ev.name}\n` +
                                     `📅 ${fmtDateID(d.date)}\n` +
                                     `🏢 ${clientName(ev)}\n` +
                                     `👤 ${picName(ev)}\n` +
@@ -1284,6 +1304,14 @@ function EventRow({
                                     (editMode ? "\n✏️ Drag handle kanan untuk geser tanggal selesai" : "")
                                 }
                             >
+                                {/* Latar split 2-warna (mode phase) — di belakang panah & handle. */}
+                                {isSplit && (
+                                    <div className="absolute inset-0 flex overflow-hidden">
+                                        {phases.map((p) => (
+                                            <div key={p} className={`${isPast ? PHASE_COLOR[p].faded : PHASE_COLOR[p].solid} h-full`} style={{ width: `${100 / phases.length}%` }} />
+                                        ))}
+                                    </div>
+                                )}
                                 {/* Left arrow if continues from prev range */}
                                 {isFirstOfRange && hasLeftArrow && d.idx === 0 && (
                                     <span className="absolute left-0 top-1/2 -translate-y-1/2 text-white text-[10px] font-bold">◀</span>

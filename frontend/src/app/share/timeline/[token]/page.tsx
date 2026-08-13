@@ -3,8 +3,9 @@
 import { Suspense, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, MapPin, User as UserIcon, Package, Loader2, ChevronLeft, ChevronRight, Lock, Tag } from "lucide-react";
+import { CalendarDays, MapPin, Package, Loader2, ChevronLeft, ChevronRight, Lock, Tag } from "lucide-react";
 import { getPublicTimeline, type PublicTimelineEvent } from "@/lib/api/publicTimeline";
+import { CrewCards } from "@/app/jadwal/CrewCards";
 
 const MONTHS_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 const DOW_ID = ["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
@@ -16,6 +17,8 @@ const PHASE_COLOR: Record<Phase, { solid: string; label: string }> = {
     event:     { solid: "bg-amber-500",  label: "Hari Event" },
     dismantle: { solid: "bg-blue-600",   label: "Bongkar" },
 };
+// Urutan kronologis fase (kiri→kanan dalam satu sel hari): berangkat → pasang → event → bongkar.
+const PHASE_CHRONO: Phase[] = ["departure", "setup", "event", "dismantle"];
 
 // Ukuran grid — dibesarkan supaya jelas di semua perangkat.
 const LEFT_W = 280;   // lebar kolom kiri (nama event + order)
@@ -203,30 +206,31 @@ function EventRow({ ev, dayCells, rangeStart, rangeDays, today }: {
     dayCells: Array<{ idx: number; date: Date; isToday: boolean; isWeekend: boolean }>;
     rangeStart: Date; rangeDays: number; today: Date;
 }) {
-    const dayPhase = new Map<number, Phase>();
-    const order: Record<Phase, number> = { event: 4, setup: 3, dismantle: 2, departure: 1 };
+    // Kumpulkan SEMUA fase aktif per hari (bukan cuma prioritas tertinggi) → satu
+    // sel bisa 2 warna, mis. siang event + malam bongkar. Urut kronologis.
+    const daySet = new Map<number, Set<Phase>>();
     getPhaseRanges(ev).forEach((r) => {
         const s = Math.max(0, daysBetween(rangeStart, r.start));
         const e = Math.min(rangeDays - 1, daysBetween(rangeStart, r.end));
         for (let d = s; d <= e; d++) {
-            const cur = dayPhase.get(d);
-            if (!cur || order[r.phase] > order[cur]) dayPhase.set(d, r.phase);
+            let set = daySet.get(d);
+            if (!set) { set = new Set<Phase>(); daySet.set(d, set); }
+            set.add(r.phase);
         }
     });
-
-    const pic = ev.picWorker?.name ?? ev.picName;
+    const dayPhase = new Map<number, Phase[]>();
+    daySet.forEach((set, d) => dayPhase.set(d, PHASE_CHRONO.filter((p) => set.has(p))));
 
     return (
         <tr className="border-b-2 border-border/60 align-top">
             <td className="px-3 py-2.5 sticky left-0 bg-card border-r-2 border-border" style={{ width: LEFT_W, minWidth: LEFT_W, height: ROW_H }}>
-                {/* ATAS: nama event + venue + PIC (huruf besar) */}
+                {/* ATAS: nama event + venue + PIC/Marketing/crew (huruf besar) */}
                 <div className="font-bold text-base md:text-lg leading-snug">{ev.name}</div>
                 {ev.venue && (
                     <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1"><MapPin className="h-4 w-4 shrink-0" />{ev.venue}</div>
                 )}
-                {pic && (
-                    <div className="text-sm text-muted-foreground flex items-center gap-1.5"><UserIcon className="h-4 w-4 shrink-0" /><span className="font-semibold text-foreground">{pic}</span></div>
-                )}
+                {/* PIC + Marketing + crew digabung di bawah nama event (nama saja, tanpa label peran). */}
+                <CrewCards ev={ev} variant="compact" />
                 {ev.productCategory?.trim() && (
                     <div className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5">
                         <Tag className="h-4 w-4 shrink-0" />{ev.productCategory}
@@ -252,18 +256,23 @@ function EventRow({ ev, dayCells, rangeStart, rangeDays, today }: {
                 )}
             </td>
             {dayCells.map((d) => {
-                const phase = dayPhase.get(d.idx);
+                const phases = dayPhase.get(d.idx);
                 return (
                     <td
                         key={d.idx}
                         className={`p-0 border-l border-border/50 ${d.isToday ? "bg-primary/10" : d.isWeekend ? "bg-muted/30" : ""}`}
                         style={{ width: CELL_W, minWidth: CELL_W, height: ROW_H }}
                     >
-                        {phase && (
+                        {phases && phases.length > 0 && (
+                            // >1 fase di hari itu (mis. siang event + malam bongkar) → split kiri→kanan.
                             <div
-                                className={`${PHASE_COLOR[phase].solid} h-[60%] my-[20%] mx-0.5 rounded`}
-                                title={`${PHASE_COLOR[phase].label} — ${ev.name}`}
-                            />
+                                className="flex h-[60%] my-[20%] mx-0.5 rounded overflow-hidden"
+                                title={`${phases.map((p) => PHASE_COLOR[p].label).join(" + ")} — ${ev.name}`}
+                            >
+                                {phases.map((p) => (
+                                    <div key={p} className={`${PHASE_COLOR[p].solid} h-full`} style={{ width: `${100 / phases.length}%` }} />
+                                ))}
+                            </div>
                         )}
                     </td>
                 );

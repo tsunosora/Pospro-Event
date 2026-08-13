@@ -85,7 +85,8 @@ export function CrewCards({ ev, variant = "full" }: { ev: PublicTimelineEvent; v
     if (people.length === 0) return null;
 
     if (variant === "compact") {
-        // Chip nama LENGKAP — titik warna + label peran singkat.
+        // Chip nama saja berjejeran — titik warna sebagai pembeda peran (PIC/Marketing/crew),
+        // TANPA teks keterangan peran.
         return (
             <div className="flex flex-wrap gap-1 mt-1.5">
                 {people.map((p, i) => {
@@ -98,7 +99,6 @@ export function CrewCards({ ev, variant = "full" }: { ev: PublicTimelineEvent; v
                         >
                             <span className={`w-2 h-2 rounded-full shrink-0 ${p.kind !== "crew" ? "animate-breathe" : ""} ${d.cls}`} style={d.style} />
                             <span>{p.name}</span>
-                            {p.kind !== "crew" && <span className={subCls(p)}>· {p.sub}</span>}
                         </span>
                     );
                 })}
