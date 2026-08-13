@@ -37,11 +37,14 @@ export const getBelanja = async (params: { from?: string; to?: string; eventId?:
   (await api.get<BelanjaRow[]>('/belanja', { params })).data;
 export const getRekapHarian = async (params: { from?: string; to?: string } = {}) =>
   (await api.get<RekapHari[]>('/belanja/rekap-harian', { params })).data;
-export const createBelanja = async (input: {
+export interface BelanjaInput {
   amount: number; description: string; spentAt?: string;
   eventId?: number | null; rabPlanId?: number | null; rabCategoryId?: number | null; rabItemId?: number | null;
   category?: string | null; attributeToUserId?: number | null;
-}) => (await api.post<BelanjaRow>('/belanja', input)).data;
+}
+export const createBelanja = async (input: BelanjaInput) => (await api.post<BelanjaRow>('/belanja', input)).data;
+export const updateBelanja = async (id: number, input: BelanjaInput) =>
+  (await api.patch<BelanjaRow>(`/belanja/${id}`, input)).data;
 export const uploadBelanjaNota = async (id: number, file: File) => {
   const fd = new FormData();
   fd.append('file', file);

@@ -42,10 +42,8 @@ export class BelanjaService {
     return this.prisma.belanja.findMany({ where, orderBy: [{ spentAt: 'desc' }, { id: 'desc' }], include: INCLUDE });
   }
 
-  async create(dto: CreateBelanjaDto, tokenUserId: number) {
-    if (!dto.description?.trim()) throw new BadRequestException('Deskripsi belanja wajib diisi');
-    if (!(Number(dto.amount) > 0)) throw new BadRequestException('Nominal harus > 0');
-
+  /** Resolusi tag belanja (RAB/event/pos/item/kategori) + nama kategori untuk Cashflow. Dipakai create & update. */
+  private async resolveFields(dto: CreateBelanjaDto) {
     // RAB untuk real cost: pakai pilihan eksplisit dulu, fallback ke tautan event.rabPlanId
     let rabPlanId: number | null = null;
     if (dto.eventId) {
@@ -57,7 +55,6 @@ export class BelanjaService {
       const rab = await this.prisma.rabPlan.findUnique({ where: { id: dto.rabPlanId }, select: { id: true } });
       if (rab) rabPlanId = rab.id;
     }
-    const userId = dto.attributeToUserId || tokenUserId;
     const eventId = dto.eventId ?? null;
     // "Proyek" = terkait event/RAB. "Keperluan Lain" = tanpa keduanya (pakai label kategori bebas).
     const isProject = !!(eventId || rabPlanId);
@@ -75,28 +72,35 @@ export class BelanjaService {
       }
     }
     const category = isProject ? null : (dto.category?.trim() || 'Keperluan Lain');
-    const spentAt = dto.spentAt ? new Date(dto.spentAt) : new Date();
-    const description = dto.description.trim();
-
     // Kategori Cashflow (String wajib): pos RAB > label keperluan lain > default proyek
     let cashflowCategory = category ?? (rabPlanId ? 'Belanja Proyek' : 'Belanja');
     if (rabCategoryId) {
       const cat = await this.prisma.rabCategory.findUnique({ where: { id: rabCategoryId }, select: { name: true } });
       if (cat) cashflowCategory = cat.name;
     }
+    return { eventId, rabPlanId, rabItemId, rabCategoryId, category, cashflowCategory };
+  }
+
+  async create(dto: CreateBelanjaDto, tokenUserId: number) {
+    if (!dto.description?.trim()) throw new BadRequestException('Deskripsi belanja wajib diisi');
+    if (!(Number(dto.amount) > 0)) throw new BadRequestException('Nominal harus > 0');
+    const f = await this.resolveFields(dto);
+    const userId = dto.attributeToUserId || tokenUserId;
+    const spentAt = dto.spentAt ? new Date(dto.spentAt) : new Date();
+    const description = dto.description.trim();
 
     // Transaksi: buat Cashflow EXPENSE dulu, lalu Belanja yang me-link ke sana
     return this.prisma.$transaction(async (tx) => {
       const cf = await tx.cashflow.create({
         data: {
           type: 'EXPENSE',
-          category: cashflowCategory,
+          category: f.cashflowCategory,
           amount: dto.amount,
           note: description,
           userId,
           date: spentAt,
-          eventId,
-          rabPlanId,
+          eventId: f.eventId,
+          rabPlanId: f.rabPlanId,
           excludeFromShift: true, // isolasi dari laporan shift POS
         },
       });
@@ -105,12 +109,57 @@ export class BelanjaService {
           amount: dto.amount,
           description,
           spentAt,
-          eventId,
-          rabPlanId,
-          rabCategoryId,
-          rabItemId,
-          category,
+          eventId: f.eventId,
+          rabPlanId: f.rabPlanId,
+          rabCategoryId: f.rabCategoryId,
+          rabItemId: f.rabItemId,
+          category: f.category,
           cashflowId: cf.id,
+          createdById: userId,
+        },
+        include: INCLUDE,
+      });
+    });
+  }
+
+  async update(id: number, dto: CreateBelanjaDto, tokenUserId: number) {
+    const existing = await this.prisma.belanja.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Belanja tidak ditemukan');
+    if (!dto.description?.trim()) throw new BadRequestException('Deskripsi belanja wajib diisi');
+    if (!(Number(dto.amount) > 0)) throw new BadRequestException('Nominal harus > 0');
+    const f = await this.resolveFields(dto);
+    // createdBy tetap pemilik lama kecuali di-override eksplisit
+    const userId = dto.attributeToUserId || existing.createdById || tokenUserId;
+    const spentAt = dto.spentAt ? new Date(dto.spentAt) : existing.spentAt;
+    const description = dto.description.trim();
+
+    // Transaksi: update Belanja + Cashflow terkait supaya konsisten (event-profit akurat)
+    return this.prisma.$transaction(async (tx) => {
+      if (existing.cashflowId) {
+        await tx.cashflow.update({
+          where: { id: existing.cashflowId },
+          data: {
+            category: f.cashflowCategory,
+            amount: dto.amount,
+            note: description,
+            userId,
+            date: spentAt,
+            eventId: f.eventId,
+            rabPlanId: f.rabPlanId,
+          },
+        });
+      }
+      return tx.belanja.update({
+        where: { id },
+        data: {
+          amount: dto.amount,
+          description,
+          spentAt,
+          eventId: f.eventId,
+          rabPlanId: f.rabPlanId,
+          rabCategoryId: f.rabCategoryId,
+          rabItemId: f.rabItemId,
+          category: f.category,
           createdById: userId,
         },
         include: INCLUDE,

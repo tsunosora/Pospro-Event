@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Wallet, ShoppingCart, Plus, ArrowDownCircle, Trash2, ReceiptText, Users, AlertTriangle, Loader2, FileDown } from "lucide-react";
+import { Wallet, ShoppingCart, Plus, ArrowDownCircle, Trash2, Pencil, ReceiptText, Users, AlertTriangle, Loader2, FileDown } from "lucide-react";
 import { getKasSummary, getKasByAdmin, getRekapHarian, deleteBelanja, downloadBelanjaPdf, type BelanjaRow } from "@/lib/api/belanja";
 import { getUsers } from "@/lib/api/settings";
 import { DateRangeFilter, presetToRange, type DateRange } from "@/components/DateRangeFilter";
@@ -22,6 +22,7 @@ export default function BelanjaPage() {
   const [adminFilter, setAdminFilter] = useState<number | "">("");
   const [dateRange, setDateRange] = useState<DateRange>({ preset: "THIS_MONTH" });
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [editing, setEditing] = useState<BelanjaRow | null>(null);
   const [uangMasukOpen, setUangMasukOpen] = useState(false);
 
   const userId = adminFilter === "" ? undefined : Number(adminFilter);
@@ -84,7 +85,10 @@ export default function BelanjaPage() {
             <ArrowDownCircle className="h-4 w-4 text-emerald-600" /> Uang Masuk
           </button>
           <button
-            onClick={() => setSheetOpen(true)}
+            onClick={() => {
+              setEditing(null);
+              setSheetOpen(true);
+            }}
             className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm hover:opacity-90"
           >
             <Plus className="h-4 w-4" /> Catat Belanja
@@ -192,6 +196,16 @@ export default function BelanjaPage() {
                   <span className="text-sm font-semibold whitespace-nowrap">{rp(b.amount)}</span>
                   <button
                     onClick={() => {
+                      setEditing(b);
+                      setSheetOpen(true);
+                    }}
+                    className="text-muted-foreground hover:text-primary"
+                    title="Edit"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => {
                       if (confirm(`Hapus belanja "${b.description}"? Entri Cashflow-nya juga terhapus.`)) delMut.mutate(b.id);
                     }}
                     className="text-muted-foreground hover:text-destructive"
@@ -206,7 +220,15 @@ export default function BelanjaPage() {
         </div>
       )}
 
-      <CatatBelanjaSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+      <CatatBelanjaSheet
+        key={editing ? `edit-${editing.id}` : "new"}
+        open={sheetOpen}
+        editing={editing}
+        onClose={() => {
+          setSheetOpen(false);
+          setEditing(null);
+        }}
+      />
       <UangMasukModal open={uangMasukOpen} onClose={() => setUangMasukOpen(false)} />
     </div>
   );

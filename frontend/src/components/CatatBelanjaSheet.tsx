@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { X, ShoppingCart, Loader2, Camera, Users } from "lucide-react";
-import { createBelanja, uploadBelanjaNota, getKasSummary, getRealisasiRab } from "@/lib/api/belanja";
+import { createBelanja, updateBelanja, uploadBelanjaNota, getKasSummary, getRealisasiRab, type BelanjaRow } from "@/lib/api/belanja";
 import { getRab, getRabList } from "@/lib/api/rab";
 import { getUsers } from "@/lib/api/settings";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -13,6 +13,8 @@ interface Props {
   onClose: () => void;
   onSaved?: () => void;
   defaultRabPlanId?: number;
+  /** Bila diisi → mode edit. Gunakan `key` berbeda saat buka agar state ter-inisialisasi ulang. */
+  editing?: BelanjaRow | null;
 }
 
 type UserOpt = { id: number; name?: string | null };
@@ -20,20 +22,21 @@ const rp = (v: string | number) => "Rp " + Number(v || 0).toLocaleString("id-ID"
 
 /** Input belanja cepat (mobile-first). Tag ke Proyek (RAB → real cost) atau keperluan lain.
  *  "Untuk apa?" bisa pilih item terdaftar di RAB, atau ketik custom. */
-export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId }: Props) {
+export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, editing }: Props) {
   const qc = useQueryClient();
   const { currentUser } = useCurrentUser();
-  const [amount, setAmount] = useState<number>(0);
-  const [description, setDescription] = useState<string>("");
-  const [tagMode, setTagMode] = useState<"rab" | "lain">("rab");
-  const [rabPlanId, setRabPlanId] = useState<number | "">(defaultRabPlanId ?? "");
-  const [rabCategoryId, setRabCategoryId] = useState<number | "">("");
-  const [rabItemId, setRabItemId] = useState<number | "">("");
-  const [customItem, setCustomItem] = useState<boolean>(false);
-  const [category, setCategory] = useState<string>("");
-  const [spentAt, setSpentAt] = useState<string>(new Date().toISOString().slice(0, 10));
+  const isEdit = !!editing;
+  const [amount, setAmount] = useState<number>(editing ? Number(editing.amount) : 0);
+  const [description, setDescription] = useState<string>(editing?.description ?? "");
+  const [tagMode, setTagMode] = useState<"rab" | "lain">(editing ? (editing.rabPlanId ? "rab" : "lain") : "rab");
+  const [rabPlanId, setRabPlanId] = useState<number | "">(editing?.rabPlanId ?? defaultRabPlanId ?? "");
+  const [rabCategoryId, setRabCategoryId] = useState<number | "">(editing?.rabCategoryId ?? "");
+  const [rabItemId, setRabItemId] = useState<number | "">(editing?.rabItemId ?? "");
+  const [customItem, setCustomItem] = useState<boolean>(!!editing && !!editing.rabPlanId && !editing.rabItemId);
+  const [category, setCategory] = useState<string>(editing?.category ?? "");
+  const [spentAt, setSpentAt] = useState<string>(editing?.spentAt ? editing.spentAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
   const [file, setFile] = useState<File | null>(null);
-  const [attributeToUserId, setAttributeToUserId] = useState<number | "">("");
+  const [attributeToUserId, setAttributeToUserId] = useState<number | "">(editing?.createdBy?.id ?? "");
   const [error, setError] = useState<string | null>(null);
 
   const { data: summary } = useQuery({ queryKey: ["kas-summary", null], queryFn: () => getKasSummary(), enabled: open });
@@ -84,7 +87,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId }: 
 
   const saveMut = useMutation({
     mutationFn: async () => {
-      const created = await createBelanja({
+      const payload = {
         amount,
         description,
         spentAt,
@@ -93,22 +96,24 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId }: 
         rabItemId: tagMode === "rab" && rabItemId !== "" ? Number(rabItemId) : null,
         category: tagMode === "lain" ? category : null,
         attributeToUserId: attributeToUserId === "" ? null : Number(attributeToUserId),
-      });
-      if (file && created?.id) {
+      };
+      const saved = isEdit ? await updateBelanja(editing!.id, payload) : await createBelanja(payload);
+      if (file && saved?.id) {
         try {
-          await uploadBelanjaNota(created.id, file);
+          await uploadBelanjaNota(saved.id, file);
         } catch {
           /* nota gagal upload — belanja tetap tersimpan */
         }
       }
-      return created;
+      return saved;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["kas-summary"] });
       qc.invalidateQueries({ queryKey: ["kas-by-admin"] });
       qc.invalidateQueries({ queryKey: ["rekap-belanja"] });
       qc.invalidateQueries({ queryKey: ["belanja"] });
-      if (rabPlanId) qc.invalidateQueries({ queryKey: ["realisasi-rab", rabPlanId] });
+      qc.invalidateQueries({ queryKey: ["belanja-item"] });
+      qc.invalidateQueries({ queryKey: ["realisasi-rab"] });
       setAmount(0);
       setDescription("");
       setRabCategoryId("");
@@ -142,7 +147,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId }: 
         <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-card">
           <div>
             <h2 className="font-bold flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5 text-primary" /> Catat Belanja
+              <ShoppingCart className="h-5 w-5 text-primary" /> {isEdit ? "Edit Belanja" : "Catat Belanja"}
             </h2>
             {summary && (
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -311,6 +316,9 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId }: 
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 className="w-full text-xs mt-1.5"
               />
+              {isEdit && editing?.notaUrl && !file && (
+                <span className="block text-[10px] text-muted-foreground mt-0.5">Nota sudah ada — pilih file untuk mengganti.</span>
+              )}
             </div>
           </div>
 

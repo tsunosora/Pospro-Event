@@ -7,6 +7,7 @@ import {
   Header,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -101,6 +102,13 @@ export class BelanjaController {
     const u = uid(req);
     if (!u) throw new Error('User context missing');
     return this.service.create(body, u);
+  }
+
+  @Patch(':id')
+  update(@Param('id', ParseIntPipe) id: number, @Body() body: CreateBelanjaDto, @Req() req: JwtRequest) {
+    const u = uid(req);
+    if (!u) throw new Error('User context missing');
+    return this.service.update(id, body, u);
   }
 
   @Post(':id/nota')
