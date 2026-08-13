@@ -8,6 +8,7 @@ import { getUsers } from "@/lib/api/settings";
 import { DateRangeFilter, presetToRange, type DateRange } from "@/components/DateRangeFilter";
 import { CatatBelanjaSheet } from "@/components/CatatBelanjaSheet";
 import { UangMasukModal } from "@/components/UangMasukModal";
+import { NotaViewer } from "@/components/NotaViewer";
 
 const rp = (v: string | number) => "Rp " + Number(v || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 });
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -24,6 +25,7 @@ export default function BelanjaPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<BelanjaRow | null>(null);
   const [uangMasukOpen, setUangMasukOpen] = useState(false);
+  const [notaUrl, setNotaUrl] = useState<string | null>(null);
 
   const userId = adminFilter === "" ? undefined : Number(adminFilter);
   const { from, to } = useMemo(() => {
@@ -183,15 +185,13 @@ export default function BelanjaPage() {
                     </div>
                   </div>
                   {b.notaUrl && (
-                    <a
-                      href={`${apiBase}${b.notaUrl}`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      onClick={() => setNotaUrl(`${apiBase}${b.notaUrl}`)}
                       className="text-muted-foreground hover:text-primary"
                       title="Lihat nota"
                     >
                       <ReceiptText className="h-4 w-4" />
-                    </a>
+                    </button>
                   )}
                   <span className="text-sm font-semibold whitespace-nowrap">{rp(b.amount)}</span>
                   <button
@@ -230,6 +230,7 @@ export default function BelanjaPage() {
         }}
       />
       <UangMasukModal open={uangMasukOpen} onClose={() => setUangMasukOpen(false)} />
+      {notaUrl && <NotaViewer url={notaUrl} onClose={() => setNotaUrl(null)} />}
     </div>
   );
 }

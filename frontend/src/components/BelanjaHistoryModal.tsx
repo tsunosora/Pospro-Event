@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { X, Loader2, ReceiptText, ImageIcon, Calendar, User } from "lucide-react";
 import { getBelanja } from "@/lib/api/belanja";
+import { NotaViewer } from "@/components/NotaViewer";
 
 const rp = (v: string | number) => "Rp " + Number(v || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 });
 const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -19,6 +20,7 @@ const isImage = (url: string) => /\.(jpg|jpeg|jfif|png|webp|gif)$/i.test(url);
 
 /** Riwayat belanja untuk satu item RAB — nominal, tanggal, admin, dan bukti nota/transfer. */
 export function BelanjaHistoryModal({ rabItemId, itemName, onClose }: { rabItemId: number; itemName: string; onClose: () => void }) {
+  const [notaUrl, setNotaUrl] = useState<string | null>(null);
   const { data = [], isLoading } = useQuery({
     queryKey: ["belanja-item", rabItemId],
     // Filter server-side; filter ulang di klien sebagai pengaman (mis. server belum di-restart)
@@ -37,6 +39,7 @@ export function BelanjaHistoryModal({ rabItemId, itemName, onClose }: { rabItemI
   const total = data.reduce((a, b) => a + Number(b.amount), 0);
 
   return (
+   <>
     <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-start justify-between gap-2">
@@ -78,19 +81,18 @@ export function BelanjaHistoryModal({ rabItemId, itemName, onClose }: { rabItemI
 
                 {b.notaUrl ? (
                   isImage(b.notaUrl) ? (
-                    <a href={`${apiBase}${b.notaUrl}`} target="_blank" rel="noreferrer" className="block mt-2">
+                    <button type="button" onClick={() => setNotaUrl(`${apiBase}${b.notaUrl}`)} className="block mt-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`${apiBase}${b.notaUrl}`} alt="Bukti" className="max-h-40 rounded border border-border object-contain bg-muted/30" />
-                    </a>
+                      <img src={`${apiBase}${b.notaUrl}`} alt="Bukti" className="max-h-40 rounded border border-border object-contain bg-muted/30 cursor-zoom-in" />
+                    </button>
                   ) : (
-                    <a
-                      href={`${apiBase}${b.notaUrl}`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => setNotaUrl(`${apiBase}${b.notaUrl}`)}
                       className="mt-2 inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
                     >
                       <ImageIcon className="h-3.5 w-3.5" /> Lihat bukti / nota
-                    </a>
+                    </button>
                   )
                 ) : (
                   <div className="mt-2 text-[11px] text-muted-foreground/60 italic">Tanpa bukti nota</div>
@@ -101,5 +103,7 @@ export function BelanjaHistoryModal({ rabItemId, itemName, onClose }: { rabItemI
         )}
       </div>
     </div>
+    {notaUrl && <NotaViewer url={notaUrl} onClose={() => setNotaUrl(null)} />}
+   </>
   );
 }
