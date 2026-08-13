@@ -106,6 +106,24 @@ export function RabRealisasiSection({ rabPlanId }: Props) {
               Belanja tanpa pos: <span className="font-medium">{rp(data.tanpaPos)}</span>
             </p>
           )}
+
+          {data.perItem && data.perItem.length > 0 && (
+            <div className="pt-2 border-t border-border">
+              <div className="text-xs font-medium text-muted-foreground mb-1.5">Realisasi per item</div>
+              <div className="space-y-1.5">
+                {data.perItem.map((it) => (
+                  <div key={it.rabItemId} className="flex items-center justify-between text-sm gap-2">
+                    <span className="truncate">{it.description}</span>
+                    <span className="text-muted-foreground whitespace-nowrap">
+                      <span className={it.overspend ? "text-destructive font-semibold" : "font-semibold text-foreground"}>{rp(it.real)}</span>
+                      <span className="text-[11px]"> / {rp(it.rencana)}</span>
+                      {it.overspend && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-destructive/15 text-destructive font-semibold">Over</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

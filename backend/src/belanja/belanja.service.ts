@@ -176,6 +176,25 @@ export class BelanjaService {
     const tanpaPos = realByCat.get(null) ?? 0; // belanja RAB ini tanpa pilih pos
     const totalRencana = pos.reduce((a, p) => a + p.rencana, 0);
     const totalReal = Array.from(realByCat.values()).reduce((a, v) => a + v, 0);
-    return { pos, tanpaPos, totalRencana, totalReal, selisih: totalRencana - totalReal };
+
+    // Rincian realisasi per item RAB (hanya item yang sudah ada belanjanya)
+    const realByItemRows = await this.prisma.belanja.groupBy({
+      by: ['rabItemId'],
+      where: { rabPlanId, rabItemId: { not: null } },
+      _sum: { amount: true },
+    });
+    const planByItem = new Map<number, { description: string; rencana: number }>();
+    for (const it of items) planByItem.set(it.id, { description: it.description, rencana: Number(it.quantityCost) * Number(it.priceCost) });
+    const perItem = realByItemRows
+      .map((r) => {
+        const id = r.rabItemId as number;
+        const info = planByItem.get(id);
+        const real = Number(r._sum.amount ?? 0);
+        const rencana = info?.rencana ?? 0;
+        return { rabItemId: id, description: info?.description ?? `Item #${id}`, rencana, real, selisih: rencana - real, overspend: real > rencana };
+      })
+      .sort((a, b) => b.real - a.real);
+
+    return { pos, perItem, tanpaPos, totalRencana, totalReal, selisih: totalRencana - totalReal };
   }
 }

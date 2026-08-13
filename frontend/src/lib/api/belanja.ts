@@ -18,7 +18,8 @@ export interface BelanjaRow {
 }
 export interface RekapHari { tanggal: string; total: number; items: BelanjaRow[]; }
 export interface RealisasiPos { categoryId: number; name: string; rencana: number; real: number; selisih: number; overspend: boolean; }
-export interface RealisasiRab { pos: RealisasiPos[]; tanpaPos: number; totalRencana: number; totalReal: number; selisih: number; }
+export interface RealisasiItem { rabItemId: number; description: string; rencana: number; real: number; selisih: number; overspend: boolean; }
+export interface RealisasiRab { pos: RealisasiPos[]; perItem: RealisasiItem[]; tanpaPos: number; totalRencana: number; totalReal: number; selisih: number; }
 
 // ── Kas ──
 export const getKasSummary = async (userId?: number) =>
