@@ -73,6 +73,7 @@ model User {
   menuMakanCreated      MenuMakan[]              @relation("MenuMakanCreatedBy")
   menuPlanCreated       MenuMakanPlan[]          @relation("MenuMakanPlanCreatedBy")
   menuVoteCreated       MenuVoteSession[]        @relation("MenuVoteCreatedBy")
+  boronganSlipsPaid     BoronganSlip[]           @relation("BoronganSlipPaidBy")
 
   @@map("users")
 }
@@ -376,6 +377,7 @@ model Cashflow {
   rabPlan        RabPlan?                @relation(fields: [rabPlanId], references: [id], onDelete: SetNull)
   changeRequests CashflowChangeRequest[]
   belanja        Belanja?                @relation("BelanjaCashflow")
+  boronganEntry  EventBoronganCrew?      @relation("BoronganCashflow")
 
   @@index([eventId])
   @@index([rabPlanId])
@@ -1340,32 +1342,33 @@ model StorageLocation {
 }
 
 model Worker {
-  id                   Int      @id @default(autoincrement())
-  name                 String   @db.VarChar(100) // Nama panggilan / display (yang muncul di dropdown)
-  fullName             String?  @map("full_name") @db.VarChar(150) // Nama lengkap (untuk audit/HR record, opsional)
-  position             String?  @db.VarChar(100)
-  phone                String?  @db.VarChar(50)
-  photoUrl             String?  @map("photo_url") @db.Text
-  signatureImageUrl    String?  @map("signature_image_url") @db.Text // Tanda tangan untuk surat penawaran
+  id                   Int            @id @default(autoincrement())
+  name                 String         @db.VarChar(100) // Nama panggilan / display (yang muncul di dropdown)
+  fullName             String?        @map("full_name") @db.VarChar(150) // Nama lengkap (untuk audit/HR record, opsional)
+  position             String?        @db.VarChar(100)
+  phone                String?        @db.VarChar(50)
+  photoUrl             String?        @map("photo_url") @db.Text
+  signatureImageUrl    String?        @map("signature_image_url") @db.Text // Tanda tangan untuk surat penawaran
   /// Nama custom yang tampil di bawah TTD (kalau beda dari "name").
   /// Mis. `name`="Pak Budi" tapi di TTD perlu tampil "Budi Santoso, S.T." untuk formal letter.
   /// Null = pakai `name` sebagai fallback.
-  signatureDisplayName String?  @map("signature_display_name") @db.VarChar(150)
-  stampImageUrl        String?  @map("stamp_image_url") @db.Text // Stempel pribadi (optional, fallback ke brand stamp)
-  isActive             Boolean  @default(true) @map("is_active")
-  notes                String?  @db.Text
+  signatureDisplayName String?        @map("signature_display_name") @db.VarChar(150)
+  stampImageUrl        String?        @map("stamp_image_url") @db.Text // Stempel pribadi (optional, fallback ke brand stamp)
+  isActive             Boolean        @default(true) @map("is_active")
+  notes                String?        @db.Text
   // ─── Payroll fields ───────────────────────────────────────────────
-  dailyWageRate        Decimal? @map("daily_wage_rate") @db.Decimal(12, 2) // Gaji per hari (Rp). Null = belum di-set
-  overtimeRatePerHour  Decimal? @map("overtime_rate_per_hour") @db.Decimal(12, 2) // Tarif lembur per jam (Rp), mulai jam 17:00
-  isPic                Boolean  @default(false) @map("is_pic") // True = bisa dapat link absensi PIC
-  picAccessToken       String?  @unique @map("pic_access_token") @db.VarChar(64) // Token unik untuk public link PIC
-  picPin               String?  @map("pic_pin") @db.VarChar(20) // PIN 4-6 digit untuk security tambahan saat akses public link
-  teamId               Int?     @map("team_id") // Worker member dari team mana (untuk filter PIC absensi)
-  defaultCityKey       String?  @map("default_city_key") @db.VarChar(100) // Default kota untuk wage resolution (preset PIC dropdown)
-  defaultDivisionKey   String?  @map("default_division_key") @db.VarChar(100) // Default divisi untuk wage resolution
+  dailyWageRate        Decimal?       @map("daily_wage_rate") @db.Decimal(12, 2) // Gaji per hari (Rp). Null = belum di-set
+  overtimeRatePerHour  Decimal?       @map("overtime_rate_per_hour") @db.Decimal(12, 2) // Tarif lembur per jam (Rp), mulai jam 17:00
+  isPic                Boolean        @default(false) @map("is_pic") // True = bisa dapat link absensi PIC
+  picAccessToken       String?        @unique @map("pic_access_token") @db.VarChar(64) // Token unik untuk public link PIC
+  picPin               String?        @map("pic_pin") @db.VarChar(20) // PIN 4-6 digit untuk security tambahan saat akses public link
+  teamId               Int?           @map("team_id") // Worker member dari team mana (untuk filter PIC absensi)
+  defaultCityKey       String?        @map("default_city_key") @db.VarChar(100) // Default kota untuk wage resolution (preset PIC dropdown)
+  defaultDivisionKey   String?        @map("default_division_key") @db.VarChar(100) // Default divisi untuk wage resolution
+  boronganClass        BoronganClass? @map("borongan_class") // Kelas default tukang untuk gaji borongan
   // ─────────────────────────────────────────────────────────────────
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @default(now()) @updatedAt @map("updated_at")
 
   withdrawals           Withdrawal[]
   eventsAsPic           Event[]               @relation("EventPic")
@@ -1381,6 +1384,8 @@ model Worker {
   team                  CrewTeam?             @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
   adjustments           PayrollAdjustment[]   @relation("WorkerAdjustments") // tunjangan/potongan
   auditChangesAsPic     AttendanceAuditLog[]  @relation("AuditChangedByPic") // audit dari PIC
+  boronganEntries       EventBoronganCrew[]   @relation("WorkerBorongan") // penghasilan borongan per event
+  boronganSlips         BoronganSlip[]        @relation("WorkerBoronganSlip") // slip borongan mingguan
 
   @@map("workers")
 }
@@ -1487,6 +1492,18 @@ enum PayrollAdjustmentType {
   ALLOWANCE // tunjangan (transport, makan) — positif
   DEDUCTION // potongan (denda, terlambat) — negatif (kurangi)
   ADVANCE // kasbon — negatif (akan di-cair-kan dari gaji periode mendatang)
+}
+
+/// Hirarki kelas tukang untuk gaji borongan — tarif berbeda per kelas.
+enum BoronganClass {
+  KELAS_A // tukang senior / tarif lebih tinggi
+  KELAS_B // tukang reguler
+}
+
+/// Status slip gaji borongan mingguan.
+enum BoronganSlipStatus {
+  DRAFT // rekap minggu, belum dibayar
+  PAID // sudah dibayar → sudah ada Cashflow
 }
 
 /// Master rate gaji per kombinasi (Kota, Divisi).
@@ -1606,6 +1623,9 @@ model Event {
   // Kalau null → PIC pakai member rate.
   dailyWageRatePic       Decimal?    @map("daily_wage_rate_pic") @db.Decimal(12, 2)
   overtimeRatePerHourPic Decimal?    @map("overtime_rate_per_hour_pic") @db.Decimal(12, 2)
+  // Tarif gaji borongan per kelas untuk event ini (default nominal saat assign tukang)
+  boronganRateA          Decimal?    @map("borongan_rate_a") @db.Decimal(12, 2)
+  boronganRateB          Decimal?    @map("borongan_rate_b") @db.Decimal(12, 2)
   // --- BAST (Berita Acara Serah Terima) — override opsional, semua nullable ---
   bastNumber             String?     @map("bast_number") @db.VarChar(80)
   bastDate               DateTime?   @map("bast_date")
@@ -1627,11 +1647,60 @@ model Event {
   wageTiers       EventWageTier[]
   bastItems       BastItem[]
   belanja         Belanja[]             @relation("EventBelanja")
+  boronganCrew    EventBoronganCrew[]
 
   @@index([status])
   @@index([eventStart])
   @@index([brand])
   @@map("events")
+}
+
+/// Penghasilan borongan 1 tukang di 1 event (di-agregat ke slip mingguan).
+model EventBoronganCrew {
+  id            Int           @id @default(autoincrement())
+  eventId       Int           @map("event_id")
+  workerId      Int           @map("worker_id")
+  boronganClass BoronganClass @map("borongan_class")
+  amount        Decimal       @db.Decimal(12, 2) // nominal borongan tukang ini di event ini
+  weekStart     DateTime      @map("week_start") @db.Date // Senin minggu rekap (dari tgl event)
+  notes         String?       @db.Text
+  slipId        Int?          @map("slip_id") // terisi saat slip mingguan digenerate
+  cashflowId    Int?          @unique @map("cashflow_id") // EXPENSE saat dibayar
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  event    Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  worker   Worker        @relation("WorkerBorongan", fields: [workerId], references: [id], onDelete: Cascade)
+  slip     BoronganSlip? @relation(fields: [slipId], references: [id], onDelete: SetNull)
+  cashflow Cashflow?     @relation("BoronganCashflow", fields: [cashflowId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, workerId])
+  @@index([weekStart])
+  @@index([slipId])
+  @@map("event_borongan_crew")
+}
+
+/// Slip gaji borongan mingguan per tukang (Senin–Minggu).
+model BoronganSlip {
+  id          Int                @id @default(autoincrement())
+  weekStart   DateTime           @map("week_start") @db.Date
+  weekEnd     DateTime           @map("week_end") @db.Date
+  workerId    Int                @map("worker_id")
+  totalAmount Decimal            @default(0) @map("total_amount") @db.Decimal(15, 2)
+  status      BoronganSlipStatus @default(DRAFT)
+  paidAt      DateTime?          @map("paid_at")
+  paidById    Int?               @map("paid_by_id")
+  notes       String?            @db.Text
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @default(now()) @updatedAt @map("updated_at")
+
+  worker  Worker              @relation("WorkerBoronganSlip", fields: [workerId], references: [id], onDelete: Cascade)
+  paidBy  User?               @relation("BoronganSlipPaidBy", fields: [paidById], references: [id], onDelete: SetNull)
+  entries EventBoronganCrew[]
+
+  @@unique([weekStart, workerId])
+  @@index([status])
+  @@map("borongan_slips")
 }
 
 /// Item BAST (Berita Acara Serah Terima) yang diserahterimakan — editable manual per event.

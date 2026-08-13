@@ -39,6 +39,7 @@ export default function WorkersSettingsPage() {
     const [teamId, setTeamId] = useState<number | "">("");
     const [defaultCityKey, setDefaultCityKey] = useState<string>("");
     const [defaultDivisionKey, setDefaultDivisionKey] = useState<string>("");
+    const [boronganClass, setBoronganClass] = useState<string>("");
 
     const { data: teams = [] } = useQuery<CrewTeam[]>({
         queryKey: ["crew-teams", true],
@@ -71,7 +72,14 @@ export default function WorkersSettingsPage() {
     });
     const deleteMut = useMutation({
         mutationFn: deleteWorker,
-        onSuccess: () => { invalidate(); setDeleteConfirm(null); },
+        onSuccess: (res) => {
+            invalidate();
+            setDeleteConfirm(null);
+            if (res?.mode === 'soft-delete') {
+                alert(`Karyawan dinonaktifkan (punya ${res.usage} riwayat terkait, mis. penugasan crew / pengambilan barang). Data riwayat tetap utuh.`);
+            }
+        },
+        onError: (e: any) => alert(`Gagal menghapus: ${e?.response?.data?.message || e?.message || 'terjadi kesalahan'}`),
     });
     const restoreMut = useMutation({ mutationFn: restoreWorker, onSuccess: invalidate });
     const toggleActiveMut = useMutation({
@@ -123,7 +131,7 @@ export default function WorkersSettingsPage() {
         setSignatureDisplayName("");
         setPhoto(null); setPhotoPreview(null); setError(null);
         setDailyWageRate(""); setOvertimeRatePerHour(""); setIsPic(false); setPicPin(""); setTeamId("");
-        setDefaultCityKey(""); setDefaultDivisionKey("");
+        setDefaultCityKey(""); setDefaultDivisionKey(""); setBoronganClass("");
     }
 
     function startEdit(w: Worker) {
@@ -142,6 +150,7 @@ export default function WorkersSettingsPage() {
         setTeamId(w.teamId ?? "");
         setDefaultCityKey(w.defaultCityKey ?? "");
         setDefaultDivisionKey(w.defaultDivisionKey ?? "");
+        setBoronganClass(w.boronganClass ?? "");
         setShowForm(true);
         setError(null);
     }
@@ -186,6 +195,7 @@ export default function WorkersSettingsPage() {
             teamId: teamId === "" ? null : Number(teamId),
             defaultCityKey: defaultCityKey.trim() || null,
             defaultDivisionKey: defaultDivisionKey.trim() || null,
+            boronganClass: boronganClass || null,
         };
         if (photo) data.photo = photo;
         if (editId) updateMut.mutate({ id: editId, data });
@@ -380,6 +390,19 @@ export default function WorkersSettingsPage() {
                                             className="w-full border rounded px-3 py-2 text-sm"
                                         />
                                         <p className="text-[10px] text-muted-foreground mt-1">Mulai dihitung setelah jam 17:00.</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium block mb-1">Kelas Borongan</label>
+                                        <select
+                                            value={boronganClass}
+                                            onChange={(e) => setBoronganClass(e.target.value)}
+                                            className="w-full border rounded px-3 py-2 text-sm bg-background"
+                                        >
+                                            <option value="">— Tanpa kelas —</option>
+                                            <option value="KELAS_A">Kelas A</option>
+                                            <option value="KELAS_B">Kelas B</option>
+                                        </select>
+                                        <p className="text-[10px] text-muted-foreground mt-1">Kelas default untuk gaji borongan per event.</p>
                                     </div>
                                 </div>
                                 <label className="flex items-center gap-2 text-sm mt-3 cursor-pointer">
@@ -674,7 +697,7 @@ export default function WorkersSettingsPage() {
                     <div className="bg-background border rounded-lg shadow-lg max-w-md w-full p-5 space-y-3">
                         <h3 className="font-semibold">Hapus pekerja?</h3>
                         <p className="text-sm text-muted-foreground">
-                            <b>{deleteConfirm.name}</b> akan {((deleteConfirm._count?.withdrawals ?? 0) > 0) ? "dinonaktifkan (riwayat pengambilan tetap utuh)" : "dihapus permanen"}.
+                            <b>{deleteConfirm.name}</b> akan dihapus permanen bila belum punya riwayat. Jika sudah dipakai (penugasan crew, pengambilan barang, absensi, borongan, dll), otomatis <b>dinonaktifkan</b> dan seluruh riwayat tetap utuh.
                         </p>
                         <div className="flex items-center gap-2 justify-end">
                             <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted cursor-pointer transition-colors">

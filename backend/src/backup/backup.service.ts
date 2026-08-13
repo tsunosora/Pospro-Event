@@ -241,6 +241,12 @@ export const BACKUP_GROUPS = {
         label: 'Crew Lapangan & Team',
         tables: ['crewTeam', 'eventWageTier', 'eventCrewAssignment'],
     },
+    borongan: {
+        label: 'Gaji Borongan (Kelas A/B, Mingguan)',
+        // boronganSlip: slip mingguan per tukang (status DRAFT/PAID, paidById)
+        // eventBoronganCrew: penghasilan borongan per tukang per event (amount, weekStart, cashflowId)
+        tables: ['boronganSlip', 'eventBoronganCrew'],
+    },
     rab: {
         label: 'RAB & Penomoran',
         // rabPlan: include imageUrl, tags, reportCompletedAt/By, customerId (link CRM)
@@ -299,6 +305,8 @@ const RESTORE_ORDER = [
     'crewTeam',                                 // → setelah worker (FK leaderWorkerId optional)
     'eventWageTier',                            // → setelah event (FK eventId); sebelum eventCrewAssignment (FK wageTierId)
     'eventCrewAssignment',                      // → setelah event, worker, crewTeam, eventWageTier
+    'boronganSlip',                             // → setelah worker & user (paidById); sebelum eventBoronganCrew (FK slipId)
+    'eventBoronganCrew',                        // → setelah event, worker, boronganSlip, cashflow
     'eventPackingItem',                         // → setelah event, productVariant, storageLocation, worker
     'withdrawal', 'withdrawalItem',             // → setelah event, worker, warehouse, productVariant
     'rabItem',                                  // → setelah rabPlan, rabCategory, productVariant, eventPackingItem

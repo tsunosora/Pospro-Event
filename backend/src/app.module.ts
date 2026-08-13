@@ -54,13 +54,14 @@ import { RabLooseItemsModule } from './rab-loose-items/rab-loose-items.module';
 import { CrmModule } from './crm/crm.module';
 import { BelanjaModule } from './belanja/belanja.module';
 import { MenuMakanModule } from './menu-makan/menu-makan.module';
+import { BoronganModule } from './borongan/borongan.module';
 
 @Module({
   imports: [
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', 'public'), // Serve local uploads
     }),
-    PrismaModule, UsersModule, AuthModule, CategoriesModule, UnitsModule, ProductsModule, BatchesModule, StockMovementsModule, TransactionsModule, CashflowModule, InvoiceModule, BranchesModule, SettingsModule, BankAccountsModule, CustomersModule, HppModule, ReportsModule, CompetitorsModule, StockOpnameModule, ProductionModule, SuppliersModule, BackupModule, NotificationsModule, WebhookModule, CashflowRequestsModule, StockPurchasesModule, PrintQueueModule, SalesOrdersModule, DesignersModule, DocumentNumbersModule, QuotationsModule, RabModule, RabCategoriesModule, WarehousesModule, WorkersModule, PayrollModule, WageRatesModule, WithdrawalsModule, WarehousePinModule, SchedulePinModule, PublicGudangModule, EventsModule, StorageLocationsModule, PackingModule, RabLooseItemsModule, CrmModule, BrandsModule, QuotationVariantsModule, InventoryAcquisitionsModule, BelanjaModule, MenuMakanModule],
+    PrismaModule, UsersModule, AuthModule, CategoriesModule, UnitsModule, ProductsModule, BatchesModule, StockMovementsModule, TransactionsModule, CashflowModule, InvoiceModule, BranchesModule, SettingsModule, BankAccountsModule, CustomersModule, HppModule, ReportsModule, CompetitorsModule, StockOpnameModule, ProductionModule, SuppliersModule, BackupModule, NotificationsModule, WebhookModule, CashflowRequestsModule, StockPurchasesModule, PrintQueueModule, SalesOrdersModule, DesignersModule, DocumentNumbersModule, QuotationsModule, RabModule, RabCategoriesModule, WarehousesModule, WorkersModule, PayrollModule, WageRatesModule, WithdrawalsModule, WarehousePinModule, SchedulePinModule, PublicGudangModule, EventsModule, StorageLocationsModule, PackingModule, RabLooseItemsModule, CrmModule, BrandsModule, QuotationVariantsModule, InventoryAcquisitionsModule, BelanjaModule, MenuMakanModule, BoronganModule],
   controllers: [AppController],
   providers: [AppService],
 })

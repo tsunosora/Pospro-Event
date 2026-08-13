@@ -15,6 +15,7 @@ import {
 } from "@/lib/api/events";
 import PackingListTab from "./PackingListTab";
 import CrewTab from "./CrewTab";
+import BoronganTab from "./BoronganTab";
 import ProfitTab from "./ProfitTab";
 import BastTab from "./BastTab";
 
@@ -48,7 +49,7 @@ function fmtDate(d: string | null | undefined) {
 export default function EventDetailPage() {
     const params = useParams<{ id: string }>();
     const id = Number(params.id);
-    const [tab, setTab] = useState<"info" | "packing" | "crew" | "profit" | "items" | "withdrawals" | "bast">("info");
+    const [tab, setTab] = useState<"info" | "packing" | "crew" | "borongan" | "profit" | "items" | "withdrawals" | "bast">("info");
     const [shareUrl, setShareUrl] = useState<string | null>(null);
     const [shareOpen, setShareOpen] = useState(false);
     const [waStatus, setWaStatus] = useState<string | null>(null);
@@ -207,6 +208,7 @@ export default function EventDetailPage() {
                     { k: "info", label: "Info" },
                     { k: "packing", label: "Packing List" },
                     { k: "crew", label: "Crew" },
+                    { k: "borongan", label: "Borongan" },
                     { k: "profit", label: "Profit" },
                     { k: "items", label: "Ringkasan Barang" },
                     { k: "withdrawals", label: `Pengeluaran (${ev.withdrawals.length})` },
@@ -257,6 +259,8 @@ export default function EventDetailPage() {
             {tab === "packing" && <PackingListTab eventId={id} />}
 
             {tab === "crew" && <CrewTab eventId={id} />}
+
+            {tab === "borongan" && <BoronganTab eventId={id} />}
 
             {tab === "profit" && <ProfitTab eventId={id} />}
 

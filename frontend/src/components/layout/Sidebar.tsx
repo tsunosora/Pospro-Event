@@ -39,6 +39,7 @@ import {
     UtensilsCrossed,
     BookOpen,
     Vote,
+    HardHat,
 } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { useQuery } from "@tanstack/react-query";
@@ -121,6 +122,7 @@ const navigation: NavEntry[] = [
         ],
     },
     { kind: "link", name: "Payroll & Absensi", href: "/payroll", icon: Wallet },
+    { kind: "link", name: "Gaji Borongan", href: "/borongan", icon: HardHat },
     { kind: "link", name: "Tarif Gaji (Kota+Divisi)", href: "/settings/wage-rates", icon: Wallet },
     { kind: "link", name: "Laba per Project", href: "/reports/event-profit", icon: TrendingDown },
     { kind: "link", name: "Daftar DP / Piutang", href: "/transactions/dp", icon: Wallet },

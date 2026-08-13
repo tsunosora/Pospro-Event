@@ -59,6 +59,7 @@ export interface Worker {
     team?: { id: number; name: string; color: string } | null;
     defaultCityKey: string | null;
     defaultDivisionKey: string | null;
+    boronganClass: 'KELAS_A' | 'KELAS_B' | null;
     createdAt: string;
     updatedAt: string;
     _count?: { withdrawals: number };
@@ -80,6 +81,7 @@ export interface WorkerFormInput {
     teamId?: number | null;
     defaultCityKey?: string | null;
     defaultDivisionKey?: string | null;
+    boronganClass?: 'KELAS_A' | 'KELAS_B' | null;
 }
 
 export const getWorkers = async (
@@ -115,6 +117,7 @@ const toFormData = (input: WorkerFormInput) => {
     if (input.teamId !== undefined) fd.append('teamId', input.teamId === null ? '' : String(input.teamId));
     if (input.defaultCityKey !== undefined && input.defaultCityKey !== null) fd.append('defaultCityKey', input.defaultCityKey);
     if (input.defaultDivisionKey !== undefined && input.defaultDivisionKey !== null) fd.append('defaultDivisionKey', input.defaultDivisionKey);
+    if (input.boronganClass !== undefined) fd.append('boronganClass', input.boronganClass ?? '');
     return fd;
 };
 
@@ -141,6 +144,7 @@ export const updateWorker = async (id: number, input: Partial<WorkerFormInput>) 
     if (input.teamId !== undefined) fd.append('teamId', input.teamId === null ? '' : String(input.teamId));
     if (input.defaultCityKey !== undefined) fd.append('defaultCityKey', input.defaultCityKey ?? '');
     if (input.defaultDivisionKey !== undefined) fd.append('defaultDivisionKey', input.defaultDivisionKey ?? '');
+    if (input.boronganClass !== undefined) fd.append('boronganClass', input.boronganClass ?? '');
     return (await api.patch<Worker>(`/workers/${id}`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
     })).data;

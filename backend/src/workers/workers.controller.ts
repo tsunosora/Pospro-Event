@@ -88,6 +88,7 @@ export class WorkersController {
             teamId: body.teamId === '' || body.teamId == null ? null : Number(body.teamId),
             defaultCityKey: body.defaultCityKey ?? undefined,
             defaultDivisionKey: body.defaultDivisionKey ?? undefined,
+            boronganClass: body.boronganClass ? body.boronganClass : (body.boronganClass === '' ? null : undefined),
         };
         return this.svc.create(input);
     }
@@ -126,6 +127,7 @@ export class WorkersController {
         }
         if (body.defaultCityKey !== undefined) input.defaultCityKey = body.defaultCityKey || null;
         if (body.defaultDivisionKey !== undefined) input.defaultDivisionKey = body.defaultDivisionKey || null;
+        if (body.boronganClass !== undefined) input.boronganClass = (body.boronganClass || null) as 'KELAS_A' | 'KELAS_B' | null;
         return this.svc.update(id, input);
     }
 

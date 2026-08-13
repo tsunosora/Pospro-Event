@@ -21,6 +21,7 @@ export interface CreateWorkerInput {
     teamId?: number | null;
     defaultCityKey?: string | null;
     defaultDivisionKey?: string | null;
+    boronganClass?: 'KELAS_A' | 'KELAS_B' | null;
 }
 
 export interface UpdateWorkerInput {
@@ -41,6 +42,7 @@ export interface UpdateWorkerInput {
     teamId?: number | null;
     defaultCityKey?: string | null;
     defaultDivisionKey?: string | null;
+    boronganClass?: 'KELAS_A' | 'KELAS_B' | null;
 }
 
 /** Generate token unik 64-char hex untuk public PIC link. */
@@ -107,6 +109,7 @@ export class WorkersService {
                 teamId: input.teamId ?? null,
                 defaultCityKey: input.defaultCityKey?.trim() || null,
                 defaultDivisionKey: input.defaultDivisionKey?.trim() || null,
+                boronganClass: input.boronganClass ?? null,
             },
         });
     }
@@ -150,6 +153,7 @@ export class WorkersService {
         if (input.teamId !== undefined) data.teamId = input.teamId;
         if (input.defaultCityKey !== undefined) data.defaultCityKey = input.defaultCityKey?.trim() || null;
         if (input.defaultDivisionKey !== undefined) data.defaultDivisionKey = input.defaultDivisionKey?.trim() || null;
+        if (input.boronganClass !== undefined) data.boronganClass = input.boronganClass ?? null;
 
         return this.prisma.worker.update({ where: { id }, data });
     }
@@ -168,12 +172,24 @@ export class WorkersService {
     }
 
     async remove(id: number) {
-        const existing = await this.findOne(id);
-        const usage = existing._count.withdrawals;
+        await this.findOne(id);
+        // Hard-delete hanya untuk worker yang benar-benar belum dipakai. Relasi ber-FK Restrict
+        // (Withdrawal.worker, EventCrewAssignment.worker) akan memblokir delete → hitung sebagai usage
+        // supaya otomatis soft-delete (nonaktifkan) dan riwayatnya tetap aman.
+        const [withdrawals, crewAssignments] = await Promise.all([
+            this.prisma.withdrawal.count({ where: { workerId: id } }),
+            this.prisma.eventCrewAssignment.count({ where: { workerId: id } }),
+        ]);
+        const usage = withdrawals + crewAssignments;
 
         if (usage === 0) {
-            await this.prisma.worker.delete({ where: { id } });
-            return { mode: 'hard-delete', usage: 0 };
+            try {
+                await this.prisma.worker.delete({ where: { id } });
+                return { mode: 'hard-delete', usage: 0 };
+            } catch (e: any) {
+                // P2003 = masih ada relasi lain yang menghalangi. Fallback ke soft-delete.
+                if (e?.code !== 'P2003') throw e;
+            }
         }
 
         await this.prisma.worker.update({
