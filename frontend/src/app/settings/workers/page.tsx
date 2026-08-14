@@ -51,6 +51,8 @@ export default function WorkersSettingsPage() {
     });
     const [error, setError] = useState<string | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<Worker | null>(null);
+    const [deleteResult, setDeleteResult] = useState<{ mode: 'hard-delete' | 'soft-delete'; usage: number } | null>(null);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
     const [copiedTokenId, setCopiedTokenId] = useState<number | null>(null);
 
     const { data: workers = [], isLoading } = useQuery<Worker[]>({
@@ -72,15 +74,17 @@ export default function WorkersSettingsPage() {
     });
     const deleteMut = useMutation({
         mutationFn: deleteWorker,
+        // Reset status hasil/error tiap kali mulai, supaya feedback selalu fresh (bukan sisa klik sebelumnya).
+        onMutate: () => { setDeleteResult(null); setDeleteError(null); },
         onSuccess: (res) => {
             invalidate();
-            setDeleteConfirm(null);
-            if (res?.mode === 'soft-delete') {
-                alert(`Karyawan dinonaktifkan (punya ${res.usage} riwayat terkait, mis. penugasan crew / pengambilan barang). Data riwayat tetap utuh.`);
-            }
+            // Tampilkan hasil DI DALAM dialog (bukan alert() yang bisa dibungkam browser) supaya
+            // jelas terhapus vs dinonaktifkan — dialog tetap terbuka sampai user menutup.
+            setDeleteResult(res);
         },
-        onError: (e: any) => alert(`Gagal menghapus: ${e?.response?.data?.message || e?.message || 'terjadi kesalahan'}`),
+        onError: (e: any) => setDeleteError(e?.response?.data?.message || e?.message || 'terjadi kesalahan'),
     });
+    const closeDeleteDialog = () => { setDeleteConfirm(null); setDeleteResult(null); setDeleteError(null); };
     const restoreMut = useMutation({ mutationFn: restoreWorker, onSuccess: invalidate });
     const toggleActiveMut = useMutation({
         mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) => updateWorker(id, { isActive }),
@@ -467,7 +471,7 @@ export default function WorkersSettingsPage() {
                     <div className="col-span-full p-6 text-center text-muted-foreground text-sm">Belum ada pekerja.</div>
                 )}
                 {workers.map((w) => (
-                    <div key={w.id} className={`glass rounded-xl p-3 flex gap-3 ${!w.isActive ? "opacity-60" : ""}`}>
+                    <div key={w.id} className={`glass rounded-xl p-3 flex gap-3 ${!w.isActive ? "opacity-70 ring-1 ring-warning/40 bg-warning/5" : ""}`}>
                         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                             {w.photoUrl ? (
                                 <img src={`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}${w.photoUrl}`} alt={w.name} className="w-full h-full object-cover" />
@@ -478,7 +482,7 @@ export default function WorkersSettingsPage() {
                         <div className="flex-1 min-w-0">
                             <div className="font-semibold text-sm truncate flex items-center gap-1.5">
                                 {w.name}
-                                {!w.isActive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">nonaktif</span>}
+                                {!w.isActive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/20 text-warning font-semibold uppercase inline-flex items-center gap-0.5"><EyeOff className="h-3 w-3" /> Nonaktif</span>}
                             </div>
                             {(() => {
                                 const meta = getPositionMeta(w.position);
@@ -684,7 +688,7 @@ export default function WorkersSettingsPage() {
                                     <Eye className="h-3.5 w-3.5" />
                                 </button>
                             )}
-                            <button onClick={() => setDeleteConfirm(w)} title="Hapus" className="p-1.5 hover:bg-destructive/10 text-destructive rounded cursor-pointer transition-colors">
+                            <button onClick={() => { setDeleteResult(null); setDeleteError(null); setDeleteConfirm(w); }} title="Hapus" className="p-1.5 hover:bg-destructive/10 text-destructive rounded cursor-pointer transition-colors">
                                 <Trash2 className="h-3.5 w-3.5" />
                             </button>
                         </div>
@@ -695,23 +699,65 @@ export default function WorkersSettingsPage() {
             {deleteConfirm && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
                     <div className="bg-background border rounded-lg shadow-lg max-w-md w-full p-5 space-y-3">
-                        <h3 className="font-semibold">Hapus pekerja?</h3>
-                        <p className="text-sm text-muted-foreground">
-                            <b>{deleteConfirm.name}</b> akan dihapus permanen bila belum punya riwayat. Jika sudah dipakai (penugasan crew, pengambilan barang, absensi, borongan, dll), otomatis <b>dinonaktifkan</b> dan seluruh riwayat tetap utuh.
-                        </p>
-                        <div className="flex items-center gap-2 justify-end">
-                            <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted cursor-pointer transition-colors">
-                                <X className="h-4 w-4 inline -mt-0.5" /> Batal
-                            </button>
-                            <button
-                                onClick={() => deleteMut.mutate(deleteConfirm.id)}
-                                disabled={deleteMut.isPending}
-                                className="flex items-center gap-1 bg-destructive text-destructive-foreground px-3 py-1.5 rounded text-sm hover:bg-destructive/90 disabled:opacity-50 cursor-pointer transition-colors"
-                            >
-                                {deleteMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                                <Trash2 className="h-3.5 w-3.5" /> Hapus
-                            </button>
-                        </div>
+                        {/* STATE 1: hasil sukses (terhapus permanen ATAU dinonaktifkan) */}
+                        {deleteResult ? (
+                            deleteResult.mode === 'hard-delete' ? (
+                                <>
+                                    <h3 className="font-semibold flex items-center gap-2 text-success">
+                                        <Check className="h-5 w-5" /> Terhapus permanen
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        <b>{deleteConfirm.name}</b> belum punya riwayat, jadi dihapus permanen dari sistem.
+                                    </p>
+                                    <div className="flex justify-end">
+                                        <button onClick={closeDeleteDialog} className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted cursor-pointer transition-colors">Tutup</button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <h3 className="font-semibold flex items-center gap-2 text-warning">
+                                        <EyeOff className="h-5 w-5" /> Dinonaktifkan (bukan gagal)
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        <b>{deleteConfirm.name}</b> tidak bisa dihapus permanen karena masih punya
+                                        {deleteResult.usage > 0 ? <> <b>{deleteResult.usage}</b> data</> : <> data</>} riwayat terkait
+                                        (absensi, penugasan crew, pengambilan barang, borongan, lead, dll).
+                                        Karyawan sudah <b>dinonaktifkan</b> (ditandai badge <b>Nonaktif</b> di daftar) dan tidak lagi muncul di dropdown/pilihan aktif — seluruh riwayat tetap aman.
+                                        Kamu bisa mengaktifkannya lagi kapan saja lewat tombol <Eye className="h-3.5 w-3.5 inline -mt-0.5" />.
+                                    </p>
+                                    <div className="flex justify-end">
+                                        <button onClick={closeDeleteDialog} className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted cursor-pointer transition-colors">Mengerti</button>
+                                    </div>
+                                </>
+                            )
+                        ) : (
+                            /* STATE 0: konfirmasi (dengan error inline bila ada) */
+                            <>
+                                <h3 className="font-semibold">Hapus pekerja?</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    <b>{deleteConfirm.name}</b> akan dihapus permanen bila belum punya riwayat. Jika sudah dipakai (penugasan crew, pengambilan barang, absensi, borongan, dll), otomatis <b>dinonaktifkan</b> dan seluruh riwayat tetap utuh.
+                                </p>
+                                {deleteError && (
+                                    <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded px-3 py-2 flex items-start gap-2">
+                                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                        <span>Gagal menghapus: {deleteError}</span>
+                                    </p>
+                                )}
+                                <div className="flex items-center gap-2 justify-end">
+                                    <button onClick={closeDeleteDialog} className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted cursor-pointer transition-colors">
+                                        <X className="h-4 w-4 inline -mt-0.5" /> Batal
+                                    </button>
+                                    <button
+                                        onClick={() => deleteMut.mutate(deleteConfirm.id)}
+                                        disabled={deleteMut.isPending}
+                                        className="flex items-center gap-1 bg-destructive text-destructive-foreground px-3 py-1.5 rounded text-sm hover:bg-destructive/90 disabled:opacity-50 cursor-pointer transition-colors"
+                                    >
+                                        {deleteMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                        {deleteMut.isPending ? 'Memproses…' : (deleteError ? 'Coba lagi' : 'Hapus')}
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
