@@ -190,7 +190,7 @@ export default function PicAttendancePage({ params }: { params: Promise<{ token:
         setRows((prev) => {
             const next = new Map(prev);
             const cur = next.get(workerId);
-            if (cur) next.set(workerId, { ...cur, overtimeHours: Math.max(0, Math.min(12, hours)) });
+            if (cur) next.set(workerId, { ...cur, overtimeHours: Math.max(0, Math.min(15, hours)) });
             return next;
         });
     }
@@ -478,7 +478,7 @@ export default function PicAttendancePage({ params }: { params: Promise<{ token:
                                     onChange={(e) => setOvertime(w.id, Number(e.target.value))}
                                     className="px-2 py-1.5 border border-border rounded-lg text-sm nums bg-card"
                                 >
-                                    {Array.from({ length: 13 }, (_, i) => (
+                                    {Array.from({ length: 16 }, (_, i) => (
                                         <option key={i} value={i}>{i} jam</option>
                                     ))}
                                 </select>

@@ -318,6 +318,7 @@ export class PayrollSummaryService {
                 select: {
                     id: true, workerId: true, attendanceDate: true, status: true, overtimeHours: true,
                     notes: true, eventId: true, cityKey: true, divisionKey: true, approvalStatus: true,
+                    customWage: true, customWageNote: true,
                 },
             }),
             this.prisma.payrollAdjustment.findMany({
@@ -365,7 +366,8 @@ export class PayrollSummaryService {
                     id: null as number | null, date: dateKey, status: null as AttendanceStatus | null,
                     overtimeHours: 0, total: 0, source: null as string | null,
                     cityKey: null, divisionKey: null, eventId: null as number | null,
-                    notes: null as string | null, autoLinked: false, approvalStatus: null as AttendanceApprovalStatus | null,
+                    notes: null as string | null, customWage: null as number | null, customWageNote: null as string | null,
+                    autoLinked: false, approvalStatus: null as AttendanceApprovalStatus | null,
                 };
                 const eff = this.effectiveWageInputs(
                     { workerId: w.id, eventId: att.eventId, divisionKey: att.divisionKey, attendanceDate: att.attendanceDate },
@@ -380,11 +382,17 @@ export class PayrollSummaryService {
                     eff.tierRate,
                 );
                 const overtimeHours = parseFloat(att.overtimeHours.toString()) || 0;
-                const { total } = calcRowWage(att.status, overtimeHours, dailyRate, overtimeRate);
+                // Gaji custom per-hari = TAMBAHAN di atas gaji harian (bukan pengganti); hanya saat hadir.
+                const customWage = att.customWage != null ? parseFloat(att.customWage.toString()) : null;
+                const extra = customWage != null && (att.status === 'FULL_DAY' || att.status === 'HALF_DAY') ? customWage : 0;
+                const { total: rowTotal } = calcRowWage(att.status, overtimeHours, dailyRate, overtimeRate);
+                const total = rowTotal + extra;
                 return {
-                    id: att.id, date: dateKey, status: att.status, overtimeHours, total, source,
+                    id: att.id, date: dateKey, status: att.status, overtimeHours, total,
+                    source: customWage != null ? 'custom' : source,
                     cityKey: att.cityKey, divisionKey: att.divisionKey, eventId: eff.eventId,
-                    notes: att.notes, autoLinked: eff.auto, approvalStatus: att.approvalStatus,
+                    notes: att.notes, customWage, customWageNote: att.customWageNote ?? null,
+                    autoLinked: eff.auto, approvalStatus: att.approvalStatus,
                 };
             });
             const wageFromAttendance = cells.reduce((s, c) => s + c.total, 0);
@@ -460,6 +468,7 @@ export class PayrollSummaryService {
                 select: {
                     workerId: true, attendanceDate: true, status: true, overtimeHours: true,
                     eventId: true, cityKey: true, divisionKey: true, approvalStatus: true,
+                    customWage: true,
                 },
             }),
             this.prisma.payrollAdjustment.findMany({
@@ -511,9 +520,12 @@ export class PayrollSummaryService {
                     eff.override,
                     eff.tierRate,
                 );
+                // Gaji custom per-hari = TAMBAHAN di atas gaji harian (bukan pengganti); hanya saat hadir.
+                const customWage = a.customWage != null ? parseFloat(a.customWage.toString()) : null;
+                const extra = customWage != null && (a.status === 'FULL_DAY' || a.status === 'HALF_DAY') ? customWage : 0;
                 let rowBase = 0;
-                if (a.status === 'FULL_DAY') { fullDays++; rowBase = dailyRate; }
-                else if (a.status === 'HALF_DAY') { halfDays++; rowBase = dailyRate * 0.5; }
+                if (a.status === 'FULL_DAY') { fullDays++; rowBase = dailyRate + extra; }
+                else if (a.status === 'HALF_DAY') { halfDays++; rowBase = dailyRate * 0.5 + extra; }
                 else absentDays++;
                 const rowOvertime = oh * overtimeRate;
                 baseTotal += rowBase;
@@ -564,6 +576,7 @@ export class PayrollSummaryService {
                 select: {
                     attendanceDate: true, status: true, overtimeHours: true, notes: true,
                     eventId: true, cityKey: true, divisionKey: true, approvalStatus: true,
+                    customWage: true, customWageNote: true,
                 },
             }),
         ]);
@@ -584,7 +597,9 @@ export class PayrollSummaryService {
                 { dailyWageRate: worker.dailyWageRate, overtimeRatePerHour: worker.overtimeRatePerHour },
                 eff.event, rateMatrixMap, eff.override, eff.tierRate,
             );
-            return { a, eff, dailyRate, overtimeRate, source };
+            // Gaji custom per-hari = TAMBAHAN di atas gaji harian (bukan pengganti).
+            const customWage = a.customWage != null ? parseFloat(a.customWage.toString()) : null;
+            return { a, eff, dailyRate, overtimeRate, customWage, source: customWage != null ? 'custom' : source };
         });
 
         const effEventIds = Array.from(new Set(prepared.map((p) => p.eff.eventId).filter((x): x is number => x != null)));
@@ -595,14 +610,16 @@ export class PayrollSummaryService {
 
         let fullDays = 0, halfDays = 0, totalOvertimeHours = 0;
         let fullBaseSum = 0, halfBaseSum = 0, overtimeSum = 0, approvedTotal = 0, pendingCount = 0;
-        const rows = prepared.map(({ a, eff, dailyRate, overtimeRate, source }) => {
+        const rows = prepared.map(({ a, eff, dailyRate, overtimeRate, source, customWage }) => {
             const oh = parseFloat(a.overtimeHours.toString()) || 0;
             totalOvertimeHours += oh;
             const approved = a.approvalStatus === 'APPROVED';
             if (a.approvalStatus === 'PENDING') pendingCount += 1;
+            // Gaji custom = tambahan flat di atas base, hanya saat hadir (FULL/HALF).
+            const extra = customWage != null && (a.status === 'FULL_DAY' || a.status === 'HALF_DAY') ? customWage : 0;
             let base = 0;
-            if (a.status === 'FULL_DAY') { base = dailyRate; if (approved) { fullDays += 1; fullBaseSum += base; } }
-            else if (a.status === 'HALF_DAY') { base = dailyRate * 0.5; if (approved) { halfDays += 1; halfBaseSum += base; } }
+            if (a.status === 'FULL_DAY') { base = dailyRate + extra; if (approved) { fullDays += 1; fullBaseSum += base; } }
+            else if (a.status === 'HALF_DAY') { base = dailyRate * 0.5 + extra; if (approved) { halfDays += 1; halfBaseSum += base; } }
             const overtimeAmount = oh * overtimeRate;
             const subtotal = base + overtimeAmount;
             if (approved) { overtimeSum += overtimeAmount; approvedTotal += subtotal; }

@@ -127,6 +127,8 @@ export interface WeeklyInputCell {
     eventId: number | null;
     cityKey: string | null;
     divisionKey: string | null;
+    customWage: number | null;        // override manual tarif harian
+    customWageNote: string | null;    // keterangan gaji custom
     approvalStatus: AttendanceApprovalStatus;
 }
 
@@ -181,6 +183,8 @@ export interface AttendanceWeekRowInput {
     eventId?: number | null;
     cityKey?: string | null;
     divisionKey?: string | null;
+    customWage?: number | null;        // override manual tarif harian (null = otomatis)
+    customWageNote?: string | null;    // keterangan gaji custom
 }
 
 export const getWeeklyInputContext = async (weekStart: string, teamId?: number, weekEnd?: string) => {

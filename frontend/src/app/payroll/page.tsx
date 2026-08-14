@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
@@ -150,13 +151,13 @@ export default function PayrollPage() {
 
 // ─── Input Mingguan Tab (admin isi absensi 1 minggu sekaligus) ─────────────
 
-type GridCell = { status: AttendanceStatus | null; overtime: number; city: string | null; division: string | null; eventId: number | null; notes: string | null };
+type GridCell = { status: AttendanceStatus | null; overtime: number; city: string | null; division: string | null; eventId: number | null; notes: string | null; customWage: string | null; customWageNote: string | null };
 type GridRow = { city: string | null; division: string | null; eventId: number | null; days: Record<string, GridCell> };
 
 // Sel kosong default — dipakai sebagai fallback saat render terjadi pada frame transisi
 // (grid masih minggu lama sementara data.days sudah minggu baru, sebelum useEffect rebuild grid).
 // Tanpa ini, row.days[d] bisa undefined dan akses .status melempar TypeError.
-const EMPTY_CELL: GridCell = { status: null, overtime: 0, city: null, division: null, eventId: null, notes: null };
+const EMPTY_CELL: GridCell = { status: null, overtime: 0, city: null, division: null, eventId: null, notes: null, customWage: null, customWageNote: null };
 
 const KEEP = "__keep__"; // sentinel: pada bulk apply = "biarkan, jangan ubah"
 
@@ -170,7 +171,7 @@ function InputMingguanTab() {
     const [weekStart, setWeekStart] = useState<string>(startOfPayWeek());
     const [weekEnd, setWeekEnd] = useState<string>(defaultWeekEnd(startOfPayWeek()));
     const [teamId, setTeamId] = useState<number | null>(null);
-    const [expanded, setExpanded] = useState<Set<number>>(new Set());
+    const [detailWorkerId, setDetailWorkerId] = useState<number | null>(null); // buka modal rincian per-pekerja
     const [grid, setGrid] = useState<Map<number, GridRow>>(new Map());
     // Seleksi banyak pekerja untuk aksi bulk
     const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -196,8 +197,8 @@ function InputMingguanTab() {
             for (const d of data.days) {
                 const c = w.cells[d];
                 days[d] = c
-                    ? { status: c.status, overtime: c.overtimeHours, city: c.cityKey ?? w.defaultCityKey, division: c.divisionKey ?? (c.eventId ? null : w.defaultDivisionKey), eventId: c.eventId, notes: c.notes }
-                    : { status: null, overtime: 0, city: w.defaultCityKey, division: w.defaultDivisionKey, eventId: null, notes: null };
+                    ? { status: c.status, overtime: c.overtimeHours, city: c.cityKey ?? w.defaultCityKey, division: c.divisionKey ?? (c.eventId ? null : w.defaultDivisionKey), eventId: c.eventId, notes: c.notes, customWage: c.customWage != null ? String(c.customWage) : null, customWageNote: c.customWageNote }
+                    : { status: null, overtime: 0, city: w.defaultCityKey, division: w.defaultDivisionKey, eventId: null, notes: null, customWage: null, customWageNote: null };
                 if (c?.eventId != null && rowEventId == null) rowEventId = c.eventId;
             }
             next.set(w.id, { city: w.defaultCityKey, division: w.defaultDivisionKey, eventId: rowEventId, days });
@@ -247,8 +248,11 @@ function InputMingguanTab() {
         for (const c of Object.values(row.days)) {
             if (!c.status) continue;
             const { daily, ot } = resolveRate(w, c.city, c.division, c.eventId);
+            // Gaji custom = TAMBAHAN di atas gaji harian (hanya saat hadir; lembur tetap normal).
+            const cw = c.customWage && Number(c.customWage) > 0 ? Number(c.customWage) : 0;
+            const worked = c.status === "FULL_DAY" || c.status === "HALF_DAY";
             const base = c.status === "FULL_DAY" ? daily : c.status === "HALF_DAY" ? daily * 0.5 : 0;
-            total += base + c.overtime * ot;
+            total += base + (worked ? cw : 0) + c.overtime * ot;
         }
         return total;
     }
@@ -263,19 +267,30 @@ function InputMingguanTab() {
         });
     }
 
-    // Terapkan event/kota/divisi ke beberapa pekerja sekaligus → ke semua hari (override per-sel ikut di-set).
+    // Terapkan event/kota/divisi ke beberapa pekerja sekaligus → ke semua hari.
+    // PENTING: HANYA ubah field yang ADA di patch. Jangan sentuh field lain (mis. saat set
+    // kota, jangan ikut set-ulang eventId dari row) — kalau tidak, event yang sudah dihapus
+    // per hari bisa "balik lagi" karena row.eventId basi.
     function applyContext(workerIds: number[], patch: { eventId?: number | null; city?: string | null; division?: string | null }) {
         setGrid((prev) => {
             const next = new Map(prev);
             for (const id of workerIds) {
                 const row = next.get(id);
                 if (!row) continue;
-                const eventId = patch.eventId !== undefined ? patch.eventId : row.eventId;
-                const city = patch.city !== undefined ? patch.city : row.city;
-                const division = patch.division !== undefined ? patch.division : row.division;
                 const days: Record<string, GridCell> = {};
-                for (const [k, c] of Object.entries(row.days)) days[k] = { ...c, eventId, city, division };
-                next.set(id, { eventId, city, division, days });
+                for (const [k, c] of Object.entries(row.days)) {
+                    const nc = { ...c };
+                    if (patch.eventId !== undefined) nc.eventId = patch.eventId;
+                    if (patch.city !== undefined) nc.city = patch.city;
+                    if (patch.division !== undefined) nc.division = patch.division;
+                    days[k] = nc;
+                }
+                next.set(id, {
+                    eventId: patch.eventId !== undefined ? patch.eventId : row.eventId,
+                    city: patch.city !== undefined ? patch.city : row.city,
+                    division: patch.division !== undefined ? patch.division : row.division,
+                    days,
+                });
             }
             return next;
         });
@@ -325,13 +340,19 @@ function InputMingguanTab() {
                         if (existed) rows.push({ workerId: w.id, date: d, status: null }); // kosongkan
                         continue;
                     }
+                    const cw = c.customWage && Number(c.customWage) > 0 ? Number(c.customWage) : null;
                     rows.push({
                         workerId: w.id, date: d, status: c.status,
                         overtimeHours: c.overtime,
                         notes: c.notes?.trim() || null,
-                        eventId: c.eventId ?? row.eventId ?? null,
-                        cityKey: c.city ?? row.city ?? null,
-                        divisionKey: c.division ?? row.division ?? null,
+                        // Sel per-hari OTORITATIF — jangan fallback ke row.* (bikin event/kota yang
+                        // sudah dihapus di satu hari "balik lagi" saat disimpan). Sel sudah bawa
+                        // default masing-masing dari grid build + quick-set "terapkan ke semua hari".
+                        eventId: c.eventId ?? null,
+                        cityKey: c.city ?? null,
+                        divisionKey: c.division ?? null,
+                        customWage: cw,
+                        customWageNote: cw != null ? (c.customWageNote?.trim() || null) : null,
                     });
                 }
             }
@@ -461,8 +482,8 @@ function InputMingguanTab() {
                 </div>
             ) : (
                 <div className="overflow-x-auto border rounded-lg">
-                    <table className="text-sm border-collapse">
-                        <thead className="bg-muted/50">
+                    <table className="text-sm border-collapse w-full">
+                        <thead className="bg-muted/50 sticky top-0 z-10">
                             <tr>
                                 <th className="p-2 w-8 text-center">
                                     <input
@@ -472,24 +493,24 @@ function InputMingguanTab() {
                                         title="Pilih semua"
                                     />
                                 </th>
-                                <th className="text-left p-2 min-w-[150px]">Pekerja</th>
-                                <th className="p-2 text-left min-w-[110px]">Kota</th>
-                                <th className="p-2 text-left min-w-[110px]">Divisi</th>
+                                <th className="text-left p-2 min-w-[160px]">Pekerja</th>
                                 {(data?.days ?? []).map((d) => (
-                                    <th key={d} className="p-1 text-center min-w-[44px]">
+                                    <th key={d} className="p-1 text-center min-w-[46px]">
                                         <div className="text-[10px] capitalize">{dayjs(d).format("ddd")}</div>
                                         <div className="text-[10px] text-muted-foreground">{dayjs(d).format("DD/MM")}</div>
                                     </th>
                                 ))}
                                 <th className="p-2 text-right min-w-[100px]">Estimasi</th>
-                                <th className="p-1 w-8"></th>
+                                <th className="p-1 w-10 text-center text-[10px] text-muted-foreground font-normal">Rincian</th>
                             </tr>
                         </thead>
                         <tbody>
                             {(data?.workers ?? []).map((w) => {
                                 const row = grid.get(w.id);
                                 if (!row) return null;
-                                const isOpen = expanded.has(w.id);
+                                // Badge event diturunkan dari SEL aktual (bukan row.eventId yang bisa basi)
+                                // agar langsung hilang begitu event dihapus di semua hari.
+                                const badgeEventId = Object.values(row.days).find((c) => c.eventId != null)?.eventId ?? null;
                                 return (
                                     <FragmentRow key={w.id}>
                                         <tr className={`border-t hover:bg-muted/20 ${selected.has(w.id) ? "bg-primary/5" : ""}`}>
@@ -498,27 +519,19 @@ function InputMingguanTab() {
                                             </td>
                                             <td className="p-2 align-top">
                                                 <div className="font-medium leading-tight">{w.name}</div>
-                                                {row.eventId != null && (
-                                                    <div className="text-[10px] text-info font-medium truncate max-w-[140px] inline-flex items-center gap-0.5" title={eventMap.get(row.eventId)?.name ?? ""}>
-                                                        <Calendar className="h-2.5 w-2.5 shrink-0" /> {eventMap.get(row.eventId)?.name ?? `#${row.eventId}`}
+                                                {badgeEventId != null ? (
+                                                    <div className="text-[10px] text-info font-medium truncate max-w-[150px] inline-flex items-center gap-0.5" title={eventMap.get(badgeEventId)?.name ?? ""}>
+                                                        <Calendar className="h-2.5 w-2.5 shrink-0" /> {eventMap.get(badgeEventId)?.name ?? `#${badgeEventId}`}
                                                     </div>
-                                                )}
+                                                ) : (row.city || row.division) ? (
+                                                    <div className="text-[10px] text-muted-foreground truncate max-w-[150px]" title={`${row.city ?? ""} · ${row.division ?? ""}`}>
+                                                        {[row.city, row.division].filter(Boolean).join(" · ")}
+                                                    </div>
+                                                ) : null}
                                                 <div className="flex gap-1 mt-0.5">
                                                     <button onClick={() => fillRow(w.id, "FULL_DAY")} title="Isi semua Hadir" className="text-[10px] px-1 rounded bg-success/10 text-success border border-success/30 hover:bg-success/20 transition-colors cursor-pointer">✓×7</button>
                                                     <button onClick={() => fillRow(w.id, null)} title="Kosongkan semua" className="text-[10px] px-1 rounded bg-muted text-muted-foreground border border-border hover:bg-muted/70 transition-colors cursor-pointer">bersihkan</button>
                                                 </div>
-                                            </td>
-                                            <td className="p-1 align-top">
-                                                <select value={row.city ?? ""} onChange={(e) => applyContext([w.id], { city: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-background">
-                                                    <option value="">(default pekerja)</option>
-                                                    {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
-                                                </select>
-                                            </td>
-                                            <td className="p-1 align-top">
-                                                <select value={row.division ?? ""} onChange={(e) => applyContext([w.id], { division: e.target.value || null })} className="w-full text-xs border rounded px-1 py-1 bg-background">
-                                                    <option value="">(default pekerja)</option>
-                                                    {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
-                                                </select>
                                             </td>
                                             {(data?.days ?? []).map((d) => {
                                                 const cell = row.days[d] ?? EMPTY_CELL;
@@ -532,8 +545,8 @@ function InputMingguanTab() {
                                                         </button>
                                                         {cell.status && (
                                                             <input
-                                                                type="number" min={0} max={12} step={0.5} value={cell.overtime}
-                                                                onChange={(e) => setCell(w.id, d, { overtime: Math.max(0, Math.min(12, Number(e.target.value) || 0)) })}
+                                                                type="number" min={0} max={15} step={0.5} value={cell.overtime}
+                                                                onChange={(e) => setCell(w.id, d, { overtime: Math.max(0, Math.min(15, Number(e.target.value) || 0)) })}
                                                                 title="Jam lembur"
                                                                 className="mt-1 w-9 px-1 py-0.5 border rounded text-[10px] font-mono text-center"
                                                             />
@@ -546,61 +559,12 @@ function InputMingguanTab() {
                                             </td>
                                             <td className="p-1 text-center">
                                                 <button
-                                                    onClick={() => setExpanded((prev) => { const n = new Set(prev); n.has(w.id) ? n.delete(w.id) : n.add(w.id); return n; })}
-                                                    title="Rincian Kota/Divisi per hari"
-                                                    className={`p-1.5 rounded border cursor-pointer transition-colors ${isOpen ? "bg-warning/15 border-warning/30 text-warning" : "hover:bg-muted text-muted-foreground"}`}
-                                                ><Settings2 className="h-3.5 w-3.5" /></button>
+                                                    onClick={() => setDetailWorkerId(w.id)}
+                                                    title="Atur Event + Gaji A/B/C & rincian per hari"
+                                                    className="inline-flex items-center justify-center h-8 w-8 rounded-lg border hover:bg-warning/15 hover:border-warning/30 hover:text-warning text-muted-foreground cursor-pointer transition-colors"
+                                                ><Settings2 className="h-4 w-4" /></button>
                                             </td>
                                         </tr>
-                                        {isOpen && (
-                                            <tr className="bg-warning/5 border-t border-warning/20">
-                                                <td colSpan={4} className="p-2 text-[10px] text-warning align-top">
-                                                    Pilih Event + Gaji A/B/C per hari (hari non-event: kota+divisi):
-                                                </td>
-                                                {(data?.days ?? []).map((d) => {
-                                                    const cell = row.days[d] ?? EMPTY_CELL;
-                                                    return (
-                                                        <td key={d} className="p-1 align-top">
-                                                            <select value={cell.eventId ?? ""} onChange={(e) => setCell(w.id, d, { eventId: e.target.value ? Number(e.target.value) : null, division: null })} className="w-[120px] text-[9px] border rounded mb-1 bg-background" title="Event">
-                                                                <option value="">— event —</option>
-                                                                {(data?.events ?? []).map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
-                                                            </select>
-                                                            {cell.eventId ? (
-                                                                // Hari event → pilih Gaji A/B/C (id tier disimpan di divisionKey)
-                                                                <select value={cell.division ?? ""} onChange={(e) => setCell(w.id, d, { division: e.target.value || null })} className="w-[120px] text-[9px] border rounded bg-background" title="Gaji A/B/C">
-                                                                    <option value="">— tarif event —</option>
-                                                                    {(eventMap.get(cell.eventId)?.tiers ?? []).map((t) => (
-                                                                        <option key={t.id} value={t.id}>{t.label}{t.dailyWageRate != null ? ` · ${formatRp(t.dailyWageRate)}` : ""}</option>
-                                                                    ))}
-                                                                </select>
-                                                            ) : (
-                                                                // Hari non-event → matrix kota+divisi (legacy)
-                                                                <>
-                                                                    <select value={cell.city ?? ""} onChange={(e) => setCell(w.id, d, { city: e.target.value || null })} className="w-[120px] text-[9px] border rounded mb-1 bg-background" title="Kota">
-                                                                        <option value="">— kota —</option>
-                                                                        {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
-                                                                    </select>
-                                                                    <select value={cell.division ?? ""} onChange={(e) => setCell(w.id, d, { division: e.target.value || null })} className="w-[120px] text-[9px] border rounded bg-background" title="Divisi">
-                                                                        <option value="">— divisi —</option>
-                                                                        {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
-                                                                    </select>
-                                                                </>
-                                                            )}
-                                                            {/* Keterangan lembur / catatan (preset via datalist + teks bebas) */}
-                                                            <input
-                                                                list="ot-note-presets"
-                                                                value={cell.notes ?? ""}
-                                                                onChange={(e) => setCell(w.id, d, { notes: e.target.value || null })}
-                                                                placeholder={cell.overtime > 0 ? "ket. lembur…" : "catatan…"}
-                                                                title="Keterangan lembur / catatan (mis. Lembur Pasang)"
-                                                                className={`w-[120px] text-[9px] border rounded mt-1 px-1 py-0.5 bg-background ${cell.overtime > 0 && !cell.notes ? "border-warning/60" : ""}`}
-                                                            />
-                                                        </td>
-                                                    );
-                                                })}
-                                                <td colSpan={2}></td>
-                                            </tr>
-                                        )}
                                     </FragmentRow>
                                 );
                             })}
@@ -622,6 +586,208 @@ function InputMingguanTab() {
                     Simpan minggu ini (auto-approve)
                 </button>
             </div>
+
+            {/* ── Modal Rincian per-pekerja: 7 hari disusun VERTIKAL (tanpa scroll samping) ── */}
+            {detailWorkerId != null && (() => {
+                const w = data?.workers.find((x) => x.id === detailWorkerId);
+                const row = grid.get(detailWorkerId);
+                if (!w || !row) return null;
+                // Turunkan konteks dari SEL aktual (bukan row.* yang bisa basi) supaya quick-set
+                // tidak "memasang ulang" event yang sudah dihapus per hari.
+                const dayCells = Object.values(row.days);
+                const rowEventId = dayCells.find((c) => c.eventId != null)?.eventId ?? null;
+                const rowCity = dayCells.find((c) => c.city)?.city ?? null;
+                const rowDivision = dayCells.find((c) => !c.eventId && c.division)?.division ?? null;
+                const STATUS_OPTS: { key: AttendanceStatus | null; label: string; cls: string }[] = [
+                    { key: null, label: "Kosong", cls: "bg-muted text-muted-foreground border-border" },
+                    { key: "FULL_DAY", label: "✓ Hadir", cls: STATUS_LABEL.FULL_DAY.cls },
+                    { key: "HALF_DAY", label: "½ Hari", cls: STATUS_LABEL.HALF_DAY.cls },
+                    { key: "ABSENT", label: "✗ Absen", cls: STATUS_LABEL.ABSENT.cls },
+                ];
+                return createPortal(
+                    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center sm:p-4 animate-fade" onClick={() => setDetailWorkerId(null)}>
+                        <div className="bg-background w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92vh] flex flex-col animate-in" onClick={(e) => e.stopPropagation()}>
+                            {/* Header */}
+                            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b shrink-0">
+                                <div className="min-w-0">
+                                    <div className="font-semibold truncate">Rincian — {w.name}</div>
+                                    <div className="text-[11px] text-muted-foreground">
+                                        {dayjs(weekStart).format("DD MMM")} – {dayjs(weekEnd).format("DD MMM YYYY")} · pilih Event + Gaji A/B/C per hari
+                                    </div>
+                                </div>
+                                <button onClick={() => setDetailWorkerId(null)} title="Tutup" className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted cursor-pointer transition-colors shrink-0">
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            {/* Quick-set: terapkan ke semua hari */}
+                            <div className="px-4 sm:px-5 py-3 border-b bg-muted/20 space-y-2 shrink-0">
+                                <div className="text-[11px] font-semibold flex items-center gap-1"><Zap className="h-3.5 w-3.5 text-info" /> Terapkan ke semua hari</div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <select
+                                        value={rowEventId ?? ""}
+                                        onChange={(e) => applyContext([w.id], { eventId: e.target.value ? Number(e.target.value) : null, division: null })}
+                                        className="flex-1 min-w-[160px] h-9 border border-border rounded-lg px-2 text-sm bg-card"
+                                        title="Event"
+                                    >
+                                        <option value="">— Tanpa event (pakai Kota × Divisi) —</option>
+                                        {(data?.events ?? []).map((ev) => <option key={ev.id} value={ev.id}>{ev.name}{ev.code ? ` (${ev.code})` : ""}</option>)}
+                                    </select>
+                                    {rowEventId ? (
+                                        <select
+                                            value=""
+                                            onChange={(e) => { if (e.target.value) applyContext([w.id], { eventId: rowEventId, division: e.target.value }); }}
+                                            className="flex-1 min-w-[160px] h-9 border border-border rounded-lg px-2 text-sm bg-card"
+                                            title="Gaji A/B/C"
+                                        >
+                                            <option value="">— set Gaji A/B/C semua hari —</option>
+                                            {(eventMap.get(rowEventId)?.tiers ?? []).map((t) => (
+                                                <option key={t.id} value={t.id}>{t.label}{t.dailyWageRate != null ? ` · ${formatRp(t.dailyWageRate)}` : ""}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <>
+                                            <select value={rowCity ?? ""} onChange={(e) => applyContext([w.id], { city: e.target.value || null })} className="flex-1 min-w-[130px] h-9 border border-border rounded-lg px-2 text-sm bg-card" title="Kota">
+                                                <option value="">— Kota —</option>
+                                                {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                            <select value={rowDivision ?? ""} onChange={(e) => applyContext([w.id], { division: e.target.value || null })} className="flex-1 min-w-[130px] h-9 border border-border rounded-lg px-2 text-sm bg-card" title="Divisi">
+                                                <option value="">— Divisi —</option>
+                                                {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </>
+                                    )}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => fillRow(w.id, "FULL_DAY")} className="text-[11px] px-2 py-1 rounded bg-success/10 text-success border border-success/30 hover:bg-success/20 cursor-pointer transition-colors">Semua Hadir</button>
+                                    <button onClick={() => fillRow(w.id, null)} className="text-[11px] px-2 py-1 rounded bg-muted text-muted-foreground border border-border hover:bg-muted/70 cursor-pointer transition-colors">Kosongkan semua</button>
+                                </div>
+                            </div>
+
+                            {/* Daftar hari (VERTIKAL) */}
+                            <div className="overflow-y-auto px-4 sm:px-5 py-3 space-y-2">
+                                {(data?.days ?? []).map((d) => {
+                                    const cell = row.days[d] ?? EMPTY_CELL;
+                                    const { daily, ot } = resolveRate(w, cell.city, cell.division, cell.eventId);
+                                    const cw = cell.customWage && Number(cell.customWage) > 0 ? Number(cell.customWage) : null;
+                                    const worked = cell.status === "FULL_DAY" || cell.status === "HALF_DAY";
+                                    const base = cell.status === "FULL_DAY" ? daily : cell.status === "HALF_DAY" ? daily * 0.5 : 0;
+                                    const est = base + (cw && worked ? cw : 0) + cell.overtime * ot;
+                                    return (
+                                        <div key={d} className={`rounded-xl border p-2.5 ${cell.status ? "bg-card" : "bg-muted/20 border-dashed"}`}>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="text-sm font-medium capitalize">{dayjs(d).format("dddd, DD MMM")}</div>
+                                                <div className="flex flex-wrap gap-1 justify-end">
+                                                    {STATUS_OPTS.map((s) => (
+                                                        <button
+                                                            key={String(s.key)}
+                                                            onClick={() => setCell(w.id, d, { status: s.key })}
+                                                            className={`text-[11px] px-2 py-1 rounded-lg border cursor-pointer transition-colors ${cell.status === s.key ? s.cls + " font-semibold" : "bg-transparent text-muted-foreground border-border hover:bg-muted"}`}
+                                                        >{s.label}</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            {cell.status && (
+                                                <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                    <div className="sm:col-span-2">
+                                                        <label className="text-[10px] text-muted-foreground block mb-1">Event</label>
+                                                        <select value={cell.eventId ?? ""} onChange={(e) => setCell(w.id, d, { eventId: e.target.value ? Number(e.target.value) : null, division: null })} className="w-full h-9 border border-border rounded-lg px-2 text-sm bg-card">
+                                                            <option value="">— Tanpa event —</option>
+                                                            {(data?.events ?? []).map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    {cell.eventId ? (
+                                                        <div className="sm:col-span-2">
+                                                            <label className="text-[10px] text-muted-foreground block mb-1">Gaji A/B/C</label>
+                                                            <select value={cell.division ?? ""} onChange={(e) => setCell(w.id, d, { division: e.target.value || null })} className="w-full h-9 border border-border rounded-lg px-2 text-sm bg-card">
+                                                                <option value="">— pakai tarif event —</option>
+                                                                {(eventMap.get(cell.eventId)?.tiers ?? []).map((t) => (
+                                                                    <option key={t.id} value={t.id}>{t.label}{t.dailyWageRate != null ? ` · ${formatRp(t.dailyWageRate)}` : ""}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <div>
+                                                                <label className="text-[10px] text-muted-foreground block mb-1">Kota</label>
+                                                                <select value={cell.city ?? ""} onChange={(e) => setCell(w.id, d, { city: e.target.value || null })} className="w-full h-9 border border-border rounded-lg px-2 text-sm bg-card">
+                                                                    <option value="">— kota —</option>
+                                                                    {(data?.cities ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                                                                </select>
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[10px] text-muted-foreground block mb-1">Divisi</label>
+                                                                <select value={cell.division ?? ""} onChange={(e) => setCell(w.id, d, { division: e.target.value || null })} className="w-full h-9 border border-border rounded-lg px-2 text-sm bg-card">
+                                                                    <option value="">— divisi —</option>
+                                                                    {(data?.divisions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
+                                                                </select>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    <div>
+                                                        <label className="text-[10px] text-muted-foreground block mb-1">Lembur (jam)</label>
+                                                        <input
+                                                            type="number" min={0} max={15} step={0.5} value={cell.overtime}
+                                                            onChange={(e) => setCell(w.id, d, { overtime: Math.max(0, Math.min(15, Number(e.target.value) || 0)) })}
+                                                            className="w-full h-9 border border-border rounded-lg px-2 text-sm font-mono bg-card"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] text-muted-foreground block mb-1">Keterangan / catatan</label>
+                                                        <input
+                                                            list="ot-note-presets"
+                                                            value={cell.notes ?? ""}
+                                                            onChange={(e) => setCell(w.id, d, { notes: e.target.value || null })}
+                                                            placeholder={cell.overtime > 0 ? "ket. lembur…" : "catatan…"}
+                                                            className={`w-full h-9 border rounded-lg px-2 text-sm bg-card ${cell.overtime > 0 && !cell.notes ? "border-warning/60" : "border-border"}`}
+                                                        />
+                                                    </div>
+                                                    {/* Gaji custom per-hari + keterangannya (menimpa tarif otomatis) */}
+                                                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg border border-dashed border-warning/40 bg-warning/5 p-2">
+                                                        <div>
+                                                            <label className="text-[10px] text-warning font-medium block mb-1 inline-flex items-center gap-1"><Wallet className="h-3 w-3" /> Gaji custom / tambahan (Rp) <span className="text-muted-foreground font-normal">— opsional</span></label>
+                                                            <input
+                                                                type="text" inputMode="numeric"
+                                                                value={cell.customWage ?? ""}
+                                                                onChange={(e) => setCell(w.id, d, { customWage: e.target.value.replace(/[^\d.]/g, "") || null })}
+                                                                placeholder="mis. +20000"
+                                                                className="w-full h-9 border border-border rounded-lg px-2 text-sm font-mono bg-card"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] text-warning font-medium block mb-1">Keterangan gaji custom</label>
+                                                            <input
+                                                                value={cell.customWageNote ?? ""}
+                                                                onChange={(e) => setCell(w.id, d, { customWageNote: e.target.value || null })}
+                                                                disabled={!cw}
+                                                                placeholder={cw ? "mis. borongan/kesepakatan…" : "isi gaji custom dulu"}
+                                                                className="w-full h-9 border border-border rounded-lg px-2 text-sm bg-card disabled:opacity-50 disabled:bg-muted/40"
+                                                            />
+                                                        </div>
+                                                        <p className="sm:col-span-2 text-[10px] text-muted-foreground -mt-0.5">
+                                                            Kalau diisi (&gt; 0), angka ini <b>ditambahkan</b> ke gaji harian hari ini (di atas tarif Event/Gaji A-B-C/Kota×Divisi), bukan menggantikan. Hanya dihitung saat hadir; lembur tetap normal.
+                                                        </p>
+                                                    </div>
+                                                    <div className="sm:col-span-2 text-right text-[11px] text-muted-foreground">
+                                                        Estimasi hari ini: <b className="text-success nums">Rp {formatRp(est)}</b>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-4 sm:px-5 py-3 border-t flex items-center justify-between gap-2 shrink-0">
+                                <div className="text-sm">Estimasi minggu: <b className="text-success nums">Rp {formatRp(workerEstimate(w))}</b></div>
+                                <button onClick={() => setDetailWorkerId(null)} className="h-9 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 cursor-pointer transition-opacity">Selesai</button>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                );
+            })()}
         </div>
     );
 }
@@ -1036,7 +1202,40 @@ function MonthlyTab() {
                         <SummaryCard label="Final Cair" value={`Rp ${formatRp(data.grandFinal)}`} color="navy" />
                     </div>
 
-                    <div className="overflow-x-auto border rounded-lg">
+                    {/* Mobile: kartu bertumpuk (tanpa scroll samping) */}
+                    <div className="md:hidden space-y-2">
+                        {data.rows.map((row) => (
+                            <div key={row.workerId} className="border rounded-xl p-3 space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <div className="font-medium truncate">{row.name}</div>
+                                        <div className="text-[10px] text-muted-foreground">
+                                            {row.hasPayroll ? `Rp ${formatRp(row.dailyWageRate)}/hari` : <span className="text-warning">Belum diset</span>}
+                                        </div>
+                                    </div>
+                                    <button onClick={() => handlePayslip(row.workerId, row.name)} disabled={slipLoadingId === row.workerId} title="Slip PDF" className="p-2 rounded-lg bg-info/15 hover:bg-info/25 text-info disabled:opacity-50 shrink-0 transition-colors">
+                                        {slipLoadingId === row.workerId ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                    <span>Hadir: <b className="text-foreground">{row.fullDays}</b></span>
+                                    <span>½: <b className="text-foreground">{row.halfDays}</b></span>
+                                    <span>Lembur: <b className="text-foreground nums">{row.overtimeHours}</b> j</span>
+                                    {row.pendingCount > 0 && <span className="text-warning font-medium">Pending: {row.pendingCount}</span>}
+                                </div>
+                                <div className="flex items-center justify-between gap-2 text-xs border-t pt-2">
+                                    <span className="text-success nums">Rp {formatRp(row.approvedTotal)}</span>
+                                    {row.adjustments.net !== 0 && (
+                                        <span className={`nums ${row.adjustments.net >= 0 ? "text-info" : "text-destructive"}`}>
+                                            {row.adjustments.net >= 0 ? "+" : ""}Rp {formatRp(row.adjustments.net)}
+                                        </span>
+                                    )}
+                                    <span className="font-bold text-navy nums">Rp {formatRp(row.grandTotal)}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="overflow-x-auto border rounded-lg hidden md:block">
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50">
                                 <tr>
@@ -1243,9 +1442,9 @@ function ManualEntryTab() {
                                         </select>
                                     </td>
                                     <td className="p-2 text-center">
-                                        <input type="number" min={0} max={12} step={0.5} value={r.overtime} onChange={(e) => setRows((prev) => {
+                                        <input type="number" min={0} max={15} step={0.5} value={r.overtime} onChange={(e) => setRows((prev) => {
                                             const next = new Map(prev);
-                                            next.set(w.id, { ...r, overtime: Math.max(0, Math.min(12, Number(e.target.value) || 0)) });
+                                            next.set(w.id, { ...r, overtime: Math.max(0, Math.min(15, Number(e.target.value) || 0)) });
                                             return next;
                                         })} className="w-20 px-2 py-1 border rounded text-sm font-mono text-right" />
                                     </td>
@@ -1390,7 +1589,35 @@ function AdjustmentsTab() {
                 <div className="text-center p-8 text-muted-foreground text-sm">Belum ada adjustment di periode ini.</div>
             )}
             {list.length > 0 && (
-                <div className="overflow-x-auto border rounded-lg">
+                <>
+                {/* Mobile: kartu bertumpuk (tanpa scroll samping) */}
+                <div className="md:hidden space-y-2">
+                    {list.map((a) => {
+                        const meta = ADJ_TYPE_LABEL[a.type];
+                        const amt = parseFloat(a.amount);
+                        return (
+                            <div key={a.id} className="border rounded-xl p-3 space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${meta.cls}`}>{meta.emoji} {meta.label}</span>
+                                    <span className={`nums font-semibold text-sm ${meta.sign > 0 ? "text-success" : "text-destructive"}`}>{meta.sign > 0 ? "+" : "−"}Rp {formatRp(amt)}</span>
+                                </div>
+                                <div className="font-medium text-sm">{a.worker?.name ?? `#${a.workerId}`}</div>
+                                <div className="text-[11px] text-muted-foreground">
+                                    {dayjs(a.effectiveDate).format("DD MMM YYYY")}{a.notes ? ` · ${a.notes}` : ""}
+                                </div>
+                                <div className="flex justify-end gap-1 pt-1">
+                                    <button onClick={() => startEdit(a)} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-info/15 text-info transition-colors" title="Edit">
+                                        <Pencil className="h-3.5 w-3.5" /> Edit
+                                    </button>
+                                    <button onClick={() => { if (confirm("Hapus adjustment ini?")) deleteMut.mutate(a.id); }} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-destructive/10 text-destructive transition-colors" title="Hapus">
+                                        <Trash2 className="h-3.5 w-3.5" /> Hapus
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+                <div className="overflow-x-auto border rounded-lg hidden md:block">
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50">
                             <tr>
@@ -1436,6 +1663,7 @@ function AdjustmentsTab() {
                         </tbody>
                     </table>
                 </div>
+                </>
             )}
         </div>
     );

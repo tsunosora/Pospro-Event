@@ -27,6 +27,8 @@ export interface AttendanceWeekRow {
     eventId?: number | null;
     cityKey?: string | null;
     divisionKey?: string | null;
+    customWage?: number | string | null;   // override manual tarif harian (null = otomatis)
+    customWageNote?: string | null;         // keterangan gaji custom
 }
 
 /** Snapshot field-field penting untuk audit log. */
@@ -42,6 +44,8 @@ function snapshot(att: any) {
         eventId: att.eventId,
         cityKey: att.cityKey,
         divisionKey: att.divisionKey,
+        customWage: att.customWage?.toString?.() ?? att.customWage,
+        customWageNote: att.customWageNote,
         approvalStatus: att.approvalStatus,
         recordedByPicId: att.recordedByPicId,
     };
@@ -293,6 +297,10 @@ export class AttendanceService {
                 const cityKey = r.cityKey?.trim() || null;
                 const divisionKey = r.divisionKey?.trim() || null;
                 const eventId = r.eventId == null ? null : r.eventId;
+                // Gaji custom: hanya berlaku bila > 0; selain itu null (pakai tarif otomatis).
+                const cw = r.customWage != null && r.customWage !== '' ? Number(r.customWage) : NaN;
+                const customWage = Number.isFinite(cw) && cw > 0 ? cw : null;
+                const customWageNote = customWage != null ? (r.customWageNote?.trim() || null) : null;
                 const approval = autoApprove
                     ? {
                         approvalStatus: 'APPROVED' as const,
@@ -314,6 +322,8 @@ export class AttendanceService {
                         eventId,
                         cityKey,
                         divisionKey,
+                        customWage: customWage as any,
+                        customWageNote,
                         ...approval,
                     },
                     update: {
@@ -323,6 +333,8 @@ export class AttendanceService {
                         eventId,
                         cityKey,
                         divisionKey,
+                        customWage: customWage as any,
+                        customWageNote,
                         ...approval,
                     },
                 });
@@ -417,6 +429,7 @@ export class AttendanceService {
                 select: {
                     id: true, workerId: true, attendanceDate: true, status: true, overtimeHours: true,
                     notes: true, eventId: true, cityKey: true, divisionKey: true, approvalStatus: true,
+                    customWage: true, customWageNote: true,
                 },
             })
             : [];
@@ -433,6 +446,8 @@ export class AttendanceService {
                 eventId: a.eventId,
                 cityKey: a.cityKey,
                 divisionKey: a.divisionKey,
+                customWage: a.customWage != null ? parseFloat(a.customWage.toString()) : null,
+                customWageNote: a.customWageNote,
                 approvalStatus: a.approvalStatus,
             };
         }

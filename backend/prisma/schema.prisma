@@ -1407,6 +1407,10 @@ model Attendance {
   eventId         Int?                     @map("event_id")
   cityKey         String?                  @map("city_key") @db.VarChar(100)
   divisionKey     String?                  @map("division_key") @db.VarChar(100)
+  // Gaji custom per-hari — override manual tarif harian (menang di atas semua sumber tarif),
+  // dengan keterangannya. Null = pakai tarif otomatis (event/tier/matrix/default).
+  customWage      Decimal?                 @map("custom_wage") @db.Decimal(12, 2)
+  customWageNote  String?                  @map("custom_wage_note") @db.VarChar(255)
   // Approval flow — admin approve absensi PIC sebelum payroll final
   approvalStatus  AttendanceApprovalStatus @default(PENDING) @map("approval_status")
   approvedAt      DateTime?                @map("approved_at")
