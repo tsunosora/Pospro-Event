@@ -3,15 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as Handlebars from 'handlebars';
 import type { Browser } from 'puppeteer';
-import { AttendanceStatus, PayrollAdjustmentType } from '@prisma/client';
+import { PayrollAdjustmentType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PayrollSummaryService } from './payroll-summary.service';
-
-const STATUS_LABEL: Record<AttendanceStatus, string> = {
-    FULL_DAY: '✓ Hadir Penuh',
-    HALF_DAY: '½ Hadir',
-    ABSENT: '✗ Tidak Hadir',
-};
 
 const ADJ_TYPE_LABEL: Record<PayrollAdjustmentType, string> = {
     BONUS: 'Bonus',
@@ -24,8 +18,17 @@ function fmt(n: number): string {
     return Math.round(n).toLocaleString('id-ID', { maximumFractionDigits: 0 });
 }
 
-function adjSign(t: PayrollAdjustmentType): 1 | -1 {
-    return t === 'DEDUCTION' || t === 'ADVANCE' ? -1 : 1;
+const MONTHS_ID_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+/** Tanggal singkat ala sample: "2-Agu" (pakai UTC agar selaras dengan kolom @db.Date). */
+function shortDate(d: Date): string {
+    return `${d.getUTCDate()}-${MONTHS_ID_SHORT[d.getUTCMonth()]}`;
+}
+
+/** Tanggal cetak "dd/mm/yyyy" pakai zona waktu lokal server (tanggal slip dibuat). */
+function ddmmyyyyLocal(d: Date): string {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
 @Injectable()
@@ -132,77 +135,92 @@ export class PayrollPayslipService implements OnModuleDestroy {
 
         if (!worker || !detail) throw new NotFoundException(`Worker id=${workerId} tidak ditemukan`);
 
-        const attRows = detail.rows.map((r) => ({
-            dateFmt: r.attendanceDate.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }),
-            statusLabel: STATUS_LABEL[r.status],
-            eventName: r.eventName || '',
-            autoLinked: r.autoLinked,
-            notes: r.notes || '',
-            overtimeHours: r.overtimeHours,
-            subtotalFmt: fmt(r.subtotal),
-            isPending: r.approvalStatus === 'PENDING',
-            isRejected: r.approvalStatus === 'REJECTED',
-        }));
-        const { fullDays, halfDays, totalOvertimeHours, fullBaseSum, halfBaseSum, overtimeSum, approvedTotal, pendingCount } = detail;
+        const { approvedTotal, pendingCount } = detail;
 
-        // Build adjustments
-        let posSum = 0, negSum = 0;
-        const adjList = adjustments.map((a) => {
+        // --- HARIAN: kelompokkan hari APPROVED per tarif harian (tarif tak diekspor per baris,
+        //     jadi diturunkan dari `base`: FULL_DAY → base, HALF_DAY → base×2). ½ hari dihitung 0,5 hari. ---
+        const harianGroups = new Map<number, { days: number; amount: number }>();
+        for (const r of detail.rows) {
+            if (r.approvalStatus !== 'APPROVED') continue;
+            let rate = 0, days = 0;
+            if (r.status === 'FULL_DAY') { rate = r.base; days = 1; }
+            else if (r.status === 'HALF_DAY') { rate = r.base * 2; days = 0.5; }
+            else continue;
+            const g = harianGroups.get(rate) ?? { days: 0, amount: 0 };
+            g.days += days;
+            g.amount += r.base;
+            harianGroups.set(rate, g);
+        }
+        const harianRows = Array.from(harianGroups.entries())
+            .sort((a, b) => b[0] - a[0])
+            .map(([rate, g]) => ({
+                qty: g.days.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                unit: 'hari',
+                rate: fmt(rate),
+                amount: fmt(g.amount),
+            }));
+
+        // --- LEMBUR & pekerjaan tambahan: baris lembur APPROVED (jam × tarif) + bonus/tunjangan (lump-sum). ---
+        const lemburRows: Array<{ date: string; desc: string; qty: string; unit: string; rate: string; amount: string }> = [];
+        for (const r of detail.rows) {
+            if (r.approvalStatus !== 'APPROVED') continue;
+            if (r.overtimeHours > 0 && r.overtimeAmount > 0) {
+                lemburRows.push({
+                    date: shortDate(r.attendanceDate),
+                    desc: r.eventName || r.notes || 'Lembur',
+                    qty: String(r.overtimeHours),
+                    unit: 'jm',
+                    rate: fmt(r.overtimeAmount / r.overtimeHours),
+                    amount: fmt(r.overtimeAmount),
+                });
+            }
+        }
+
+        // --- Adjustment: bonus/tunjangan → pendapatan tambahan; kasbon → Pinjaman/Kasbon; potongan → Tabungan. ---
+        let posSum = 0, advanceSum = 0, deductionSum = 0;
+        for (const a of adjustments) {
             const amt = parseFloat(a.amount.toString());
-            const sign = adjSign(a.type);
-            if (sign > 0) posSum += amt; else negSum += amt;
-            return {
-                dateFmt: a.effectiveDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }),
-                typeLabel: ADJ_TYPE_LABEL[a.type],
-                typeLower: a.type.toLowerCase(),
-                notes: a.notes ?? '',
-                amountFmt: fmt(amt),
-                isNegative: sign < 0,
-                signLabel: sign > 0 ? '+' : '−',
-            };
-        });
-        const netAdj = posSum - negSum;
-        const grandTotal = approvedTotal + netAdj;
+            if (a.type === 'BONUS' || a.type === 'ALLOWANCE') {
+                posSum += amt;
+                lemburRows.push({
+                    date: shortDate(a.effectiveDate),
+                    desc: a.notes || ADJ_TYPE_LABEL[a.type],
+                    qty: '', unit: '', rate: '',
+                    amount: fmt(amt),
+                });
+            } else if (a.type === 'ADVANCE') {
+                advanceSum += amt;
+            } else if (a.type === 'DEDUCTION') {
+                deductionSum += amt;
+            }
+        }
 
-        // Period label (semua format pakai timeZone UTC agar selaras dengan @db.Date)
-        const sameMonth = start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth();
-        const periodLabel = sameMonth
-            ? `${start.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`
-                + ` — ${end.toLocaleDateString('id-ID', { day: 'numeric', timeZone: 'UTC' })}`
-            : `${start.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}`
-                + ` sd ${end.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}`;
+        const gross = approvedTotal + posSum;                       // Pendapatan Kotor
+        const net = gross - advanceSum - deductionSum;              // Pendapatan Bersih (= approvedTotal + netAdjustment)
 
         const ctx = {
             company: {
                 name: settings?.storeName ?? 'Pospro Event',
-                address: settings?.storeAddress ?? '',
             },
-            generatedAt: new Date().toLocaleString('id-ID'),
-            periodLabel,
+            payDate: ddmmyyyyLocal(new Date()),
+            slipNo: '',
             worker: {
                 name: worker.name,
-                position: worker.position ?? '',
             },
-            attendance: {
-                rows: attRows,
-                fullDays, halfDays, totalOvertimeHours,
-                fullBaseFmt: fmt(fullBaseSum),
-                halfBaseFmt: fmt(halfBaseSum),
-                overtimeFmt: fmt(overtimeSum),
-                approvedTotalFmt: fmt(approvedTotal),
-            },
-            adjustments: {
-                list: adjList,
-                positiveFmt: fmt(posSum),
-                negativeFmt: fmt(negSum),
-                netFmt: fmt(Math.abs(netAdj)),
-                netNegative: netAdj < 0,
-            },
-            grandTotalFmt: fmt(grandTotal),
-            pendingNote: pendingCount > 0 ? `Ada ${pendingCount} attendance PENDING — belum dihitung di total. Approve dulu di /payroll untuk dimasukkan.` : null,
+            harianRows,
+            lemburRows,
+            fillerRows: [0, 0],
+            grossFmt: fmt(gross),
+            advanceFmt: advanceSum > 0 ? fmt(advanceSum) : '',
+            deductionFmt: deductionSum > 0 ? fmt(deductionSum) : '',
+            netFmt: fmt(net),
+            // Saldo tabungan & sisa kasbon = saldo berjalan; sistem belum melacaknya → dikosongkan.
+            savingsBalanceFmt: '',
+            loanBalanceFmt: '',
+            pendingNote: pendingCount > 0 ? `Catatan: ada ${pendingCount} absensi PENDING (belum di-approve) — belum termasuk dalam perhitungan slip ini.` : null,
             approver: {
-                name: approver?.name ?? approver?.email ?? '_______________________',
-                role: approver?.role?.name ?? 'Admin / HR',
+                name: approver?.name ?? approver?.email ?? '',
+                roleLabel: approver?.role?.name ?? 'Admin',
             },
         };
 

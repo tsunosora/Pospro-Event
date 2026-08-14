@@ -2,236 +2,142 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
-<title>Slip Gaji — {{worker.name}} — {{periodLabel}}</title>
+<title>Slip Gaji — {{worker.name}}</title>
 <style>
-  @page { size: A4; margin: 14mm 16mm; }
+  @page { size: A4; margin: 14mm 14mm; }
   * { box-sizing: border-box; }
-  body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1f2937; font-size: 11pt; line-height: 1.45; margin: 0; }
+  body { font-family: 'Arial', 'Helvetica', sans-serif; color: #000; font-size: 10pt; margin: 0; }
 
-  .doc-header {
-    display: flex; justify-content: space-between; align-items: flex-start;
-    border-bottom: 2pt solid #1a3b7c; padding-bottom: 10pt; margin-bottom: 14pt;
-  }
-  .company-block { flex: 1; }
-  .company-name { font-size: 16pt; font-weight: 700; color: #1a3b7c; }
-  .company-tagline { font-size: 9.5pt; color: #6b7280; margin-top: 2pt; }
+  table.slip { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.slip td { border: 0.75pt solid #000; padding: 3pt 6pt; height: 17pt; vertical-align: middle; overflow: hidden; }
 
-  .doc-title { text-align: right; }
-  .doc-title h1 { margin: 0; font-size: 18pt; color: #1a3b7c; }
-  .doc-title .meta { font-size: 9pt; color: #6b7280; margin-top: 4pt; }
+  .nb { border: none !important; }
+  .title { border: none; text-align: center; font-weight: bold; font-size: 13pt; letter-spacing: 0.4pt; padding: 2pt; }
+  .subtitle { border: none; border-bottom: 1.5pt solid #000; text-align: center; font-weight: bold; font-size: 12pt; padding: 2pt 2pt 5pt; }
 
-  .worker-info {
-    background: #f1f5fb; padding: 10pt 12pt; border-radius: 4pt; margin-bottom: 14pt;
-    display: grid; grid-template-columns: 1fr 1fr; gap: 6pt 18pt;
-  }
-  .worker-info .label { font-size: 9pt; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4pt; }
-  .worker-info .value { font-size: 11pt; font-weight: 600; }
+  .bold { font-weight: bold; }
+  .ital { font-style: italic; }
+  .sec { font-weight: bold; }
+  .datecell { text-align: right; font-weight: bold; }
 
-  .section-title {
-    font-size: 11pt; font-weight: 700; color: #1a3b7c;
-    border-bottom: 1pt solid #d1d5db; padding-bottom: 3pt; margin: 12pt 0 6pt;
-  }
+  .c-qty { text-align: right; font-variant-numeric: tabular-nums; }
+  .c-rate { text-align: right; font-variant-numeric: tabular-nums; }
+  .c-amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .c-unit { text-align: center; }
+  .colon { text-align: center; }
 
-  table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 5pt 7pt; border-bottom: 0.5pt solid #e5e7eb; }
-  th { background: #f3f4f6; font-size: 9.5pt; text-transform: uppercase; color: #4b5563; text-align: left; letter-spacing: 0.3pt; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; }
-  td.center { text-align: center; }
+  .sign-name { text-align: center; height: 48pt; vertical-align: bottom; padding-bottom: 4pt; }
+  .sign-role { text-align: center; }
 
-  .breakdown { margin-top: 8pt; }
-  .breakdown-row {
-    display: flex; justify-content: space-between; padding: 4pt 0;
-    font-size: 11pt;
-  }
-  .breakdown-row.subtotal {
-    font-weight: 600; border-top: 1pt solid #d1d5db; padding-top: 6pt; margin-top: 4pt;
-  }
-  .breakdown-row.grand {
-    font-weight: 700; font-size: 13pt; color: #1a3b7c;
-    background: #f1f5fb; padding: 8pt 10pt; border-radius: 4pt; margin-top: 8pt;
-  }
-  .breakdown-row.negative .num { color: #c8203a; }
-
-  .signatures {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 24pt;
-    margin-top: 28pt; page-break-inside: avoid;
-  }
-  .sign-block { text-align: center; font-size: 10pt; }
-  .sign-line { border-bottom: 1pt solid #1f2937; height: 50pt; margin-bottom: 4pt; }
-  .sign-name { font-weight: 600; margin-top: 6pt; }
-  .sign-role { color: #6b7280; font-size: 9pt; }
-
-  .foot {
-    margin-top: 20pt; padding-top: 8pt; border-top: 1pt solid #e5e7eb;
-    font-size: 9pt; color: #6b7280; display: flex; justify-content: space-between;
-  }
-
-  .badge {
-    display: inline-block; padding: 1pt 6pt; border-radius: 3pt;
-    font-size: 8.5pt; font-weight: 600; text-transform: uppercase;
-  }
-  .badge-bonus, .badge-allowance { background: #d1fae5; color: #065f46; }
-  .badge-deduction, .badge-advance { background: #fee2e2; color: #991b1b; }
-
-  .pending-warning {
-    background: #fef3c7; border-left: 3pt solid #f59e0b; color: #92400e;
-    padding: 6pt 10pt; margin-top: 8pt; font-size: 9.5pt; border-radius: 3pt;
+  .note {
+    margin-top: 10pt; font-size: 9pt; color: #7a5b00;
+    background: #fff7e0; border: 0.5pt solid #e6c766; padding: 5pt 8pt; border-radius: 3pt;
   }
 </style>
 </head>
 <body>
-  <div class="doc-header">
-    <div class="company-block">
-      <div class="company-name">{{company.name}}</div>
-      {{#if company.address}}<div class="company-tagline">{{company.address}}</div>{{/if}}
-    </div>
-    <div class="doc-title">
-      <h1>SLIP GAJI</h1>
-      <div class="meta">
-        Periode: <strong>{{periodLabel}}</strong><br />
-        Tanggal cetak: {{generatedAt}}
-      </div>
-    </div>
-  </div>
-
-  <div class="worker-info">
-    <div>
-      <div class="label">Nama Pekerja</div>
-      <div class="value">{{worker.name}}</div>
-    </div>
-    {{#if worker.position}}
-    <div>
-      <div class="label">Posisi / Divisi</div>
-      <div class="value">{{worker.position}}</div>
-    </div>
-    {{/if}}
-  </div>
-
-  {{!-- Attendance details --}}
-  <div class="section-title">Absensi &amp; Lembur</div>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:80pt">Tanggal</th>
-        <th style="width:70pt">Status</th>
-        <th>Event</th>
-        <th>Keterangan</th>
-        <th class="center" style="width:52pt">Lembur (j)</th>
-        <th class="num" style="width:85pt">Sub-total</th>
-      </tr>
-    </thead>
+  <table class="slip">
+    <colgroup>
+      <col style="width:16%" /><col style="width:20%" /><col style="width:10%" />
+      <col style="width:8%" /><col style="width:23%" /><col style="width:23%" />
+    </colgroup>
     <tbody>
-      {{#each attendance.rows}}
+      {{!-- Header --}}
+      <tr><td colspan="6" class="title">{{company.name}}</td></tr>
+      <tr><td colspan="6" class="subtitle">SLIP PEMBAYARAN GAJI</td></tr>
       <tr>
-        <td>{{this.dateFmt}}</td>
-        <td>
-          {{this.statusLabel}}
-          {{#if this.isPending}}<span class="badge" style="background:#fef3c7;color:#92400e;">Pending</span>{{/if}}
-          {{#if this.isRejected}}<span class="badge" style="background:#fee2e2;color:#991b1b;">Rejected</span>{{/if}}
-        </td>
-        <td style="font-size:10pt;">{{#if this.eventName}}{{this.eventName}}{{else}}<span style="color:#9ca3af;">—</span>{{/if}}</td>
-        <td style="font-size:10pt;color:#6b7280;">{{#if this.notes}}{{this.notes}}{{else}}<span style="color:#d1d5db;">—</span>{{/if}}</td>
-        <td class="center">{{this.overtimeHours}}</td>
-        <td class="num">Rp {{this.subtotalFmt}}</td>
+        <td class="nb"></td><td class="nb"></td><td class="nb"></td>
+        <td class="nb"></td><td class="nb"></td>
+        <td class="datecell">{{payDate}}</td>
+      </tr>
+
+      {{!-- Identitas --}}
+      <tr><td>No.</td><td></td><td></td><td></td><td class="bold">{{slipNo}}</td><td></td></tr>
+      <tr><td>Nama</td><td></td><td></td><td></td><td class="bold">{{worker.name}}</td><td></td></tr>
+
+      {{!-- Harian --}}
+      <tr><td class="sec">*) HARIAN</td><td></td><td></td><td></td><td></td><td></td></tr>
+      {{#each harianRows}}
+      <tr>
+        <td></td><td></td>
+        <td class="c-qty">{{this.qty}}</td>
+        <td class="c-unit">{{this.unit}}</td>
+        <td class="c-rate">{{this.rate}}</td>
+        <td class="c-amt">{{this.amount}}</td>
       </tr>
       {{/each}}
-      {{#unless attendance.rows.length}}
-      <tr><td colspan="6" style="text-align:center;color:#9ca3af;font-style:italic;">Tidak ada catatan absensi di periode ini</td></tr>
+      {{#unless harianRows.length}}
+      <tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
       {{/unless}}
-    </tbody>
-  </table>
 
-  <div class="breakdown">
-    <div class="breakdown-row">
-      <span>Hari Hadir Penuh ({{attendance.fullDays}}× hari)</span>
-      <span class="num">Rp {{attendance.fullBaseFmt}}</span>
-    </div>
-    <div class="breakdown-row">
-      <span>½ Hari ({{attendance.halfDays}}× ½)</span>
-      <span class="num">Rp {{attendance.halfBaseFmt}}</span>
-    </div>
-    <div class="breakdown-row">
-      <span>Lembur ({{attendance.totalOvertimeHours}} jam)</span>
-      <span class="num">Rp {{attendance.overtimeFmt}}</span>
-    </div>
-    <div class="breakdown-row subtotal">
-      <span>Subtotal Gaji Hadir (Approved)</span>
-      <span class="num">Rp {{attendance.approvedTotalFmt}}</span>
-    </div>
-  </div>
-
-  {{!-- Adjustments --}}
-  {{#if adjustments.list.length}}
-  <div class="section-title">Tunjangan &amp; Potongan</div>
-  <table>
-    <thead>
+      {{!-- Lembur / pekerjaan tambahan --}}
+      <tr><td class="sec">*) LEMBUR</td><td></td><td></td><td></td><td></td><td></td></tr>
+      {{#each lemburRows}}
       <tr>
-        <th style="width:90pt">Tanggal</th>
-        <th>Tipe</th>
-        <th>Catatan</th>
-        <th class="num" style="width:110pt">Jumlah</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{#each adjustments.list}}
-      <tr>
-        <td>{{this.dateFmt}}</td>
-        <td><span class="badge badge-{{this.typeLower}}">{{this.typeLabel}}</span></td>
-        <td style="font-size:10pt;color:#6b7280;">{{this.notes}}</td>
-        <td class="num" style="font-weight:600;{{#if this.isNegative}}color:#c8203a;{{/if}}">
-          {{this.signLabel}}Rp {{this.amountFmt}}
-        </td>
+        <td>{{this.date}}</td>
+        <td>{{this.desc}}</td>
+        <td class="c-qty">{{this.qty}}</td>
+        <td class="c-unit">{{this.unit}}</td>
+        <td class="c-rate">{{this.rate}}</td>
+        <td class="c-amt">{{this.amount}}</td>
       </tr>
       {{/each}}
+      {{#unless lemburRows.length}}
+      <tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      {{/unless}}
+
+      {{!-- Baris kosong pemisah (seperti sample) --}}
+      {{#each fillerRows}}
+      <tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      {{/each}}
+
+      {{!-- Ringkasan --}}
+      <tr>
+        <td></td><td></td><td></td><td></td>
+        <td class="bold">Pendapatan Kotor</td>
+        <td class="c-amt bold">{{grossFmt}}</td>
+      </tr>
+      <tr>
+        <td>Potongan- potongan</td><td></td><td></td>
+        <td class="colon">:</td>
+        <td>Pinjaman/Kasbon</td>
+        <td class="c-amt">{{advanceFmt}}</td>
+      </tr>
+      <tr>
+        <td></td><td></td><td></td><td></td>
+        <td>Tabungan</td>
+        <td class="c-amt">{{deductionFmt}}</td>
+      </tr>
+      <tr>
+        <td></td><td></td><td></td><td></td>
+        <td class="bold">Pendapatan Bersih</td>
+        <td class="c-amt bold">{{netFmt}}</td>
+      </tr>
+
+      {{!-- Saldo berjalan --}}
+      <tr>
+        <td class="bold ital">Saldo tabungan</td><td></td><td></td><td></td><td></td>
+        <td class="c-amt">{{savingsBalanceFmt}}</td>
+      </tr>
+      <tr>
+        <td class="bold ital">Sisa kasbon</td><td></td><td></td><td></td><td></td>
+        <td class="c-amt">{{loanBalanceFmt}}</td>
+      </tr>
+
+      {{!-- Tanda tangan --}}
+      <tr>
+        <td colspan="3" class="sign-name">{{approver.name}}</td>
+        <td colspan="3" class="sign-name">{{worker.name}}</td>
+      </tr>
+      <tr>
+        <td colspan="3" class="sign-role">{{approver.roleLabel}}</td>
+        <td colspan="3" class="sign-role">Penerima</td>
+      </tr>
     </tbody>
   </table>
-  <div class="breakdown">
-    <div class="breakdown-row">
-      <span>Total Bonus + Tunjangan</span>
-      <span class="num">+Rp {{adjustments.positiveFmt}}</span>
-    </div>
-    <div class="breakdown-row negative">
-      <span>Total Potongan + Kasbon</span>
-      <span class="num">−Rp {{adjustments.negativeFmt}}</span>
-    </div>
-    <div class="breakdown-row subtotal">
-      <span>Net Adjustment</span>
-      <span class="num">{{#if adjustments.netNegative}}−{{else}}+{{/if}}Rp {{adjustments.netFmt}}</span>
-    </div>
-  </div>
-  {{/if}}
-
-  {{!-- Grand total --}}
-  <div class="breakdown-row grand">
-    <span>TOTAL GAJI CAIR</span>
-    <span class="num">Rp {{grandTotalFmt}}</span>
-  </div>
 
   {{#if pendingNote}}
-  <div class="pending-warning">
-    {{pendingNote}}
-  </div>
+  <div class="note">{{pendingNote}}</div>
   {{/if}}
-
-  {{!-- Signatures --}}
-  <div class="signatures">
-    <div class="sign-block">
-      <div>Diterima oleh,</div>
-      <div class="sign-line"></div>
-      <div class="sign-name">{{worker.name}}</div>
-      <div class="sign-role">Pekerja</div>
-    </div>
-    <div class="sign-block">
-      <div>Disetujui oleh,</div>
-      <div class="sign-line"></div>
-      <div class="sign-name">{{approver.name}}</div>
-      <div class="sign-role">{{approver.role}}</div>
-    </div>
-  </div>
-
-  <div class="foot">
-    <div>Slip ini di-generate otomatis dari sistem payroll.</div>
-    <div>{{company.name}} · {{generatedAt}}</div>
-  </div>
 </body>
 </html>
