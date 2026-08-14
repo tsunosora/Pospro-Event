@@ -171,8 +171,29 @@ export class WorkersService {
         });
     }
 
-    async remove(id: number) {
+    async remove(id: number, force = false) {
         await this.findOne(id);
+
+        // ── HAPUS PAKSA (force): benar-benar menghapus worker + melepas/menghapus SEMUA relasi
+        // pemblokir dalam satu transaksi (atomik — kalau ada yang gagal, semua di-rollback).
+        // DESTRUKTIF: absensi, adjustment, borongan (Cascade) & pengambilan barang + penugasan crew
+        // (dihapus manual) IKUT TERHAPUS. Lead di-lepas (di-set null). Dipakai hanya lewat konfirmasi keras.
+        if (force) {
+            return this.prisma.$transaction(async (tx) => {
+                // Relasi Restrict yang nullable → lepaskan (set null) supaya histori lead tetap ada.
+                await tx.lead.updateMany({ where: { assignedWorkerId: id }, data: { assignedWorkerId: null } });
+                await tx.lead.updateMany({ where: { previousAssignedWorkerId: id }, data: { previousAssignedWorkerId: null } });
+                await tx.leadActivity.updateMany({ where: { workerId: id }, data: { workerId: null } });
+                // Relasi Restrict non-nullable → tak bisa null, hapus barisnya.
+                await tx.withdrawal.deleteMany({ where: { workerId: id } });
+                await tx.eventCrewAssignment.deleteMany({ where: { workerId: id } });
+                // Hapus worker → Attendance/PayrollAdjustment/Borongan ikut (Cascade);
+                // Event PIC / team leader / TTD invoice / packing di-set null otomatis.
+                await tx.worker.delete({ where: { id } });
+                return { mode: 'hard-delete' as const, usage: 0, forced: true };
+            });
+        }
+
         // Hard-delete hanya untuk worker yang benar-benar belum dipakai. Relasi ber-FK Restrict
         // (Withdrawal.worker, EventCrewAssignment.worker) akan memblokir delete → hitung sebagai usage
         // supaya otomatis soft-delete (nonaktifkan) dan riwayatnya tetap aman.
@@ -185,7 +206,7 @@ export class WorkersService {
         if (usage === 0) {
             try {
                 await this.prisma.worker.delete({ where: { id } });
-                return { mode: 'hard-delete', usage: 0 };
+                return { mode: 'hard-delete', usage: 0, forced: false };
             } catch (e: any) {
                 // P2003 = masih ada relasi lain yang menghalangi. Fallback ke soft-delete.
                 if (e?.code !== 'P2003') throw e;
@@ -196,7 +217,7 @@ export class WorkersService {
             where: { id },
             data: { isActive: false },
         });
-        return { mode: 'soft-delete', usage };
+        return { mode: 'soft-delete', usage, forced: false };
     }
 
     async restore(id: number) {

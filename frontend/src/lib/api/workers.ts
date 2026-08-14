@@ -154,8 +154,10 @@ export const updateWorker = async (id: number, input: Partial<WorkerFormInput>) 
 export const regeneratePicToken = async (id: number) =>
     (await api.post<{ id: number; name: string; picAccessToken: string }>(`/workers/${id}/regenerate-pic-token`)).data;
 
-export const deleteWorker = async (id: number) =>
-    (await api.delete<{ mode: 'hard-delete' | 'soft-delete'; usage: number }>(`/workers/${id}`)).data;
+export const deleteWorker = async (id: number, force = false) =>
+    (await api.delete<{ mode: 'hard-delete' | 'soft-delete'; usage: number; forced: boolean }>(
+        `/workers/${id}${force ? '?force=true' : ''}`,
+    )).data;
 
 export const restoreWorker = async (id: number) =>
     (await api.patch<Worker>(`/workers/${id}/restore`, {})).data;

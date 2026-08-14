@@ -183,7 +183,8 @@ export class WorkersController {
     }
 
     @Delete(':id')
-    remove(@Param('id', ParseIntPipe) id: number) {
-        return this.svc.remove(id);
+    remove(@Param('id', ParseIntPipe) id: number, @Query('force') force?: string) {
+        // force=true → hapus permanen paksa (lepas/hapus relasi pemblokir). Default: smart soft-delete.
+        return this.svc.remove(id, force === 'true' || force === '1');
     }
 }
