@@ -1529,6 +1529,22 @@ model WageRate {
   @@map("wage_rates")
 }
 
+/// Preset "Gaji Custom" — daftar nominal siap-pakai yang bisa MENAMBAH (+) atau
+/// MENGURANGI (−) gaji. amount menyimpan tanda: positif = tambah, negatif = kurang.
+model CustomWagePreset {
+  id        Int      @id @default(autoincrement())
+  label     String   @db.VarChar(150) // nama preset, mis. "Uang Makan", "Potongan Kasbon"
+  amount    Decimal  @db.Decimal(12, 2) // bisa + (tambah) atau − (kurang)
+  notes     String?  @db.VarChar(500)
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@map("custom_wage_presets")
+}
+
 enum AttendanceStatus {
   FULL_DAY // gaji penuh
   HALF_DAY // 50% gaji
@@ -1778,6 +1794,11 @@ model EventCrewAssignment {
   // tier/PIC/event/matrix/worker). Kosong = pakai tier atau default.
   dailyWageRate       Decimal?  @map("daily_wage_rate") @db.Decimal(12, 2)
   overtimeRatePerHour Decimal?  @map("overtime_rate_per_hour") @db.Decimal(12, 2)
+  // Gaji custom (+/−) per member untuk event ini — otomatis DITAMBAHKAN tiap hari member
+  // kerja di event ini (bisa diambil dari preset CustomWagePreset). Absensi per-hari yang
+  // set custom sendiri tetap menang di atas ini.
+  customWage          Decimal?  @map("custom_wage") @db.Decimal(12, 2)
+  customWageNote      String?   @map("custom_wage_note") @db.VarChar(255)
   startedAt           DateTime? @map("started_at")
   finishedAt          DateTime? @map("finished_at")
   startPhotoUrl       String?   @map("start_photo_url") @db.Text

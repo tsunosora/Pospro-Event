@@ -64,6 +64,8 @@ export class EventCrewController {
             wageTierId?: number | null;
             dailyWageRate?: number | string | null;
             overtimeRatePerHour?: number | string | null;
+            customWage?: number | string | null;
+            customWageNote?: string | null;
         },
     ) {
         return this.svc.createBulk(body.eventId, body.workerIds ?? [], {
@@ -74,6 +76,8 @@ export class EventCrewController {
             wageTierId: body.wageTierId,
             dailyWageRate: body.dailyWageRate,
             overtimeRatePerHour: body.overtimeRatePerHour,
+            customWage: body.customWage,
+            customWageNote: body.customWageNote,
         });
     }
 

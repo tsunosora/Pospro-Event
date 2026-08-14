@@ -297,9 +297,9 @@ export class AttendanceService {
                 const cityKey = r.cityKey?.trim() || null;
                 const divisionKey = r.divisionKey?.trim() || null;
                 const eventId = r.eventId == null ? null : r.eventId;
-                // Gaji custom: hanya berlaku bila > 0; selain itu null (pakai tarif otomatis).
+                // Gaji custom = tambahan/potongan per hari (boleh + atau −); 0/kosong → null.
                 const cw = r.customWage != null && r.customWage !== '' ? Number(r.customWage) : NaN;
-                const customWage = Number.isFinite(cw) && cw > 0 ? cw : null;
+                const customWage = Number.isFinite(cw) && cw !== 0 ? cw : null;
                 const customWageNote = customWage != null ? (r.customWageNote?.trim() || null) : null;
                 const approval = autoApprove
                     ? {
@@ -416,7 +416,7 @@ export class AttendanceService {
                     dailyWageRate: true, overtimeRatePerHour: true,
                     wageTiers: {
                         orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
-                        select: { id: true, dailyWageRate: true, overtimeRatePerHour: true },
+                        select: { id: true, name: true, dailyWageRate: true, overtimeRatePerHour: true },
                     },
                 },
             }),
@@ -481,7 +481,8 @@ export class AttendanceService {
                 overtimeRatePerHour: e.overtimeRatePerHour != null ? parseFloat(e.overtimeRatePerHour.toString()) : null,
                 tiers: e.wageTiers.map((t, idx) => ({
                     id: t.id,
-                    label: `Gaji ${String.fromCharCode(65 + idx)}`,
+                    // Pakai nama custom kalau di-set; fallback ke label posisi "Gaji A/B/C".
+                    label: t.name?.trim() || `Gaji ${String.fromCharCode(65 + idx)}`,
                     dailyWageRate: t.dailyWageRate != null ? parseFloat(t.dailyWageRate.toString()) : null,
                     overtimeRatePerHour: t.overtimeRatePerHour != null ? parseFloat(t.overtimeRatePerHour.toString()) : null,
                 })),

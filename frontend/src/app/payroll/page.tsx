@@ -20,6 +20,7 @@ import {
 } from "@/lib/api/payroll";
 import { getWorkers, type Worker } from "@/lib/api/workers";
 import { getEvents } from "@/lib/api/events";
+import { listCustomWagePresets, type CustomWagePreset } from "@/lib/api/wage-rates";
 import { listCrewByEvent } from "@/lib/api/event-crew";
 import {
     AlertTriangle, Calendar, CalendarDays, Check, CheckCheck, ChevronLeft, ChevronRight, ClipboardList,
@@ -187,6 +188,13 @@ function InputMingguanTab() {
         staleTime: 5 * 60 * 1000,
     });
 
+    // Preset gaji custom (+/-) dari settings — dipakai sbagai pilihan cepat di modal rincian.
+    const { data: customPresets = [] } = useQuery<CustomWagePreset[]>({
+        queryKey: ["custom-wage-presets", false],
+        queryFn: () => listCustomWagePresets(false),
+        staleTime: 5 * 60 * 1000,
+    });
+
     // Bangun ulang grid tiap kali data dari server berubah (ganti minggu/tim/refetch setelah simpan)
     useEffect(() => {
         if (!data) return;
@@ -248,8 +256,9 @@ function InputMingguanTab() {
         for (const c of Object.values(row.days)) {
             if (!c.status) continue;
             const { daily, ot } = resolveRate(w, c.city, c.division, c.eventId);
-            // Gaji custom = TAMBAHAN di atas gaji harian (hanya saat hadir; lembur tetap normal).
-            const cw = c.customWage && Number(c.customWage) > 0 ? Number(c.customWage) : 0;
+            // Gaji custom = tambahan/potongan (+/−) di atas gaji harian (hanya saat hadir; lembur tetap normal).
+            const cwNum = Number(c.customWage);
+            const cw = c.customWage && Number.isFinite(cwNum) && cwNum !== 0 ? cwNum : 0;
             const worked = c.status === "FULL_DAY" || c.status === "HALF_DAY";
             const base = c.status === "FULL_DAY" ? daily : c.status === "HALF_DAY" ? daily * 0.5 : 0;
             total += base + (worked ? cw : 0) + c.overtime * ot;
@@ -340,7 +349,8 @@ function InputMingguanTab() {
                         if (existed) rows.push({ workerId: w.id, date: d, status: null }); // kosongkan
                         continue;
                     }
-                    const cw = c.customWage && Number(c.customWage) > 0 ? Number(c.customWage) : null;
+                    const cwNum = Number(c.customWage);
+                    const cw = c.customWage && Number.isFinite(cwNum) && cwNum !== 0 ? cwNum : null;
                     rows.push({
                         workerId: w.id, date: d, status: c.status,
                         overtimeHours: c.overtime,
@@ -669,7 +679,7 @@ function InputMingguanTab() {
                                 {(data?.days ?? []).map((d) => {
                                     const cell = row.days[d] ?? EMPTY_CELL;
                                     const { daily, ot } = resolveRate(w, cell.city, cell.division, cell.eventId);
-                                    const cw = cell.customWage && Number(cell.customWage) > 0 ? Number(cell.customWage) : null;
+                                    const cw = cell.customWage && Number(cell.customWage) !== 0 ? Number(cell.customWage) : null;
                                     const worked = cell.status === "FULL_DAY" || cell.status === "HALF_DAY";
                                     const base = cell.status === "FULL_DAY" ? daily : cell.status === "HALF_DAY" ? daily * 0.5 : 0;
                                     const est = base + (cw && worked ? cw : 0) + cell.overtime * ot;
@@ -742,16 +752,35 @@ function InputMingguanTab() {
                                                             className={`w-full h-9 border rounded-lg px-2 text-sm bg-card ${cell.overtime > 0 && !cell.notes ? "border-warning/60" : "border-border"}`}
                                                         />
                                                     </div>
-                                                    {/* Gaji custom per-hari + keterangannya (menimpa tarif otomatis) */}
+                                                    {/* Gaji custom per-hari (+/−) + keterangannya — bisa dari preset atau ketik manual */}
                                                     <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg border border-dashed border-warning/40 bg-warning/5 p-2">
+                                                        {customPresets.length > 0 && (
+                                                            <div className="sm:col-span-2">
+                                                                <label className="text-[10px] text-warning font-medium block mb-1 inline-flex items-center gap-1"><Wallet className="h-3 w-3" /> Pakai preset gaji custom</label>
+                                                                <select
+                                                                    value=""
+                                                                    onChange={(e) => {
+                                                                        const p = customPresets.find((x) => String(x.id) === e.target.value);
+                                                                        if (p) setCell(w.id, d, { customWage: String(parseFloat(p.amount)), customWageNote: cell.customWageNote?.trim() || p.label });
+                                                                    }}
+                                                                    className="w-full h-9 border border-border rounded-lg px-2 text-sm bg-card"
+                                                                >
+                                                                    <option value="">— pilih preset (+/−) —</option>
+                                                                    {customPresets.map((p) => {
+                                                                        const a = parseFloat(p.amount);
+                                                                        return <option key={p.id} value={p.id}>{a < 0 ? "−" : "+"}Rp {formatRp(Math.abs(a))} · {p.label}</option>;
+                                                                    })}
+                                                                </select>
+                                                            </div>
+                                                        )}
                                                         <div>
-                                                            <label className="text-[10px] text-warning font-medium block mb-1 inline-flex items-center gap-1"><Wallet className="h-3 w-3" /> Gaji custom / tambahan (Rp) <span className="text-muted-foreground font-normal">— opsional</span></label>
+                                                            <label className="text-[10px] text-warning font-medium block mb-1 inline-flex items-center gap-1">Gaji custom (Rp) <span className="text-muted-foreground font-normal">— boleh − untuk potong</span></label>
                                                             <input
-                                                                type="text" inputMode="numeric"
+                                                                type="text" inputMode="text"
                                                                 value={cell.customWage ?? ""}
-                                                                onChange={(e) => setCell(w.id, d, { customWage: e.target.value.replace(/[^\d.]/g, "") || null })}
-                                                                placeholder="mis. +20000"
-                                                                className="w-full h-9 border border-border rounded-lg px-2 text-sm font-mono bg-card"
+                                                                onChange={(e) => setCell(w.id, d, { customWage: e.target.value.replace(/[^\d.-]/g, "") || null })}
+                                                                placeholder="mis. 20000 atau -10000"
+                                                                className={`w-full h-9 border border-border rounded-lg px-2 text-sm font-mono bg-card ${cw != null && cw < 0 ? "text-destructive" : ""}`}
                                                             />
                                                         </div>
                                                         <div>
@@ -760,12 +789,12 @@ function InputMingguanTab() {
                                                                 value={cell.customWageNote ?? ""}
                                                                 onChange={(e) => setCell(w.id, d, { customWageNote: e.target.value || null })}
                                                                 disabled={!cw}
-                                                                placeholder={cw ? "mis. borongan/kesepakatan…" : "isi gaji custom dulu"}
+                                                                placeholder={cw ? "mis. uang makan / potongan kasbon…" : "isi gaji custom dulu"}
                                                                 className="w-full h-9 border border-border rounded-lg px-2 text-sm bg-card disabled:opacity-50 disabled:bg-muted/40"
                                                             />
                                                         </div>
                                                         <p className="sm:col-span-2 text-[10px] text-muted-foreground -mt-0.5">
-                                                            Kalau diisi (&gt; 0), angka ini <b>ditambahkan</b> ke gaji harian hari ini (di atas tarif Event/Gaji A-B-C/Kota×Divisi), bukan menggantikan. Hanya dihitung saat hadir; lembur tetap normal.
+                                                            Nilai ini <b>ditambahkan</b> ke gaji harian hari ini (positif = nambah, negatif = potong) — bukan menggantikan tarif. Hanya dihitung saat hadir; lembur tetap normal. Kelola preset di <a href="/settings/wage-rates" target="_blank" className="text-info underline">Tarif Gaji</a>.
                                                         </p>
                                                     </div>
                                                     <div className="sm:col-span-2 text-right text-[11px] text-muted-foreground">

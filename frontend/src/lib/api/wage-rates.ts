@@ -38,3 +38,35 @@ export const updateWageRate = async (id: number, input: Partial<WageRateInput>) 
 
 export const deleteWageRate = async (id: number) =>
     (await api.delete(`/wage-rates/${id}`)).data;
+
+// ─── Preset Gaji Custom (+/-) ──────────────────────────────────────────
+export interface CustomWagePreset {
+    id: number;
+    label: string;
+    amount: string;          // bisa negatif (− = potong)
+    notes: string | null;
+    isActive: boolean;
+    sortOrder: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CustomWagePresetInput {
+    label: string;
+    amount: number | string; // simpan bertanda: + tambah, − kurang
+    notes?: string | null;
+    isActive?: boolean;
+    sortOrder?: number;
+}
+
+export const listCustomWagePresets = async (includeInactive = true) =>
+    (await api.get<CustomWagePreset[]>(`/custom-wage-presets${includeInactive === false ? '?includeInactive=false' : ''}`)).data;
+
+export const createCustomWagePreset = async (input: CustomWagePresetInput) =>
+    (await api.post<CustomWagePreset>(`/custom-wage-presets`, input)).data;
+
+export const updateCustomWagePreset = async (id: number, input: Partial<CustomWagePresetInput>) =>
+    (await api.patch<CustomWagePreset>(`/custom-wage-presets/${id}`, input)).data;
+
+export const deleteCustomWagePreset = async (id: number) =>
+    (await api.delete(`/custom-wage-presets/${id}`)).data;

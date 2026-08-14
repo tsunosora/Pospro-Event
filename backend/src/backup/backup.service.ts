@@ -223,9 +223,10 @@ export const BACKUP_GROUPS = {
         // worker: include payroll fields (dailyWageRate, overtimeRatePerHour, isPic, picAccessToken, teamId, defaultCityKey, defaultDivisionKey)
         // attendance: data absensi (eventId, cityKey, divisionKey, approvalStatus untuk wage + approval flow)
         // wageRate: master tarif kota+divisi
+        // customWagePreset: preset gaji custom (+/-) siap-pakai
         // payrollAdjustment: tunjangan/potongan/bonus/kasbon per worker
         // attendanceAuditLog: history change attendance (CREATE/UPDATE/DELETE/APPROVE/REJECT)
-        tables: ['worker', 'attendance', 'wageRate', 'payrollAdjustment', 'attendanceAuditLog'],
+        tables: ['worker', 'attendance', 'wageRate', 'customWagePreset', 'payrollAdjustment', 'attendanceAuditLog'],
     },
     warehouse: {
         label: 'Gudang & Lokasi',
@@ -317,6 +318,7 @@ const RESTORE_ORDER = [
     'lead',                                     // → setelah leadStage, customer, worker
     'leadLabelOnLead', 'leadActivity',          // → setelah lead, leadLabel, worker
     'wageRate',                                 // master tarif (no FK, restore kapan saja)
+    'customWagePreset',                         // preset gaji custom +/- (no FK, restore kapan saja)
     'attendance',                               // → setelah worker (FK ke worker via workerId & recordedByPicId, optional eventId)
     'payrollAdjustment',                        // → setelah worker (FK ke worker)
     'attendanceAuditLog',                       // → setelah attendance (FK optional ke attendance)

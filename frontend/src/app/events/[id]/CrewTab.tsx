@@ -25,6 +25,7 @@ import {
 } from "@/lib/api/event-crew";
 import { getWorkers } from "@/lib/api/workers";
 import { listCrewTeams } from "@/lib/api/crew-teams";
+import { listCustomWagePresets, type CustomWagePreset } from "@/lib/api/wage-rates";
 
 function fmtDateTime(d: string | null | undefined) {
     if (!d) return "—";
@@ -41,8 +42,61 @@ function durationMin(start: string | null, end: string | null): string {
     return `${h}j ${m}m`;
 }
 
+/** Field gaji custom (+/−) + keterangan, dengan quick-pick dari preset. Dipakai di form tambah & edit crew. */
+function CrewCustomWageFields({ customWage, customWageNote, presets, onChange }: {
+    customWage: string;
+    customWageNote: string;
+    presets: CustomWagePreset[];
+    onChange: (patch: { customWage?: string; customWageNote?: string }) => void;
+}) {
+    const cw = customWage && Number(customWage) !== 0 ? Number(customWage) : null;
+    return (
+        <div className="space-y-1 rounded-md border border-dashed border-warning/40 bg-warning/5 p-2">
+            <label className="text-xs text-warning font-medium flex items-center gap-1"><Wallet className="h-3 w-3" /> Gaji custom (+/−) <span className="text-[10px] text-muted-foreground font-normal">— otomatis ditambahkan tiap hari kerja, opsional</span></label>
+            {presets.length > 0 && (
+                <select
+                    value=""
+                    onChange={(e) => {
+                        const p = presets.find((x) => String(x.id) === e.target.value);
+                        if (p) onChange({ customWage: String(parseFloat(p.amount)), customWageNote: customWageNote?.trim() || p.label });
+                    }}
+                    className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background"
+                >
+                    <option value="">— pilih preset (+/−) —</option>
+                    {presets.map((p) => {
+                        const a = parseFloat(p.amount);
+                        return <option key={p.id} value={p.id}>{a < 0 ? "−" : "+"}Rp {Math.abs(a).toLocaleString("id-ID")} · {p.label}</option>;
+                    })}
+                </select>
+            )}
+            <div className="grid grid-cols-2 gap-1.5">
+                <input
+                    type="text" inputMode="text"
+                    value={customWage}
+                    onChange={(e) => onChange({ customWage: e.target.value.replace(/[^\d.-]/g, "") })}
+                    placeholder="mis. 20000 / -10000"
+                    className={`w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono ${cw != null && cw < 0 ? "text-destructive" : ""}`}
+                />
+                <input
+                    value={customWageNote}
+                    onChange={(e) => onChange({ customWageNote: e.target.value })}
+                    disabled={!cw}
+                    placeholder={cw ? "keterangan…" : "isi nominal dulu"}
+                    className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background disabled:opacity-50"
+                />
+            </div>
+        </div>
+    );
+}
+
 export default function CrewTab({ eventId }: { eventId: number }) {
     const qc = useQueryClient();
+    // Preset gaji custom (+/−) untuk quick-pick di form crew.
+    const { data: customPresets = [] } = useQuery<CustomWagePreset[]>({
+        queryKey: ["custom-wage-presets", false],
+        queryFn: () => listCustomWagePresets(false),
+        staleTime: 5 * 60 * 1000,
+    });
     const { data: assignments = [], isLoading } = useQuery({
         queryKey: ["event-crew", eventId],
         queryFn: () => listCrewByEvent(eventId),
@@ -68,13 +122,13 @@ export default function CrewTab({ eventId }: { eventId: number }) {
     };
     const createTierMut = useMutation({ mutationFn: createWageTier, onSuccess: invalidateTiers });
     const updateTierMut = useMutation({
-        mutationFn: ({ id, ...patch }: { id: number; name?: string; dailyWageRate?: string | null; overtimeRatePerHour?: string | null }) => updateWageTier(id, patch),
+        mutationFn: ({ id, ...patch }: { id: number; name?: string | null; dailyWageRate?: string | null; overtimeRatePerHour?: string | null }) => updateWageTier(id, patch),
         onSuccess: invalidateTiers,
     });
     const deleteTierMut = useMutation({ mutationFn: deleteWageTier, onSuccess: invalidateTiers });
 
     const [showForm, setShowForm] = useState(false);
-    const [form, setForm] = useState({ workerId: "", teamId: "", role: "", scheduledStart: "", scheduledEnd: "", wageTierId: "", dailyWageRate: "", overtimeRatePerHour: "" });
+    const [form, setForm] = useState({ workerId: "", teamId: "", role: "", scheduledStart: "", scheduledEnd: "", wageTierId: "", dailyWageRate: "", overtimeRatePerHour: "", customWage: "", customWageNote: "" });
     const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<number>>(new Set());
     const [autoNotify, setAutoNotify] = useState(true);
 
@@ -91,6 +145,8 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                 wageTierId: form.wageTierId ? Number(form.wageTierId) : null,
                 dailyWageRate: form.dailyWageRate || null,
                 overtimeRatePerHour: form.overtimeRatePerHour || null,
+                customWage: form.customWage || null,
+                customWageNote: form.customWageNote || null,
             };
             if (autoNotify) {
                 let notified = 0;
@@ -107,7 +163,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
             qc.invalidateQueries({ queryKey: ["event-crew", eventId] });
             setShowForm(false);
             setBulkSelectedIds(new Set());
-            setForm({ workerId: "", teamId: "", role: "", scheduledStart: "", scheduledEnd: "", wageTierId: "", dailyWageRate: "", overtimeRatePerHour: "" });
+            setForm({ workerId: "", teamId: "", role: "", scheduledStart: "", scheduledEnd: "", wageTierId: "", dailyWageRate: "", overtimeRatePerHour: "", customWage: "", customWageNote: "" });
             alert(`✅ Assign ${res.created} crew${res.skipped > 0 ? ` (${res.skipped} skip, sudah ter-assign)` : ""}${res.notified > 0 ? ` · notif Discord terkirim ke ${res.notified}` : ""}`);
         },
     });
@@ -145,7 +201,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
     function handleBulkSetTier(wageTierId: number | null) {
         const n = selectedAssignmentIds.size;
         if (n === 0) return;
-        const tierLabel = wageTierId === null ? "Default" : tiers.find((t) => t.id === wageTierId)?.label ?? "Gaji";
+        const tierLabel = wageTierId === null ? "Default" : tiers.find((t) => t.id === wageTierId)?.name ?? "Gaji";
         if (confirm(`Set tarif gaji ${n} crew ke "${tierLabel}"?`)) {
             bulkSetTierMut.mutate({ ids: Array.from(selectedAssignmentIds), wageTierId });
         }
@@ -186,14 +242,14 @@ export default function CrewTab({ eventId }: { eventId: number }) {
         onSuccess: () => qc.invalidateQueries({ queryKey: ["event-crew", eventId] }),
     });
     const updateMut = useMutation({
-        mutationFn: ({ id, ...patch }: { id: number; role?: string | null; scheduledStart?: string | null; scheduledEnd?: string | null; wageTierId?: number | null; dailyWageRate?: string | null; overtimeRatePerHour?: string | null }) =>
+        mutationFn: ({ id, ...patch }: { id: number; role?: string | null; scheduledStart?: string | null; scheduledEnd?: string | null; wageTierId?: number | null; dailyWageRate?: string | null; overtimeRatePerHour?: string | null; customWage?: string | null; customWageNote?: string | null }) =>
             updateCrewAssignment(id, patch),
         onSuccess: () => { qc.invalidateQueries({ queryKey: ["event-crew", eventId] }); setEditingId(null); },
     });
 
     // Inline edit gaji/role per crew yang sudah ter-assign
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [editForm, setEditForm] = useState({ role: "", wageTierId: "", dailyWageRate: "", overtimeRatePerHour: "" });
+    const [editForm, setEditForm] = useState({ role: "", wageTierId: "", dailyWageRate: "", overtimeRatePerHour: "", customWage: "", customWageNote: "" });
     function startEdit(a: EventCrewAssignment) {
         setEditingId(a.id);
         setEditForm({
@@ -201,6 +257,8 @@ export default function CrewTab({ eventId }: { eventId: number }) {
             wageTierId: a.wageTierId != null ? String(a.wageTierId) : "",
             dailyWageRate: a.dailyWageRate != null ? String(Number(a.dailyWageRate)) : "",
             overtimeRatePerHour: a.overtimeRatePerHour != null ? String(Number(a.overtimeRatePerHour)) : "",
+            customWage: a.customWage != null ? String(Number(a.customWage)) : "",
+            customWageNote: a.customWageNote ?? "",
         });
     }
     function saveEdit() {
@@ -211,6 +269,8 @@ export default function CrewTab({ eventId }: { eventId: number }) {
             wageTierId: editForm.wageTierId ? Number(editForm.wageTierId) : null,
             dailyWageRate: editForm.dailyWageRate || null,
             overtimeRatePerHour: editForm.overtimeRatePerHour || null,
+            customWage: editForm.customWage || null,
+            customWageNote: editForm.customWageNote || null,
         });
     }
 
@@ -276,12 +336,8 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                 <div className="px-3 pb-3 space-y-2">
                     <p className="text-[11px] text-muted-foreground">
                         Daftar tarif gaji event ini (Gaji A, B, C…). Saat input payroll, pilih Gaji A/B/C per hari — gaji otomatis ikut tarif di sini.
+                        {customPresets.length > 0 && <> Isi cepat pakai <b>Daftar…</b> untuk ambil nominal dari Daftar Gaji Custom.</>}
                     </p>
-                    {tiers.length > 0 && (
-                        <div className="grid grid-cols-[0.8fr_1fr_1fr_auto] gap-2 text-[10px] font-semibold text-muted-foreground px-0.5">
-                            <span>Gaji</span><span>Gaji Harian (Rp)</span><span>Lembur/Jam (Rp)</span><span></span>
-                        </div>
-                    )}
                     {tiers.map((t, idx) => (
                         <TierRow
                             key={t.id}
@@ -290,9 +346,10 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                             onSave={(patch) => updateTierMut.mutate({ id: t.id, ...patch })}
                             onDelete={() => { if (confirm(`Hapus ${t.label ?? `Gaji ${String.fromCharCode(65 + idx)}`}? Sisanya akan digeser (B jadi A, dst).`)) deleteTierMut.mutate(t.id); }}
                             saving={updateTierMut.isPending}
+                            presets={customPresets}
                         />
                     ))}
-                    <AddTierForm nextLabel={`Gaji ${String.fromCharCode(65 + tiers.length)}`} onAdd={(draft) => createTierMut.mutate({ eventId, ...draft, sortOrder: tiers.length })} pending={createTierMut.isPending} />
+                    <AddTierForm nextLabel={`Gaji ${String.fromCharCode(65 + tiers.length)}`} onAdd={(draft) => createTierMut.mutate({ eventId, ...draft, sortOrder: tiers.length })} pending={createTierMut.isPending} presets={customPresets} />
                 </div>
             </details>
 
@@ -371,7 +428,7 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                         disabled={bulkSetTierMut.isPending}
                                         className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
                                     >
-                                        {t.label ?? t.name}{t.dailyWageRate != null ? ` · Rp ${Number(t.dailyWageRate).toLocaleString("id-ID")}/hari` : ""}
+                                        {t.name || t.label}{t.dailyWageRate != null ? ` · Rp ${Number(t.dailyWageRate).toLocaleString("id-ID")}/hari` : ""}
                                     </button>
                                 ))}
                             </div>
@@ -477,30 +534,18 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                             className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background"
                         />
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">Gaji Harian (Rp) <span className="text-[10px]">— override manual, opsional</span></label>
-                        <input
-                            type="text"
-                            inputMode="numeric"
-                            value={form.dailyWageRate}
-                            onChange={(e) => setForm({ ...form, dailyWageRate: e.target.value.replace(/[^\d.]/g, "") })}
-                            placeholder="Kosong = pakai tier / default"
-                            className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
+                    <WageField label="Gaji Harian (override, opsional)" value={form.dailyWageRate} onChange={(v) => setForm({ ...form, dailyWageRate: v })} presets={customPresets} placeholder="pakai tier / default" />
+                    <WageField label="Lembur / jam (opsional)" value={form.overtimeRatePerHour} onChange={(v) => setForm({ ...form, overtimeRatePerHour: v })} placeholder="pakai default" />
+                    </div>
+                    <div className="mt-2">
+                        <CrewCustomWageFields
+                            customWage={form.customWage}
+                            customWageNote={form.customWageNote}
+                            presets={customPresets}
+                            onChange={(patch) => setForm({ ...form, ...patch })}
                         />
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">Lembur / Jam (Rp) <span className="text-[10px]">— opsional</span></label>
-                        <input
-                            type="text"
-                            inputMode="numeric"
-                            value={form.overtimeRatePerHour}
-                            onChange={(e) => setForm({ ...form, overtimeRatePerHour: e.target.value.replace(/[^\d.]/g, "") })}
-                            placeholder="Kosong = pakai default"
-                            className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
-                        />
-                    </div>
-                    </div>
-                    {(form.dailyWageRate || form.overtimeRatePerHour) && (
+                    {(form.dailyWageRate || form.overtimeRatePerHour || form.customWage) && (
                         <p className="text-[11px] text-warning flex items-start gap-1">
                             <AlertTriangle className="h-3 w-3 mt-px shrink-0" />
                             Override gaji manual ini diterapkan ke <b>semua</b> {bulkSelectedIds.size} crew terpilih. Untuk beda per orang, pakai tombol <Pencil className="h-3 w-3 inline mx-0.5" /> Edit di tiap crew, atau pilih Tier berbeda.
@@ -615,9 +660,22 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                                 <div className="text-xs mt-1">
                                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-success/15 text-success font-medium">
                                                         <Wallet className="h-3 w-3" />
-                                                        {manual ? "Gaji custom" : (tiers.find((t) => t.id === a.wageTierId)?.label ?? a.wageTier?.name)}
+                                                        {manual ? "Gaji custom" : (tiers.find((t) => t.id === a.wageTierId)?.name ?? a.wageTier?.name)}
                                                         {daily != null && <span className="nums">: Rp {daily.toLocaleString("id-ID")}/hari</span>}
                                                         {ot != null && <span className="nums"> · lembur Rp {Number(ot).toLocaleString("id-ID")}/jam</span>}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
+                                        {a.customWage != null && Number(a.customWage) !== 0 && (() => {
+                                            const cwv = Number(a.customWage);
+                                            const neg = cwv < 0;
+                                            return (
+                                                <div className="text-xs mt-1">
+                                                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-medium ${neg ? "bg-destructive/12 text-destructive" : "bg-info/15 text-info"}`} title={a.customWageNote ?? ""}>
+                                                        <Wallet className="h-3 w-3" />
+                                                        {neg ? "−" : "+"}Rp {Math.abs(cwv).toLocaleString("id-ID")}/hari
+                                                        {a.customWageNote && <span className="font-normal">· {a.customWageNote}</span>}
                                                     </span>
                                                 </div>
                                             );
@@ -682,36 +740,22 @@ export default function CrewTab({ eventId }: { eventId: number }) {
                                                     <option value="">— Default —</option>
                                                     {tiers.map((t) => (
                                                         <option key={t.id} value={t.id}>
-                                                            {t.label ?? t.name}{t.dailyWageRate != null ? ` · Rp ${Number(t.dailyWageRate).toLocaleString("id-ID")}` : ""}
+                                                            {t.name || t.label}{t.dailyWageRate != null ? ` · Rp ${Number(t.dailyWageRate).toLocaleString("id-ID")}` : ""}
                                                         </option>
                                                     ))}
                                                 </select>
                                             </div>
                                         </div>
                                         <div className="grid md:grid-cols-2 gap-2">
-                                            <div className="space-y-0.5">
-                                                <label className="text-[11px] text-muted-foreground">Override Gaji Harian (Rp)</label>
-                                                <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    value={editForm.dailyWageRate}
-                                                    onChange={(e) => setEditForm({ ...editForm, dailyWageRate: e.target.value.replace(/[^\d.]/g, "") })}
-                                                    placeholder="Kosong = default event/worker"
-                                                    className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
-                                                />
-                                            </div>
-                                            <div className="space-y-0.5">
-                                                <label className="text-[11px] text-muted-foreground">Lembur / Jam (Rp)</label>
-                                                <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    value={editForm.overtimeRatePerHour}
-                                                    onChange={(e) => setEditForm({ ...editForm, overtimeRatePerHour: e.target.value.replace(/[^\d.]/g, "") })}
-                                                    placeholder="Kosong = default"
-                                                    className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
-                                                />
-                                            </div>
+                                            <WageField label="Override Gaji Harian" value={editForm.dailyWageRate} onChange={(v) => setEditForm({ ...editForm, dailyWageRate: v })} presets={customPresets} placeholder="default event/worker" />
+                                            <WageField label="Lembur / jam" value={editForm.overtimeRatePerHour} onChange={(v) => setEditForm({ ...editForm, overtimeRatePerHour: v })} placeholder="default" />
                                         </div>
+                                        <CrewCustomWageFields
+                                            customWage={editForm.customWage}
+                                            customWageNote={editForm.customWageNote}
+                                            presets={customPresets}
+                                            onChange={(patch) => setEditForm({ ...editForm, ...patch })}
+                                        />
                                         <div className="flex items-center gap-2">
                                             <button
                                                 onClick={saveEdit}
@@ -784,90 +828,140 @@ export default function CrewTab({ eventId }: { eventId: number }) {
 }
 
 // ── Baris tier (Gaji A/B/C) yang bisa diedit inline — label read-only, hanya nominal & lembur ──
-function TierRow({ tier, label, onSave, onDelete, saving }: {
+// Pemisah ribuan untuk tampilan (state tetap simpan digit polos).
+const groupRibu = (s: string) => (s || "").replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+const digitsOnly = (s: string) => s.replace(/\D/g, "");
+
+/** Field nominal Rp dengan label jelas, prefix "Rp", pemisah ribuan, dan opsi ambil dari daftar. */
+function WageField({ label, value, onChange, presets, placeholder, onPickPreset }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    presets?: CustomWagePreset[];
+    placeholder?: string;
+    onPickPreset?: (preset: CustomWagePreset) => void;
+}) {
+    return (
+        <div>
+            <label className="text-[11px] font-medium text-muted-foreground block mb-1">{label}</label>
+            <div className="flex gap-1.5">
+                <div className="relative flex-1">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">Rp</span>
+                    <input
+                        inputMode="numeric"
+                        value={groupRibu(value)}
+                        onChange={(e) => onChange(digitsOnly(e.target.value))}
+                        placeholder={placeholder ?? "0"}
+                        className="w-full h-9 pl-8 pr-2 rounded-md border border-border bg-background text-sm font-mono text-right outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
+                    />
+                </div>
+                {presets && presets.length > 0 && (
+                    <select
+                        value=""
+                        onChange={(e) => { const p = presets.find((x) => String(x.id) === e.target.value); if (p) { onChange(String(Math.abs(parseFloat(p.amount)))); onPickPreset?.(p); } }}
+                        className="h-9 rounded-md border border-border bg-background text-xs px-1.5 max-w-[120px] cursor-pointer text-muted-foreground outline-none focus:ring-2 focus:ring-ring/40"
+                        title="Ambil nominal dari Daftar Gaji Custom"
+                    >
+                        <option value="">Daftar…</option>
+                        {presets.map((p) => <option key={p.id} value={p.id}>{p.label} · Rp {Math.abs(parseFloat(p.amount)).toLocaleString("id-ID")}</option>)}
+                    </select>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function TierRow({ tier, label, onSave, onDelete, saving, presets }: {
     tier: EventWageTier;
     label: string;
-    onSave: (patch: { dailyWageRate: string | null; overtimeRatePerHour: string | null }) => void;
+    onSave: (patch: { name: string | null; dailyWageRate: string | null; overtimeRatePerHour: string | null }) => void;
     onDelete: () => void;
     saving: boolean;
+    presets: CustomWagePreset[];
 }) {
     const initDaily = tier.dailyWageRate != null ? String(Number(tier.dailyWageRate)) : "";
     const initOt = tier.overtimeRatePerHour != null ? String(Number(tier.overtimeRatePerHour)) : "";
+    const initName = tier.name ?? "";
+    const [name, setName] = useState(initName);
     const [daily, setDaily] = useState(initDaily);
     const [ot, setOt] = useState(initOt);
-    const dirty = daily !== initDaily || ot !== initOt;
+    const dirty = name !== initName || daily !== initDaily || ot !== initOt;
     return (
-        <div className="grid grid-cols-[0.8fr_1fr_1fr_auto] gap-2 items-center">
-            <span className="px-2 py-1.5 text-sm font-semibold text-success">{label}</span>
-            <input
-                value={daily}
-                inputMode="numeric"
-                onChange={(e) => setDaily(e.target.value.replace(/[^\d.]/g, ""))}
-                placeholder="Gaji/hari"
-                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
-            />
-            <input
-                value={ot}
-                inputMode="numeric"
-                onChange={(e) => setOt(e.target.value.replace(/[^\d.]/g, ""))}
-                placeholder="Lembur/jam"
-                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
-            />
-            <div className="flex items-center gap-1">
-                {dirty && (
-                    <button
-                        onClick={() => onSave({ dailyWageRate: daily || null, overtimeRatePerHour: ot || null })}
-                        disabled={saving}
-                        className="px-2 py-1 text-xs rounded-md bg-success text-white hover:bg-success/90 disabled:opacity-50 transition-colors cursor-pointer"
-                        title="Simpan"
-                    >
-                        <Check className="h-3.5 w-3.5" />
+        <div className={`rounded-lg border bg-card p-2.5 transition-colors ${dirty ? "border-warning/50 ring-1 ring-warning/20" : "border-success/25"}`}>
+            <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <span className="inline-flex items-center justify-center h-6 min-w-[26px] px-1.5 rounded-full bg-success/15 text-success text-[10px] font-bold shrink-0" title={`Urutan: ${label}`}>{label.replace("Gaji ", "")}</span>
+                    <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder={label}
+                        className="flex-1 min-w-0 h-8 px-2 text-sm font-semibold rounded-md border border-transparent hover:border-border focus:border-border bg-transparent outline-none focus:ring-2 focus:ring-ring/40 transition-colors"
+                        title="Klik untuk ganti nama gaji"
+                    />
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                    {dirty && (
+                        <button
+                            onClick={() => onSave({ name: name.trim() || label, dailyWageRate: daily || null, overtimeRatePerHour: ot || null })}
+                            disabled={saving}
+                            className="inline-flex items-center gap-1 h-8 px-2.5 text-xs font-semibold rounded-md bg-success text-white hover:bg-success/90 disabled:opacity-50 transition-colors cursor-pointer"
+                            title="Simpan perubahan"
+                        >
+                            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Simpan
+                        </button>
+                    )}
+                    <button onClick={onDelete} className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 text-destructive transition-colors cursor-pointer" title="Hapus tier">
+                        <Trash2 className="h-3.5 w-3.5" />
                     </button>
-                )}
-                <button onClick={onDelete} className="p-1.5 rounded hover:bg-destructive/10 text-destructive transition-colors cursor-pointer" title="Hapus">
-                    <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <WageField label="Gaji Harian" value={daily} onChange={setDaily} presets={presets} onPickPreset={(p) => setName(p.label)} />
+                <WageField label="Lembur / jam" value={ot} onChange={setOt} />
             </div>
         </div>
     );
 }
 
 // ── Form tambah tier baru (Gaji berikutnya) — label otomatis ──
-function AddTierForm({ nextLabel, onAdd, pending }: {
+function AddTierForm({ nextLabel, onAdd, pending, presets }: {
     nextLabel: string;
-    onAdd: (draft: { dailyWageRate: string | null; overtimeRatePerHour: string | null }) => void;
+    onAdd: (draft: { name: string | null; dailyWageRate: string | null; overtimeRatePerHour: string | null }) => void;
     pending: boolean;
+    presets: CustomWagePreset[];
 }) {
+    const [name, setName] = useState("");
     const [daily, setDaily] = useState("");
     const [ot, setOt] = useState("");
     function submit() {
         if (!daily && !ot) return;
-        onAdd({ dailyWageRate: daily || null, overtimeRatePerHour: ot || null });
-        setDaily(""); setOt("");
+        onAdd({ name: name.trim() || nextLabel, dailyWageRate: daily || null, overtimeRatePerHour: ot || null });
+        setName(""); setDaily(""); setOt("");
     }
     return (
-        <div className="grid grid-cols-[0.8fr_1fr_1fr_auto] gap-2 items-center pt-1 border-t border-dashed border-success/30">
-            <span className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">{nextLabel}</span>
-            <input
-                value={daily}
-                inputMode="numeric"
-                onChange={(e) => setDaily(e.target.value.replace(/[^\d.]/g, ""))}
-                placeholder="Gaji/hari"
-                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
-            />
-            <input
-                value={ot}
-                inputMode="numeric"
-                onChange={(e) => setOt(e.target.value.replace(/[^\d.]/g, ""))}
-                placeholder="Lembur/jam"
-                className="px-2 py-1.5 text-sm rounded-md border border-border bg-background font-mono"
-            />
+        <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-2.5">
+            <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-primary">
+                <Plus className="h-3.5 w-3.5" /> Tambah tier baru
+            </div>
+            <div className="mb-2">
+                <label className="text-[11px] font-medium text-muted-foreground block mb-1">Nama Gaji</label>
+                <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={`${nextLabel} (bisa diganti, mis. "Gaji Tukang")`}
+                    className="w-full h-9 px-2.5 text-sm rounded-md border border-border bg-background outline-none focus:ring-2 focus:ring-ring/40 transition-shadow"
+                />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <WageField label="Gaji Harian" value={daily} onChange={setDaily} presets={presets} onPickPreset={(p) => setName(p.label)} />
+                <WageField label="Lembur / jam" value={ot} onChange={setOt} />
+            </div>
             <button
                 onClick={submit}
                 disabled={pending || (!daily && !ot)}
-                className="inline-flex items-center gap-1 px-2 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className="mt-2 w-full sm:w-auto inline-flex items-center justify-center gap-1 h-9 px-4 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer"
             >
-                <Plus className="h-3.5 w-3.5" /> Tambah
+                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Tambah {nextLabel}
             </button>
         </div>
     );

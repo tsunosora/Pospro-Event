@@ -15,6 +15,9 @@ export interface CreateAssignmentInput {
     // Override gaji per member (opsional). Menang di atas tier. Kosong = pakai tier/default.
     dailyWageRate?: number | string | null;
     overtimeRatePerHour?: number | string | null;
+    // Gaji custom (+/−) per member — otomatis ditambahkan tiap hari kerja di event ini.
+    customWage?: number | string | null;
+    customWageNote?: string | null;
 }
 
 export interface UpdateAssignmentInput {
@@ -25,6 +28,8 @@ export interface UpdateAssignmentInput {
     wageTierId?: number | null;
     dailyWageRate?: number | string | null;
     overtimeRatePerHour?: number | string | null;
+    customWage?: number | string | null;
+    customWageNote?: string | null;
 }
 
 export interface WageTierInput {
@@ -59,6 +64,13 @@ export class EventCrewService {
         if (v == null || v === '') return null;
         const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^\d.]/g, ''));
         return Number.isFinite(n) ? n : null;
+    }
+
+    /** Sama seperti parseRate tapi izinkan negatif (untuk gaji custom +/−). 0 → null. */
+    private parseSigned(v?: number | string | null): number | null {
+        if (v == null || v === '') return null;
+        const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^\d.-]/g, ''));
+        return Number.isFinite(n) && n !== 0 ? n : null;
     }
 
     async listByEvent(eventId: number) {
@@ -105,7 +117,8 @@ export class EventCrewService {
 
     async updateTier(id: number, input: WageTierInput) {
         const data: Record<string, unknown> = {};
-        if (input.name !== undefined) data.name = input.name.trim() || 'Tier';
+        // null/kosong → biarkan nama lama (jangan diubah); string → set nama baru.
+        if (input.name != null && input.name.trim()) data.name = input.name.trim();
         if (input.dailyWageRate !== undefined) data.dailyWageRate = this.parseRate(input.dailyWageRate);
         if (input.overtimeRatePerHour !== undefined) data.overtimeRatePerHour = this.parseRate(input.overtimeRatePerHour);
         if (input.sortOrder !== undefined) data.sortOrder = input.sortOrder;
@@ -149,6 +162,8 @@ export class EventCrewService {
                 wageTierId: input.wageTierId ?? null,
                 dailyWageRate: this.parseRate(input.dailyWageRate),
                 overtimeRatePerHour: this.parseRate(input.overtimeRatePerHour),
+                customWage: this.parseSigned(input.customWage),
+                customWageNote: input.customWageNote?.trim() || null,
                 accessToken: this.genToken(),
             },
             include: {
@@ -206,7 +221,7 @@ export class EventCrewService {
     async createBulk(
         eventId: number,
         workerIds: number[],
-        common: { teamId?: number | null; role?: string | null; scheduledStart?: string | null; scheduledEnd?: string | null; wageTierId?: number | null; dailyWageRate?: number | string | null; overtimeRatePerHour?: number | string | null } = {},
+        common: { teamId?: number | null; role?: string | null; scheduledStart?: string | null; scheduledEnd?: string | null; wageTierId?: number | null; dailyWageRate?: number | string | null; overtimeRatePerHour?: number | string | null; customWage?: number | string | null; customWageNote?: string | null } = {},
     ) {
         if (!eventId || !workerIds.length) {
             throw new BadRequestException('eventId & minimal 1 worker wajib');
@@ -234,6 +249,8 @@ export class EventCrewService {
                     wageTierId: common.wageTierId ?? null,
                     dailyWageRate: this.parseRate(common.dailyWageRate),
                     overtimeRatePerHour: this.parseRate(common.overtimeRatePerHour),
+                    customWage: this.parseSigned(common.customWage),
+                    customWageNote: common.customWageNote?.trim() || null,
                     accessToken: this.genToken(),
                 },
             });
@@ -257,6 +274,8 @@ export class EventCrewService {
         if (input.wageTierId !== undefined) data.wageTierId = input.wageTierId ?? null;
         if (input.dailyWageRate !== undefined) data.dailyWageRate = this.parseRate(input.dailyWageRate);
         if (input.overtimeRatePerHour !== undefined) data.overtimeRatePerHour = this.parseRate(input.overtimeRatePerHour);
+        if (input.customWage !== undefined) data.customWage = this.parseSigned(input.customWage);
+        if (input.customWageNote !== undefined) data.customWageNote = input.customWageNote?.trim() || null;
         return this.prisma.eventCrewAssignment.update({
             where: { id },
             data,

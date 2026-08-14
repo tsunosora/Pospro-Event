@@ -14,6 +14,9 @@ export interface EventCrewAssignment {
     // Override gaji manual per member (menang di atas tier). Null = pakai tier/default.
     dailyWageRate: string | null;
     overtimeRatePerHour: string | null;
+    // Gaji custom (+/−) per member — otomatis ditambahkan tiap hari kerja di event ini.
+    customWage: string | null;
+    customWageNote: string | null;
     startedAt: string | null;
     finishedAt: string | null;
     startPhotoUrl: string | null;
@@ -71,6 +74,8 @@ export const createCrewAssignment = async (
         wageTierId?: number | null;
         dailyWageRate?: number | string | null;
         overtimeRatePerHour?: number | string | null;
+        customWage?: number | string | null;
+        customWageNote?: string | null;
     },
     opts: { notify?: boolean } = {},
 ) => {
@@ -91,6 +96,8 @@ export const createCrewAssignmentsBulk = async (input: {
     wageTierId?: number | null;
     dailyWageRate?: number | string | null;
     overtimeRatePerHour?: number | string | null;
+    customWage?: number | string | null;
+    customWageNote?: string | null;
 }) => (await api.post<{
     created: number;
     skipped: number;
@@ -106,6 +113,8 @@ export const updateCrewAssignment = async (id: number, input: {
     wageTierId?: number | null;
     dailyWageRate?: number | string | null;
     overtimeRatePerHour?: number | string | null;
+    customWage?: number | string | null;
+    customWageNote?: string | null;
 }) => (await api.patch<EventCrewAssignment>(`/event-crew/${id}`, input)).data;
 
 // ── Wage tiers (tarif gaji per event) ──
@@ -123,11 +132,11 @@ export const listWageTiers = async (eventId: number) =>
     (await api.get<EventWageTier[]>(`/event-crew/tiers/by-event/${eventId}`)).data;
 
 export const createWageTier = async (input: {
-    eventId: number; name?: string; dailyWageRate?: number | string | null; overtimeRatePerHour?: number | string | null; sortOrder?: number;
+    eventId: number; name?: string | null; dailyWageRate?: number | string | null; overtimeRatePerHour?: number | string | null; sortOrder?: number;
 }) => (await api.post<EventWageTier>('/event-crew/tiers', input)).data;
 
 export const updateWageTier = async (id: number, input: {
-    name?: string; dailyWageRate?: number | string | null; overtimeRatePerHour?: number | string | null; sortOrder?: number;
+    name?: string | null; dailyWageRate?: number | string | null; overtimeRatePerHour?: number | string | null; sortOrder?: number;
 }) => (await api.patch<EventWageTier>(`/event-crew/tiers/${id}`, input)).data;
 
 export const deleteWageTier = async (id: number) =>
