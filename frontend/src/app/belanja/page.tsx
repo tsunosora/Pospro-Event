@@ -180,6 +180,7 @@ export default function BelanjaPage() {
                       {tagBadge(b)}
                     </div>
                     <div className="text-[11px] text-muted-foreground">
+                      {b.quantity ? `${Number(b.quantity)} ${b.unit ?? ""} · ` : ""}
                       {b.rabItem?.description ? `${b.rabItem.description} · ` : b.rabCategory?.name ? `${b.rabCategory.name} · ` : ""}
                       {b.createdBy?.name ?? ""}
                     </div>

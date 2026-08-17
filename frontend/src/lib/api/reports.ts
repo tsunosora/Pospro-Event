@@ -9,44 +9,10 @@ export const getCashierStats = async (startDate?: string, endDate?: string) => {
     if (endDate) params.append('endDate', endDate);
     return (await api.get(`/transactions/dashboard/cashier-stats?${params.toString()}`)).data;
 };
-export const getSalesSummary = async (startDate?: string, endDate?: string, sortBy: 'qty' | 'revenue' = 'qty', limit: number = 20) => {
-    const params = new URLSearchParams();
-    if (startDate) params.append('startDate', startDate);
-    if (endDate) params.append('endDate', endDate);
-    params.append('sortBy', sortBy);
-    params.append('limit', String(limit));
-    return (await api.get(`/transactions/reports/summary?${params.toString()}`)).data;
-};
-export const getProfitReport = async (startDate?: string, endDate?: string) => {
-    const params = new URLSearchParams();
-    if (startDate) params.append('startDate', startDate);
-    if (endDate) params.append('endDate', endDate);
-    return (await api.get(`/reports/profit?${params.toString()}`)).data;
-};
 
-// Shift Close
+// Shift Close (dipakai POS)
 export const getShiftExpectations = async () => (await api.get('/reports/current-shift')).data;
 export const getStaffList = async () => (await api.get('/reports/staff-list')).data;
 export const closeShift = async (formData: FormData) => (await api.post('/reports/close-shift', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
 })).data;
-
-// Shift History
-export const getShiftHistory = async (page = 1, limit = 20) =>
-    (await api.get(`/reports/shift-history?page=${page}&limit=${limit}`)).data;
-export const amendShiftReport = async (id: number, data: {
-    actualCash?: number;
-    actualQris?: number;
-    actualTransfer?: number;
-    structuredExpenses?: any;
-    kasbon?: any;
-    setorKas?: any;
-    tarikTunai?: any;
-    additionalIncomes?: any;
-    tukarTransferKeCash?: number;
-    paymentExchanges?: any;
-    actualBankBalances?: any;
-    realBankBalances?: any;
-    notes?: string;
-    amendNote: string;
-}) => (await api.patch(`/reports/shift/${id}/amend`, data)).data;

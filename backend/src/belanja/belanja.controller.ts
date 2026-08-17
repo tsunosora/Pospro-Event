@@ -22,7 +22,7 @@ import { extname } from 'path';
 import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { BelanjaService } from './belanja.service';
-import type { CreateBelanjaDto } from './belanja.service';
+import type { CreateBelanjaDto, CreateBelanjaBatchDto } from './belanja.service';
 import { BelanjaPdfService } from './belanja-pdf.service';
 
 interface JwtRequest extends Request {
@@ -104,6 +104,22 @@ export class BelanjaController {
     const u = uid(req);
     if (!u) throw new Error('User context missing');
     return this.service.create(body, u);
+  }
+
+  @Post('batch')
+  createBatch(@Body() body: CreateBelanjaBatchDto, @Req() req: JwtRequest) {
+    const u = uid(req);
+    if (!u) throw new Error('User context missing');
+    return this.service.createBatch(body, u);
+  }
+
+  @Post('group/:groupId/nota')
+  @UseInterceptors(
+    FileInterceptor('file', { storage: notaStorage, fileFilter: notaFilter, limits: { fileSize: 10 * 1024 * 1024 } }),
+  )
+  uploadNotaGroup(@Param('groupId') groupId: string, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('File nota wajib diupload');
+    return this.service.attachNotaGroup(groupId, file.filename);
   }
 
   @Patch(':id')

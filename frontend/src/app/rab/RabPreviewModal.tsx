@@ -473,9 +473,10 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                             <th className="text-right px-2 py-1.5">Qty</th>
                                             <th className="text-right px-2 py-1.5">QtyCost</th>
                                             <th className="text-right px-2 py-1.5">Harga Perkiraan</th>
-                                            <th className="text-right px-2 py-1.5">Harga COST</th>
+                                            <th className="text-right px-2 py-1.5">Modal</th>
                                             <th className="text-right px-2 py-1.5">Sub RAB</th>
-                                            <th className="text-right px-2 py-1.5">Sub COST</th>
+                                            <th className="text-right px-2 py-1.5">Sub Modal</th>
+                                            <th className="text-right px-2 py-1.5">Real (Belanja)</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -487,10 +488,9 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                             const c = Number(it.priceCost) || 0;
                                             const subRab = qRab * r;
                                             const subCost = qCost * c;
-                                            // Real cost dari belanja (total). Masuk ke Harga COST (per-unit); Sub COST ikut jadi total real.
+                                            // Real cost dari belanja (total) — DITAMPILKAN TERPISAH dari Modal (tidak dijumlahkan).
                                             const realTotal = (it.id != null ? realByItem.get(it.id) : undefined) ?? 0;
                                             const hasReal = realTotal > 0;
-                                            const realUnit = hasReal && qCost > 0 ? realTotal / qCost : realTotal;
                                             return (
                                                 <tr key={it.id ?? idx} className={it.isInventory ? "bg-violet-50/60 hover:bg-violet-100/60" : "hover:bg-muted/20"}>
                                                     <td className="px-2 py-1.5 text-muted-foreground">{it.category?.name ?? "—"}</td>
@@ -508,33 +508,21 @@ export function RabPreviewModal({ rabId, onClose }: { rabId: number; onClose: ()
                                                     <td className="px-2 py-1.5 text-right font-mono nums">{qRab}</td>
                                                     <td className="px-2 py-1.5 text-right font-mono nums text-muted-foreground">{qCost}</td>
                                                     <td className="px-2 py-1.5 text-right font-mono nums">{fmtRp(r)}</td>
-                                                    <td className="px-2 py-1.5 text-right font-mono nums">
-                                                        {hasReal ? (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setHistoryItem({ id: it.id as number, name: it.description })}
-                                                                className="font-semibold text-primary hover:underline cursor-pointer"
-                                                                title="Lihat riwayat belanja & bukti"
-                                                            >
-                                                                {fmtRp(c + realUnit)}
-                                                            </button>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">{fmtRp(c)}</span>
-                                                        )}
-                                                    </td>
+                                                    <td className="px-2 py-1.5 text-right font-mono nums text-muted-foreground">{fmtRp(c)}</td>
                                                     <td className="px-2 py-1.5 text-right font-mono nums">{fmtRp(subRab)}</td>
+                                                    <td className="px-2 py-1.5 text-right font-mono nums text-muted-foreground">{fmtRp(subCost)}</td>
                                                     <td className="px-2 py-1.5 text-right font-mono nums">
                                                         {hasReal ? (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setHistoryItem({ id: it.id as number, name: it.description })}
-                                                                className="font-semibold text-primary hover:underline cursor-pointer"
+                                                                className={`font-semibold hover:underline cursor-pointer ${realTotal > subCost ? "text-destructive" : "text-emerald-600"}`}
                                                                 title="Lihat riwayat belanja & bukti"
                                                             >
-                                                                {fmtRp(subCost + realTotal)}
+                                                                {fmtRp(realTotal)}
                                                             </button>
                                                         ) : (
-                                                            <span className="text-muted-foreground">{fmtRp(subCost)}</span>
+                                                            <span className="text-muted-foreground">—</span>
                                                         )}
                                                     </td>
                                                 </tr>

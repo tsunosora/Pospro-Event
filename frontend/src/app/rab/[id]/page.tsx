@@ -53,6 +53,7 @@ import MultiplierCalculator, { type CalcResult } from "../MultiplierCalculator";
 import { ACTIVE_BRANDS, BRAND_META, type Brand } from "@/lib/api/brands";
 import InventoryAcquisitionsSection from "./InventoryAcquisitionsSection";
 import { RabRealisasiSection } from "@/components/RabRealisasiSection";
+import { getRealisasiRab } from "@/lib/api/belanja";
 import { CustomerPickerModal } from "@/components/CustomerPickerModal";
 import { TagChipInput } from "@/components/TagChipInput";
 
@@ -89,6 +90,19 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
         enabled: !isNaN(id),
         refetchInterval: false,
     });
+
+    // Real Cost aktual per item — bersumber dari Belanja Harian (derived), terpisah dari Modal (priceCost).
+    const { data: realisasi } = useQuery({
+        queryKey: ["realisasi-rab", id],
+        queryFn: () => getRealisasiRab(id),
+        enabled: !isNaN(id),
+    });
+    const realByItem = useMemo(
+        () => new Map((realisasi?.perItem ?? []).map((p) => [p.rabItemId, p.real])),
+        [realisasi]
+    );
+    const totalRealCost = realisasi?.totalReal ?? 0;
+    const totalRealExtra = realisasi?.totalExtra ?? 0;
 
     // Kategori RAB dinamis dari DB. includeInactive=true supaya item lama yang
     // pakai kategori non-aktif tetap bisa di-render (label ikut ke-load).
@@ -225,7 +239,8 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
         () => Array.from(categorySubtotals.values()).reduce((a, s) => a + s.cost, 0),
         [categorySubtotals]
     );
-    const totalSelisih = totalRab - totalCost;
+    const totalSelisih = totalRab - totalCost; // Margin Rencana = Jual − Modal
+    const marginAktual = totalRab - totalRealCost; // Margin Aktual = Jual − Real Cost (belanja)
 
     // Hitung cost inventaris (item yang ditandai sebagai aset perusahaan)
     const costInventory = useMemo(() =>
@@ -971,16 +986,40 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                                         </div>
                                                         <div className="mt-2 flex items-baseline justify-between">
                                                             <span className="text-xs text-muted-foreground">
-                                                                Subtotal
+                                                                Subtotal Modal
                                                             </span>
                                                             <span className="font-mono nums font-bold text-warning">
                                                                 {fmtRp(subCost)}
                                                             </span>
                                                         </div>
+                                                        {/* Real Cost aktual (dari Belanja Harian) — terpisah dari Modal */}
+                                                        {it.id && (
+                                                            (() => {
+                                                                const realItem = realByItem.get(it.id) ?? 0;
+                                                                const selisihItem = subCost - realItem;
+                                                                return (
+                                                                    <div className="mt-1.5 pt-1.5 border-t border-warning/20 flex items-baseline justify-between">
+                                                                        <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                                                                            Real Cost (Belanja)
+                                                                        </span>
+                                                                        <span className="text-right">
+                                                                            <span className="font-mono nums font-semibold text-foreground">
+                                                                                {realItem > 0 ? fmtRp(realItem) : "—"}
+                                                                            </span>
+                                                                            {realItem > 0 && (
+                                                                                <span className={`ml-1.5 text-[10px] px-1 py-0.5 rounded ${selisihItem < 0 ? "bg-destructive/15 text-destructive" : "bg-emerald-100 text-emerald-700"}`}>
+                                                                                    {selisihItem < 0 ? "boros " : "hemat "}{fmtRp(Math.abs(selisihItem))}
+                                                                                </span>
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            })()
+                                                        )}
                                                         {Number(it.priceCost) === 0 && Number(it.priceRab) > 0 && (
                                                             <div className="mt-1.5 text-[10px] text-warning bg-warning/10 border border-warning/30 rounded px-1.5 py-1 italic inline-flex items-center gap-1">
                                                                 <AlertTriangle className="h-3 w-3 shrink-0" />
-                                                                Real Cost belum diisi — margin item ini terhitung 100%. Update saat sudah tahu modal aktualnya.
+                                                                Modal (rencana) belum diisi — margin item ini terhitung 100%. Isi perkiraan modalnya.
                                                             </div>
                                                         )}
                                                     </div>
@@ -1115,16 +1154,16 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                             {isMarginFake ? (
                                 <>
                                     <div className="font-bold inline-flex items-center gap-1.5">
-                                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Real Cost belum diisi sama sekali
+                                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Modal (rencana) belum diisi sama sekali
                                     </div>
                                     <p className="text-[11px] mt-1">
-                                        Margin tampil 100% karena <b>Total COST = Rp 0</b>. Ini bukan untung beneran — kamu belum input harga modal item-item. Isi kolom <b>"Harga COST"</b> di tiap item supaya margin akurat.
+                                        Margin tampil 100% karena <b>Total Modal = Rp 0</b>. Ini bukan untung beneran — kamu belum input modal item-item. Isi kolom <b>modal (COST)</b> di tiap item supaya margin akurat. <i>Real cost aktual diisi lewat Belanja Harian (lihat Realisasi).</i>
                                     </p>
                                 </>
                             ) : (
                                 <>
                                     <div className="font-semibold inline-flex items-center gap-1.5">
-                                        <Lightbulb className="h-3.5 w-3.5 shrink-0" /> {missingCostCount} dari {items.length} item belum ada Real Cost
+                                        <Lightbulb className="h-3.5 w-3.5 shrink-0" /> {missingCostCount} dari {items.length} item belum ada Modal (rencana)
                                     </div>
                                     <p className="text-[11px] mt-0.5">
                                         Margin sebagian item dihitung 100% karena cost belum diisi. Margin total <b>kemungkinan over-estimate</b> sampai cost lengkap.
@@ -1179,7 +1218,7 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                     ) : (
                         <>
                             <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Total COST (Biaya Riil)</span>
+                                <span className="text-muted-foreground">Total COST (Modal/Rencana)</span>
                                 <span className="font-mono nums text-muted-foreground">{fmtRp(totalCost)}</span>
                             </div>
                             <div
@@ -1187,17 +1226,41 @@ export default function RabDetailPage({ params }: { params: Promise<{ id: string
                                     totalSelisih >= 0 ? "text-success" : "text-destructive"
                                 }`}
                             >
-                                <span>Selisih (Margin)</span>
+                                <span>Margin Rencana (Jual − Modal)</span>
                                 <span className="font-mono nums">{fmtRp(totalSelisih)}</span>
                             </div>
                         </>
                     )}
+                    {/* Real Cost aktual (Belanja Harian) — terpisah dari Modal (rencana) */}
+                    <div className="mt-1 pt-2 border-t border-dashed space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Total Real Cost (Belanja)</span>
+                            <span className="font-mono nums text-muted-foreground">
+                                {fmtRp(totalRealCost)}
+                                {totalRealExtra > 0 && (
+                                    <span className="text-[10px]"> · incl {fmtRp(totalRealExtra)} di luar modal</span>
+                                )}
+                            </span>
+                        </div>
+                        <div
+                            className={`flex items-center justify-between text-sm font-semibold ${
+                                marginAktual >= 0 ? "text-success" : "text-destructive"
+                            }`}
+                            title="Margin aktual = Jual − Real Cost (belanja harian)"
+                        >
+                            <span>Margin Aktual (Jual − Real)</span>
+                            <span className="font-mono nums">{fmtRp(marginAktual)}</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground italic">
+                            Modal = rencana (dari pengajuan). Real Cost = belanja harian aktual. Keduanya terpisah.
+                        </div>
+                    </div>
                     <div
                         className={`flex items-center justify-between pt-2 border-t text-base font-bold ${
                             saldo >= 0 ? "text-success" : "text-destructive"
                         }`}
                     >
-                        <span>Saldo (Pendapatan − COST)</span>
+                        <span>Saldo (Pendapatan − Modal)</span>
                         <span className="font-mono nums">{fmtRp(saldo)}</span>
                     </div>
                 </div>

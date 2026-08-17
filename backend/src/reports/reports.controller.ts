@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, UseInterceptors, UploadedFiles, Query, Param, ParseIntPipe, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ReportsService } from './reports.service';
 import { diskStorage } from 'multer';
@@ -51,11 +51,6 @@ export class ReportsController {
     @Get('current-shift')
     async getCurrentShift() {
         return this.reportsService.calculateCurrentShiftExpectations();
-    }
-
-    @Get('profit')
-    async getProfitReport(@Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
-        return this.reportsService.getProfitReport(startDate, endDate);
     }
 
     // Endpoint untuk dropdown daftar staff/kasir
@@ -114,35 +109,5 @@ export class ReportsController {
         }
 
         return this.reportsService.closeShift(dto, uploadedPaths);
-    }
-
-    @Get('shift-history')
-    async getShiftHistory(
-        @Query('page') page?: string,
-        @Query('limit') limit?: string,
-    ) {
-        return this.reportsService.getShiftHistory(Number(page || 1), Number(limit || 20));
-    }
-
-    @Patch('shift/:id/amend')
-    async amendShiftReport(
-        @Param('id', ParseIntPipe) id: number,
-        @Body() body: {
-            actualCash?: number;
-            actualQris?: number;
-            actualTransfer?: number;
-            structuredExpenses?: any;
-            kasbon?: any;
-            setorKas?: any;
-            tarikTunai?: any;
-            additionalIncomes?: any;
-            notes?: string;
-            amendNote: string;
-        },
-    ) {
-        if (!body.amendNote || !body.amendNote.trim()) {
-            throw new BadRequestException('Catatan alasan koreksi wajib diisi.');
-        }
-        return this.reportsService.amendShiftReport(id, body);
     }
 }

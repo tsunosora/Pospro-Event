@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
     Store, CreditCard, Users, Settings, Building2, Paintbrush,
-    HardDrive, Bell, Palette, Tags, Warehouse, HardHat, KeyRound, MapPin,
-    Boxes, Building, FileText, Hash, Search, ChevronRight, ChevronLeft,
+    HardDrive, Bell, Tags, Warehouse, HardHat, KeyRound, MapPin,
+    Boxes, Building, FileText, Hash, Search, ChevronRight, ChevronLeft, ChevronDown,
     Wallet, Package, CalendarDays,
 } from "lucide-react";
 import Link from "next/link";
@@ -44,7 +44,6 @@ const NAV_GROUPS: Array<{
             items: [
                 { href: "/settings/users", icon: Users, label: "Manajemen Staf", desc: "Akun login admin" },
                 { href: "/settings/workers", icon: HardHat, label: "Pekerja/Tukang", desc: "Marketing, Tukang, Crew" },
-                { href: "/settings/designers", icon: Palette, label: "Kelola Desainer", desc: "Designer untuk SO" },
             ],
         },
         {
@@ -86,6 +85,16 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     const isAtRoot = pathname === "/settings" || pathname === "/settings/";
 
     const activeLink = ALL_LINKS.find((l) => pathname === l.href || pathname.startsWith(l.href + "/"));
+
+    // Accordion: hanya satu grup terbuka (default = grup aktif). Search membuka semua yang cocok.
+    const activeGroupLabel = NAV_GROUPS.find((g) =>
+        g.items.some((it) => pathname === it.href || pathname.startsWith(it.href + "/"))
+    )?.label ?? null;
+    const [openGroup, setOpenGroup] = useState<string | null>(activeGroupLabel);
+    useEffect(() => {
+        setOpenGroup(activeGroupLabel);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pathname]);
 
     const filteredGroups = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -224,34 +233,46 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                             Tidak ada pengaturan yang cocok
                         </div>
                     ) : (
-                        filteredGroups.map((g) => (
-                            <div key={g.label} className="mb-3">
-                                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 flex items-center gap-1.5">
-                                    <g.icon className="w-3 h-3 shrink-0" />
-                                    {g.label}
+                        filteredGroups.map((g) => {
+                            const isOpen = !!search || openGroup === g.label;
+                            const hasActive = g.items.some((it) => pathname === it.href || pathname.startsWith(it.href + "/"));
+                            return (
+                                <div key={g.label} className="mb-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setOpenGroup((cur) => (cur === g.label ? null : g.label))}
+                                        aria-expanded={isOpen}
+                                        className={`w-full flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors ${hasActive ? "text-primary" : "text-muted-foreground/80 hover:text-foreground hover:bg-muted/50"}`}
+                                    >
+                                        <g.icon className="w-3 h-3 shrink-0" />
+                                        <span className="flex-1 text-left">{g.label}</span>
+                                        {isOpen ? <ChevronDown className="h-3 w-3 opacity-60" /> : <ChevronRight className="h-3 w-3 opacity-60" />}
+                                    </button>
+                                    {isOpen && (
+                                        <div className="space-y-0.5 mt-0.5">
+                                            {g.items.map(({ href, icon: Icon, label, desc }) => {
+                                                const isActive =
+                                                    pathname === href || pathname.startsWith(href + "/");
+                                                return (
+                                                    <Link
+                                                        key={href}
+                                                        href={href}
+                                                        title={desc ? `${label} — ${desc}` : label}
+                                                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all ${isActive
+                                                            ? "bg-primary/10 text-primary font-semibold border border-primary/30"
+                                                            : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
+                                                            }`}
+                                                    >
+                                                        <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-primary" : ""}`} />
+                                                        <span className="text-sm truncate">{label}</span>
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="space-y-0.5">
-                                    {g.items.map(({ href, icon: Icon, label, desc }) => {
-                                        const isActive =
-                                            pathname === href || pathname.startsWith(href + "/");
-                                        return (
-                                            <Link
-                                                key={href}
-                                                href={href}
-                                                title={desc ? `${label} — ${desc}` : label}
-                                                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all ${isActive
-                                                    ? "bg-primary/10 text-primary font-semibold border border-primary/30"
-                                                    : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
-                                                    }`}
-                                            >
-                                                <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-primary" : ""}`} />
-                                                <span className="text-sm truncate">{label}</span>
-                                            </Link>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </nav>
             </div>

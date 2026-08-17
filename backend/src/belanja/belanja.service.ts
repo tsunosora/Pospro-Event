@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreateBelanjaDto {
   amount: number;
+  quantity?: number | null;
+  unit?: string | null;
   description: string;
   spentAt?: string;
   eventId?: number | null;
@@ -12,6 +14,25 @@ export interface CreateBelanjaDto {
   category?: string | null;
   menuPlanId?: number | null; // tag ke rencana menu makan (real cost)
   attributeToUserId?: number | null; // opsi: atribusikan ke admin lain (default = user token)
+}
+
+export interface BelanjaBatchItemDto {
+  amount: number;
+  quantity?: number | null;
+  unit?: string | null;
+  description: string;
+  eventId?: number | null;
+  rabPlanId?: number | null;
+  rabCategoryId?: number | null;
+  rabItemId?: number | null;
+  category?: string | null;
+  menuPlanId?: number | null;
+}
+
+export interface CreateBelanjaBatchDto {
+  spentAt?: string;
+  attributeToUserId?: number | null;
+  items: BelanjaBatchItemDto[];
 }
 
 const INCLUDE = {
@@ -117,6 +138,8 @@ export class BelanjaService {
       return tx.belanja.create({
         data: {
           amount: dto.amount,
+          quantity: dto.quantity ?? null,
+          unit: dto.unit?.trim() || null,
           description,
           spentAt,
           eventId: f.eventId,
@@ -131,6 +154,77 @@ export class BelanjaService {
         include: INCLUDE,
       });
     });
+  }
+
+  /** Satu nota banyak item: buat N Belanja berbagi notaGroupId (nota sama), tiap baris punya tag/real-cost sendiri. */
+  async createBatch(dto: CreateBelanjaBatchDto, tokenUserId: number) {
+    if (!dto.items?.length) throw new BadRequestException('Minimal satu item belanja');
+    const userId = dto.attributeToUserId || tokenUserId;
+    const spentAt = dto.spentAt ? new Date(dto.spentAt) : new Date();
+    const notaGroupId = `nota-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+
+    // Validasi + resolve tag tiap baris (di luar transaksi)
+    const resolved: { amount: number; quantity: number | null; unit: string | null; description: string; f: Awaited<ReturnType<BelanjaService['resolveFields']>> }[] = [];
+    for (const it of dto.items) {
+      if (!it.description?.trim()) throw new BadRequestException('Deskripsi tiap item wajib diisi');
+      if (!(Number(it.amount) > 0)) throw new BadRequestException('Nominal tiap item harus > 0');
+      const f = await this.resolveFields(it as CreateBelanjaDto);
+      resolved.push({
+        amount: it.amount,
+        quantity: it.quantity ?? null,
+        unit: it.unit?.trim() || null,
+        description: it.description.trim(),
+        f,
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const belanja = [] as any[];
+      for (const r of resolved) {
+        const cf = await tx.cashflow.create({
+          data: {
+            type: 'EXPENSE',
+            category: r.f.cashflowCategory,
+            amount: r.amount,
+            note: r.description,
+            userId,
+            date: spentAt,
+            eventId: r.f.eventId,
+            rabPlanId: r.f.rabPlanId,
+            excludeFromShift: true,
+          },
+        });
+        const b = await tx.belanja.create({
+          data: {
+            amount: r.amount,
+            quantity: r.quantity,
+            unit: r.unit,
+            description: r.description,
+            spentAt,
+            eventId: r.f.eventId,
+            rabPlanId: r.f.rabPlanId,
+            rabCategoryId: r.f.rabCategoryId,
+            rabItemId: r.f.rabItemId,
+            category: r.f.category,
+            menuPlanId: r.f.menuPlanId,
+            cashflowId: cf.id,
+            notaGroupId,
+            createdById: userId,
+          },
+          include: INCLUDE,
+        });
+        belanja.push(b);
+      }
+      return { notaGroupId, belanja };
+    });
+  }
+
+  /** Lampirkan 1 nota ke semua baris dalam grup (nota sama untuk banyak item). */
+  async attachNotaGroup(notaGroupId: string, filename: string) {
+    const url = `/uploads/belanja/${filename}`;
+    const res = await this.prisma.belanja.updateMany({ where: { notaGroupId }, data: { notaUrl: url } });
+    if (res.count === 0) throw new NotFoundException('Grup belanja tidak ditemukan');
+    return { ok: true, updated: res.count, notaUrl: url };
   }
 
   async update(id: number, dto: CreateBelanjaDto, tokenUserId: number) {
@@ -164,6 +258,8 @@ export class BelanjaService {
         where: { id },
         data: {
           amount: dto.amount,
+          quantity: dto.quantity ?? null,
+          unit: dto.unit?.trim() || null,
           description,
           spentAt,
           eventId: f.eventId,
@@ -210,7 +306,13 @@ export class BelanjaService {
     return Array.from(byDay.values());
   }
 
-  /** Realisasi RAB: rencana (RabItem quantityCost×priceCost) vs real (belanja ber-rabPlanId) per pos kategori. */
+  /**
+   * Realisasi RAB: Modal/Rencana (RabItem quantityCost×priceCost, dari pengajuan) vs
+   * Real (belanja harian ber-rabPlanId). `priceCost` = MODAL/RENCANA; real cost = belanja.
+   * - `perItem`: SEMUA item modal (termasuk yang belum dibeli, real=0) + status hemat/boros/belum.
+   * - `extra`: belanja "di luar modal" (rabItemId null) — item tambahan saat belanja.
+   * - `pos`: agregasi per kategori (kompat lama, dipakai dropdown pos).
+   */
   async realisasiRab(rabPlanId: number) {
     const items = await this.prisma.rabItem.findMany({
       where: { rabPlanId },
@@ -220,6 +322,8 @@ export class BelanjaService {
       const exists = await this.prisma.rabPlan.findUnique({ where: { id: rabPlanId }, select: { id: true } });
       if (!exists) throw new NotFoundException('RAB tidak ditemukan');
     }
+
+    // ── Per kategori (pos) — dipertahankan untuk dropdown & kompat ──
     const planByCat = new Map<number, { categoryId: number; name: string; rencana: number }>();
     for (const it of items) {
       const cost = Number(it.quantityCost) * Number(it.priceCost);
@@ -230,33 +334,75 @@ export class BelanjaService {
     const realRows = await this.prisma.belanja.groupBy({ by: ['rabCategoryId'], where: { rabPlanId }, _sum: { amount: true } });
     const realByCat = new Map<number | null, number>();
     for (const r of realRows) realByCat.set(r.rabCategoryId, Number(r._sum.amount ?? 0));
-
     const pos = Array.from(planByCat.values()).map((p) => {
       const real = realByCat.get(p.categoryId) ?? 0;
       return { ...p, real, selisih: p.rencana - real, overspend: real > p.rencana };
     });
-    const tanpaPos = realByCat.get(null) ?? 0; // belanja RAB ini tanpa pilih pos
-    const totalRencana = pos.reduce((a, p) => a + p.rencana, 0);
-    const totalReal = Array.from(realByCat.values()).reduce((a, v) => a + v, 0);
+    const tanpaPos = realByCat.get(null) ?? 0;
 
-    // Rincian realisasi per item RAB (hanya item yang sudah ada belanjanya)
+    // ── Real per item modal (rabItemId) ──
     const realByItemRows = await this.prisma.belanja.groupBy({
       by: ['rabItemId'],
       where: { rabPlanId, rabItemId: { not: null } },
       _sum: { amount: true },
     });
-    const planByItem = new Map<number, { description: string; rencana: number }>();
-    for (const it of items) planByItem.set(it.id, { description: it.description, rencana: Number(it.quantityCost) * Number(it.priceCost) });
-    const perItem = realByItemRows
-      .map((r) => {
-        const id = r.rabItemId as number;
-        const info = planByItem.get(id);
-        const real = Number(r._sum.amount ?? 0);
-        const rencana = info?.rencana ?? 0;
-        return { rabItemId: id, description: info?.description ?? `Item #${id}`, rencana, real, selisih: rencana - real, overspend: real > rencana };
-      })
-      .sort((a, b) => b.real - a.real);
+    const realByItem = new Map<number, number>();
+    for (const r of realByItemRows) realByItem.set(r.rabItemId as number, Number(r._sum.amount ?? 0));
 
-    return { pos, perItem, tanpaPos, totalRencana, totalReal, selisih: totalRencana - totalReal };
+    // Semua item modal (termasuk yang belum dibeli). status: belum | hemat | boros | pas
+    const perItem = items
+      .map((it) => {
+        const modal = Number(it.quantityCost) * Number(it.priceCost);
+        const real = realByItem.get(it.id) ?? 0;
+        const selisih = modal - real;
+        const status = real === 0 ? 'belum' : real < modal ? 'hemat' : real > modal ? 'boros' : 'pas';
+        return {
+          rabItemId: it.id,
+          description: it.description,
+          categoryName: it.category.name,
+          modal,
+          rencana: modal, // alias kompat
+          real,
+          selisih,
+          overspend: real > modal,
+          status,
+        };
+      })
+      .sort((a, b) => b.modal - a.modal);
+
+    // ── Belanja di luar modal (rabItemId null) — item tambahan saat belanja ──
+    const extraRows = await this.prisma.belanja.findMany({
+      where: { rabPlanId, rabItemId: null },
+      select: { description: true, amount: true, rabCategory: { select: { name: true } } },
+    });
+    const extraMap = new Map<string, { description: string; categoryName: string | null; real: number; count: number }>();
+    for (const b of extraRows) {
+      const desc = (b.description || 'Lainnya').trim();
+      const key = desc.toLowerCase();
+      const cur = extraMap.get(key) ?? { description: desc, categoryName: b.rabCategory?.name ?? null, real: 0, count: 0 };
+      cur.real += Number(b.amount);
+      cur.count += 1;
+      extraMap.set(key, cur);
+    }
+    const extra = Array.from(extraMap.values()).sort((a, b) => b.real - a.real);
+
+    // ── Total ──
+    const totalModal = perItem.reduce((a, p) => a + p.modal, 0);
+    const totalRealMatched = perItem.reduce((a, p) => a + p.real, 0);
+    const totalExtra = extra.reduce((a, e) => a + e.real, 0);
+    const totalReal = totalRealMatched + totalExtra;
+
+    return {
+      pos,
+      perItem,
+      extra,
+      tanpaPos,
+      totalModal,
+      totalExtra,
+      totalRealMatched,
+      totalRencana: totalModal, // alias kompat
+      totalReal,
+      selisih: totalModal - totalReal,
+    };
   }
 }

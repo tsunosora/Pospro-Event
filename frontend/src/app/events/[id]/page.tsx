@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
     ArrowLeft, CalendarDays, Edit, Loader2, MapPin, Package,
-    User as UserIcon, Boxes, Share2, FileDown, Send, Copy, RefreshCw,
+    User as UserIcon, Boxes, Share2, FileDown, Send, Copy, RefreshCw, FileText,
 } from "lucide-react";
 import {
     getEvent, getEventSummary, createEventShare, regenerateEventShare,
@@ -130,6 +130,12 @@ export default function EventDetailPage() {
                     >
                         <FileDown className="h-3.5 w-3.5" /> PDF
                     </a>
+                    <Link
+                        href={`/pengajuan?eventId=${id}`}
+                        className="inline-flex items-center gap-1.5 border px-3 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                    >
+                        <FileText className="h-3.5 w-3.5" /> Pengajuan
+                    </Link>
                     <Link
                         href={`/events/${id}/edit`}
                         className="inline-flex items-center gap-1.5 border px-3 py-1.5 rounded text-sm hover:bg-muted transition-colors"

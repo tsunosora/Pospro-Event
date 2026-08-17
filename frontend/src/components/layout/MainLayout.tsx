@@ -31,9 +31,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     const isLoginPage = pathname === "/login";
     const isOpnamePage = pathname.startsWith("/opname/");
     const isProduksiPage = pathname.startsWith("/produksi");
-    const isCetakPage = pathname.startsWith("/cetak");
     const isPublicProductPage = pathname.startsWith("/p/");
-    const isDesignerPortal = pathname.startsWith("/so-designer");
     const isKioskPage = pathname.startsWith("/gudang/ambil") || pathname.startsWith("/gudang/stok");
     const isSharePage = pathname.startsWith("/share/");
     const isPublicPage = pathname.startsWith("/public/");
@@ -41,7 +39,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     const isJadwalPage = pathname.startsWith("/jadwal");
     const isVotePage = pathname.startsWith("/vote");
 
-    if (isLoginPage || isOpnamePage || isProduksiPage || isCetakPage || isPublicProductPage || isDesignerPortal || isKioskPage || isSharePage || isPublicPage || isPicAttendancePage || isJadwalPage || isVotePage) {
+    if (isLoginPage || isOpnamePage || isProduksiPage || isPublicProductPage || isKioskPage || isSharePage || isPublicPage || isPicAttendancePage || isJadwalPage || isVotePage) {
         return <>{children}</>;
     }
 

@@ -7,7 +7,7 @@ import { mapTransactionToReceipt, handlePrintSnap, handleShareWA } from '@/lib/r
 import { CreditCard, Banknote, Landmark, Wallet, CheckCircle2, X, Printer, MessageCircle, PenSquare, Search, PlusCircle, AlertTriangle } from "lucide-react";
 import dayjs from "dayjs";
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import EditTransactionModal from '@/app/reports/sales/EditTransactionModal';
+import EditTransactionModal from '@/app/transactions/EditTransactionModal';
 import { DateRangeFilter, presetToRange, type DateRange } from '@/components/DateRangeFilter';
 
 export default function DPTransactionsPage() {

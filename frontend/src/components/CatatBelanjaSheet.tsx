@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { X, ShoppingCart, Loader2, Camera, Users } from "lucide-react";
-import { createBelanja, updateBelanja, uploadBelanjaNota, getKasSummary, getRealisasiRab, type BelanjaRow } from "@/lib/api/belanja";
+import { X, ShoppingCart, Loader2, Camera, Users, Plus, Trash2 } from "lucide-react";
+import { createBelanja, updateBelanja, uploadBelanjaNota, createBelanjaBatch, uploadBelanjaGroupNota, getKasSummary, getRealisasiRab, type BelanjaRow } from "@/lib/api/belanja";
 import { getRab, getRabList } from "@/lib/api/rab";
 import { getUsers } from "@/lib/api/settings";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -43,6 +43,18 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, de
   const [file, setFile] = useState<File | null>(null);
   const [attributeToUserId, setAttributeToUserId] = useState<number | "">(editing?.createdBy?.id ?? "");
   const [error, setError] = useState<string | null>(null);
+
+  // Mode "satu nota banyak item" (hanya saat create, non-menu)
+  type MultiRow = { description: string; quantity: number; unit: string; unitPrice: number; rabItemId: number | ""; rabCategoryId: number | ""; category: string };
+  const emptyRow = (): MultiRow => ({ description: "", quantity: 1, unit: "", unitPrice: 0, rabItemId: "", rabCategoryId: "", category: "" });
+  const rowSubtotal = (r: MultiRow) => (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0);
+  const [multi, setMulti] = useState(false);
+  const [rows, setRows] = useState<MultiRow[]>([emptyRow(), emptyRow()]);
+  const updateRow = (i: number, patch: Partial<MultiRow>) =>
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const addRow = () => setRows((prev) => [...prev, emptyRow()]);
+  const removeRow = (i: number) => setRows((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
+  const rowsTotal = rows.reduce((a, r) => a + rowSubtotal(r), 0);
 
   const { data: summary } = useQuery({ queryKey: ["kas-summary", null], queryFn: () => getKasSummary(), enabled: open });
   const { data: users = [] } = useQuery<UserOpt[]>({ queryKey: ["users"], queryFn: getUsers, staleTime: 5 * 60 * 1000 });
@@ -92,6 +104,37 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, de
 
   const saveMut = useMutation({
     mutationFn: async () => {
+      // Mode multi-item: satu nota banyak baris
+      if (multi && !isEdit) {
+        const rabPid = tagMode === "rab" && rabPlanId !== "" ? Number(rabPlanId) : null;
+        const items = rows
+          .filter((r) => rowSubtotal(r) > 0 && r.description.trim())
+          .map((r) => ({
+            amount: rowSubtotal(r),
+            quantity: Number(r.quantity) || null,
+            unit: r.unit.trim() || null,
+            description: r.description.trim(),
+            rabPlanId: rabPid,
+            rabItemId: tagMode === "rab" && r.rabItemId !== "" ? Number(r.rabItemId) : null,
+            rabCategoryId: tagMode === "rab" && r.rabCategoryId !== "" ? Number(r.rabCategoryId) : null,
+            category: tagMode === "lain" ? r.category || null : null,
+            menuPlanId: defaultMenuPlanId ?? null,
+          }));
+        const res = await createBelanjaBatch({
+          spentAt,
+          attributeToUserId: attributeToUserId === "" ? null : Number(attributeToUserId),
+          items,
+        });
+        if (file && res?.notaGroupId) {
+          try {
+            await uploadBelanjaGroupNota(res.notaGroupId, file);
+          } catch {
+            /* nota gagal upload — belanja tetap tersimpan */
+          }
+        }
+        return res;
+      }
+
       const payload = {
         amount,
         description,
@@ -128,6 +171,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, de
       setRabItemId("");
       setCustomItem(false);
       setCategory("");
+      setRows([emptyRow(), emptyRow()]);
       setFile(null);
       onSaved?.();
       onClose();
@@ -140,6 +184,13 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, de
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (multi && !isEdit) {
+      if (tagMode === "rab" && !rabPlanId) return setError("Pilih RAB proyek, atau ganti ke Keperluan Lain");
+      const valid = rows.filter((r) => rowSubtotal(r) > 0 && r.description.trim());
+      if (!valid.length) return setError("Isi minimal satu baris (item, jumlah, harga)");
+      saveMut.mutate();
+      return;
+    }
     if (!(amount > 0)) return setError("Nominal harus lebih dari 0");
     if (tagMode === "rab" && !rabPlanId) return setError("Pilih RAB proyek, atau ganti ke Keperluan Lain");
     if (!description.trim()) return setError("Pilih item RAB atau isi deskripsi belanja");
@@ -172,19 +223,29 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, de
         <form onSubmit={submit} className="p-4 space-y-3">
           {error && <div className="p-2.5 bg-destructive/15 text-destructive rounded text-sm">{error}</div>}
 
-          {/* Nominal besar */}
-          <div>
-            <label className="text-xs font-medium">Nominal *</label>
-            <input
-              type="number"
-              inputMode="numeric"
-              value={amount || ""}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              className="w-full border border-border bg-background rounded-lg px-3 py-2.5 text-3xl font-bold mt-0.5"
-              placeholder="0"
-              autoFocus
-            />
-          </div>
+          {/* Toggle: satu nota banyak item */}
+          {!isEdit && !forMenu && (
+            <label className="flex items-center gap-2 text-sm p-2 rounded border border-border bg-muted/30 cursor-pointer">
+              <input type="checkbox" checked={multi} onChange={(e) => setMulti(e.target.checked)} />
+              <span>Satu nota banyak item (rincian per item)</span>
+            </label>
+          )}
+
+          {/* Nominal besar (mode tunggal) */}
+          {!multi && (
+            <div>
+              <label className="text-xs font-medium">Nominal *</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={amount || ""}
+                onChange={(e) => setAmount(Number(e.target.value))}
+                className="w-full border border-border bg-background rounded-lg px-3 py-2.5 text-3xl font-bold mt-0.5"
+                placeholder="0"
+                autoFocus
+              />
+            </div>
+          )}
 
           {forMenu && (
             <div className="p-2.5 rounded bg-primary/10 border border-primary/30 text-xs text-primary flex items-center gap-1.5">
@@ -238,7 +299,8 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, de
             </div>
           )}
 
-          {/* Untuk apa? — dropdown item RAB atau custom */}
+          {/* Untuk apa? — dropdown item RAB atau custom (mode tunggal) */}
+          {!multi && (
           <div>
             <label className="text-xs font-medium">Untuk apa? *</label>
             {showItemPicker ? (
@@ -278,8 +340,106 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, de
               </div>
             )}
           </div>
+          )}
 
-          {tagMode === "rab" && !!rabPlanId && posOptions.length > 0 && (
+          {/* Rincian item (mode satu nota banyak item) */}
+          {multi && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium">Rincian item nota</label>
+                <span className="text-xs text-muted-foreground">Total: <b>{rp(rowsTotal)}</b></span>
+              </div>
+              {rows.map((r, i) => (
+                <div key={i} className="rounded border border-border p-2 space-y-1.5 bg-muted/20">
+                  <div className="flex gap-1.5">
+                    {tagMode === "rab" && rabItems.length > 0 && (
+                      <select
+                        value={r.rabItemId}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "") return updateRow(i, { rabItemId: "", rabCategoryId: "" });
+                          if (val === "__custom__") return updateRow(i, { rabItemId: "", description: "" });
+                          const item = rabItems.find((x) => x.id === Number(val));
+                          if (item) updateRow(i, { rabItemId: item.id ?? "", description: item.description, unit: item.unit ?? "", rabCategoryId: item.categoryId ?? "" });
+                        }}
+                        className="flex-1 min-w-0 border border-border bg-background rounded px-2 py-1.5 text-sm"
+                      >
+                        <option value="">— pilih item / ketik —</option>
+                        {rabItems.map((it) => (
+                          <option key={it.id} value={it.id}>{it.description}</option>
+                        ))}
+                        <option value="__custom__">✏️ ketik manual…</option>
+                      </select>
+                    )}
+                    <input
+                      value={r.description}
+                      onChange={(e) => updateRow(i, { description: e.target.value })}
+                      className="flex-1 min-w-0 border border-border bg-background rounded px-2 py-1.5 text-sm"
+                      placeholder="nama item"
+                    />
+                  </div>
+                  <div className="flex gap-1.5 items-center">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={r.quantity || ""}
+                      onChange={(e) => updateRow(i, { quantity: Number(e.target.value) })}
+                      className="w-14 shrink-0 border border-border bg-background rounded px-2 py-1.5 text-sm text-right"
+                      placeholder="qty"
+                      title="Jumlah"
+                    />
+                    <input
+                      value={r.unit}
+                      onChange={(e) => updateRow(i, { unit: e.target.value })}
+                      className="w-16 shrink-0 border border-border bg-background rounded px-2 py-1.5 text-sm"
+                      placeholder="unit"
+                      title="Satuan (mengikuti item RAB)"
+                    />
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={r.unitPrice || ""}
+                      onChange={(e) => updateRow(i, { unitPrice: Number(e.target.value) })}
+                      className="flex-1 min-w-0 border border-border bg-background rounded px-2 py-1.5 text-sm font-semibold"
+                      placeholder="harga satuan"
+                      title="Harga per unit"
+                    />
+                    {tagMode === "rab" && posOptions.length > 0 && (
+                      <select
+                        value={r.rabCategoryId}
+                        onChange={(e) => updateRow(i, { rabCategoryId: e.target.value === "" ? "" : Number(e.target.value) })}
+                        className="border border-border bg-background rounded px-2 py-1.5 text-sm max-w-[8rem]"
+                      >
+                        <option value="">pos…</option>
+                        {posOptions.map((p) => (
+                          <option key={p.categoryId} value={p.categoryId}>{p.name}</option>
+                        ))}
+                      </select>
+                    )}
+                    {tagMode === "lain" && (
+                      <input
+                        value={r.category}
+                        onChange={(e) => updateRow(i, { category: e.target.value })}
+                        className="border border-border bg-background rounded px-2 py-1.5 text-sm w-28"
+                        placeholder="kategori"
+                      />
+                    )}
+                    <button type="button" onClick={() => removeRow(i)} className="p-1.5 rounded hover:bg-destructive/15 text-destructive shrink-0" title="Hapus baris">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="text-right text-[11px] text-muted-foreground">
+                    Subtotal: <b className="text-foreground">{rp(rowSubtotal(r))}</b>
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={addRow} className="text-sm text-primary hover:underline inline-flex items-center gap-1">
+                <Plus className="h-4 w-4" /> Tambah baris
+              </button>
+            </div>
+          )}
+
+          {!multi && tagMode === "rab" && !!rabPlanId && posOptions.length > 0 && (
             <div>
               <label className="text-xs font-medium">Pos Anggaran (opsional)</label>
               <select
@@ -297,7 +457,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, de
             </div>
           )}
 
-          {tagMode === "lain" && (
+          {!multi && tagMode === "lain" && (
             <div>
               <label className="text-xs font-medium">Kategori</label>
               <input
@@ -367,7 +527,7 @@ export function CatatBelanjaSheet({ open, onClose, onSaved, defaultRabPlanId, de
               disabled={saveMut.isPending}
               className="px-4 py-1.5 rounded text-sm bg-primary text-primary-foreground hover:opacity-90 flex items-center gap-1.5 disabled:opacity-60"
             >
-              {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Simpan
+              {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />} {multi && !isEdit ? "Simpan semua" : "Simpan"}
             </button>
           </div>
         </form>

@@ -13,7 +13,17 @@ const AdmZip = require('adm-zip');
 // PENTING: nama harus sesuai Prisma accessor (singular camelCase)
 //
 // CHANGELOG:
-// v2.23 (current) — Kas Belanja: 2 tabel baru terdaftar penuh.
+// v2.24 (current) — Gaji custom + fix cakupan Menu Makan.
+//   - NEW TABLE CustomWagePreset (custom_wage_presets) — library nominal gaji custom (+/−)
+//     siap-pakai. Terdaftar di grup 'workers' + RESTORE_ORDER (no FK, restore kapan saja).
+//   - FIX: 7 tabel Menu Makan yang TERLEWAT sejak fitur dibuat kini di-backup:
+//     menuMakan, menuMakanBahan, menuVoteSession, menuVoteCandidate, menuVoteBallot,
+//     menuMakanPlan, menuMakanSetting. Ditambahkan grup 'menuMakan' + RESTORE_ORDER
+//     sebelum 'belanja' (Belanja.menuPlanId → menuMakanPlan).
+//   - Kolom baru di tabel existing (attendance.custom_wage/note, eventCrewAssignment.custom_wage/note,
+//     eventWageTier.name) otomatis ter-backup (findMany tanpa select). Total tabel schema kini 82,
+//     semua terdaftar.
+// v2.23 — Kas Belanja: 2 tabel baru terdaftar penuh.
 //   - NEW TABLE PenerimaanDana (penerimaan_dana) — kas masuk untuk belanja operasional.
 //   - NEW TABLE Belanja (belanja) — pembelanjaan harian, tag ke RAB/item (real cost),
 //     link cashflowId. FK: event, rabPlan, rabCategory, rabItem, cashflow, user (createdBy).
@@ -272,6 +282,17 @@ export const BACKUP_GROUPS = {
         // belanja: tag event/RAB (real cost) + link cashflowId; penerimaanDana: kas masuk per admin
         tables: ['penerimaanDana', 'belanja'],
     },
+    menuMakan: {
+        label: 'Menu Makan (Resep, Voting & Plan)',
+        // menuMakan: resep + bahan; voteSession/candidate/ballot: voting menu; plan: rencana makan
+        // (real cost via Belanja.menuPlanId); setting: konfigurasi single-row.
+        tables: ['menuMakan', 'menuMakanBahan', 'menuVoteSession', 'menuVoteCandidate', 'menuVoteBallot', 'menuMakanPlan', 'menuMakanSetting'],
+    },
+    pengajuan: {
+        label: 'Pengajuan (Pra-RAB)',
+        // pengajuan: header usulan per event; pengajuanItem: item + status approval, link convertedRabItemId → rabItem
+        tables: ['pengajuan', 'pengajuanItem'],
+    },
 } as const;
 
 export type BackupGroupKey = keyof typeof BACKUP_GROUPS;
@@ -322,8 +343,18 @@ const RESTORE_ORDER = [
     'attendance',                               // → setelah worker (FK ke worker via workerId & recordedByPicId, optional eventId)
     'payrollAdjustment',                        // → setelah worker (FK ke worker)
     'attendanceAuditLog',                       // → setelah attendance (FK optional ke attendance)
+    // ── Menu Makan (harus sebelum belanja: Belanja.menuPlanId → menuMakanPlan) ──
+    'menuMakan',                                // → setelah user (FK createdById)
+    'menuMakanBahan',                           // → setelah menuMakan (FK menuId, Cascade)
+    'menuVoteSession',                          // → setelah user; winnerMenuId scalar (tanpa FK)
+    'menuVoteCandidate',                        // → setelah menuVoteSession & menuMakan
+    'menuVoteBallot',                           // → setelah menuVoteSession & menuMakan
+    'menuMakanPlan',                            // → setelah menuMakan, menuVoteSession (opsional), user
+    'menuMakanSetting',                         // single-row; FK updatedById opsional ke user
     'penerimaanDana',                           // → setelah user
-    'belanja',                                  // → setelah event, rabPlan, rabCategory, cashflow, user
+    'belanja',                                  // → setelah event, rabPlan, rabCategory, cashflow, user, menuMakanPlan
+    'pengajuan',                                // → setelah event, user
+    'pengajuanItem',                            // → setelah pengajuan, rabCategory, rabItem (convertedRabItemId)
 ];
 
 // Path folder uploads gambar (3x up = backend root ketika dikompilasi ke dist/backup/)

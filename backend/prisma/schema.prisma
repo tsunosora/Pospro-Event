@@ -74,6 +74,8 @@ model User {
   menuPlanCreated       MenuMakanPlan[]          @relation("MenuMakanPlanCreatedBy")
   menuVoteCreated       MenuVoteSession[]        @relation("MenuVoteCreatedBy")
   boronganSlipsPaid     BoronganSlip[]           @relation("BoronganSlipPaidBy")
+  pengajuanCreated      Pengajuan[]              @relation("PengajuanCreatedBy")
+  pengajuanItemApproved PengajuanItem[]          @relation("PengajuanItemApprovedBy")
 
   @@map("users")
 }
@@ -675,8 +677,9 @@ model RabCategory {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
-  items   RabItem[]
-  belanja Belanja[] @relation("RabCategoryBelanja")
+  items          RabItem[]
+  belanja        Belanja[]       @relation("RabCategoryBelanja")
+  pengajuanItems PengajuanItem[] @relation("RabCategoryPengajuanItem")
 
   @@index([orderIndex])
   @@map("rab_categories")
@@ -712,6 +715,7 @@ model RabPlan {
   cashflows             Cashflow[]
   inventoryAcquisitions InventoryAcquisition[] @relation("RabPlanAcquisitions")
   belanja               Belanja[]              @relation("RabPlanBelanja")
+  pengajuan             Pengajuan[]            @relation("RabPlanPengajuan")
 
   @@index([brand])
   @@map("rab_plans")
@@ -739,11 +743,69 @@ model RabItem {
   sourcePackingItem    EventPackingItem?     @relation("PackingSourcedRabItems", fields: [sourcePackingItemId], references: [id], onDelete: SetNull)
   inventoryAcquisition InventoryAcquisition? @relation("RabItemAcquisition")
   belanja              Belanja[]             @relation("RabItemBelanja")
+  pengajuanItem        PengajuanItem?        @relation("PengajuanItemRabItem")
 
   @@index([rabPlanId, categoryId, orderIndex])
   @@index([sourcePackingItemId])
   @@index([isInventory])
   @@map("rab_items")
+}
+
+enum PengajuanStatus {
+  OPEN // masih ada item belum ter-convert
+  DONE // semua item sudah ter-convert ke RAB
+}
+
+enum PengajuanItemStatus {
+  PENDING
+  APPROVED
+}
+
+/// Tahap pra-RAB: usulan item (opsional per event), di-approve per-item oleh owner, lalu convert ke RAB.
+model Pengajuan {
+  id          Int             @id @default(autoincrement())
+  eventId     Int?            @map("event_id") // opsional: pengajuan bisa tanpa event (RAB standalone)
+  rabPlanId   Int?            @map("rab_plan_id") // RAB target (di-set saat convert pertama)
+  title       String?         @db.VarChar(255)
+  status      PengajuanStatus @default(OPEN)
+  createdById Int             @map("created_by_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @default(now()) @updatedAt @map("updated_at")
+
+  event     Event?          @relation("EventPengajuan", fields: [eventId], references: [id], onDelete: SetNull)
+  rabPlan   RabPlan?        @relation("RabPlanPengajuan", fields: [rabPlanId], references: [id], onDelete: SetNull)
+  createdBy User            @relation("PengajuanCreatedBy", fields: [createdById], references: [id])
+  items     PengajuanItem[]
+
+  @@index([eventId])
+  @@index([rabPlanId])
+  @@map("pengajuan")
+}
+
+model PengajuanItem {
+  id                 Int                 @id @default(autoincrement())
+  pengajuanId        Int                 @map("pengajuan_id")
+  categoryId         Int                 @map("category_id") // pos RAB (reuse RabCategory)
+  orderIndex         Int                 @default(0) @map("order_index")
+  description        String              @db.VarChar(255) // ITEM
+  unit               String?             @db.VarChar(50) // UNIT
+  quantity           Decimal             @default(1) @db.Decimal(15, 4) // JUMLAH
+  price              Decimal             @default(0) @db.Decimal(15, 2) // HARGA (→ priceCost RAB)
+  status             PengajuanItemStatus @default(PENDING)
+  approvedById       Int?                @map("approved_by_id")
+  approvedAt         DateTime?           @map("approved_at")
+  convertedRabItemId Int?                @unique @map("converted_rab_item_id") // set saat sudah masuk RAB
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at")
+
+  pengajuan  Pengajuan   @relation(fields: [pengajuanId], references: [id], onDelete: Cascade)
+  category   RabCategory @relation("RabCategoryPengajuanItem", fields: [categoryId], references: [id], onDelete: Restrict)
+  approvedBy User?       @relation("PengajuanItemApprovedBy", fields: [approvedById], references: [id])
+  rabItem    RabItem?    @relation("PengajuanItemRabItem", fields: [convertedRabItemId], references: [id], onDelete: SetNull)
+
+  @@index([pengajuanId])
+  @@index([status])
+  @@map("pengajuan_items")
 }
 
 // ----- Counter nomor dokumen (penawaran, dll) ----- //
@@ -1668,6 +1730,7 @@ model Event {
   bastItems       BastItem[]
   belanja         Belanja[]             @relation("EventBelanja")
   boronganCrew    EventBoronganCrew[]
+  pengajuan       Pengajuan[]           @relation("EventPengajuan")
 
   @@index([status])
   @@index([eventStart])
@@ -2123,7 +2186,9 @@ model PenerimaanDana {
 /// Otomatis membuat 1 entri Cashflow EXPENSE (cashflowId) agar event-profit akurat.
 model Belanja {
   id            Int      @id @default(autoincrement())
-  amount        Decimal  @db.Decimal(15, 2)
+  amount        Decimal  @db.Decimal(15, 2) // total baris = quantity × harga satuan
+  quantity      Decimal? @db.Decimal(15, 4) // jumlah (pcs) sesuai unit
+  unit          String?  @db.VarChar(50) // satuan, mengikuti item RAB (mis. lembar, pcs, kg)
   description   String   @db.VarChar(255)
   spentAt       DateTime @map("spent_at")
   notaUrl       String?  @map("nota_url") @db.VarChar(500)
@@ -2134,6 +2199,7 @@ model Belanja {
   category      String?  @db.VarChar(100) // label saat keperluan lain, mis. "Operasional"
   menuPlanId    Int?     @map("menu_plan_id") // tag ke rencana menu makan (real cost)
   cashflowId    Int?     @unique @map("cashflow_id") // link ke entri Cashflow yang auto-dibuat
+  notaGroupId   String?  @map("nota_group_id") @db.VarChar(40) // grup: 1 nota banyak item (baris berbagi nota yg sama)
   createdById   Int      @map("created_by_id")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
@@ -2150,6 +2216,7 @@ model Belanja {
   @@index([eventId])
   @@index([rabPlanId])
   @@index([menuPlanId])
+  @@index([notaGroupId])
   @@map("belanja")
 }
 

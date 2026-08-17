@@ -7,7 +7,7 @@ export interface Penerimaan {
   receivedAt: string; createdBy?: { id: number; name?: string };
 }
 export interface BelanjaRow {
-  id: number; amount: string; description: string; spentAt: string;
+  id: number; amount: string; quantity?: string | null; unit?: string | null; description: string; spentAt: string;
   notaUrl?: string | null; eventId?: number | null; rabPlanId?: number | null;
   category?: string | null; rabCategoryId?: number | null; rabItemId?: number | null;
   menuPlanId?: number | null;
@@ -20,8 +20,18 @@ export interface BelanjaRow {
 }
 export interface RekapHari { tanggal: string; total: number; items: BelanjaRow[]; }
 export interface RealisasiPos { categoryId: number; name: string; rencana: number; real: number; selisih: number; overspend: boolean; }
-export interface RealisasiItem { rabItemId: number; description: string; rencana: number; real: number; selisih: number; overspend: boolean; }
-export interface RealisasiRab { pos: RealisasiPos[]; perItem: RealisasiItem[]; tanpaPos: number; totalRencana: number; totalReal: number; selisih: number; }
+export type RealisasiItemStatus = 'belum' | 'hemat' | 'boros' | 'pas';
+export interface RealisasiItem {
+  rabItemId: number; description: string; categoryName?: string;
+  modal: number; rencana: number; real: number; selisih: number; overspend: boolean;
+  status: RealisasiItemStatus;
+}
+export interface RealisasiExtra { description: string; categoryName: string | null; real: number; count: number; }
+export interface RealisasiRab {
+  pos: RealisasiPos[]; perItem: RealisasiItem[]; extra: RealisasiExtra[]; tanpaPos: number;
+  totalModal: number; totalExtra: number; totalRealMatched: number;
+  totalRencana: number; totalReal: number; selisih: number;
+}
 
 // ── Kas ──
 export const getKasSummary = async (userId?: number) =>
@@ -40,7 +50,7 @@ export const getBelanja = async (params: { from?: string; to?: string; eventId?:
 export const getRekapHarian = async (params: { from?: string; to?: string } = {}) =>
   (await api.get<RekapHari[]>('/belanja/rekap-harian', { params })).data;
 export interface BelanjaInput {
-  amount: number; description: string; spentAt?: string;
+  amount: number; quantity?: number | null; unit?: string | null; description: string; spentAt?: string;
   eventId?: number | null; rabPlanId?: number | null; rabCategoryId?: number | null; rabItemId?: number | null;
   category?: string | null; menuPlanId?: number | null; attributeToUserId?: number | null;
 }
@@ -53,6 +63,21 @@ export const uploadBelanjaNota = async (id: number, file: File) => {
   return (await api.post(`/belanja/${id}/nota`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
 };
 export const deleteBelanja = async (id: number) => (await api.delete(`/belanja/${id}`)).data;
+
+// ── Belanja multi-item (satu nota banyak item) ──
+export interface BelanjaBatchItem {
+  amount: number; quantity?: number | null; unit?: string | null; description: string;
+  eventId?: number | null; rabPlanId?: number | null; rabCategoryId?: number | null; rabItemId?: number | null;
+  category?: string | null; menuPlanId?: number | null;
+}
+export const createBelanjaBatch = async (input: {
+  spentAt?: string; attributeToUserId?: number | null; items: BelanjaBatchItem[];
+}) => (await api.post<{ notaGroupId: string; belanja: BelanjaRow[] }>('/belanja/batch', input)).data;
+export const uploadBelanjaGroupNota = async (groupId: string, file: File) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return (await api.post(`/belanja/group/${groupId}/nota`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
+};
 export const getRealisasiRab = async (rabPlanId: number) =>
   (await api.get<RealisasiRab>(`/belanja/realisasi-rab/${rabPlanId}`)).data;
 
