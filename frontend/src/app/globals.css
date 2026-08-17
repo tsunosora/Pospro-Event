@@ -455,3 +455,14 @@ input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* Pergantian kata indikator "AI sedang proses" — fade + naik halus */
+@keyframes ai-think-word-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ai-think-word {
+  display: inline-block;
+  min-width: 8.5rem;
+  animation: ai-think-word-in 0.35s ease-out;
+}

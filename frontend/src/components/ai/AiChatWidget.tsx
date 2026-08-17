@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
-    Bot, X, Send, Loader2, FileText, CalendarDays,
+    Bot, X, Send, FileText, CalendarDays,
     ClipboardList, Building2, Sparkles,
 } from "lucide-react";
 import { getAiStatus, sendAiChat, type AiEntity } from "@/lib/api/aiAgent";
@@ -65,6 +65,42 @@ function EntityCard({ e }: { e: AiEntity }) {
                 )}
             </div>
         </Link>
+    );
+}
+
+// Kata status yang berganti-ganti saat AI memproses — biar user tahu ada progres.
+const THINKING_PHRASES = [
+    "Berpikir",
+    "Mencari data",
+    "Menelusuri penawaran",
+    "Mengecek RAB",
+    "Membaca arsip event",
+    "Menghitung angka",
+    "Menggali catatan",
+    "Meramu jawaban",
+    "Lagi masak",
+    "Menyusun kata",
+];
+
+function ThinkingIndicator() {
+    // Mulai dari kata acak agar tidak selalu "Berpikir" duluan.
+    const [i, setI] = useState(() => Math.floor(Math.random() * THINKING_PHRASES.length));
+    useEffect(() => {
+        const t = setInterval(() => setI((v) => (v + 1) % THINKING_PHRASES.length), 1500);
+        return () => clearInterval(t);
+    }, []);
+    return (
+        <div className="flex justify-start">
+            <div className="bg-muted rounded-2xl px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+                <span key={i} className="ai-think-word">{THINKING_PHRASES[i]}</span>
+                <span className="inline-flex items-end gap-0.5 pb-0.5">
+                    <span className="w-1 h-1 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-1 h-1 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-1 h-1 rounded-full bg-current animate-bounce" />
+                </span>
+            </div>
+        </div>
     );
 }
 
@@ -161,13 +197,7 @@ export function AiChatWidget() {
                                 </div>
                             </div>
                         ))}
-                        {loading && (
-                            <div className="flex justify-start">
-                                <div className="bg-muted rounded-2xl px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
-                                    <Loader2 className="w-4 h-4 animate-spin" /> Mengetik…
-                                </div>
-                            </div>
-                        )}
+                        {loading && <ThinkingIndicator />}
                     </div>
 
                     {/* Input */}
