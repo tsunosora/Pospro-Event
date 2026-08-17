@@ -36,6 +36,8 @@ import { getBankAccounts } from "@/lib/api/transactions";
 import { CustomerPickerModal } from "@/components/CustomerPickerModal";
 import type { Customer } from "@/lib/api/customers";
 import { Search } from "lucide-react";
+import { Languages } from "lucide-react";
+import { translateTexts } from "@/lib/api/aiAgent";
 
 dayjs.locale("id");
 
@@ -297,6 +299,9 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         items: string[];
         packageGroup?: string;
     }>>([]);
+    // AI auto-translate ID→EN (dwibahasa tersimpan di invoice.translations)
+    const [translating, setTranslating] = useState(false);
+    const [translateMsg, setTranslateMsg] = useState<string | null>(null);
     // Rincian Pekerjaan dikelola di halaman khusus /penawaran/[id]/rincian (bukan di sini).
     /** Harga paket — alternatif diskon dengan label "Harga Paket". 0 = pakai total normal. */
     const [packagePrice, setPackagePrice] = useState<number>(0);
@@ -751,6 +756,75 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         const next = [...items];
         next.splice(idx + 1, 0, copy);
         setItems(next);
+    };
+
+    // Kumpulkan konten Indonesia → terjemahkan via AI → simpan ke invoice.translations.en.
+    // Non-destruktif: teks ID di form tetap, versi EN dipakai saat language=en (PDF & preview).
+    const handleTranslate = async () => {
+        if (translating) return;
+        setTranslateMsg(null);
+        setTranslating(true);
+        try {
+            const en: any = {};
+            const texts: string[] = [];
+            const setters: Array<(v: string) => void> = [];
+            const add = (val: any, setter: (v: string) => void) => {
+                texts.push((val ?? "").toString());
+                setters.push(setter);
+            };
+
+            add(projectName, (v) => (en.projectName = v));
+            add(eventLocation, (v) => (en.eventLocation = v));
+            add(notes, (v) => (en.notes = v));
+            add(customOpeningText, (v) => (en.customOpeningText = v));
+            add(customDisclaimer, (v) => (en.customDisclaimer = v));
+            add(customPaymentTerms, (v) => (en.customPaymentTerms = v));
+            add(customClosing, (v) => (en.customClosing = v));
+
+            en.items = items.map(() => ({}));
+            items.forEach((it, i) => {
+                add(it.description, (v) => (en.items[i].description = v));
+                add(it.unit, (v) => (en.items[i].unit = v));
+                add((it as any).categoryName, (v) => (en.items[i].categoryName = v));
+                add((it as any).packageGroup, (v) => (en.items[i].packageGroup = v));
+            });
+
+            en.specifications = specifications.map((s) => ({
+                title: "",
+                items: (s.items || []).map(() => ""),
+                packageGroup: s.packageGroup,
+            }));
+            specifications.forEach((s, i) => {
+                add(s.title, (v) => (en.specifications[i].title = v));
+                (s.items || []).forEach((line, j) => add(line, (v) => (en.specifications[i].items[j] = v)));
+            });
+
+            en.additionalEvents = additionalEvents.map(() => ({}));
+            additionalEvents.forEach((e, i) => {
+                add(e.name, (v) => (en.additionalEvents[i].name = v));
+                add(e.location, (v) => (en.additionalEvents[i].location = v));
+            });
+
+            const { translations } = await translateTexts(texts, "en");
+            if (!Array.isArray(translations) || translations.length !== texts.length) {
+                throw new Error("Jumlah hasil terjemahan tidak sesuai.");
+            }
+            translations.forEach((t, i) => setters[i](t));
+
+            const existing =
+                (data as any)?.translations && typeof (data as any).translations === "object"
+                    ? (data as any).translations
+                    : {};
+            await updateQuotation(id, { translations: { ...existing, en }, language: "en" } as any);
+            await qc.invalidateQueries({ queryKey: ["quotation", id] });
+            setLanguage("en");
+            setTranslateMsg("Terjemahan Inggris tersimpan. Dokumen versi EN (PDF) akan memakai terjemahan ini.");
+        } catch (e: any) {
+            const msg = e?.response?.data?.message ?? e?.message ?? "Gagal menerjemahkan.";
+            setTranslateMsg("Gagal: " + msg);
+        } finally {
+            setTranslating(false);
+        }
     };
 
     const handleSave = () => {
@@ -2508,6 +2582,18 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 </button>
                             ))}
                         </div>
+                        {/* AI auto-translate ke EN (konten item/catatan, bukan cuma label) */}
+                        <button
+                            type="button"
+                            onClick={handleTranslate}
+                            disabled={translating}
+                            title="Terjemahkan konten (item, catatan, spesifikasi) ke Inggris dengan AI, lalu simpan sebagai versi EN. Teks Indonesia tetap tersimpan."
+                            className="px-2.5 py-1 rounded-md text-xs font-semibold transition border bg-info/10 text-info border-info/30 hover:bg-info/20 disabled:opacity-50 inline-flex items-center gap-1 shrink-0"
+                        >
+                            {translating
+                                ? <><Loader2 className="w-3 h-3 animate-spin" /> Menerjemah…</>
+                                : <><Languages className="w-3 h-3" /> AI→EN</>}
+                        </button>
                         {/* USD toggle */}
                         <button
                             type="button"
@@ -2534,6 +2620,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                 : "Default pakai Rp. Aktifkan USD untuk klien internasional."}
                         </span>
                     </p>
+                    {translateMsg && (
+                        <p className={`text-[10px] flex items-start gap-1 ${translateMsg.startsWith("Gagal") ? "text-destructive" : "text-success"}`}>
+                            <Languages className="w-3 h-3 shrink-0 mt-0.5" />
+                            <span>{translateMsg}</span>
+                        </p>
+                    )}
                     </div>
                 </section>
 

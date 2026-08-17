@@ -69,3 +69,10 @@ export const updateAiConfig = async (
 
 export const testAiConfig = async (): Promise<{ ok: boolean; sample: string }> =>
     (await api.post('/ai-agent/test', {})).data;
+
+// Terjemah batch teks ID→target (default 'en'). Urutan & panjang output = input.
+export const translateTexts = async (
+    texts: string[],
+    to = 'en',
+): Promise<{ translations: string[] }> =>
+    (await api.post('/ai-agent/translate', { texts, to })).data;
