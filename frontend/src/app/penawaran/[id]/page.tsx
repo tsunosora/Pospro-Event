@@ -780,6 +780,21 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             add(customDisclaimer, (v) => (en.customDisclaimer = v));
             add(customPaymentTerms, (v) => (en.customPaymentTerms = v));
             add(customClosing, (v) => (en.customClosing = v));
+            // Prepend/append (mekanisme default teks surat) + versi Invoice & SPK
+            add(disclaimerPrepend, (v) => (en.disclaimerPrepend = v));
+            add(disclaimerAppend, (v) => (en.disclaimerAppend = v));
+            add(paymentTermsPrepend, (v) => (en.paymentTermsPrepend = v));
+            add(paymentTermsAppend, (v) => (en.paymentTermsAppend = v));
+            add(closingPrepend, (v) => (en.closingPrepend = v));
+            add(closingAppend, (v) => (en.closingAppend = v));
+            add(customOpeningInvoice, (v) => (en.customOpeningInvoice = v));
+            add(customDisclaimerInvoice, (v) => (en.customDisclaimerInvoice = v));
+            add(customPaymentTermsInvoice, (v) => (en.customPaymentTermsInvoice = v));
+            add(customClosingInvoice, (v) => (en.customClosingInvoice = v));
+            add(customOpeningSpk, (v) => (en.customOpeningSpk = v));
+            add(customDisclaimerSpk, (v) => (en.customDisclaimerSpk = v));
+            add(customPaymentTermsSpk, (v) => (en.customPaymentTermsSpk = v));
+            add(customClosingSpk, (v) => (en.customClosingSpk = v));
 
             en.items = items.map(() => ({}));
             items.forEach((it, i) => {

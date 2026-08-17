@@ -959,13 +959,20 @@ export class QuotationContextBuilder {
         const _tr = lang === 'en' && _trRoot && typeof _trRoot === 'object' ? _trRoot.en : null;
         if (_tr && typeof _tr === 'object') {
             const _pick = (a: any, b: any) => (typeof a === 'string' && a.trim() !== '' ? a : b);
-            (quotation as any).projectName = _pick(_tr.projectName, quotation.projectName);
-            (quotation as any).eventLocation = _pick(_tr.eventLocation, quotation.eventLocation);
-            (quotation as any).notes = _pick(_tr.notes, quotation.notes);
-            (quotation as any).customOpeningText = _pick(_tr.customOpeningText, (quotation as any).customOpeningText);
-            (quotation as any).customDisclaimer = _pick(_tr.customDisclaimer, (quotation as any).customDisclaimer);
-            (quotation as any).customPaymentTerms = _pick(_tr.customPaymentTerms, (quotation as any).customPaymentTerms);
-            (quotation as any).customClosing = _pick(_tr.customClosing, (quotation as any).customClosing);
+            // Semua field teks surat berbahasa Indonesia yang diinput user (termasuk
+            // prepend/append + versi Invoice/SPK). base template brand pakai versi EN sendiri.
+            const _SCALAR_TR_FIELDS = [
+                'projectName', 'eventLocation', 'notes',
+                'customOpeningText', 'customDisclaimer', 'customPaymentTerms', 'customClosing',
+                'disclaimerPrepend', 'disclaimerAppend',
+                'paymentTermsPrepend', 'paymentTermsAppend',
+                'closingPrepend', 'closingAppend',
+                'customOpeningInvoice', 'customDisclaimerInvoice', 'customPaymentTermsInvoice', 'customClosingInvoice',
+                'customOpeningSpk', 'customDisclaimerSpk', 'customPaymentTermsSpk', 'customClosingSpk',
+            ];
+            for (const k of _SCALAR_TR_FIELDS) {
+                (quotation as any)[k] = _pick(_tr[k], (quotation as any)[k]);
+            }
             if (Array.isArray(_tr.specifications) && _tr.specifications.length) {
                 (quotation as any).specifications = _tr.specifications;
             }
