@@ -4,6 +4,7 @@ import { ManagerGuard } from '../auth/manager.guard';
 import { AiAgentService } from './ai-agent.service';
 import { AiConfigService } from './ai-config.service';
 import { ChatDto } from './dto/chat.dto';
+import { TranslateDto } from './dto/translate.dto';
 import { UpdateConfigDto } from './dto/update-config.dto';
 import type { AiPublicStatus } from './ai-agent.types';
 
@@ -30,6 +31,11 @@ export class AiAgentController {
   @Post('chat')
   chat(@Req() req: any, @Body() dto: ChatDto) {
     return this.svc.chat(req.user.userId, dto.message, dto.history ?? []);
+  }
+
+  @Post('translate')
+  translate(@Body() dto: TranslateDto) {
+    return this.svc.translate(dto.texts, dto.to ?? 'en');
   }
 
   // ----- Owner only -----

@@ -86,3 +86,40 @@ describe('AiAgentService.chat', () => {
     expect(retrieveSpy).toHaveBeenCalledWith('rab pameran', false);
   });
 });
+
+describe('AiAgentService.translate', () => {
+  function buildT(providerReply: string, cfg: AiConfig = enabledCfg) {
+    const cfgSvc: any = { getConfig: () => cfg };
+    const provider: any = { chatCompletion: jest.fn(async () => providerReply) };
+    const svc = new AiAgentService({} as any, cfgSvc, provider, {} as any);
+    return { svc, provider };
+  }
+
+  it('menerjemahkan & menjaga urutan + string kosong', async () => {
+    const { svc } = buildT('["LED Screen 3x3","day"]');
+    const res = await svc.translate(['Layar LED 3x3', '', 'hari'], 'en');
+    // kosong tetap kosong; 2 non-kosong diterjemahkan sesuai urутan unik
+    expect(res.translations).toEqual(['LED Screen 3x3', '', 'day']);
+  });
+
+  it('dedupe: string sama hanya sekali dikirim, hasil dipetakan balik', async () => {
+    const { svc, provider } = buildT('["day"]');
+    const res = await svc.translate(['hari', 'hari'], 'en');
+    expect(res.translations).toEqual(['day', 'day']);
+    // hanya 1 string unik dikirim ke LLM
+    const sentPrompt = provider.chatCompletion.mock.calls[0][1][0].content;
+    expect(sentPrompt).toContain('["hari"]');
+  });
+
+  it('semua kosong → tak panggil LLM', async () => {
+    const { svc, provider } = buildT('[]');
+    const res = await svc.translate(['', '   '], 'en');
+    expect(res.translations).toEqual(['', '   ']);
+    expect(provider.chatCompletion).not.toHaveBeenCalled();
+  });
+
+  it('format balasan tak valid → error', async () => {
+    const { svc } = buildT('maaf saya tidak bisa');
+    await expect(svc.translate(['halo'], 'en')).rejects.toThrow(/format balasan tak valid/i);
+  });
+});

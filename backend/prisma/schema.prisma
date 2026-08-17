@@ -602,6 +602,12 @@ model Invoice {
   // Di-seed dari item penawaran saat pertama dibuat, lalu jadi daftar editable yang berdiri sendiri
   // (tidak menyentuh item penawaran). Null/empty = belum dibuat → PDF fallback ke item penawaran.
   rincianPekerjaanItems     Json?             @map("rincian_pekerjaan_items")
+  // Terjemahan AI per bahasa (selain 'id' default). Struktur:
+  // { "en": { projectName?, eventLocation?, notes?, customOpeningText?, customDisclaimer?,
+  //   customPaymentTerms?, customClosing?, specifications?, additionalEvents?: [{name?,location?}],
+  //   items?: [{description?,unit?,categoryName?,packageGroup?}] } }
+  // Item dipetakan by index (urutan orderIndex). Null = belum diterjemahkan → render fallback ke 'id'.
+  translations              Json?             @map("translations")
   // Jadwal khusus dokumen Rincian Pekerjaan — tanggal pasang (instalasi) & bongkar (pembongkaran).
   // Terpisah dari eventDateStart/End; tidak memengaruhi penawaran. Null = tidak ditampilkan.
   rincianInstallDate        DateTime?         @map("rincian_install_date")

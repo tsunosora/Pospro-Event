@@ -424,6 +424,7 @@ export class QuotationsService {
                 attachmentCount: dto.attachmentCount && dto.attachmentCount > 0 ? Math.floor(dto.attachmentCount) : null,
                 customAttachmentText: dto.customAttachmentText?.trim() || null,
                 language: dto.language === 'en' ? 'en' : 'id',
+                translations: ((dto as any).translations ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 useUsdCurrency: Boolean(dto.useUsdCurrency),
                 customSubject: dto.customSubject?.trim() || null,
                 paymentSchedule: sanitizePaymentSchedule(dto.paymentSchedule),
@@ -701,6 +702,9 @@ export class QuotationsService {
                         : {}),
                     ...(dto.customAttachmentText !== undefined ? { customAttachmentText: dto.customAttachmentText?.trim() || null } : {}),
                     ...(dto.language !== undefined ? { language: dto.language === 'en' ? 'en' : 'id' } : {}),
+                    ...((dto as any).translations !== undefined
+                        ? { translations: ((dto as any).translations ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull }
+                        : {}),
                     ...(dto.useUsdCurrency !== undefined
                         ? { useUsdCurrency: Boolean(dto.useUsdCurrency) }
                         : {}),
@@ -931,6 +935,7 @@ export class QuotationsService {
                 paymentSchedule: (quotation.paymentSchedule ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 specifications: (quotation.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 rincianPekerjaanItems: (quotation.rincianPekerjaanItems ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                translations: (quotation.translations ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 rincianInstallDate: quotation.rincianInstallDate,
                 rincianDismantleDate: quotation.rincianDismantleDate,
                 packagePrice: quotation.packagePrice,
@@ -1990,6 +1995,7 @@ export class QuotationsService {
                 paymentSchedule: (source.paymentSchedule ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 specifications: (source.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 rincianPekerjaanItems: (source.rincianPekerjaanItems ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                translations: (source.translations ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 rincianInstallDate: source.rincianInstallDate,
                 rincianDismantleDate: source.rincianDismantleDate,
                 packagePrice: source.packagePrice,
@@ -2110,6 +2116,7 @@ export class QuotationsService {
                 paymentSchedule: (source.paymentSchedule ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 specifications: (source.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 rincianPekerjaanItems: (source.rincianPekerjaanItems ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
+                translations: (source.translations ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
                 rincianInstallDate: source.rincianInstallDate,
                 rincianDismantleDate: source.rincianDismantleDate,
                 packagePrice: source.packagePrice,

@@ -953,6 +953,40 @@ export class QuotationContextBuilder {
         // Marketing input nilai USD manual ke field harga.
         const useUsd: boolean = Boolean((quotation as any).useUsdCurrency);
 
+        // ── Overlay terjemahan AI (dokumen EN): timpa konten user dgn translations.en,
+        //    fallback ke teks 'id' bila kosong. Mutasi in-place → semua proses hilir ikut.
+        const _trRoot = (quotation as any).translations;
+        const _tr = lang === 'en' && _trRoot && typeof _trRoot === 'object' ? _trRoot.en : null;
+        if (_tr && typeof _tr === 'object') {
+            const _pick = (a: any, b: any) => (typeof a === 'string' && a.trim() !== '' ? a : b);
+            (quotation as any).projectName = _pick(_tr.projectName, quotation.projectName);
+            (quotation as any).eventLocation = _pick(_tr.eventLocation, quotation.eventLocation);
+            (quotation as any).notes = _pick(_tr.notes, quotation.notes);
+            (quotation as any).customOpeningText = _pick(_tr.customOpeningText, (quotation as any).customOpeningText);
+            (quotation as any).customDisclaimer = _pick(_tr.customDisclaimer, (quotation as any).customDisclaimer);
+            (quotation as any).customPaymentTerms = _pick(_tr.customPaymentTerms, (quotation as any).customPaymentTerms);
+            (quotation as any).customClosing = _pick(_tr.customClosing, (quotation as any).customClosing);
+            if (Array.isArray(_tr.specifications) && _tr.specifications.length) {
+                (quotation as any).specifications = _tr.specifications;
+            }
+            if (Array.isArray(_tr.additionalEvents) && Array.isArray((quotation as any).additionalEvents)) {
+                (quotation as any).additionalEvents = (quotation as any).additionalEvents.map((ev: any, i: number) => {
+                    const t = _tr.additionalEvents[i];
+                    return t ? { ...ev, name: _pick(t.name, ev?.name), location: _pick(t.location, ev?.location) } : ev;
+                });
+            }
+            if (Array.isArray(_tr.items) && Array.isArray(quotation.items)) {
+                quotation.items.forEach((it: any, i: number) => {
+                    const t = _tr.items[i];
+                    if (!t) return;
+                    it.description = _pick(t.description, it.description);
+                    it.unit = _pick(t.unit, it.unit);
+                    it.categoryName = _pick(t.categoryName, it.categoryName);
+                    it.packageGroup = _pick(t.packageGroup, it.packageGroup);
+                });
+            }
+        }
+
         // Resolve variant label/subject/templateKey:
         //   1. Kalau ada quotation.variantCode → load config dari QuotationVariantConfig
         //   2. Fallback ke enum quotation.quotationVariant (legacy / built-in)
