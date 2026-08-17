@@ -30,12 +30,12 @@ describe('trimHistory', () => {
 });
 
 describe('classifierMessages', () => {
-  it('membentuk system+user', () => {
+  it('satu pesan user berisi instruksi + pertanyaan (bukan di system)', () => {
     const m = classifierMessages('Harga booth 3x3?');
-    expect(m).toHaveLength(2);
-    expect(m[0].role).toBe('system');
-    expect(m[0].content).toMatch(/YA.*TIDAK|satu kata/i);
-    expect(m[1]).toEqual({ role: 'user', content: 'Harga booth 3x3?' });
+    expect(m).toHaveLength(1);
+    expect(m[0].role).toBe('user');
+    expect(m[0].content).toMatch(/satu kata/i);
+    expect(m[0].content).toContain('Harga booth 3x3?');
   });
 });
 

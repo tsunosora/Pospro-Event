@@ -28,7 +28,7 @@ function build(opts: {
   const retrieval: any = { retrieve: retrieveSpy };
   const provider: any = {
     chatCompletion: jest.fn(async (_cfg: any, messages: any[]) => {
-      const isClassifier = /penjaga topik/i.test(messages[0].content);
+      const isClassifier = messages.some((m) => /klasifikasi topik/i.test(m.content));
       return isClassifier ? (opts.gate ?? 'YA') : (opts.answer ?? 'jawaban');
     }),
   };

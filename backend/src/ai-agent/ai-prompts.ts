@@ -17,15 +17,19 @@ export function trimHistory(history: ChatTurn[], maxMsg = 8, cap = 4000): ChatTu
 }
 
 export function classifierMessages(message: string): LlmMessage[] {
+  // Instruksi ditaruh di pesan USER (bukan system): beberapa gateway OpenAI-compatible
+  // (mis. proxy claude-cli) hanya "menempelkan" system prompt sehingga instruksi
+  // di system terdilusi. Prompt lenient — default YA agar tak salah menolak pertanyaan sah.
   return [
     {
-      role: 'system',
+      role: 'user',
       content:
-        'Kamu penjaga topik untuk asisten aplikasi manajemen penawaran & event vendor booth (Pospro Event). ' +
-        'Topik RELEVAN: penawaran/quotation, invoice, RAB, event/pameran, customer/lead CRM, produk/booth, cashflow, crew, dan cara pakai aplikasi. ' +
-        'Jawab HANYA satu kata: YA jika pesan relevan, TIDAK jika tidak relevan.',
+        'Tugas: klasifikasi topik. Keluarkan SATU KATA saja tanpa penjelasan.\n' +
+        'Balas YA bila pertanyaan berkaitan dengan bisnis vendor booth/event: penawaran, quotation, invoice, RAB, event, customer, lead, produk, cashflow, crew, atau cara pakai aplikasi.\n' +
+        'Balas TIDAK hanya bila jelas di luar itu (mis. resep masakan, cuaca, politik, matematika umum).\n' +
+        'Kalau ragu, balas YA.\n\n' +
+        `Pertanyaan: "${message}"\nJawaban (YA/TIDAK):`,
     },
-    { role: 'user', content: message },
   ];
 }
 
