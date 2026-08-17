@@ -302,6 +302,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
     // AI auto-translate ID→EN (dwibahasa tersimpan di invoice.translations)
     const [translating, setTranslating] = useState(false);
     const [translateMsg, setTranslateMsg] = useState<string | null>(null);
+    // Versi EN yang sedang diedit (editor dwibahasa). Saat language=en, input baca/tulis ke sini.
+    const [translationsEn, setTranslationsEn] = useState<any>({});
     // Rincian Pekerjaan dikelola di halaman khusus /penawaran/[id]/rincian (bukan di sini).
     /** Harga paket — alternatif diskon dengan label "Harga Paket". 0 = pakai total normal. */
     const [packagePrice, setPackagePrice] = useState<number>(0);
@@ -460,6 +462,11 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setClosingAppend((data as any).closingAppend ?? "");
         setAttachmentCount(Number((data as any).attachmentCount) || 1);
         setCustomAttachmentText((data as any).customAttachmentText ?? "");
+        setTranslationsEn(
+            (data as any).translations && typeof (data as any).translations === "object"
+                ? ((data as any).translations.en ?? {})
+                : {},
+        );
         setLanguage((data as any).language === 'en' ? 'en' : 'id');
         setUseUsdCurrency(Boolean((data as any).useUsdCurrency));
         setCustomSubject((data as any).customSubject ?? "");
@@ -758,6 +765,25 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
         setItems(next);
     };
 
+    // Editor dwibahasa: saat EN, input baca/tulis ke translationsEn (fallback tampil ID bila EN kosong).
+    const enMode = language === "en";
+    const enScalar = (key: string, idVal: string) =>
+        enMode ? (((translationsEn?.[key] ?? "") as string) || idVal) : idVal;
+    const setEnScalar = (key: string, v: string, idSetter: (v: string) => void) => {
+        if (enMode) setTranslationsEn((p: any) => ({ ...p, [key]: v }));
+        else idSetter(v);
+    };
+    // Item i, field tertentu (description/unit/categoryName/packageGroup)
+    const enItemGet = (i: number, field: string, idVal: string) =>
+        enMode ? (((translationsEn?.items?.[i]?.[field] ?? "") as string) || idVal) : idVal;
+    const setEnItem = (i: number, field: string, v: string) =>
+        setTranslationsEn((p: any) => {
+            const arr = Array.isArray(p.items) ? p.items.slice() : [];
+            while (arr.length <= i) arr.push({});
+            arr[i] = { ...arr[i], [field]: v };
+            return { ...p, items: arr };
+        });
+
     // Kumpulkan konten Indonesia → terjemahkan via AI → simpan ke invoice.translations.en.
     // Non-destruktif: teks ID di form tetap, versi EN dipakai saat language=en (PDF & preview).
     const handleTranslate = async () => {
@@ -825,6 +851,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                 throw new Error("Jumlah hasil terjemahan tidak sesuai.");
             }
             translations.forEach((t, i) => setters[i](t));
+            setTranslationsEn(en); // editor langsung menampilkan versi EN
 
             const existing =
                 (data as any)?.translations && typeof (data as any).translations === "object"
@@ -911,6 +938,10 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
             customDisclaimer: customDisclaimer.trim() || null,
             customPaymentTerms: customPaymentTerms.trim() || null,
             customClosing: customClosing.trim() || null,
+            // Versi EN (editor dwibahasa) — simpan bila ada isinya.
+            ...(Object.keys(translationsEn || {}).length
+                ? { translations: { ...((data as any)?.translations || {}), en: translationsEn } }
+                : {}),
             disclaimerPrepend: disclaimerPrepend.trim() || null,
             disclaimerAppend: disclaimerAppend.trim() || null,
             paymentTermsPrepend: paymentTermsPrepend.trim() || null,
@@ -1598,8 +1629,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
 
                 <section className="bg-card rounded-xl border border-border p-4 space-y-3">
                     <h3 className="font-semibold mb-2 flex items-center gap-2"><CalendarDays className="w-4 h-4 text-primary shrink-0" /> Event / Proyek</h3>
-                    <Field label="Nama Proyek" value={projectName} onChange={setProjectName} />
-                    <Field label="Lokasi" value={eventLocation} onChange={setEventLocation} />
+                    <Field label="Nama Proyek" value={enScalar('projectName', projectName)} onChange={(v) => setEnScalar('projectName', v, setProjectName)} />
+                    <Field label="Lokasi" value={enScalar('eventLocation', eventLocation)} onChange={(v) => setEnScalar('eventLocation', v, setEventLocation)} />
                     <div className="grid grid-cols-2 gap-2">
                         <Field label="Tanggal Mulai" value={eventDateStart} onChange={setEventDateStart} type="date" />
                         <Field label="Tanggal Selesai" value={eventDateEnd} onChange={setEventDateEnd} type="date" />
@@ -1890,7 +1921,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                         <SortableContext items={items.map((i) => i._key)} strategy={verticalListSortingStrategy}>
                             <tbody>
-                                {items.map((it) => {
+                                {items.map((it, idx) => {
                                     const sub = Number(it.quantity || 0) * (Number((it as any).unitMultiplier ?? 1) || 1) * Number(it.price || 0);
                                     return (
                                         <SortableItemRow
@@ -1904,6 +1935,9 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                                             rp={rp}
                                             eventOptions={eventOptions}
                                             showPackageCol={showPackageCol}
+                                            enMode={enMode}
+                                            enItem={translationsEn?.items?.[idx]}
+                                            onEnItemChange={(field, v) => setEnItem(idx, field, v)}
                                         />
                                     );
                                 })}
@@ -2221,7 +2255,7 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                         <GrossUpHelper effectivePphRate={effectivePphRate} />
                     </div>
 
-                    <Field label="Catatan / Terms" value={notes} onChange={setNotes} multiline />
+                    <Field label="Catatan / Terms" value={enScalar('notes', notes)} onChange={(v) => setEnScalar('notes', v, setNotes)} multiline />
                 </section>
 
                 {/* === Section: Format Lanjutan (Subject + Harga Paket + Show Grand Total) === */}
@@ -2756,8 +2790,8 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                             })()}
                         </div>
                         <textarea
-                            value={customOpeningText}
-                            onChange={(e) => setCustomOpeningText(e.target.value)}
+                            value={enScalar('customOpeningText', customOpeningText)}
+                            onChange={(e) => setEnScalar('customOpeningText', e.target.value, setCustomOpeningText)}
                             rows={4}
                             placeholder={brandSettings?.openingTemplate
                                 ? `Klik "Salin Template Brand" untuk auto-isi, atau ketik manual.`
@@ -2772,12 +2806,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     {/* Catatan Harga — custom override + append/prepend */}
                     <PrependAppendField
                         title={<span className="inline-flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> {language === 'en' ? "Price Notes / Disclaimer" : "Catatan Harga / Disclaimer"}</span>}
-                        prepend={disclaimerPrepend}
-                        append={disclaimerAppend}
-                        onPrepend={setDisclaimerPrepend}
-                        onAppend={setDisclaimerAppend}
-                        custom={customDisclaimer}
-                        onCustom={setCustomDisclaimer}
+                        prepend={enScalar('disclaimerPrepend', disclaimerPrepend)}
+                        append={enScalar('disclaimerAppend', disclaimerAppend)}
+                        onPrepend={(v) => setEnScalar('disclaimerPrepend', v, setDisclaimerPrepend)}
+                        onAppend={(v) => setEnScalar('disclaimerAppend', v, setDisclaimerAppend)}
+                        custom={enScalar('customDisclaimer', customDisclaimer)}
+                        onCustom={(v) => setEnScalar('customDisclaimer', v, setCustomDisclaimer)}
                         brandDefault={(language === 'en'
                             ? (brandSettings?.quotationDisclaimerEn || brandSettings?.quotationDisclaimer)
                             : brandSettings?.quotationDisclaimer) ?? null}
@@ -2786,12 +2820,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     {/* Sistem Pembayaran — custom override + append/prepend */}
                     <PrependAppendField
                         title={<span className="inline-flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> {language === 'en' ? "Payment Terms" : "Sistem Pembayaran"}</span>}
-                        prepend={paymentTermsPrepend}
-                        append={paymentTermsAppend}
-                        onPrepend={setPaymentTermsPrepend}
-                        onAppend={setPaymentTermsAppend}
-                        custom={customPaymentTerms}
-                        onCustom={setCustomPaymentTerms}
+                        prepend={enScalar('paymentTermsPrepend', paymentTermsPrepend)}
+                        append={enScalar('paymentTermsAppend', paymentTermsAppend)}
+                        onPrepend={(v) => setEnScalar('paymentTermsPrepend', v, setPaymentTermsPrepend)}
+                        onAppend={(v) => setEnScalar('paymentTermsAppend', v, setPaymentTermsAppend)}
+                        custom={enScalar('customPaymentTerms', customPaymentTerms)}
+                        onCustom={(v) => setEnScalar('customPaymentTerms', v, setCustomPaymentTerms)}
                         brandDefault={(language === 'en'
                             ? (brandSettings?.quotationPaymentTermsEn || brandSettings?.quotationPaymentTerms)
                             : brandSettings?.quotationPaymentTerms) ?? null}
@@ -2800,12 +2834,12 @@ export default function PenawaranDetailPage({ params }: { params: Promise<{ id: 
                     {/* Penutup Surat — custom override + append/prepend */}
                     <PrependAppendField
                         title={<span className="inline-flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> {language === 'en' ? "Closing" : "Penutup Surat"}</span>}
-                        prepend={closingPrepend}
-                        append={closingAppend}
-                        onPrepend={setClosingPrepend}
-                        onAppend={setClosingAppend}
-                        custom={customClosing}
-                        onCustom={setCustomClosing}
+                        prepend={enScalar('closingPrepend', closingPrepend)}
+                        append={enScalar('closingAppend', closingAppend)}
+                        onPrepend={(v) => setEnScalar('closingPrepend', v, setClosingPrepend)}
+                        onAppend={(v) => setEnScalar('closingAppend', v, setClosingAppend)}
+                        custom={enScalar('customClosing', customClosing)}
+                        onCustom={(v) => setEnScalar('customClosing', v, setCustomClosing)}
                         brandDefault={(language === 'en'
                             ? (brandSettings?.quotationClosingEn || brandSettings?.quotationClosing)
                             : brandSettings?.quotationClosing) ?? null}
@@ -3843,7 +3877,7 @@ function Row({ label, value }: { label: string; value: string }) {
 /** Row item draggable — drag handle di kolom kiri, isinya sama persis dengan tr lama. */
 function SortableItemRow({
     it, sub, updateItem, duplicateItem, removeItem, setCalcOpenKey, rp,
-    eventOptions, showPackageCol,
+    eventOptions, showPackageCol, enMode, enItem, onEnItemChange,
 }: {
     it: ItemRow;
     sub: number;
@@ -3852,6 +3886,10 @@ function SortableItemRow({
     removeItem: (k: string) => void;
     setCalcOpenKey: (k: string | null) => void;
     rp: (v: string | number) => string;
+    /** Editor dwibahasa: true saat language=en → input item baca/tulis ke enItem. */
+    enMode: boolean;
+    enItem: any;
+    onEnItemChange: (field: string, v: string) => void;
     /** Pilihan event untuk dropdown event-grouped. Empty = sembunyikan kolom event. */
     eventOptions: Array<{ index: number; label: string }>;
     /** Tampilkan kolom Paket? False di Mode Sederhana. */
@@ -3863,6 +3901,12 @@ function SortableItemRow({
         transition,
         opacity: isDragging ? 0.4 : 1,
         background: isDragging ? "rgb(239 246 255)" : undefined,
+    };
+    // Nilai/ setter language-aware untuk teks item
+    const _iv = (field: string, idVal: string) => (enMode ? (((enItem?.[field] ?? "") as string) || idVal) : idVal);
+    const _isTxt = (field: string, v: string, idKey?: string) => {
+        if (enMode) onEnItemChange(field, v);
+        else updateItem(it._key, { [idKey ?? field]: v } as any);
     };
     return (
         <tr ref={setNodeRef} style={style} className="border-t [&>td]:align-top">
@@ -3881,8 +3925,8 @@ function SortableItemRow({
             <td className="px-2 py-1">
                 <input
                     list="quotation-category-list"
-                    value={it.categoryName ?? ""}
-                    onChange={(e) => updateItem(it._key, { categoryName: e.target.value || null })}
+                    value={_iv('categoryName', it.categoryName ?? "")}
+                    onChange={(e) => (enMode ? onEnItemChange('categoryName', e.target.value) : updateItem(it._key, { categoryName: e.target.value || null }))}
                     placeholder="(opsional)"
                     className="w-full border rounded px-2 py-1 text-xs"
                 />
@@ -3914,9 +3958,9 @@ function SortableItemRow({
                 <td className="px-2 py-1">
                     <input
                         type="text"
-                        value={(it as any).packageGroup ?? ""}
+                        value={_iv('packageGroup', (it as any).packageGroup ?? "")}
                         onChange={(e) =>
-                            updateItem(it._key, { packageGroup: e.target.value || null } as any)
+                            enMode ? onEnItemChange('packageGroup', e.target.value) : updateItem(it._key, { packageGroup: e.target.value || null } as any)
                         }
                         placeholder="(opt) Pkg"
                         className="w-full border rounded px-1 py-1 text-xs"
@@ -3926,8 +3970,8 @@ function SortableItemRow({
             )}
             <td className="px-2 py-1">
                 <AutoGrowTextarea
-                    value={it.description}
-                    onChange={(v) => updateItem(it._key, { description: v })}
+                    value={_iv('description', it.description)}
+                    onChange={(v) => _isTxt('description', v)}
                     className="border rounded px-2 py-1"
                 />
             </td>
@@ -3942,8 +3986,8 @@ function SortableItemRow({
             </td>
             <td className="px-2 py-1">
                 <AutoGrowTextarea
-                    value={it.unit ?? ""}
-                    onChange={(v) => updateItem(it._key, { unit: v })}
+                    value={_iv('unit', it.unit ?? "")}
+                    onChange={(v) => _isTxt('unit', v)}
                     placeholder="unit/hari"
                     className="border rounded px-2 py-1"
                 />
