@@ -5,7 +5,7 @@ import {
     Store, CreditCard, Users, Settings, Building2, Paintbrush,
     HardDrive, Bell, Tags, Warehouse, HardHat, KeyRound, MapPin,
     Boxes, Building, FileText, Hash, Search, ChevronRight, ChevronLeft, ChevronDown,
-    Wallet, Package, CalendarDays,
+    Wallet, Package, CalendarDays, Bot,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -71,6 +71,7 @@ const NAV_GROUPS: Array<{
             icon: Settings,
             items: [
                 { href: "/settings/notifications", icon: Bell, label: "Notifikasi & Discord" },
+                { href: "/settings/ai-agent", icon: Bot, label: "Asisten AI", desc: "Chatbot & konfigurasi LLM" },
                 { href: "/settings/backup", icon: HardDrive, label: "Backup & Recovery", desc: "Versi 2.6" },
             ],
         },

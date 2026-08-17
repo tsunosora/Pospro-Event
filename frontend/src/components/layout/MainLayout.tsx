@@ -6,6 +6,7 @@ import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
 import { ShiftReminderBanner } from "./ShiftReminderBanner";
+import { AiChatWidget } from "@/components/ai/AiChatWidget";
 import { useNotificationStream } from "@/hooks/useNotificationStream";
 import { useShiftReminder } from "@/hooks/useShiftReminder";
 import { useNotificationStore } from "@/store/notification-store";
@@ -57,6 +58,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <Footer />
                 </main>
             </div>
+            <AiChatWidget />
         </div>
     );
 }
