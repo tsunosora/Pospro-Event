@@ -47,6 +47,8 @@ export function answerMessages(params: {
     'ATURAN PENTING: Semua angka/harga/nominal HANYA boleh dari DATA yang diberikan di bawah. ' +
     'JANGAN mengarang angka, nomor penawaran, kode, atau nama yang tidak ada di data. ' +
     'Jika data tidak cukup, katakan terus terang dan sarankan cara mencarinya di aplikasi. ' +
+    'Jika pertanyaan JELAS di luar topik Pospro Event (mis. resep masakan, cuaca, hiburan, politik), ' +
+    'tolak dengan sopan dan ingatkan bahwa kamu hanya membantu seputar penawaran, RAB, event, customer, produk, cashflow, dan cara pakai aplikasi. ' +
     'Gaya: ringkas, bahasa Indonesia, format Rupiah (mis. Rp1.000.000), tanpa tabel besar, gunakan poin bila perlu.\n\n' +
     `### Daftar topik panduan (TOC)\n${params.guideToc}\n\n` +
     (params.guideSections.length

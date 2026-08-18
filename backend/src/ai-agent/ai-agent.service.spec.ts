@@ -15,8 +15,7 @@ const enabledCfg: AiConfig = {
 
 function build(opts: {
   cfg?: AiConfig;
-  gate?: string; // jawaban classifier
-  answer?: string; // jawaban tahap 2
+  answer?: string; // jawaban LLM
   entities?: any[];
   roleName?: string | null;
 }) {
@@ -27,10 +26,7 @@ function build(opts: {
   }));
   const retrieval: any = { retrieve: retrieveSpy };
   const provider: any = {
-    chatCompletion: jest.fn(async (_cfg: any, messages: any[]) => {
-      const isClassifier = messages.some((m) => /klasifikasi topik/i.test(m.content));
-      return isClassifier ? (opts.gate ?? 'YA') : (opts.answer ?? 'jawaban');
-    }),
+    chatCompletion: jest.fn(async () => opts.answer ?? 'jawaban'),
   };
   const prisma: any = {
     user: { findUnique: async () => ({ role: { name: opts.roleName ?? 'kasir' } }) },
@@ -50,12 +46,11 @@ describe('AiAgentService.chat', () => {
     await expect(svc.chat(1, '   ')).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('off-topic → refused, retrieval TIDAK dipanggil, hanya 1 call LLM', async () => {
-    const { svc, provider, retrieveSpy } = build({ gate: 'TIDAK' });
-    const res = await svc.chat(1, 'resep nasi goreng');
-    expect(res.refused).toBe(true);
-    expect(retrieveSpy).not.toHaveBeenCalled();
+  it('hanya 1 panggilan LLM (topic-gate dilipat ke prompt)', async () => {
+    const { svc, provider, retrieveSpy } = build({});
+    await svc.chat(1, 'status penawaran ABC');
     expect(provider.chatCompletion).toHaveBeenCalledTimes(1);
+    expect(retrieveSpy).toHaveBeenCalledTimes(1);
   });
 
   it('on-topic → jawaban + kartu entitas yang disebut', async () => {
@@ -64,7 +59,6 @@ describe('AiAgentService.chat', () => {
       { kind: 'event', id: 7, label: 'Pameran Otomotif', href: '/events/7' },
     ];
     const { svc, retrieveSpy } = build({
-      gate: 'YA',
       answer: 'Penawaran 42/Xp/Pnwr/IV/26 statusnya SENT.',
       entities,
     });
@@ -75,13 +69,13 @@ describe('AiAgentService.chat', () => {
   });
 
   it('gating: retrieval dipanggil dgn isManager=true untuk role owner', async () => {
-    const { svc, retrieveSpy } = build({ gate: 'YA', roleName: 'owner' });
+    const { svc, retrieveSpy } = build({ roleName: 'owner' });
     await svc.chat(1, 'rab pameran');
     expect(retrieveSpy).toHaveBeenCalledWith('rab pameran', true);
   });
 
   it('gating: role kasir → isManager=false', async () => {
-    const { svc, retrieveSpy } = build({ gate: 'YA', roleName: 'kasir' });
+    const { svc, retrieveSpy } = build({ roleName: 'kasir' });
     await svc.chat(1, 'rab pameran');
     expect(retrieveSpy).toHaveBeenCalledWith('rab pameran', false);
   });

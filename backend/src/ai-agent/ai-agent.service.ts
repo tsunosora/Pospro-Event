@@ -11,13 +11,7 @@ import { AiProviderService } from './ai-provider.service';
 import { AiRetrievalService } from './ai-retrieval.service';
 import { isManagerRoleName } from './ai-authz';
 import { retrieveGuideSections, guideTableOfContents } from './app-guide';
-import {
-  classifierMessages,
-  answerMessages,
-  parseTopicGate,
-  cannedRefusal,
-  ChatTurn,
-} from './ai-prompts';
+import { answerMessages, ChatTurn } from './ai-prompts';
 import { pickMentionedEntities } from './ai-entities';
 
 @Injectable()
@@ -48,17 +42,8 @@ export class AiAgentService {
     if (!cfg.apiKey && !localProxy)
       throw new ForbiddenException('AI belum dikonfigurasi (apiKey kosong).');
 
-    // Tahap 1 — topic gate (murah)
-    const gate = await this.provider.chatCompletion(
-      cfg,
-      classifierMessages(message),
-      { temperature: 0 },
-    );
-    if (!parseTopicGate(gate)) {
-      return { reply: cannedRefusal(), refused: true, entities: [] };
-    }
-
-    // Tahap 2 — retrieval + jawab
+    // Satu panggilan LLM saja (topic-gate dilipat ke prompt jawaban) — hemat ~1 call
+    // yang di proxy claude-cli memakan ~7 dtk. Off-topic ditolak sopan oleh prompt.
     const manager = await this.isManager(userId);
     const { context, entities } = await this.retrieval.retrieve(message, manager);
     const guide = retrieveGuideSections(message, 3);
