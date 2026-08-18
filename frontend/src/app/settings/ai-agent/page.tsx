@@ -4,8 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import {
     Bot, Save, Loader2, CheckCircle2, Plug, KeyRound, Sparkles,
-    ShieldAlert, Info, Trash2,
+    ShieldAlert, Info, Trash2, MessageCircle,
 } from "lucide-react";
+
+// Kontak developer untuk masukan fitur / laporan bug fitur AI Asisten.
+const DEV_WA_DISPLAY = "0896-6918-0127";
+const DEV_WA_LINK =
+    "https://wa.me/6289669180127?text=" +
+    encodeURIComponent("Halo, saya ingin melaporkan bug / menambahkan fitur untuk AI Asisten Pospro.");
 import { getAiConfig, updateAiConfig, testAiConfig } from "@/lib/api/aiAgent";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -312,6 +318,27 @@ export default function AiAgentSettingsPage() {
                         <><Save className="w-4 h-4" /> Simpan Pengaturan</>
                     )}
                 </button>
+            </div>
+
+            {/* Kontak developer — masukan fitur / laporan bug AI Asisten */}
+            <div className="bg-success/10 border border-success/20 rounded-xl p-4 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-success/15 flex items-center justify-center shrink-0">
+                    <MessageCircle className="w-4 h-4 text-success" />
+                </div>
+                <div className="text-sm">
+                    <p className="font-semibold">Ada masukan fitur atau menemukan bug?</p>
+                    <p className="text-muted-foreground text-xs mt-0.5">
+                        Hubungi developer untuk fitur AI Asisten via WhatsApp:{" "}
+                        <a
+                            href={DEV_WA_LINK}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-success hover:underline"
+                        >
+                            {DEV_WA_DISPLAY}
+                        </a>
+                    </p>
+                </div>
             </div>
         </div>
     );

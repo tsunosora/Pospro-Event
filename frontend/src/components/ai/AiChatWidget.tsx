@@ -5,8 +5,13 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
     Bot, X, Send, FileText, CalendarDays,
-    ClipboardList, Building2, Sparkles,
+    ClipboardList, Building2, Sparkles, MessageCircle,
 } from "lucide-react";
+
+// Kontak developer untuk masukan / laporan bug fitur AI Asisten.
+const DEV_WA_LINK =
+    "https://wa.me/6289669180127?text=" +
+    encodeURIComponent("Halo, saya ingin melaporkan bug / menambahkan fitur untuk AI Asisten Pospro.");
 import { getAiStatus, sendAiChat, type AiEntity } from "@/lib/api/aiAgent";
 import { useAiStore } from "@/store/ai-store";
 
@@ -218,6 +223,17 @@ export function AiChatWidget() {
                             <Send className="w-4 h-4" />
                         </button>
                     </div>
+
+                    {/* Footer kontak developer */}
+                    <a
+                        href={DEV_WA_LINK}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-1 px-3 pb-2 text-[10px] text-muted-foreground hover:text-success transition-colors"
+                    >
+                        <MessageCircle className="w-3 h-3" />
+                        Masukan fitur / lapor bug? Hubungi developer
+                    </a>
                 </div>
             )}
 
